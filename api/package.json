@@ -1,0 +1,28 @@
+{
+  "name": "pantry-api",
+  "version": "1.0.0",
+  "main": "app.ts",
+  "scripts": {
+    "build-ts": "tsc",
+    "build": "npm run build-ts",
+    "serve": "node dist/server.js",
+    "start": "npm run serve",
+    "run-server": "ts-node app.ts"
+  },
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "@feathersjs/feathers": "^5.0.31",
+    "@feathersjs/knex": "^5.0.31",
+    "@feathersjs/koa": "^5.0.31",
+    "@feathersjs/socketio": "^5.0.31",
+    "@feathersjs/typebox": "^5.0.31",
+    "express": "^4.21.2",
+    "typescript": "^5.7.3"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.6",
+    "ts-node": "^10.9.2"
+  }
+}
