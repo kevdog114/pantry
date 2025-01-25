@@ -1,0 +1,54 @@
+<form *ngIf="product">
+    <div class="row">
+        <mat-form-field>
+            <mat-label>Product Title</mat-label>
+            <input name="title" matInput [(ngModel)]="product.title" />
+        </mat-form-field>
+    </div>
+    <div class="row">
+        <div class="col-md-8">
+            <div *ngIf="product" class="row row-cols-1 row-cols-sm-2 row-cols-md-4">
+                <mat-card appearance="outlined" *ngFor="let file of product.Files" class="col">
+                    <mat-card-header class="text-truncate">
+                        <mat-card-title>{{file.filename}}</mat-card-title>
+                    </mat-card-header>
+                    <img mat-card-image src="http://localhost:4300/files/{{file.id}}">
+                    <mat-card-actions>
+                        <button mat-icon-button (click)="removeImage(file)"><mat-icon>delete</mat-icon></button>
+                        <a href="http://localhost:4300/files/{{file.id}}" mat-icon-button><mat-icon>download</mat-icon></a>
+                    </mat-card-actions>
+                </mat-card>
+                <mat-card appearance="outlined" class="col">
+                    <input type="file" multiple (change)="browsedFiles($event)" [(ngModel)]="inputValue" />
+
+                </mat-card>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <mat-card>
+                <mat-card-header>
+                    <mat-card-title>
+                        Barcodes
+                        <button mat-icon-button (click)="addBarcode()"><mat-icon>add</mat-icon></button>
+                    </mat-card-title>
+                </mat-card-header>
+                <mat-card-content>
+                    <div *ngFor="let barcode of barcodes">
+                        <mat-form-field>
+                            <input name="barcode-{{barcode.index}}" matInput [(ngModel)]="barcode.barcode">
+                            <button mat-icon-button matSuffix (click)="removeBarcode(barcode)">
+                                <mat-icon>delete</mat-icon>
+                            </button>
+                        </mat-form-field>
+                    </div>
+                </mat-card-content>
+        
+            </mat-card>
+        </div>
+    </div>
+
+    <button mat-raised-button (click)="save()">Save</button>
+</form>
+
+<div>
+</div>

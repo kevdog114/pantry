@@ -1,28 +1,30 @@
 {
-  "name": "pantry-api",
+  "name": "api3",
   "version": "1.0.0",
-  "main": "app.ts",
+  "main": "index.js",
   "scripts": {
     "build-ts": "tsc",
     "build": "npm run build-ts",
-    "serve": "node dist/server.js",
-    "start": "npm run serve",
-    "run-server": "ts-node app.ts"
+    "serve": "node dist/src/server.js",
+    "start": "npm run serve"
   },
   "author": "",
   "license": "ISC",
   "description": "",
-  "dependencies": {
-    "@feathersjs/feathers": "^5.0.31",
-    "@feathersjs/knex": "^5.0.31",
-    "@feathersjs/koa": "^5.0.31",
-    "@feathersjs/socketio": "^5.0.31",
-    "@feathersjs/typebox": "^5.0.31",
-    "express": "^4.21.2",
+  "devDependencies": {
+    "@types/cors": "^2.8.17",
+    "@types/express": "^5.0.0",
+    "@types/express-fileupload": "^1.5.1",
+    "@types/node": "^22.10.6",
+    "sequelize-cli": "^6.6.2",
+    "ts-node": "^10.9.2",
     "typescript": "^5.7.3"
   },
-  "devDependencies": {
-    "@types/node": "^22.10.6",
-    "ts-node": "^10.9.2"
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.21.2",
+    "express-fileupload": "^1.5.1",
+    "sequelize": "^6.37.5",
+    "sqlite3": "^5.1.7"
   }
 }

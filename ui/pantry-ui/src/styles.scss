@@ -1,4 +1,6 @@
 @use '@angular/material' as mat;
+//@import "bootstrap/scss/bootstrap";
+@use "bootstrap/scss/bootstrap";
 
 html, body { height: 100%; }
 body { margin: 0; font-family: Roboto, "Helvetica Neue", sans-serif; }
