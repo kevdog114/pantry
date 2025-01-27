@@ -8,4 +8,6 @@ RUN npm ci
 
 COPY api/. .
 
+RUN chmod +x /app/run.sh
+
 CMD ["/app/run.sh"]
