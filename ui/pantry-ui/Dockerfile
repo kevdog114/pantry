@@ -12,5 +12,5 @@ RUN npm ci
 
 COPY ui/pantry-ui/. .
 
-RUN sed -i "s|api_base_url_here|${api_baseurl}|g" src/environments/environment.production.ts
+RUN sed -i "s|api_base_url_here|$api_baseurl|g" src/environments/environment.production.ts
 CMD ["ng", "serve", "--host", "0.0.0.0", "--configuration", "production"]
