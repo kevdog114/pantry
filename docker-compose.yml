@@ -8,5 +8,5 @@ services:
     pull_policy: build
     ports:
       - 4200:4200
-    environment:
-      - api_baseurl=${api_baseurl}
+    env_file:
+      - stack.env
