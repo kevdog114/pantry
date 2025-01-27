@@ -6,7 +6,7 @@ services:
       context: https://github.com/kevdog114/pantry.git
       dockerfile: ui/pantry-ui/Dockerfile
       args:
-        - api_baseurl=http://helloworld
+        - api_baseurl=${api_baseurl}
     pull_policy: build
     ports:
       - 4200:4200
