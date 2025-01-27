@@ -1,6 +1,6 @@
 FROM node:22-alpine
 
-ENV api_baseurl=http://myapi
+ARG api_baseurl
 
 RUN mkdir /app
 WORKDIR /app
