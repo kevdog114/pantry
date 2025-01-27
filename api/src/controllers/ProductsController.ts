@@ -17,6 +17,35 @@ export const create = async (req: Request, res: Response, next: NextFunction): P
         title: req.body.title
     });
 
+    var newBarcodes: any[] = req.body.barcodes;
+    if(newBarcodes == undefined) newBarcodes = [];
+
+    newBarcodes.forEach(async newBarcode => {
+        // add it
+        await db.ProductBarcodes.create({
+            barcode: newBarcode.barcode,
+            ProductId: req.params.id
+        })
+    });
+
+
+    let associatedFiles = [];
+    if(req.body.fileIds)
+        associatedFiles = req.body.fileIds;
+
+    let files = await db.Files.findAll({
+        where: {
+            id: {
+                [Op.in]: associatedFiles
+            }
+        }
+    });
+
+    console.log("files", files);
+
+    await (<any>p).removeFiles();
+    await (<any>p).setFiles(files);
+
     res.send(p);
 }
 
@@ -76,11 +105,6 @@ export const updateById = async(req: Request, res: Response, next: NextFunction)
             }
         }
     });
-
-    console.log("files", files);
-
-
-    var existingFiles = await (<any>entity).getFiles();
 
     await (<any>entity).removeFiles();
     await (<any>entity).setFiles(files);

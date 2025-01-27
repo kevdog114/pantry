@@ -33,6 +33,7 @@ interface IndexedBarcode {
 })
 export class ProductEditComponent {
 
+  private isCreate: boolean = false;
   public product: Product | undefined = undefined;
   private barcodeIndex = 0;
   public barcodes: Array<IndexedBarcode> = [
@@ -40,17 +41,31 @@ export class ProductEditComponent {
 
   @Input()
   set id(productId: number) {
-    this.svc.Get(productId).subscribe(p => {
-      this.product = p;
-      this.barcodes = p.ProductBarcodes.map(a => {
-        return <IndexedBarcode>{
-          id: a.id,
-          barcode: a.barcode,
-          index: this.barcodeIndex++,
-          ProductId: a.ProductId
-        }
-      })
-    });
+    if(productId !== undefined)
+    {
+      this.svc.Get(productId).subscribe(p => {
+        this.product = p;
+        this.barcodes = p.ProductBarcodes.map(a => {
+          return <IndexedBarcode>{
+            id: a.id,
+            barcode: a.barcode,
+            index: this.barcodeIndex++,
+            ProductId: a.ProductId
+          }
+        })
+      });
+    }
+    else {
+      this.isCreate = true;
+      this.product = {
+        fileIds: [],
+        Files: [],
+        id: 0,
+        ProductBarcodes: [],
+        StockItems: [],
+        title: ""
+      }
+    }
   }
 
   constructor(private svc: ProductListService, private router: Router) {
@@ -95,10 +110,14 @@ export class ProductEditComponent {
       ProductId: this.product!.id
     });
 
+    if(this.isCreate)
+    {
+      
+    }
     this.svc.Update(this.product).subscribe(p => {
       this.product = p;
       this.router.navigate(["products", p.id]);
-    })
+    });
   }
 
   browsedFiles = (evt: Event) => {

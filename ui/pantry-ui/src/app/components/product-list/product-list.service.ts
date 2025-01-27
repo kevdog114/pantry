@@ -30,6 +30,10 @@ export class ProductListService
         return this.http.put<Product>(this.a(`/products/${product.id}`), product);
     }
 
+    public Create = (product: Product): Observable<Product> => {
+        return this.http.post<Product>(this.a(`/products/`), product);
+    }
+
     public UploadFile = (file: File): Observable<any> => {
         let formData: FormData = new FormData();
         formData.append("file", file, file.name);

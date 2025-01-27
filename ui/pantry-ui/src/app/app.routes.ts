@@ -5,6 +5,10 @@ import { StockEditComponent } from './stock-edit/stock-edit.component';
 
 export const routes: Routes = [
     {
+        path: "products/create",
+        component: ProductEditComponent
+    },
+    {
         path: "products/:id/edit",
         component: ProductEditComponent
     },
