@@ -1,0 +1,9 @@
+version: '2'
+
+services:
+  pantry-ui:
+    build:
+      context: https://github.com/kevdog114/pantry.git
+      dockerfile: ui/pantry-ui/Dockerfile
+    ports:
+      - 4200:4200

@@ -1,7 +1,0 @@
-version: '2'
-
-services:
-  pantry-ui:
-    build: https://github.com/kevdog114/pantry.git
-    ports:
-      - 4200:4200
