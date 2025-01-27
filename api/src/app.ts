@@ -8,7 +8,7 @@ import fileUpload from "express-fileupload";
 const app = express();
 
 var corsOptions = {
-    origin: 'http://localhost:4200',
+    origin: process.env.ALLOW_ORIGIN || 'http://localhost:4200',
     //optionsSuccessStatus: 200 // some legacy browsers (IE11, various SmartTVs) choke on 204
   }
 

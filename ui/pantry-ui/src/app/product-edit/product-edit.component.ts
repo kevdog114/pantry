@@ -112,12 +112,18 @@ export class ProductEditComponent {
 
     if(this.isCreate)
     {
-      
+      this.svc.Create(this.product).subscribe(p => {
+        this.product = p;
+        this.router.navigate(["products", p.id]);
+      });
     }
-    this.svc.Update(this.product).subscribe(p => {
-      this.product = p;
-      this.router.navigate(["products", p.id]);
-    });
+    else {
+      this.svc.Update(this.product).subscribe(p => {
+        this.product = p;
+        this.router.navigate(["products", p.id]);
+      });
+    }
+ 
   }
 
   browsedFiles = (evt: Event) => {
