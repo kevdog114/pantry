@@ -8,6 +8,8 @@ services:
     pull_policy: build
     ports:
       - 4300:4300
+    env_file:
+      - stack.env
   pantry-ui:
     build:
       context: https://github.com/kevdog114/pantry.git
