@@ -1,0 +1,11 @@
+FROM node:22-alpine
+
+RUN mkdir /app
+WORKDIR /app
+
+COPY api/package.json api/package-lock.json ./
+RUN npm ci
+
+COPY api/. .
+
+CMD ["/app/run.sh"]

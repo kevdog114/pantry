@@ -1,6 +1,13 @@
 version: '2'
 
 services:
+  pantry-api:
+    build:
+      context: https://github.com/kevdog114/pantry.git
+      dockerfile: api/Dockerfile
+    pull_policy: build
+    ports:
+      - 4300:4300
   pantry-ui:
     build:
       context: https://github.com/kevdog114/pantry.git
