@@ -1,6 +1,6 @@
 FROM node:22-alpine
 
-ENV api_baseurl=http://myapi
+ARG api_baseurl
 
 RUN mkdir /app
 WORKDIR /app
@@ -13,6 +13,8 @@ RUN npm ci
 COPY ui/pantry-ui/. .
 
 RUN sed -i "s|api_base_url_here|$api_baseurl|g" src/environments/environment.production.ts
-
+RUN cat src/environments/environment.production.ts
+RUN echo ${api_baseurl}
+RUN echo $api_baseurl
 
 CMD ["ng", "serve", "--host", "0.0.0.0", "--configuration", "production"]
