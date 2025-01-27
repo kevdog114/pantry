@@ -9,6 +9,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatCardModule } from '@angular/material/card';
 import { Router } from '@angular/router';
+import { environment } from '../../environments/environment';
 
 interface IndexedBarcode {
   index: number,
@@ -53,6 +54,10 @@ export class ProductEditComponent {
   }
 
   constructor(private svc: ProductListService, private router: Router) {
+  }
+
+  public GetFileDownloadUrl = (fileId: number): string => {
+    return environment.apiUrl + "/files/" + fileId;
   }
 
   public removeBarcode = (a: any) => {
