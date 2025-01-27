@@ -8,5 +8,5 @@ services:
     pull_policy: build
     ports:
       - 4200:4200
-    args:
-      - api_baseurl=${api_baseurl}
+    environment:
+      - api_baseurl=http://helloworld
