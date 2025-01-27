@@ -2,8 +2,13 @@ import { Routes } from '@angular/router';
 import { ProductEditComponent } from './product-edit/product-edit.component';
 import { ProductViewComponent } from './product-view/product-view.component';
 import { StockEditComponent } from './stock-edit/stock-edit.component';
+import { ProductListComponent } from './components/product-list/product-list.component';
 
 export const routes: Routes = [
+    {
+        path: "home",
+        component: ProductListComponent
+    },
     {
         path: "products/create",
         component: ProductEditComponent
@@ -23,5 +28,9 @@ export const routes: Routes = [
     {
         path: "products/:productId/stock-items/:stockId",
         component: StockEditComponent
+    },
+    {
+        path: "**",
+        redirectTo: "home"
     }
 ];
