@@ -6,6 +6,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatDividerModule } from '@angular/material/divider';
 import { TestComponentComponent } from './test-component/test-component.component';
 import { ProductListComponent } from './components/product-list/product-list.component';
+import { environment } from '../environments/environment';
 
 @Component({
   selector: 'app-root',
@@ -18,5 +19,12 @@ import { ProductListComponent } from './components/product-list/product-list.com
   styleUrl: './app.component.css'
 })
 export class AppComponent {
-  title = 'Kevin\'s Pantry';
+  title = "Pantry"
+
+  /**
+   *
+   */
+  constructor() {
+    this.title = environment.siteTitle
+  }
 }

@@ -16,6 +16,7 @@ services:
       dockerfile: ui/pantry-ui/Dockerfile
       args:
         - api_baseurl=${api_baseurl}
+        - site_title=${site_title}
     pull_policy: build
     ports:
       - 4200:4200
