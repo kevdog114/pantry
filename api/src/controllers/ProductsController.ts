@@ -24,7 +24,7 @@ export const create = async (req: Request, res: Response, next: NextFunction): P
         // add it
         await db.ProductBarcodes.create({
             barcode: newBarcode.barcode,
-            ProductId: req.params.id
+            ProductId: (<any>p.dataValues).id
         })
     });
 
