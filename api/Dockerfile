@@ -1,7 +1,7 @@
 FROM node:22-alpine
 
 RUN mkdir /app
-RUN mkdir /app/upload
+RUN mkdir /app/data/upload
 WORKDIR /app
 
 COPY api/package.json api/package-lock.json ./
