@@ -10,6 +10,8 @@ services:
       - 4300:4300
     env_file:
       - stack.env
+    volumes:
+      - pantry_data:/app/data
   pantry-ui:
     build:
       context: https://github.com/kevdog114/pantry.git
@@ -20,3 +22,6 @@ services:
     pull_policy: build
     ports:
       - 4200:4200
+
+volumes:
+  pantry_data:

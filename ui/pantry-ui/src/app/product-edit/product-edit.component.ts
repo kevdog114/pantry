@@ -1,4 +1,4 @@
-import { AfterViewInit, Component, Input } from '@angular/core';
+import { AfterViewInit, Component, input, Input } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
@@ -31,13 +31,35 @@ interface IndexedBarcode {
   templateUrl: './product-edit.component.html',
   styleUrl: './product-edit.component.css'
 })
-export class ProductEditComponent {
+export class ProductEditComponent implements AfterViewInit {
 
   private isCreate: boolean = false;
   public product: Product | undefined = undefined;
   private barcodeIndex = 0;
   public barcodes: Array<IndexedBarcode> = [
   ];
+
+  private queryData = {
+    productTitle: <string | undefined>"",
+    barcodes: <string[] | undefined>[]
+  };
+
+  @Input("productName")
+  set productTitleQuery(newProductTitle: string | undefined) {
+    console.log("product title", newProductTitle);
+    this.queryData.productTitle = newProductTitle;
+  }
+
+  @Input("barcodes")
+  set barcodeQuery(newBarcodes: string[] | string | undefined) {
+    console.log("Barcodes", newBarcodes);
+    if(newBarcodes !== undefined) {
+      if((newBarcodes as string[]).forEach)
+        this.queryData.barcodes = newBarcodes as string[];
+      else
+        this.queryData.barcodes = [ newBarcodes as string ];
+    }
+  }
 
   @Input()
   set id(productId: number) {
@@ -69,6 +91,25 @@ export class ProductEditComponent {
   }
 
   constructor(private svc: ProductListService, private router: Router) {
+  }
+
+  ngAfterViewInit(): void {
+    if(this.isCreate)
+    {
+      if(this.queryData.productTitle)
+        this.product!.title = this.queryData.productTitle;
+      if(this.queryData.barcodes)
+      {
+        this.queryData.barcodes.forEach(barcode => {
+          this.barcodes.push({
+            index: this.barcodeIndex,
+            barcode: barcode,
+            ProductId: this.product!.id
+          });
+          this.barcodeIndex++;
+        })
+      }
+    }
   }
 
   public GetFileDownloadUrl = (fileId: number): string => {

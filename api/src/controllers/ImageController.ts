@@ -3,17 +3,19 @@ import { UploadedFile } from "express-fileupload";
 import { db } from "../../models"
 import * as fs from "fs";
 
+const uploadDir = __dirname + "/../../../data/upload/";
+
 export const deleteById = async (req: Request, res: Response, next: NextFunction): Promise<any> => {
     var entity = await db.Files.findByPk(req.params.id);
     if(entity != null) {
-        fs.unlinkSync(__dirname + "/../../../upload/" + entity.dataValues.id);
+        fs.unlinkSync(uploadDir + entity.dataValues.id);
     }
 }
 
 export const getById = async (req: Request, res: Response, next: NextFunction): Promise<any> => {
     var entity = await db.Files.findByPk(req.params.id);
     if(entity != null) {
-        res.download(__dirname + "/../../../upload/" + entity.dataValues.id, entity.dataValues.filename);
+        res.download(uploadDir + entity.dataValues.id, entity.dataValues.filename);
     }
 }
 
@@ -29,7 +31,7 @@ export const create = async (req: Request, res: Response, next: NextFunction): P
         });
 
         // Move the uploaded image to our upload folder
-        image.mv(__dirname + '/../../../upload/' + entity.dataValues.id);
+        image.mv(uploadDir + entity.dataValues.id);
     
         res.send(entity);
 }

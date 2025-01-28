@@ -1,0 +1,20 @@
+
+<ng-container *ngIf="searchingProducts">
+    <h1>Searching...</h1>
+    <p>Please wait.</p>
+</ng-container>
+<ng-container *ngIf="!searchingProducts">
+    <ng-container *ngIf="!foundProduct">
+        <h1>Unknown barcode</h1>
+        <p>No product could be found with that barcode.</p>
+        <button mat-raised-button (click)="createProduct()">Create product from scratch</button>
+    </ng-container>
+    <ng-container *ngIf="foundProduct">
+        <h1>Add product from OpenFoodFacts?</h1>
+        <div>
+            <strong>Product name:</strong>
+            {{ProductName}}
+        </div>
+        <button mat-raised-button (click)="createProduct()">Create product</button>
+    </ng-container>
+</ng-container>

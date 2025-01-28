@@ -6,6 +6,7 @@ import { ProductListComponent } from './components/product-list/product-list.com
 import { SettingsComponent } from './settings/settings.component';
 import { BarcodeScannerComponent } from './barcode-scanner/barcode-scanner.component';
 import { SearchComponent } from './search/search.component';
+import { MissingBarcodeComponent } from './missing-barcode/missing-barcode.component';
 
 export const routes: Routes = [
     {
@@ -35,6 +36,10 @@ export const routes: Routes = [
     {
         path: "barcode/scanner",
         component: BarcodeScannerComponent
+    },
+    {
+        path: "barcode/lookup",
+        component: MissingBarcodeComponent
     },
     {
         path: "settings",

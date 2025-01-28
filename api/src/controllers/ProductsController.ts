@@ -17,7 +17,7 @@ export const create = async (req: Request, res: Response, next: NextFunction): P
         title: req.body.title
     });
 
-    var newBarcodes: any[] = req.body.barcodes;
+    var newBarcodes: any[] = req.body.ProductBarcodes;
     if(newBarcodes == undefined) newBarcodes = [];
 
     newBarcodes.forEach(async newBarcode => {

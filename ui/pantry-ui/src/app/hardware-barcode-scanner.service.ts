@@ -37,11 +37,21 @@ export class HardwareBarcodeScannerService {
     }
     else {
       // assume product barcode
+      let missingBarcodeRedir = () => {
+        this.router.navigate(["barcode", "lookup"], {
+          queryParams: {
+            barcode: barcode
+          }
+        })
+      }
       this.http.get<ProductBarcode>(environment.apiUrl + "/barcodes/products?barcode=" + barcode).subscribe(result => {
         if(result) {
           this.router.navigate(["products", result.ProductId]);
         }
-      })
+        else {
+          missingBarcodeRedir();
+        }
+      }, missingBarcodeRedir);
     }
   }
 
