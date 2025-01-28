@@ -35,7 +35,7 @@
                 <mat-card-content>
                     <div *ngFor="let barcode of barcodes">
                         <mat-form-field>
-                            <input name="barcode-{{barcode.index}}" matInput [(ngModel)]="barcode.barcode">
+                            <input class="barcode-input" name="barcode-{{barcode.index}}" matInput [(ngModel)]="barcode.barcode">
                             <button mat-icon-button matSuffix (click)="removeBarcode(barcode)">
                                 <mat-icon>delete</mat-icon>
                             </button>
