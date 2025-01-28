@@ -5,6 +5,8 @@ import { CommonModule } from "@angular/common";
 import { FormsModule } from "@angular/forms";
 import { RouterModule } from "@angular/router";
 import { MatButtonModule } from "@angular/material/button";
+import { environment } from "../../../environments/environment";
+import { MatCardModule } from "@angular/material/card";
 
 
 @Component({
@@ -17,7 +19,8 @@ import { MatButtonModule } from "@angular/material/button";
         CommonModule,
         FormsModule,
         RouterModule,
-        MatButtonModule
+        MatButtonModule,
+        MatCardModule
     ]
 })
 export class ProductListComponent implements AfterViewInit
@@ -33,5 +36,12 @@ export class ProductListComponent implements AfterViewInit
         this.svc.GetAll().subscribe(res => {
             this.products = res;
         });
+    }
+
+    public GetFileDownloadUrl = (product: Product): string => {
+        if(product && product.Files && product.Files.length > 0)
+            return environment.apiUrl + "/files/" + product.Files[0].id;
+        else
+            return "";
     }
 }

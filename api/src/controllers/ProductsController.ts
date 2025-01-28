@@ -113,7 +113,7 @@ export const updateById = async(req: Request, res: Response, next: NextFunction)
 }
 
 export const getAll = async (req: Request, res: Response, next: NextFunction): Promise<any> => {
-    res.send(await db.Products.findAll());
+    res.send(await db.Products.findAll({ include: INCLUDES }));
 }
 
 export const searchProductByBarcode = async (req: Request, res: Response, next: NextFunction): Promise<any> => {

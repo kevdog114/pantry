@@ -7,12 +7,12 @@
     </div>
     <div class="row">
         <div class="col-md-8">
-            <div *ngIf="product" class="row row-cols-1 row-cols-sm-2 row-cols-md-4">
+            <div *ngIf="product" class="row row-cols-1 row-cols-sm-2 row-cols-md-3 rows-cols-lg-4">
                 <mat-card appearance="outlined" *ngFor="let file of product.Files" class="col">
                     <mat-card-header class="text-truncate">
                         <mat-card-title>{{file.filename}}</mat-card-title>
                     </mat-card-header>
-                    <img mat-card-image [src]="GetFileDownloadUrl(file.id)">
+                    <img mat-card-image class="object-fit-contain" style="height: 200px;" [src]="GetFileDownloadUrl(file.id)">
                     <mat-card-actions>
                         <button mat-icon-button (click)="removeImage(file)"><mat-icon>delete</mat-icon></button>
                         <a href="GetFileDownloadUrl(file.id)" mat-icon-button><mat-icon>download</mat-icon></a>
