@@ -25,7 +25,7 @@
                 </td>
             </ng-container>
             <tr mat-header-row *matHeaderRowDef="['quantity', 'expiration', 'actions']"></tr>
-            <tr mat-row *matRowDef="let row; columns: ['quantity', 'expiration', 'actions']"></tr>
+            <tr mat-row *matRowDef="let row; columns: ['quantity', 'expiration', 'actions']" [class.active]="row.id == stockId"></tr>
         </table>
     </div>
     <div class="col-sm-4">

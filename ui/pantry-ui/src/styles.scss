@@ -13,3 +13,22 @@ html {
     density: 0
   ));
 }
+
+
+body {
+    display: flex;
+
+}
+
+app-root {
+    display: flex;
+    flex-grow: 1;
+    flex-direction: column;
+
+}
+
+:root {
+    @include mat.sidenav-overrides((
+        content-background-color: var(--bs-body-bg)
+    ))
+}

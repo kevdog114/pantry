@@ -32,5 +32,7 @@ app.post("/stock-items", StockItemController.create);
 app.delete("/stock-items/:id", StockItemController.deleteById);
 app.put("/stock-items/:id", StockItemController.update);
 
+app.get("/barcodes/products", ProductsController.searchProductByBarcode);
+
 
 export default app;

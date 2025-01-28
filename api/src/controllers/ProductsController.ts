@@ -115,3 +115,16 @@ export const updateById = async(req: Request, res: Response, next: NextFunction)
 export const getAll = async (req: Request, res: Response, next: NextFunction): Promise<any> => {
     res.send(await db.Products.findAll());
 }
+
+export const searchProductByBarcode = async (req: Request, res: Response, next: NextFunction): Promise<any> => {
+    var product = await db.ProductBarcodes.findOne({
+        where: {
+            barcode: req.query.barcode
+        }
+    });
+
+    if(product !== null)
+        res.send(product);
+    else
+        res.sendStatus(404);
+}

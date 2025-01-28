@@ -3,6 +3,9 @@ import { ProductEditComponent } from './product-edit/product-edit.component';
 import { ProductViewComponent } from './product-view/product-view.component';
 import { StockEditComponent } from './stock-edit/stock-edit.component';
 import { ProductListComponent } from './components/product-list/product-list.component';
+import { SettingsComponent } from './settings/settings.component';
+import { BarcodeScannerComponent } from './barcode-scanner/barcode-scanner.component';
+import { SearchComponent } from './search/search.component';
 
 export const routes: Routes = [
     {
@@ -28,6 +31,18 @@ export const routes: Routes = [
     {
         path: "products/:productId/stock-items/:stockId",
         component: StockEditComponent
+    },
+    {
+        path: "barcode/scanner",
+        component: BarcodeScannerComponent
+    },
+    {
+        path: "settings",
+        component: SettingsComponent
+    },
+    {
+        path: "search",
+        component: SearchComponent
     },
     {
         path: "**",

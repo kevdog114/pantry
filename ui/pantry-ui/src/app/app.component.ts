@@ -7,13 +7,18 @@ import { MatDividerModule } from '@angular/material/divider';
 import { TestComponentComponent } from './test-component/test-component.component';
 import { ProductListComponent } from './components/product-list/product-list.component';
 import { environment } from '../environments/environment';
+import { MatSidenavModule } from '@angular/material/sidenav';
+import { SideMenuComponent } from './side-menu/side-menu.component';
+import { HardwareBarcodeScannerService } from './hardware-barcode-scanner.service';
 
 @Component({
   selector: 'app-root',
   imports: [RouterOutlet, MatIconModule, MatToolbarModule, MatButtonModule, MatDividerModule,
     TestComponentComponent,
     ProductListComponent,
-    RouterModule
+    RouterModule,
+    MatSidenavModule,
+    SideMenuComponent
   ],
   templateUrl: './app.component.html',
   styleUrl: './app.component.css'
@@ -24,7 +29,8 @@ export class AppComponent {
   /**
    *
    */
-  constructor() {
+  constructor(private hardwareScanner: HardwareBarcodeScannerService) {
     this.title = environment.siteTitle
+    hardwareScanner.ListenForScanner();
   }
 }

@@ -27,11 +27,20 @@ interface IndexedBarcode {
     MatProgressSpinnerModule
   ],
   templateUrl: './product-view.component.html',
-  styleUrl: './product-view.component.css'
+  styleUrl: './product-view.component.scss'
 })
 export class ProductViewComponent {
   private barcodeIndex: number = 0;
   public product: Product | undefined;
+  public _stockId: number | undefined;
+
+  @Input("stock-id")
+  set stockId(newStockId: number | undefined) {
+    this._stockId = newStockId;
+  }
+  get stockId() {
+    return this._stockId;
+  }
 
   @Input()
   set id(productId: number) {
