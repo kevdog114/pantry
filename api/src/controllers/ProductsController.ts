@@ -2,21 +2,54 @@ import { NextFunction, Response, Request } from "express";
 import { db } from "../../models"
 import { Op } from "sequelize";
 
+
 const INCLUDES = ["Files", "StockItems", "ProductBarcodes"];
 
+interface ProductStockItemEntity {
+    dataValues: {
+        expiration: Date
+        quantity: number
+        ProductId: number
+    }
+}
+
+interface ProductFileEntity {
+    dataValues: {
+        id: number,
+        filename: string
+    }
+}
+
+interface ProductEntity {
+    dataValues: {
+        id: number,
+        title: string,
+        Files: Array<any>,
+        StockItems: Array<any>,
+        ProductBarcodes: Array<any>
+    }
+    StockItems: Array<ProductStockItemEntity>
+
+    setFiles(files: ProductFileEntity[]): Promise<any>
+    removeFiles(): Promise<any>
+    countFiles(): Promise<number>
+    getProductBarcodes(): Promise<any>
+    getStockItems(): Promise<ProductStockItemEntity[]>
+}
+
 export const getById = async (req: Request, res: Response, next: NextFunction): Promise<any> => {
-    var a = await db.Products.findByPk(req.params.id, { include: INCLUDES });
-    console.log({
-        fileCount: await (<any>a).countFiles()
-    });
+    var a = (await db.Products.findByPk(req.params.id, { include: INCLUDES })) as ProductEntity | null;
+
     res.send(a);
 }
 
 export const create = async (req: Request, res: Response, next: NextFunction): Promise<any> => {
-    var p = await db.Products.create({
+    var aa: ProductEntity;
+    
+    var p = (await db.Products.create({
         title: req.body.title
-    });
-
+    })) as unknown as ProductEntity;
+    
     var newBarcodes: any[] = req.body.ProductBarcodes;
     if(newBarcodes == undefined) newBarcodes = [];
 
@@ -24,7 +57,7 @@ export const create = async (req: Request, res: Response, next: NextFunction): P
         // add it
         await db.ProductBarcodes.create({
             barcode: newBarcode.barcode,
-            ProductId: (<any>p.dataValues).id
+            ProductId: p.dataValues.id
         })
     });
 
@@ -33,18 +66,16 @@ export const create = async (req: Request, res: Response, next: NextFunction): P
     if(req.body.fileIds)
         associatedFiles = req.body.fileIds;
 
-    let files = await db.Files.findAll({
+    let files = (await db.Files.findAll({
         where: {
             id: {
                 [Op.in]: associatedFiles
             }
         }
-    });
+    })) as ProductFileEntity[];
 
-    console.log("files", files);
-
-    await (<any>p).removeFiles();
-    await (<any>p).setFiles(files);
+    await p.removeFiles();
+    await p.setFiles(files);
 
     res.send(p);
 }
@@ -113,7 +144,55 @@ export const updateById = async(req: Request, res: Response, next: NextFunction)
 }
 
 export const getAll = async (req: Request, res: Response, next: NextFunction): Promise<any> => {
-    res.send(await db.Products.findAll({ include: INCLUDES }));
+    type productEntityWithSummary = ProductEntity & {
+        dataValues: {
+            minExpiration: Date,
+            quantityExpiringSoon: number,
+            totalQuantity: number
+        }
+    }
+    var products = (await db.Products
+        .findAll({
+            include: INCLUDES
+        })) as unknown as productEntityWithSummary[];
+    
+    products.forEach(product => {
+        let stockItems = product.StockItems;
+        let minExp: Date | undefined = undefined;
+        let quantityExpiringSoon: number | undefined = undefined;
+        let totalQuantity: number | undefined = undefined;
+
+        if(stockItems && stockItems.length > 0)
+        {
+            minExp = stockItems[0].dataValues.expiration;
+            quantityExpiringSoon = stockItems[0].dataValues.quantity;
+            totalQuantity = 0;
+
+            stockItems.forEach(stockItem => {
+                totalQuantity! += stockItem.dataValues.quantity;
+                if(stockItem.dataValues.expiration < minExp!)
+                {
+                    minExp = stockItem.dataValues.expiration;
+                    quantityExpiringSoon = stockItem.dataValues.quantity;
+                }
+            });
+
+            product.dataValues.minExpiration = minExp;
+            product.dataValues.quantityExpiringSoon = quantityExpiringSoon;
+            product.dataValues.totalQuantity = totalQuantity;
+        }
+    });
+
+    products.sort((a, b) => {
+        if(a.dataValues.minExpiration === b.dataValues.minExpiration)
+            return 0;
+        else return a.dataValues.minExpiration < b.dataValues.minExpiration
+            ? -1 : 1;
+    });
+
+    console.log("Products sorted", products);
+        
+    res.send(products);
 }
 
 export const searchProductByBarcode = async (req: Request, res: Response, next: NextFunction): Promise<any> => {

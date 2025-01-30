@@ -113,7 +113,7 @@ export class ProductEditComponent implements AfterViewInit {
   }
 
   public GetFileDownloadUrl = (fileId: number): string => {
-    return environment.apiUrl + "/files/" + fileId;
+    return environment.apiUrl + "/files/" + fileId + "?size=small";
   }
 
   public removeBarcode = (a: any) => {

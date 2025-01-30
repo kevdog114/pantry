@@ -19,6 +19,11 @@
                         {{product.title}}
                         <a class="stretched-link" [routerLink]="['/products', product.id]"></a>
                     </mat-card-title>
+                    <mat-card-subtitle>
+                        <ng-container *ngIf="product.minExpiration !== undefined">
+                            <small>{{product.quantityExpiringSoon}} exp on {{product.minExpiration | date}}</small>
+                        </ng-container>
+                    </mat-card-subtitle>
                 </mat-card-header>
                 <img mat-card-image class="object-fit-contain" style="height: 125px;" [src]="GetFileDownloadUrl(product)">
                 <!--<mat-card-actions>

@@ -40,7 +40,7 @@ export class ProductListComponent implements AfterViewInit
 
     public GetFileDownloadUrl = (product: Product): string => {
         if(product && product.Files && product.Files.length > 0)
-            return environment.apiUrl + "/files/" + product.Files[0].id;
+            return environment.apiUrl + "/files/" + product.Files[0].id + "?size=small";
         else
             return "";
     }

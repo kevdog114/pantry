@@ -27,4 +27,7 @@ export interface Product
     fileIds: Array<number>
     ProductBarcodes: Array<ProductBarcode>
     StockItems: Array<StockItem>
+    minExpiration?: Date
+    quantityExpiringSoon?: number
+    totalQuantity?: number
 }
