@@ -184,6 +184,7 @@ export const getAll = async (req: Request, res: Response, next: NextFunction): P
     });
 
     products.sort((a, b) => {
+        
         if(a.dataValues.minExpiration === b.dataValues.minExpiration)
             return 0;
         else return a.dataValues.minExpiration < b.dataValues.minExpiration

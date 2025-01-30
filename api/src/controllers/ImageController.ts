@@ -26,6 +26,7 @@ export const ensureThumbnailExistsAndGetPath = async (imgId: number, thumbnailSi
         await sharp(imgPath)
           .resize(maxSize, maxSize, { fit: "contain" })
           .jpeg()
+          .withMetadata()
           .toFile(thumbPath);
     }
 
@@ -43,7 +44,7 @@ export const getById = async (req: Request, res: Response, next: NextFunction): 
     var entity = await db.Files.findByPk(req.params.id);
     if(entity != null) {
         if(req.query.size !== undefined)
-            res.download(await ensureThumbnailExistsAndGetPath(entity.dataValues.id, req.query.size as ThumbnailSizes));
+            res.download(await ensureThumbnailExistsAndGetPath(entity.dataValues.id, req.query.size as ThumbnailSizes), entity.dataValues.filename);
         else
             res.download(uploadDir + entity.dataValues.id, entity.dataValues.filename);
     }
