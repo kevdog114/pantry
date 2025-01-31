@@ -183,15 +183,26 @@ export const getAll = async (req: Request, res: Response, next: NextFunction): P
         }
     });
 
+    //products = products.filter(a => a.StockItems && a.StockItems.length > 0);
+
     products.sort((a, b) => {
         
         if(a.dataValues.minExpiration === b.dataValues.minExpiration)
             return 0;
+        else if(a.dataValues.minExpiration === undefined)
+            return 1;
+        else if(b.dataValues.minExpiration === undefined)
+            return -1;
         else return a.dataValues.minExpiration < b.dataValues.minExpiration
             ? -1 : 1;
     });
 
-    console.log("Products sorted", products);
+    console.log("Products sorted", products.map(a => {
+        return {
+            id: a.dataValues.id,
+            exp: a.dataValues.minExpiration
+        }
+    }));
         
     res.send(products);
 }

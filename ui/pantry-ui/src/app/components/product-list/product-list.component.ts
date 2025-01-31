@@ -34,6 +34,14 @@ export class ProductListComponent implements AfterViewInit
 
     ngAfterViewInit(): void {
         this.svc.GetAll().subscribe(res => {
+
+            /*res.sort((a, b) => {
+                if(a.minExpiration === b.minExpiration)
+                    return 0;
+                else return a.minExpiration! < b.minExpiration!
+                    ? -1 : 1;
+                //return 0;
+            })*/
             this.products = res;
         });
     }
