@@ -2,6 +2,7 @@ import express from "express";
 import * as ProductsController from "./controllers/ProductsController";
 import * as ImageController from "./controllers/ImageController";
 import * as StockItemController from "./controllers/StockItemController";
+import * as TagsController from "./controllers/TagsController"
 import cors from "cors";
 import fileUpload from "express-fileupload";
 
@@ -35,5 +36,11 @@ app.put("/stock-items/:id", StockItemController.update);
 
 app.get("/barcodes/products", ProductsController.searchProductByBarcode);
 
+app.get("/tags", TagsController.getAll);
+app.get("/tags/:id", TagsController.getById);
+app.post("/tags", TagsController.create);
+app.put("/tags/:id", TagsController.updateById);
+app.get("/tag-groups", TagsController.getGroups);
+app.get("/tag-groups/:group", TagsController.getAllForGroup);
 
 export default app;

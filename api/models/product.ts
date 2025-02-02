@@ -1,30 +1,47 @@
 'use strict';
 import { DataTypes, Model, Sequelize } from 'sequelize';
 
-export interface ProductEntity {
+export interface ProductEditableEntity {
   title: string;
 }
 
-export var ProductModelFactory = (sequelize: Sequelize) => {
-  class Product extends Model<ProductEntity> {
-    /**
-     * Helper method for defining associations.
-     * This method is not a part of Sequelize lifecycle.
-     * The `models/index` file will call this method automatically.
-     */
-    static associate(models: any) {
-      // define association here
+export interface ProductEntity extends ProductEditableEntity {
+  id: number
+}
 
-      Product.belongsToMany(models.Files, { through: "ProductFiles" });
-      Product.hasMany(models.StockItems);
-      Product.hasMany(models.ProductBarcodes);
-    }
+export class ProductModelImpl extends Model<ProductEditableEntity> {
+  /**
+   * Helper method for defining associations.
+   * This method is not a part of Sequelize lifecycle.
+   * The `models/index` file will call this method automatically.
+   */
+  static associate(models: any) {
+    // define association here
+
+    ProductModelImpl.belongsToMany(models.Files, { through: "ProductFiles" });
+    ProductModelImpl.belongsToMany(models.Tags, { through: "ProductTags" });
+    ProductModelImpl.hasMany(models.StockItems);
+    ProductModelImpl.hasMany(models.ProductBarcodes);
   }
-  Product.init({
+}
+
+export interface ProductRepo
+{
+  setFiles(files: any[]): Promise<any>
+  removeFiles(): Promise<any>
+  countFiles(): Promise<number>
+  getProductBarcodes(): Promise<any>
+  getStockItems(): Promise<any[]>
+}
+
+export var ProductModelFactory = (sequelize: Sequelize) : typeof ProductModelImpl => {
+
+  ProductModelImpl.init({
     title: DataTypes.STRING
   }, {
     sequelize,
     modelName: 'Product',
   });
-  return Product;
+  
+  return <any>ProductModelImpl;
 };

@@ -3,13 +3,20 @@ import { db } from "../../models"
 import { Op } from "sequelize";
 
 
-const INCLUDES = ["Files", "StockItems", "ProductBarcodes"];
+const INCLUDES = ["Files", "StockItems", "ProductBarcodes", "Tags"];
 
 interface ProductStockItemEntity {
     dataValues: {
         expiration: Date
         quantity: number
         ProductId: number
+    }
+}
+
+interface ProductTags {
+    dataValues: {
+        tagname: string
+        taggroup: string
     }
 }
 
@@ -20,14 +27,16 @@ interface ProductFileEntity {
     }
 }
 
+interface ProductEntityDataValues {
+    id: number,
+    title: string,
+    Files: Array<any>,
+    StockItems: Array<any>,
+    ProductBarcodes: Array<any>
+}
+
 interface ProductEntity {
-    dataValues: {
-        id: number,
-        title: string,
-        Files: Array<any>,
-        StockItems: Array<any>,
-        ProductBarcodes: Array<any>
-    }
+    dataValues: ProductEntityDataValues
     StockItems: Array<ProductStockItemEntity>
 
     setFiles(files: ProductFileEntity[]): Promise<any>
@@ -35,9 +44,15 @@ interface ProductEntity {
     countFiles(): Promise<number>
     getProductBarcodes(): Promise<any>
     getStockItems(): Promise<ProductStockItemEntity[]>
+    getTags(): Promise<ProductTags[]>
+    setTags(tags: ProductTags[]): Promise<any>
+    removeTags(): Promise<any>
+
+    update(updates: Partial<ProductEntityDataValues>): Promise<any>
 }
 
 export const getById = async (req: Request, res: Response, next: NextFunction): Promise<any> => {
+    
     var a = (await db.Products.findByPk(req.params.id, { include: INCLUDES })) as ProductEntity | null;
 
     res.send(a);
@@ -81,24 +96,16 @@ export const create = async (req: Request, res: Response, next: NextFunction): P
 }
 
 export const updateById = async(req: Request, res: Response, next: NextFunction): Promise<any> => {
-    var entity = await db.Products.findByPk(req.params.id);
+    var entity = await db.Products.findByPk(req.params.id) as unknown as ProductEntity;
     if(entity == null)
     {
         res.sendStatus(404);
         return;
     }
 
-    console.log("update", {
-        body: req.body,
-        title: req.body.title,
-        id: req.params.id
-    });
-
     entity = await entity.update({
         title: req.body.title
     });
-
-    console.log("update 2", entity);
 
     // update the barcodes
     var existingBarcodes: Array<any> = await (<any>entity).getProductBarcodes();
@@ -137,8 +144,24 @@ export const updateById = async(req: Request, res: Response, next: NextFunction)
         }
     });
 
-    await (<any>entity).removeFiles();
-    await (<any>entity).setFiles(files);
+    await entity.removeFiles();
+    await entity.setFiles(files);
+
+
+    let associatedTags = [];
+    if(req.body.tagIds)
+        associatedTags = req.body.tagIds;
+
+    let tags = await db.Tags.findAll({
+        where: {
+            id: {
+                [Op.in]: associatedTags
+            }
+        }
+    })
+
+    await entity.removeTags();
+    await entity.setTags(tags);
 
     res.send(await db.Products.findByPk(req.params.id, { include: INCLUDES }));
 }
@@ -221,6 +244,7 @@ export const searchProductByBarcode = async (req: Request, res: Response, next: 
             barcode: req.query.barcode
         }
     });
+    
 
     if(product !== null)
         res.send(product);

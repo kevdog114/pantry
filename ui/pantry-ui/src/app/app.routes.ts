@@ -7,6 +7,8 @@ import { SettingsComponent } from './settings/settings.component';
 import { BarcodeScannerComponent } from './barcode-scanner/barcode-scanner.component';
 import { SearchComponent } from './search/search.component';
 import { MissingBarcodeComponent } from './missing-barcode/missing-barcode.component';
+import { RoadmapComponent } from './roadmap/roadmap.component';
+import { TagsComponent } from './tags/tags.component';
 
 export const routes: Routes = [
     {
@@ -46,8 +48,16 @@ export const routes: Routes = [
         component: SettingsComponent
     },
     {
+        path: "settings/tags",
+        component: TagsComponent
+    },
+    {
         path: "search",
         component: SearchComponent
+    },
+    {
+        path: "roadmap",
+        component: RoadmapComponent
     },
     {
         path: "**",

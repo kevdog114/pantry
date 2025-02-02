@@ -5,6 +5,7 @@ import { ProductModelFactory } from './product';
 import { FileModelFactory } from './files';
 import { StockItemModelFactory } from './stockitem';
 import { ProductBarcodeModelFactory } from './productbarcode';
+import { TagsModelFactory } from './tags';
 const process = require('process');
 const env = "development"; // process.env.NODE_ENV || 'development';
 const config = require(__dirname + '/../../config/config.json')[env];
@@ -22,6 +23,7 @@ const dbTmp = {
   Files: FileModelFactory(sequelize),
   StockItems: StockItemModelFactory(sequelize),
   ProductBarcodes: ProductBarcodeModelFactory(sequelize),
+  Tags: TagsModelFactory(sequelize),
   sequelize: sequelize,
   Sequelize: Sequelize
 }
@@ -30,6 +32,7 @@ dbTmp.Products.associate(dbTmp);
 dbTmp.Files.associate(dbTmp);
 dbTmp.StockItems.associate(dbTmp);
 dbTmp.ProductBarcodes.associate(dbTmp);
+dbTmp.Tags.associate(dbTmp);
 
 export const db = dbTmp;
 
