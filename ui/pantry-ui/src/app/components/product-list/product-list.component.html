@@ -1,16 +1,63 @@
 
-<h1>Products</h1>
-<a mat-raised-button [routerLink]="['/products', 'create']">Create Product</a>
-<!--<ul>
-    <li *ngFor="let product of products">
-        {{product.title}}
-        <a href="/products/{{product.id}}/edit">(edit)</a>
-    </li>
-</ul>-->
+<div>
+    <h1>Products</h1>
+
+    <mat-form-field>
+        <mat-label>Area</mat-label>
+        <mat-select>
+            <mat-option>-- None --</mat-option>
+            <mat-option value="0">All</mat-option>
+            <mat-divider></mat-divider>
+            <mat-option value="1">Pantry</mat-option>
+            <mat-option value="2">Freezer</mat-option>
+            <mat-option value="3">Refrigerator</mat-option>
+        </mat-select>
+    </mat-form-field>
+
+    <mat-form-field>
+        <mat-label>Sort</mat-label>
+        <mat-select>
+            <mat-option value="1">Expiring Soon</mat-option>
+            <mat-option value="2">Alphabetical</mat-option>
+        </mat-select>
+    </mat-form-field>
+
+    <mat-button-toggle-group name="displayMode" [(ngModel)]="DisplayMode">
+        <mat-button-toggle value="grid">
+            <mat-icon>grid_view</mat-icon>
+        </mat-button-toggle>
+        <mat-button-toggle value="list">
+            <mat-icon>list_view</mat-icon>
+        </mat-button-toggle>
+    </mat-button-toggle-group>
+    <a mat-raised-button [routerLink]="['/products', 'create']">Create Product</a>
+
+</div>
 
 
+<div class="list-group" *ngIf="DisplayMode === 'list'">
+    <a [routerLink]="['/products', product.id]" class="list-group-item list-group-item-action" aria-current="true" *ngFor="let product of products; track product">
+        <div class="d-flex w-100 justify-content-between">
+            <img style="max-height: 75px;" matListItemAvatar [src]="GetFileDownloadUrl(product)">
+            <div class="w-100">
+                <div class="d-flex w-100 justify-content-between">
+                    <h5 class="mb-1">{{product.title}}</h5>
+                    <small *ngIf="product.totalQuantity">{{product.totalQuantity}} in stock</small>
+                </div>
+                <div class="w-100">
+                    <span matListItemLine *ngIf="product.minExpiration !== undefined">
+                        {{product.quantityExpiringSoon}}
+                        expiring on
+                        {{product.minExpiration | date}}
+                    </span>
+                </div>
+            </div>
+        </div>
+    </a>
+  </div>
 
-<div class="row">
+
+<div class="row" *ngIf="DisplayMode === 'grid'">
     <div class="col-sm-12">
         <div class="row row-cols-2 row-cols-sm-3 row-cols-md-5 rows-cols-lg-8">
             <mat-card appearance="outlined" *ngFor="let product of products" class="col">

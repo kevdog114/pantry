@@ -120,6 +120,13 @@ export class ProductEditComponent implements AfterViewInit {
     this.barcodes.splice(this.barcodes.indexOf(a), 1);
   }
 
+  public delete = () => {
+    if(this.product && this.product.id)
+      this.svc.Delete(this.product.id).subscribe(() => {
+        this.router.navigate(["/"]);
+      })
+  }
+
   public addBarcode = () => {
     this.barcodes.push({
       index: this.barcodeIndex,

@@ -7,7 +7,15 @@ import { RouterModule } from "@angular/router";
 import { MatButtonModule } from "@angular/material/button";
 import { environment } from "../../../environments/environment";
 import { MatCardModule } from "@angular/material/card";
+import { MatFormFieldModule } from "@angular/material/form-field";
+import { MatDividerModule } from "@angular/material/divider";
+import { MatSelectModule } from "@angular/material/select";
+import { MatButtonToggleModule } from "@angular/material/button-toggle";
+import { MatIconModule } from "@angular/material/icon";
+import { LocalStorageService } from "../../local-storage.service";
+import { MatListModule } from "@angular/material/list";
 
+type DisplayModeOption = "grid" | "list";
 
 @Component({
     selector: 'product-list',
@@ -20,16 +28,29 @@ import { MatCardModule } from "@angular/material/card";
         FormsModule,
         RouterModule,
         MatButtonModule,
-        MatCardModule
+        MatCardModule,
+        MatFormFieldModule,
+        MatDividerModule,
+        MatSelectModule,
+        MatButtonToggleModule,
+        MatIconModule,
+        MatListModule
     ]
 })
 export class ProductListComponent implements AfterViewInit
 {
     public products: Product[] = [];
-    /**
-     *
-     */
-    constructor(private svc: ProductListService) {
+    public set DisplayMode(val: DisplayModeOption) {
+        this.localStorage.setItem("product-list-display-mode", val);
+    }
+    public get DisplayMode() {
+        return this.localStorage.getItem("product-list-display-mode");
+    }
+    
+    constructor(private svc: ProductListService, private localStorage: LocalStorageService) {
+        console.log("display mode", this.DisplayMode);
+        if(this.DisplayMode === null)
+            this.DisplayMode = "grid";
     }
 
     ngAfterViewInit(): void {

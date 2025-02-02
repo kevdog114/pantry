@@ -5,7 +5,7 @@ export const deleteById = async (req: Request, res: Response, next: NextFunction
     var entity = await db.StockItems.findByPk(req.params.id);
     if(entity != null) {
         await entity?.destroy();
-        res.sendStatus(200);
+        res.send({});
     }
 }
 

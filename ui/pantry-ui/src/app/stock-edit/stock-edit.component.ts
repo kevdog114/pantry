@@ -76,6 +76,13 @@ export class StockEditComponent implements AfterViewInit {
     }
   }
 
+  public delete = () => {
+    if(this.stockItem && this.stockItem.id)
+      this.svc.DeleteStock(this.stockItem.id).subscribe(() => {
+        this.router.navigate(["/products", this._productId]);
+      })
+  }
+
   public Save = () => {
     if(this.stockItem === undefined)
       return;

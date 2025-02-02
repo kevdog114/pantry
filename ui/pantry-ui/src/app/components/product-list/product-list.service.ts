@@ -26,6 +26,10 @@ export class ProductListService
         return this.http.get<Product>(this.a(`/products/${id}`))
     }
 
+    public Delete = (id: number): Observable<Product> => {
+        return this.http.delete<Product>(this.a(`/products/${id}`))
+    }
+
     public Update = (product: Product): Observable<Product> => {
         return this.http.put<Product>(this.a(`/products/${product.id}`), product);
     }
@@ -46,5 +50,9 @@ export class ProductListService
     }
     public UpdateStock = (stockId: number, stockItem: StockItem): Observable<any> => {
         return this.http.put<StockItem>(this.a(`/stock-items/${stockId}`), stockItem);
+    }
+
+    public DeleteStock = (stockId: number): Observable<any> => {
+        return this.http.delete(this.a(`/stock-items/${stockId}`));
     }
 }

@@ -207,6 +207,14 @@ export const getAll = async (req: Request, res: Response, next: NextFunction): P
     res.send(products);
 }
 
+export const deleteById = async (req: Request, res: Response, next: NextFunction): Promise<any> => {
+    var entity = await db.Products.findByPk(req.params.id);
+    if(entity != null) {
+        await entity?.destroy();
+        res.send({});
+    }
+}
+
 export const searchProductByBarcode = async (req: Request, res: Response, next: NextFunction): Promise<any> => {
     var product = await db.ProductBarcodes.findOne({
         where: {

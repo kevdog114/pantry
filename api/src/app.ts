@@ -21,6 +21,7 @@ app.use(express.json());
 app.set("port", process.env.PORT || "4300");
 
 app.get("/products/:id", ProductsController.getById);
+app.delete("/products/:id", ProductsController.deleteById);
 app.get("/products", ProductsController.getAll);
 app.post("/products", ProductsController.create);
 app.put("/products/:id", ProductsController.updateById);
