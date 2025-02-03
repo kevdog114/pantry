@@ -26,7 +26,7 @@ export var ProductBarcodeModelFactory = (sequelize: Sequelize): GenericRepo<Prod
      */
     static associate(models: ModelsType) {
       ProductBarcode.belongsTo(models.Products);
-      ProductBarcode.belongsTo(models.ProductBarcodes)
+      ProductBarcode.hasOne(models.StockItems);
     }
   }
   ProductBarcode.init({

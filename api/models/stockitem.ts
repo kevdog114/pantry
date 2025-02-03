@@ -28,6 +28,7 @@ export var StockItemModelFactory = (sequelize: Sequelize): GenericRepo<StockItem
     static associate(models: ModelsType) {
       // define association here
       StockItem.belongsTo(models.Products);
+      StockItem.belongsTo(models.ProductBarcodes);
     }
   }
   StockItem.init({
