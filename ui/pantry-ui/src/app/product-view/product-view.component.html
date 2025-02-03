@@ -7,7 +7,11 @@
         <table mat-table [dataSource]="product.StockItems">
             <ng-container matColumnDef="quantity">
                 <th mat-header-cell *matHeaderCellDef>Quantity</th>
-                <td mat-cell *matCellDef="let row">{{row.quantity}}</td>
+                <td mat-cell *matCellDef="let row">
+                    {{row.quantity}}
+                    <span *ngIf="row.isOpened" class="badge text-bg-primary">Open</span>
+                    <span *ngIf="row.isFrozen" class="badge text-bg-info">Frozen</span>
+                </td>
             </ng-container>
             <ng-container matColumnDef="expiration">
                 <th mat-header-cell *matHeaderCellDef>Expiration</th>
@@ -21,11 +25,58 @@
                         <mat-spinner style="display: inline-block;" diameter="20" *ngIf="row.loading_use"></mat-spinner>
                     </button>
                     <button mat-icon-button [matMenuTriggerFor]="stockItemEdit">
-                        <mat-icon>menu</mat-icon>
+                        <mat-icon>more_vert</mat-icon>
                     </button>
                     <mat-menu #stockItemEdit="matMenu">
-                        <a mat-menu-item href="/products/{{product.id}}/stock-items/{{row.id}}">Edit</a>
-                        <button mat-menu-item>Print Stock Label</button>
+                        <a mat-menu-item href="/products/{{product.id}}/stock-items/{{row.id}}">
+                            <mat-icon>edit</mat-icon>
+                            Edit
+                        </a>
+                        <button (click)="setFrozen(row, true)" *ngIf="row.isFrozen != true" mat-menu-item>
+                            <mat-icon>ac_unit</mat-icon>
+                            Freeze
+                            @if(product.freezerLifespanDays !== null)
+                            {
+                                <small>(expire in {{product.freezerLifespanDays}} days)</small>
+                            }
+                            @else
+                            {
+                                <small>(don't change expiration)</small>
+                            }
+                        </button>
+                        <button (click)="setFrozen(row, false)" *ngIf="row.isFrozen" mat-menu-item>
+                            <mat-icon>thermometer_gain</mat-icon>
+                            Remove from Freezer
+                            @if(row.expirationExtensionAfterThaw !== null)
+                            {
+                                <small>(expire in {{row.expirationExtensionAfterThaw}} days)</small>
+                            }
+                            @else
+                            {
+                                <small>(don't change expiration)</small>
+                            }
+                        </button>
+                        <button (click)="setOpened(row)" *ngIf="row.isOpened != true" mat-menu-item>
+                            <mat-icon>orders</mat-icon>
+                            Open
+                            @if(row.isFrozen !== true && product.openedLifespanDays !== null)
+                            {
+                                <small>(expire in {{product.openedLifespanDays}} days)</small>
+                            }
+                            @else if(row.isFrozen === true && product.openedLifespanDays !== null)
+                            {
+                                <small>(expire in {{product.openedLifespanDays}} days if thawed)</small>
+                            }
+                            @else
+                            {
+                                <small>(don't change expiration)</small>
+                            }
+                        </button>
+                        <mat-divider></mat-divider>
+                        <button mat-menu-item>
+                            <mat-icon>print</mat-icon>
+                            Print Stock Label
+                        </button>
                     </mat-menu>
                 </td>
             </ng-container>

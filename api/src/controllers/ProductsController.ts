@@ -17,7 +17,10 @@ export const getById = async (req: Request, res: Response, next: NextFunction): 
 export const create = async (req: Request, res: Response, next: NextFunction): Promise<any> => {
 
     var p = await db.Products.create({
-        title: req.body.title
+        title: req.body.title,
+        freezerLifespanDays: req.body.freezerLifespanDays,
+        openedLifespanDays: req.body.openedLifespanDays,
+        refrigeratorLifespanDays: req.body.refrigeratorLifespanDays
     });
     
     var newBarcodes: any[] = req.body.ProductBarcodes;
@@ -62,7 +65,10 @@ export const updateById = async(req: Request, res: Response, next: NextFunction)
     }
 
     entity = await entity.update({
-        title: req.body.title
+        title: req.body.title,
+        freezerLifespanDays: req.body.freezerLifespanDays,
+        openedLifespanDays: req.body.openedLifespanDays,
+        refrigeratorLifespanDays: req.body.refrigeratorLifespanDays
     });
 
     // update the barcodes

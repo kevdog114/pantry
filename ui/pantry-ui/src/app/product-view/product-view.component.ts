@@ -8,6 +8,9 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatMenuModule } from '@angular/material/menu';
 import { MatIconModule } from '@angular/material/icon';
+import { MatDividerModule } from '@angular/material/divider';
+import { dateTimestampProvider } from 'rxjs/internal/scheduler/dateTimestampProvider';
+import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 
 
 interface IndexedBarcode {
@@ -28,7 +31,8 @@ interface IndexedBarcode {
     DatePipe,
     MatProgressSpinnerModule,
     MatMenuModule,
-    MatIconModule
+    MatIconModule,
+    MatDividerModule
   ],
   templateUrl: './product-view.component.html',
   styleUrl: './product-view.component.scss'
@@ -56,7 +60,7 @@ export class ProductViewComponent {
   /**
    *
    */
-  constructor(private svc: ProductListService) {
+  constructor(private svc: ProductListService, private snackbar: MatSnackBar) {
     
   }
 
@@ -66,6 +70,61 @@ export class ProductViewComponent {
     
     this.svc.UpdateStock(stockItem.id!, stockItem).subscribe(a => {
       (<any>stockItem).loading_use = false;
+    });
+  }
+
+  private addDays = (dt: Date, days: number): Date => {
+
+    dt.setDate(dt.getDate() + days);
+    return dt;
+  }
+
+  private daysBetween = (dt1: Date, dt2: Date): number => {
+    dt1 = new Date(dt1);
+    dt1.setHours(0, 0, 0, 0);
+    dt2 = new Date(dt2);
+    dt2.setHours(0, 0, 0, 0);
+    var res = (dt1.getTime() - dt2.getTime()) / (1000 * 60 * 60 * 24);
+    return Math.ceil(res);
+  }
+
+  setOpened = (stockItem: StockItem) => {
+    if(this.product?.openedLifespanDays !== null)
+    {
+      if(stockItem.isFrozen)
+        stockItem.expirationExtensionAfterThaw = this.product?.openedLifespanDays!;
+      else
+        stockItem.expiration = this.addDays(new Date(), this.product?.openedLifespanDays!);
+    }
+
+    stockItem.isOpened = true;
+    this.svc.UpdateStock(stockItem.id!, stockItem).subscribe(() => {
+      this.snackbar.open("Updated stock item", "Okay", {
+        duration: 5000
+      });
+    });
+  }
+
+  setFrozen = (stockItem: StockItem, isFrozen: boolean) => {
+    if(isFrozen)
+    {
+      if(this.product?.freezerLifespanDays !== null)
+      {
+        stockItem.expirationExtensionAfterThaw = this.daysBetween(stockItem.expiration, new Date());
+        stockItem.expiration = this.addDays(new Date(), this.product?.freezerLifespanDays!);
+      }
+    }
+    else
+    {
+      if(stockItem.expirationExtensionAfterThaw !== null)
+        stockItem.expiration = this.addDays(new Date(), stockItem.expirationExtensionAfterThaw);
+    }
+
+    stockItem.isFrozen = isFrozen;
+    this.svc.UpdateStock(stockItem.id!, stockItem).subscribe(() => {
+      this.snackbar.open("Updated stock item", "Okay", {
+        duration: 5000
+      });
     });
   }
 }

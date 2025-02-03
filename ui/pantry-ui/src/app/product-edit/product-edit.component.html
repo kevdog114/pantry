@@ -5,6 +5,29 @@
             <input name="title" matInput [(ngModel)]="product.title" />
         </mat-form-field>
     </div>
+    <div class="row">
+        <div class="col-sm-4">
+            <mat-form-field class="w-100">
+                <mat-label>Freezer Lifespan in Days</mat-label>
+                <input name="freezerLifespanDays" matInput [(ngModel)]="product.freezerLifespanDays">
+                <mat-hint>Once an item is frozen, how many days is it good?</mat-hint>
+            </mat-form-field>
+        </div>
+        <div class="col-sm-4">
+            <mat-form-field class="w-100">
+                <mat-label>Refrigerator Lifespan in Days</mat-label>
+                <input name="refrigeratorLifespanDays" matInput [(ngModel)]="product.refrigeratorLifespanDays">
+                <mat-hint>Once an item is removed from the freezer, how many days is it good?</mat-hint>
+            </mat-form-field>
+        </div>
+        <div class="col-sm-4">
+            <mat-form-field class="w-100">
+                <mat-label>Opened Lifespan in Days</mat-label>
+                <input name="openedLifespanDays" matInput [(ngModel)]="product.openedLifespanDays">
+                <mat-hint>Once an item is opened, how many days is it good?</mat-hint>
+            </mat-form-field>
+        </div>
+    </div>
 
     <mat-tab-group>
         <mat-tab label="Barcodes">

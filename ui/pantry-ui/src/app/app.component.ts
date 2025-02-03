@@ -1,6 +1,6 @@
 import { Component } from '@angular/core';
 import { RouterModule, RouterOutlet } from '@angular/router';
-import { MatIconModule } from '@angular/material/icon';
+import { MatIconModule, MatIconRegistry } from '@angular/material/icon';
 import { MatToolbarModule } from '@angular/material/toolbar';
 import { MatButtonModule } from '@angular/material/button';
 import { MatDividerModule } from '@angular/material/divider';
@@ -29,8 +29,10 @@ export class AppComponent {
   /**
    *
    */
-  constructor(private hardwareScanner: HardwareBarcodeScannerService) {
+  constructor(private hardwareScanner: HardwareBarcodeScannerService, iconRegistry: MatIconRegistry) {
     this.title = environment.siteTitle
     hardwareScanner.ListenForScanner();
+
+    iconRegistry.setDefaultFontSetClass("material-symbols-outlined");
   }
 }
