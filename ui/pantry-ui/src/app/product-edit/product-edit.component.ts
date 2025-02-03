@@ -10,13 +10,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatCardModule } from '@angular/material/card';
 import { Router } from '@angular/router';
 import { environment } from '../../environments/environment';
-
-interface IndexedBarcode {
-  index: number,
-  id?: number,
-  ProductId: number,
-  barcode: string
-}
+import { MatTabsModule } from '@angular/material/tabs';
 
 @Component({
   selector: 'app-product-edit',
@@ -26,7 +20,8 @@ interface IndexedBarcode {
     MatInputModule,
     MatButtonModule,
     MatIconModule,
-    MatCardModule
+    MatCardModule,
+    MatTabsModule
   ],
   templateUrl: './product-edit.component.html',
   styleUrl: './product-edit.component.css'
@@ -35,9 +30,6 @@ export class ProductEditComponent implements AfterViewInit {
 
   private isCreate: boolean = false;
   public product: Product | undefined = undefined;
-  private barcodeIndex = 0;
-  public barcodes: Array<IndexedBarcode> = [
-  ];
 
   private queryData = {
     productTitle: <string | undefined>"",
@@ -67,14 +59,6 @@ export class ProductEditComponent implements AfterViewInit {
     {
       this.svc.Get(productId).subscribe(p => {
         this.product = p;
-        this.barcodes = p.ProductBarcodes.map(a => {
-          return <IndexedBarcode>{
-            id: a.id,
-            barcode: a.barcode,
-            index: this.barcodeIndex++,
-            ProductId: a.ProductId
-          }
-        })
       });
     }
     else {
@@ -82,6 +66,7 @@ export class ProductEditComponent implements AfterViewInit {
       this.product = {
         fileIds: [],
         Files: [],
+        Tags: [],
         id: 0,
         ProductBarcodes: [],
         StockItems: [],
@@ -101,12 +86,14 @@ export class ProductEditComponent implements AfterViewInit {
       if(this.queryData.barcodes)
       {
         this.queryData.barcodes.forEach(barcode => {
-          this.barcodes.push({
-            index: this.barcodeIndex,
+          this.product?.ProductBarcodes.push({
             barcode: barcode,
-            ProductId: this.product!.id
+            ProductId: this.product!.id,
+            brand: "",
+            description: "",
+            id: 0,
+            quantity: 0
           });
-          this.barcodeIndex++;
         })
       }
     }
@@ -117,7 +104,7 @@ export class ProductEditComponent implements AfterViewInit {
   }
 
   public removeBarcode = (a: any) => {
-    this.barcodes.splice(this.barcodes.indexOf(a), 1);
+    this.product?.ProductBarcodes.splice(this.product.ProductBarcodes.indexOf(a), 1);
   }
 
   public delete = () => {
@@ -128,12 +115,14 @@ export class ProductEditComponent implements AfterViewInit {
   }
 
   public addBarcode = () => {
-    this.barcodes.push({
-      index: this.barcodeIndex,
+    this.product?.ProductBarcodes.push({
       barcode: "",
-      ProductId: this.product!.id
+      ProductId: this.product!.id,
+      brand: "",
+      description: "",
+      id: 0,
+      quantity: 0
     });
-    this.barcodeIndex++;
   }
 
   public removeImage = (file: FileMeta) => {
@@ -152,11 +141,6 @@ export class ProductEditComponent implements AfterViewInit {
     console.log(this.product);
 
     this.product.fileIds = this.product.Files.map(a => a.id);
-    this.product.ProductBarcodes = this.barcodes.map(a => <ProductBarcode>{
-      barcode: a.barcode,
-      id: a.id,
-      ProductId: this.product!.id
-    });
 
     if(this.isCreate)
     {

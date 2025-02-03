@@ -5,8 +5,51 @@
             <input name="title" matInput [(ngModel)]="product.title" />
         </mat-form-field>
     </div>
-    <div class="row">
-        <div class="col-md-8">
+
+    <mat-tab-group>
+        <mat-tab label="Barcodes">
+            <mat-card>
+                <mat-card-header>
+                    <mat-card-title>
+                        Barcodes
+                        <button mat-icon-button (click)="addBarcode()"><mat-icon>add</mat-icon></button>
+                    </mat-card-title>
+                </mat-card-header>
+                <mat-card-content>
+                    
+            @for(barcode of product.ProductBarcodes; track barcode.barcode) {
+                <div class="row">
+                    <div class="col-sm-3">
+                        <mat-form-field>
+                            <mat-label>Barcode</mat-label>
+                            <input [name]="'barcode-' + $index" class="barcode-input" matInput [(ngModel)]="barcode.barcode">
+                        </mat-form-field>
+                    </div>
+                    <div class="col-sm-4">
+                        <mat-form-field>
+                            <mat-label>Brand</mat-label>
+                            <input [name]="'brand-' + $index" matInput [(ngModel)]="barcode.brand">
+                        </mat-form-field>
+                    </div>
+                    <div class="col-sm-4">
+                        <mat-form-field>
+                            <mat-label>Description</mat-label>
+                            <input [name]="'description-' + $index" matInput [(ngModel)]="barcode.description">
+                        </mat-form-field>
+                    </div>
+                    <div class="col-sm-1">
+                        <button mat-icon-button matSuffix (click)="removeBarcode(barcode)">
+                            <mat-icon>delete</mat-icon>
+                        </button>
+                    </div>
+                </div>
+                }
+                </mat-card-content>
+        
+            </mat-card>
+
+        </mat-tab>
+        <mat-tab label="Product Images">
             <div *ngIf="product" class="row row-cols-1 row-cols-sm-2 row-cols-md-3 rows-cols-lg-4">
                 <mat-card appearance="outlined" *ngFor="let file of product.Files" class="col">
                     <mat-card-header class="text-truncate">
@@ -23,27 +66,16 @@
 
                 </mat-card>
             </div>
+        </mat-tab>
+    </mat-tab-group>
+
+    <div class="row">
+        <div class="col-md-8">
+
         </div>
+
         <div class="col-md-4">
-            <mat-card>
-                <mat-card-header>
-                    <mat-card-title>
-                        Barcodes
-                        <button mat-icon-button (click)="addBarcode()"><mat-icon>add</mat-icon></button>
-                    </mat-card-title>
-                </mat-card-header>
-                <mat-card-content>
-                    <div *ngFor="let barcode of barcodes">
-                        <mat-form-field>
-                            <input class="barcode-input" name="barcode-{{barcode.index}}" matInput [(ngModel)]="barcode.barcode">
-                            <button mat-icon-button matSuffix (click)="removeBarcode(barcode)">
-                                <mat-icon>delete</mat-icon>
-                            </button>
-                        </mat-form-field>
-                    </div>
-                </mat-card-content>
-        
-            </mat-card>
+
         </div>
     </div>
 

@@ -16,12 +16,17 @@
             <ng-container matColumnDef="actions">
                 <th mat-header-cell *matHeaderCellDef></th>
                 <td mat-cell *matCellDef="let row">
-                    <a mat-raised-button href="/products/{{product.id}}/stock-items/{{row.id}}">Edit</a>
                     <button mat-raised-button (click)="UseStock(row, 1)">
                         Use 1
                         <mat-spinner style="display: inline-block;" diameter="20" *ngIf="row.loading_use"></mat-spinner>
                     </button>
-                    <button mat-raised-button>Print Stock Label</button>
+                    <button mat-icon-button [matMenuTriggerFor]="stockItemEdit">
+                        <mat-icon>menu</mat-icon>
+                    </button>
+                    <mat-menu #stockItemEdit="matMenu">
+                        <a mat-menu-item href="/products/{{product.id}}/stock-items/{{row.id}}">Edit</a>
+                        <button mat-menu-item>Print Stock Label</button>
+                    </mat-menu>
                 </td>
             </ng-container>
             <tr mat-header-row *matHeaderRowDef="['quantity', 'expiration', 'actions']"></tr>

@@ -24,7 +24,11 @@ export const update = async (req: Request, res: Response, next: NextFunction): P
 
     entity = await entity.update({
         expiration: req.body.expiration,
-        quantity: req.body.quantity
+        quantity: req.body.quantity,
+        expirationExtensionAfterThaw: req.body.expirationExtensionAfterThaw,
+        isFrozen: req.body.isFrozen,
+        isOpened: req.body.isOpened,
+        ProductBarcodeId: req.body.ProductBarcodeId,
     });
 
     res.send(entity);
@@ -34,6 +38,10 @@ export const create = async (req: Request, res: Response, next: NextFunction): P
     res.send(await db.StockItems.create({
         ProductId: req.body.ProductId,
         expiration: req.body.expiration,
-        quantity: req.body.quantity
+        quantity: req.body.quantity,
+        expirationExtensionAfterThaw: req.body.expirationExtensionAfterThaw,
+        isFrozen: req.body.isFrozen,
+        isOpened: req.body.isOpened,
+        ProductBarcodeId: req.body.ProductBarcodeId,
     }));
 }

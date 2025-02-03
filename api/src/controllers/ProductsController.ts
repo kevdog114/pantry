@@ -27,7 +27,10 @@ export const create = async (req: Request, res: Response, next: NextFunction): P
         // add it
         await db.ProductBarcodes.create({
             barcode: newBarcode.barcode,
-            ProductId: p.dataValues.id
+            ProductId: p.dataValues.id,
+            brand: newBarcode.brand,
+            description: newBarcode.description,
+            quantity: newBarcode.quantity
         })
     });
 
@@ -63,7 +66,7 @@ export const updateById = async(req: Request, res: Response, next: NextFunction)
     });
 
     // update the barcodes
-    var existingBarcodes: Array<any> = await (<any>entity).getProductBarcodes();
+    var existingBarcodes: Array<any> = await entity.getProductBarcodes();
     var newBarcodes: Array<any> = req.body.ProductBarcodes;
     if(existingBarcodes == null) existingBarcodes = [];
     if(newBarcodes == null) newBarcodes = [];
@@ -82,7 +85,10 @@ export const updateById = async(req: Request, res: Response, next: NextFunction)
             // add it
             await db.ProductBarcodes.create({
                 barcode: newBarcode.barcode,
-                ProductId: req.params.id
+                ProductId: req.params.id,
+                brand: newBarcode.brand,
+                description: newBarcode.description,
+                quantity: newBarcode.quantity
             })
         }
     })

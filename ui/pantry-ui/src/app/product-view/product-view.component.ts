@@ -6,6 +6,8 @@ import { MatCardModule } from '@angular/material/card';
 import { MatTableModule } from '@angular/material/table';
 import { MatButtonModule } from '@angular/material/button';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { MatMenuModule } from '@angular/material/menu';
+import { MatIconModule } from '@angular/material/icon';
 
 
 interface IndexedBarcode {
@@ -24,7 +26,9 @@ interface IndexedBarcode {
     MatTableModule,
     MatButtonModule,
     DatePipe,
-    MatProgressSpinnerModule
+    MatProgressSpinnerModule,
+    MatMenuModule,
+    MatIconModule
   ],
   templateUrl: './product-view.component.html',
   styleUrl: './product-view.component.scss'

@@ -9,6 +9,9 @@ import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatCardModule } from '@angular/material/card';
 import { MatButtonModule } from '@angular/material/button';
 import { Router } from '@angular/router';
+import { MatCheckboxModule } from '@angular/material/checkbox';
+import { MatOptionModule } from '@angular/material/core';
+import { MatSelectModule } from '@angular/material/select';
 
 @Component({
   selector: 'app-stock-edit',
@@ -19,7 +22,10 @@ import { Router } from '@angular/router';
     MatInputModule,
     MatDatepickerModule,
     MatCardModule,
-    MatButtonModule
+    MatButtonModule,
+    MatCheckboxModule,
+    MatOptionModule,
+    MatSelectModule
   ],
   templateUrl: './stock-edit.component.html',
   styleUrl: './stock-edit.component.css'
@@ -52,11 +58,9 @@ export class StockEditComponent implements AfterViewInit {
   ngAfterViewInit(): void {
     if(this._productId !== undefined)
     {
-      console.log("after view init", {
-        stockid: this._stockId,
-        productid: this._productId
-      })
+
       this.svc.Get(this._productId).subscribe(product => {
+        console.log(product);
         this.product = product;
         var matchingStock: StockItem | undefined = undefined;
         if(this._stockId !== undefined) {
@@ -65,12 +69,13 @@ export class StockEditComponent implements AfterViewInit {
         if(matchingStock !== undefined)
           this.stockItem = matchingStock;
         else {
-          this.stockItem = {
+          var newStock: Partial<StockItem> = {
             expiration: new Date(),
             ProductId: this._productId!,
             quantity: 1,
-            id: undefined
-          }
+          };
+
+          this.stockItem = <StockItem>newStock;
         }
       });
     }
