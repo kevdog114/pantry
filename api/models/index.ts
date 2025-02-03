@@ -1,6 +1,6 @@
 'use strict';
 
-import { Sequelize } from 'sequelize';
+import { Model, ModelStatic, Sequelize } from 'sequelize';
 import { ProductModelFactory } from './product';
 import { FileModelFactory } from './files';
 import { StockItemModelFactory } from './stockitem';
@@ -28,11 +28,15 @@ const dbTmp = {
   Sequelize: Sequelize
 }
 
-dbTmp.Products.associate(dbTmp);
-dbTmp.Files.associate(dbTmp);
-dbTmp.StockItems.associate(dbTmp);
-dbTmp.ProductBarcodes.associate(dbTmp);
-dbTmp.Tags.associate(dbTmp);
+export type ModelsType = {
+  [Property in keyof typeof dbTmp]: ModelStatic<Model<any, any>>
+};
+
+dbTmp.Products.associate(dbTmp as any);
+dbTmp.Files.associate(dbTmp as any);
+dbTmp.StockItems.associate(dbTmp as any);
+dbTmp.ProductBarcodes.associate(dbTmp as any);
+dbTmp.Tags.associate(dbTmp as any);
 
 export const db = dbTmp;
 

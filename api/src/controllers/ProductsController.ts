@@ -1,55 +1,11 @@
 import { NextFunction, Response, Request } from "express";
 import { db } from "../../models"
 import { Op } from "sequelize";
+import { ProductEntity } from "../../models/product";
 
 
 const INCLUDES = ["Files", "StockItems", "ProductBarcodes", "Tags"];
 
-interface ProductStockItemEntity {
-    dataValues: {
-        expiration: Date
-        quantity: number
-        ProductId: number
-    }
-}
-
-interface ProductTags {
-    dataValues: {
-        tagname: string
-        taggroup: string
-    }
-}
-
-interface ProductFileEntity {
-    dataValues: {
-        id: number,
-        filename: string
-    }
-}
-
-interface ProductEntityDataValues {
-    id: number,
-    title: string,
-    Files: Array<any>,
-    StockItems: Array<any>,
-    ProductBarcodes: Array<any>
-}
-
-interface ProductEntity {
-    dataValues: ProductEntityDataValues
-    StockItems: Array<ProductStockItemEntity>
-
-    setFiles(files: ProductFileEntity[]): Promise<any>
-    removeFiles(): Promise<any>
-    countFiles(): Promise<number>
-    getProductBarcodes(): Promise<any>
-    getStockItems(): Promise<ProductStockItemEntity[]>
-    getTags(): Promise<ProductTags[]>
-    setTags(tags: ProductTags[]): Promise<any>
-    removeTags(): Promise<any>
-
-    update(updates: Partial<ProductEntityDataValues>): Promise<any>
-}
 
 export const getById = async (req: Request, res: Response, next: NextFunction): Promise<any> => {
     
@@ -59,11 +15,10 @@ export const getById = async (req: Request, res: Response, next: NextFunction): 
 }
 
 export const create = async (req: Request, res: Response, next: NextFunction): Promise<any> => {
-    var aa: ProductEntity;
-    
-    var p = (await db.Products.create({
+
+    var p = await db.Products.create({
         title: req.body.title
-    })) as unknown as ProductEntity;
+    });
     
     var newBarcodes: any[] = req.body.ProductBarcodes;
     if(newBarcodes == undefined) newBarcodes = [];
@@ -81,13 +36,13 @@ export const create = async (req: Request, res: Response, next: NextFunction): P
     if(req.body.fileIds)
         associatedFiles = req.body.fileIds;
 
-    let files = (await db.Files.findAll({
+    let files = await db.Files.findAll({
         where: {
             id: {
                 [Op.in]: associatedFiles
             }
         }
-    })) as ProductFileEntity[];
+    });
 
     await p.removeFiles();
     await p.setFiles(files);
@@ -96,7 +51,7 @@ export const create = async (req: Request, res: Response, next: NextFunction): P
 }
 
 export const updateById = async(req: Request, res: Response, next: NextFunction): Promise<any> => {
-    var entity = await db.Products.findByPk(req.params.id) as unknown as ProductEntity;
+    var entity = await db.Products.findByPk(req.params.id);
     if(entity == null)
     {
         res.sendStatus(404);
@@ -241,11 +196,10 @@ export const deleteById = async (req: Request, res: Response, next: NextFunction
 export const searchProductByBarcode = async (req: Request, res: Response, next: NextFunction): Promise<any> => {
     var product = await db.ProductBarcodes.findOne({
         where: {
-            barcode: req.query.barcode
+            barcode: req.query.barcode as string
         }
     });
     
-
     if(product !== null)
         res.send(product);
     else

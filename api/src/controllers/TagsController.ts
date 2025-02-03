@@ -37,7 +37,7 @@ export const updateById = async(req: Request, res: Response, next: NextFunction)
         res.sendStatus(404);
         return;
     }
-
+    
     entity = await entity.update({
         tagname: req.body.tagname
     });
