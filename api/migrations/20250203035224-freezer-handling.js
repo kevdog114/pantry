@@ -33,6 +33,5 @@ module.exports = {
     await queryInterface.removeColumn("StockItems", "isOpened");
     await queryInterface.removeColumn("StockItems", "isFrozen");
     await queryInterface.removeColumn("StockItems", "expirationExtensionAfterThaw");
-
   }
 };

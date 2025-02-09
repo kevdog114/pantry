@@ -45,7 +45,7 @@ The primary goals of this project are:
    9. [ ] Automated backup system for database/images
 2. [ ] Arduino-based scale to handle updating weights of product automatically
 3. [ ] Integration with trmnl for refrigerator-friendly display
-4. [ ] Raspberry Pi-based kiosk with barcode scanner and display
+4. [ ] Raspberry Pi-based kiosk with barcode scanner and display - In Progress
 5. [ ] Well-documented API
 6. [ ] Integration with Home Assistant
 7. [ ] Integration with Mealie (associate Mealie ingredients with Pantry Products, create meal plans, etc...)

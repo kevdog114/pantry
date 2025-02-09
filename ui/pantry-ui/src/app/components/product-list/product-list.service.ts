@@ -18,6 +18,10 @@ export class ProductListService
         return environment.apiUrl + b;
     }
 
+    public searchProducts = (searchQuery: string): Observable<Product[]> => {
+        return this.http.get<Product[]>(this.a(`/product-search?q=${encodeURIComponent(searchQuery)}`));
+    }
+
     public GetAll = (): Observable<Product[]> => {
         return this.http.get<Product[]>(this.a("/products"))
     }

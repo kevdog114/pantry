@@ -1,1 +1,23 @@
-<p>search works!</p>
+<mat-card>
+    <mat-card-header>
+        <div class="row justify-content-md-center w-100">
+            <div class="col col-md-6">
+                <mat-form-field class="w-100">
+                    <mat-label>Search</mat-label>
+                    <input name="searchbox" (keyup.enter)="doSearch()" matInput [(ngModel)]="searchTerm" />
+                    <button mat-icon-button matSuffix (click)="doSearch()"><mat-icon>search</mat-icon></button>
+                    <mat-hint>Enter your search here</mat-hint>
+                </mat-form-field>
+            </div>
+        </div>
+
+    </mat-card-header>
+    <mat-card-content>
+        <ul>
+            <li *ngFor="let item of results">
+                {{item.title}}
+            </li>
+        </ul>
+    </mat-card-content>
+</mat-card>
+

@@ -1,5 +1,6 @@
 import express from "express";
 import * as ProductsController from "./controllers/ProductsController";
+import * as ProductSearchController from "./controllers/ProductSearchController";
 import * as ImageController from "./controllers/ImageController";
 import * as StockItemController from "./controllers/StockItemController";
 import * as TagsController from "./controllers/TagsController"
@@ -42,5 +43,8 @@ app.post("/tags", TagsController.create);
 app.put("/tags/:id", TagsController.updateById);
 app.get("/tag-groups", TagsController.getGroups);
 app.get("/tag-groups/:group", TagsController.getAllForGroup);
+
+app.get("/product-search", ProductSearchController.search);
+app.get("/product-search-all", ProductSearchController.getall);
 
 export default app;

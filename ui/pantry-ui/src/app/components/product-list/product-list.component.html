@@ -2,25 +2,41 @@
 <div>
     <h1>Products</h1>
 
-    <mat-form-field>
-        <mat-label>Area</mat-label>
-        <mat-select>
-            <mat-option>-- None --</mat-option>
-            <mat-option value="0">All</mat-option>
-            <mat-divider></mat-divider>
-            <mat-option value="1">Pantry</mat-option>
-            <mat-option value="2">Freezer</mat-option>
-            <mat-option value="3">Refrigerator</mat-option>
-        </mat-select>
-    </mat-form-field>
+    <div class="row">
+        <div class="col">
+            <mat-form-field class="w-100">
+                <mat-label>Area</mat-label>
+                <mat-select>
+                    <mat-option>-- None --</mat-option>
+                    <mat-option value="0">All</mat-option>
+                    <mat-divider></mat-divider>
+                    <mat-option value="1">Pantry</mat-option>
+                    <mat-option value="2">Freezer</mat-option>
+                    <mat-option value="3">Refrigerator</mat-option>
+                </mat-select>
+            </mat-form-field>
+        </div>
+        <div class="col">
+            <mat-form-field class="w-100">
+                <mat-label>Sort</mat-label>
+                <mat-select [(value)]="selectedSortOption">
+                    <mat-option value="expire">Expiring Soon</mat-option>
+                    <mat-option value="alphabetical">Alphabetical</mat-option>
+                </mat-select>
+            </mat-form-field>
+        </div>
+        <div class="col">
+            <mat-form-field class="w-100">
+                <mat-label>Search</mat-label>
+                <input name="searchbox" (keyup.enter)="refreshList()" matInput [(ngModel)]="searchTerm" />
+                <button mat-icon-button matSuffix (click)="refreshList()"><mat-icon>search</mat-icon></button>
+                <mat-hint>Enter your search here</mat-hint>
+            </mat-form-field>
+        </div>
+    </div>
 
-    <mat-form-field>
-        <mat-label>Sort</mat-label>
-        <mat-select>
-            <mat-option value="1">Expiring Soon</mat-option>
-            <mat-option value="2">Alphabetical</mat-option>
-        </mat-select>
-    </mat-form-field>
+
+
 
     <mat-button-toggle-group name="displayMode" [(ngModel)]="DisplayMode">
         <mat-button-toggle value="grid">

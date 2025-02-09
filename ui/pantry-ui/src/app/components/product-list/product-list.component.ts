@@ -14,8 +14,10 @@ import { MatButtonToggleModule } from "@angular/material/button-toggle";
 import { MatIconModule } from "@angular/material/icon";
 import { LocalStorageService } from "../../local-storage.service";
 import { MatListModule } from "@angular/material/list";
+import { MatInputModule } from "@angular/material/input";
 
 type DisplayModeOption = "grid" | "list";
+type SortOption = "alphabetical" | "expire";
 
 @Component({
     selector: 'product-list',
@@ -34,7 +36,8 @@ type DisplayModeOption = "grid" | "list";
         MatSelectModule,
         MatButtonToggleModule,
         MatIconModule,
-        MatListModule
+        MatListModule,
+        MatInputModule
     ]
 })
 export class ProductListComponent implements AfterViewInit
@@ -55,16 +58,49 @@ export class ProductListComponent implements AfterViewInit
 
     ngAfterViewInit(): void {
         this.svc.GetAll().subscribe(res => {
-
-            /*res.sort((a, b) => {
-                if(a.minExpiration === b.minExpiration)
-                    return 0;
-                else return a.minExpiration! < b.minExpiration!
-                    ? -1 : 1;
-                //return 0;
-            })*/
             this.products = res;
         });
+    }
+
+    public searchTerm: string = "";
+    private _selectedSortOption: SortOption = "expire";
+
+    public get selectedSortOption() {
+        return this._selectedSortOption;
+    }
+    public set selectedSortOption(sortOp: SortOption) {
+        this._selectedSortOption = sortOp;
+        this.sortItems(this.products, this._selectedSortOption);
+    }
+
+    public refreshList = () => {
+        if(this.searchTerm !== null && this.searchTerm !== undefined && this.searchTerm.length > 0)
+        {
+            this.svc.searchProducts(this.searchTerm).subscribe(a => {
+                this.products = a;
+            });
+        }
+        else {
+            this.svc.GetAll().subscribe(res => {
+                this.products = res;
+            });
+        }
+    }
+
+    public updateSort = () => {
+
+    }
+
+    private sortItems = (products: Product[], sortOption: SortOption): Product[] => {
+        return products.sort((a: Product, b: Product) => {
+            var val1 = sortOption == "alphabetical" ? a.title : a.minExpiration;
+            var val2 = sortOption == "alphabetical" ? b.title : b.minExpiration;
+
+            if(val1 === val2) return 0;
+            if(val1 === null || val1 === undefined) return 1;
+            if(val2 === null || val2 === undefined) return -1;
+            else return val1 < val2 ? -1 : 1;
+        })
     }
 
     public GetFileDownloadUrl = (product: Product): string => {
