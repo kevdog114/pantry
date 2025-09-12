@@ -9,6 +9,7 @@ import { SearchComponent } from './search/search.component';
 import { MissingBarcodeComponent } from './missing-barcode/missing-barcode.component';
 import { RoadmapComponent } from './roadmap/roadmap.component';
 import { TagsComponent } from './tags/tags.component';
+import { GeminiChatComponent } from './components/gemini-chat/gemini-chat.component';
 
 export const routes: Routes = [
     {
@@ -58,6 +59,10 @@ export const routes: Routes = [
     {
         path: "roadmap",
         component: RoadmapComponent
+    },
+    {
+        path: "gemini-chat",
+        component: GeminiChatComponent
     },
     {
         path: "**",
