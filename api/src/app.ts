@@ -3,7 +3,8 @@ import * as ProductsController from "./controllers/ProductsController";
 import * as ProductSearchController from "./controllers/ProductSearchController";
 import * as ImageController from "./controllers/ImageController";
 import * as StockItemController from "./controllers/StockItemController";
-import * as TagsController from "./controllers/TagsController"
+import * as TagsController from "./controllers/TagsController";
+import * as GeminiController from "./controllers/GeminiController";
 import cors from "cors";
 import fileUpload from "express-fileupload";
 
@@ -19,6 +20,8 @@ app.use(fileUpload({
   useTempFiles: true
 }));
 app.use(express.json());
+
+app.use(express.static('../ui/pantry-ui/dist/pantry-ui'));
 
 app.set("port", process.env.PORT || "4300");
 
@@ -46,5 +49,11 @@ app.get("/tag-groups/:group", TagsController.getAllForGroup);
 
 app.get("/product-search", ProductSearchController.search);
 app.get("/product-search-all", ProductSearchController.getall);
+
+app.post("/gemini/chat", GeminiController.post);
+
+app.get('/*', (req, res) => {
+    res.sendFile('index.html', { root: '../ui/pantry-ui/dist/pantry-ui' });
+});
 
 export default app;
