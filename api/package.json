@@ -5,7 +5,7 @@
   "scripts": {
     "build-ts": "tsc",
     "build": "npm run build-ts",
-    "serve": "node dist/src/server.js",
+    "serve": "node --inspect dist/src/server.js",
     "start": "npm run serve"
   },
   "author": "",
