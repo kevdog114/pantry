@@ -5,14 +5,21 @@ import * as ImageController from "./controllers/ImageController";
 import * as StockItemController from "./controllers/StockItemController";
 import * as TagsController from "./controllers/TagsController";
 import * as GeminiController from "./controllers/GeminiController";
+import * as AuthController from "./controllers/AuthController";
+import { isAuthenticated } from "./middleware/auth";
 import * as LabelPrinterController from "./controllers/labelPrinterController";
 import cors from "cors";
 import fileUpload from "express-fileupload";
+import session from "express-session";
+import passport from "passport";
+import { Strategy as LocalStrategy } from "passport-local";
+import { db } from "./models";
 
 const app = express();
 
 var corsOptions = {
     origin: process.env.ALLOW_ORIGIN || 'http://localhost:4200',
+    credentials: true,
     //optionsSuccessStatus: 200 // some legacy browsers (IE11, various SmartTVs) choke on 204
   }
 
@@ -21,10 +28,53 @@ app.use(fileUpload({
   useTempFiles: true
 }));
 app.use(express.json());
+app.use(session({
+    secret: process.env.SESSION_SECRET || "secret",
+    resave: false,
+    saveUninitialized: false,
+}));
+app.use(passport.initialize());
+app.use(passport.session());
+
+passport.use(new LocalStrategy(async (username, password, done) => {
+    try {
+        const user = await db.Users.findOne({ where: { username } });
+        if (!user) {
+            return done(null, false, { message: 'Incorrect username.' });
+        }
+        if (!user.validPassword(password)) {
+            return done(null, false, { message: 'Incorrect password.' });
+        }
+        return done(null, user);
+    } catch (err) {
+        return done(err);
+    }
+}));
+
+passport.serializeUser((user, done) => {
+    done(null, (user as any).id);
+});
+
+passport.deserializeUser(async (id, done) => {
+    try {
+        const user = await db.Users.findByPk(id as number);
+        done(null, user);
+    } catch (err) {
+        done(err);
+    }
+});
 
 app.use(express.static('../ui/pantry-ui/dist/pantry-ui'));
 
 app.set("port", process.env.PORT || "4300");
+
+app.post("/auth/login", passport.authenticate('local'), AuthController.login);
+app.get("/auth/user", AuthController.getCurrentUser);
+// All routes below this are protected
+app.use(isAuthenticated);
+
+app.post("/auth/logout", AuthController.logout);
+app.post("/auth/password", AuthController.changePassword);
 
 app.get("/products/:id", ProductsController.getById);
 app.delete("/products/:id", ProductsController.deleteById);

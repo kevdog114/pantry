@@ -1,4 +1,3 @@
-
 <mat-toolbar>
   <button mat-icon-button (click)="sidenav.toggle()">
     <mat-icon>menu</mat-icon>
@@ -17,6 +16,19 @@
   <a mat-icon-button [routerLink]="['/settings']">
     <mat-icon>settings</mat-icon>
   </a>
+  <ng-container *ngIf="isAuthenticated | async; else loginButton">
+    <a mat-icon-button [routerLink]="['/profile']">
+        <mat-icon>person</mat-icon>
+    </a>
+    <button mat-icon-button (click)="logout()">
+      <mat-icon>logout</mat-icon>
+    </button>
+  </ng-container>
+  <ng-template #loginButton>
+    <a mat-icon-button [routerLink]="['/login']">
+      <mat-icon>login</mat-icon>
+    </a>
+  </ng-template>
 </mat-toolbar>
 
 <mat-sidenav-container style="flex-grow: 1;">

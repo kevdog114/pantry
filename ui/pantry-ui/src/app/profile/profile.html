@@ -1,0 +1,15 @@
+<div>
+  <h2>Change Password</h2>
+  <form (ngSubmit)="changePassword()">
+    <div>
+      <label for="oldPassword">Old Password:</label>
+      <input type="password" id="oldPassword" name="oldPassword" [(ngModel)]="passwords.oldPassword">
+    </div>
+    <div>
+      <label for="newPassword">New Password:</label>
+      <input type="password" id="newPassword" name="newPassword" [(ngModel)]="passwords.newPassword">
+    </div>
+    <button type="submit">Change Password</button>
+  </form>
+  <p>{{ message }}</p>
+</div>
