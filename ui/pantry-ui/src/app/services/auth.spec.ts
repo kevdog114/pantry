@@ -29,7 +29,7 @@ describe('AuthService', () => {
       expect(response).toBeTruthy();
     });
 
-    const req = httpMock.expectOne('/api/auth/login');
+    const req = httpMock.expectOne('http://localhost:4300/auth/login');
     expect(req.request.method).toBe('POST');
     req.flush({ success: true });
   });
@@ -39,7 +39,7 @@ describe('AuthService', () => {
       expect(response).toBeTruthy();
     });
 
-    const req = httpMock.expectOne('/api/auth/logout');
+    const req = httpMock.expectOne('http://localhost:4300/auth/logout');
     expect(req.request.method).toBe('POST');
     req.flush({ success: true });
   });
@@ -50,7 +50,7 @@ describe('AuthService', () => {
       expect(response).toBeTruthy();
     });
 
-    const req = httpMock.expectOne('/api/auth/password');
+    const req = httpMock.expectOne('http://localhost:4300/auth/password');
     expect(req.request.method).toBe('POST');
     req.flush({ success: true });
   });
@@ -60,7 +60,7 @@ describe('AuthService', () => {
       expect(response).toBeTruthy();
     });
 
-    const req = httpMock.expectOne('/api/auth/user');
+    const req = httpMock.expectOne('http://localhost:4300/auth/user');
     expect(req.request.method).toBe('GET');
     req.flush({ user: { username: 'admin' } });
   });

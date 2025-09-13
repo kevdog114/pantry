@@ -1,5 +1,6 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-
+import { HttpClientTestingModule } from '@angular/common/http/testing';
+import { NoopAnimationsModule } from '@angular/platform-browser/animations';
 import { QuickLabelComponent } from './quick-label.component';
 
 describe('QuickLabelComponent', () => {
@@ -8,7 +9,7 @@ describe('QuickLabelComponent', () => {
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
-      imports: [QuickLabelComponent]
+      imports: [QuickLabelComponent, HttpClientTestingModule, NoopAnimationsModule]
     })
     .compileComponents();
 
