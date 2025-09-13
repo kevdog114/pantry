@@ -10,6 +10,7 @@ import { MissingBarcodeComponent } from './missing-barcode/missing-barcode.compo
 import { RoadmapComponent } from './roadmap/roadmap.component';
 import { TagsComponent } from './tags/tags.component';
 import { GeminiChatComponent } from './components/gemini-chat/gemini-chat.component';
+import { QuickLabelComponent } from './quick-label/quick-label.component';
 
 export const routes: Routes = [
     {
@@ -63,6 +64,10 @@ export const routes: Routes = [
     {
         path: "gemini-chat",
         component: GeminiChatComponent
+    },
+    {
+        path: "quick-label",
+        component: QuickLabelComponent
     },
     {
         path: "**",
