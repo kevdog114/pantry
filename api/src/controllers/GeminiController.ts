@@ -137,7 +137,8 @@ export const postImage = async (req: Request, res: Response) => {
         });
 
         // Move the uploaded image to our upload folder
-        fs.renameSync(image.tempFilePath, uploadDir + entity.dataValues.id);
+        fs.copyFileSync(image.tempFilePath, uploadDir + entity.dataValues.id);
+        fs.unlinkSync(image.tempFilePath);
 
         // associate the file with the product
         await db.ProductFiles.create({

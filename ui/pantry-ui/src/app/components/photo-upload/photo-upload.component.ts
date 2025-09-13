@@ -73,6 +73,7 @@ export class PhotoUploadComponent implements OnInit {
   retake() {
     this.capturedImage = null;
     this.fileSelected = false;
+    this.isCameraOn = false;
   }
 
   uploadImage() {
