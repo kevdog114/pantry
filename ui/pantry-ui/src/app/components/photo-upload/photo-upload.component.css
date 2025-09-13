@@ -1,0 +1,6 @@
+.captured-image {
+  max-width: 100%;
+  max-height: 300px;
+  display: block;
+  margin: 0 auto;
+}
