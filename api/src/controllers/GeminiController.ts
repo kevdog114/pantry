@@ -1,6 +1,7 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import dotenv from "dotenv";
 import { Request, Response } from "express";
+import { db } from "../models";
 
 dotenv.config();
 
@@ -17,24 +18,50 @@ const geminiConfig = {
 };
 
 const geminiModel = googleAI.getGenerativeModel({
-  model: "gemini-2.5-flash",
+  model: "gemini-1.5-flash",
   ...geminiConfig,
 });
+
+const getProductContext = async (): Promise<string> => {
+  const products = await db.Products.findAll({
+    include: [
+      {
+        model: db.StockItems,
+      },
+    ],
+  });
+
+  let context = "Here is a list of products I have:\n";
+  for (const product of products) {
+    const stockItems = product.StockItems;
+    if (stockItems && stockItems.length > 0) {
+      context += `Product: ${product.title}\n`;
+      for (const stockItem of stockItems) {
+        context += `  - Quantity: ${stockItem.quantity}\n`;
+        context += `  - Expiration Date: ${stockItem.expiration}\n`;
+      }
+    }
+  }
+  return context;
+};
 
 export const post = async (req: Request, res: Response) => {
   try {
     const { prompt } = req.body;
-    const result = await geminiModel.generateContent(prompt);
+    const productContext = await getProductContext();
+    const fullPrompt = `${productContext}\n${prompt}`;
+
+    const result = await geminiModel.generateContent(fullPrompt);
     const response = result.response;
     res.json({
-      message: 'success',
-      data: response.text()
+      message: "success",
+      data: response.text(),
     });
   } catch (error) {
     console.log("response error", error);
     res.status(500).json({
-      message: 'error',
-      data: (error as Error).message
+      message: "error",
+      data: (error as Error).message,
     });
   }
 };
