@@ -1,31 +1,26 @@
 'use strict';
 import { DataTypes, Model, Sequelize } from "sequelize";
-import { GenericEntity } from "./helpers/genericEntity";
-import { GenericRepo } from "./helpers/genericRepo";
 import { ModelsType } from ".";
 
 export interface FileDataObject {
-  id: number
+  id?: number
   filename: string
 }
 
-export interface FileEntity extends GenericEntity<FileEntity, FileDataObject> {
-
+export class File extends Model<FileDataObject> {
+  /**
+   * Helper method for defining associations.
+   * This method is not a part of Sequelize lifecycle.
+   * The `models/index` file will call this method automatically.
+   */
+  static associate(models: ModelsType) {
+    // define association here
+    File.belongsToMany(models.Products, { through: models.ProductFiles });
+  }
 }
 
-export var FileModelFactory = (sequelize: Sequelize): GenericRepo<FileEntity, FileDataObject> => {
-  class Files extends Model {
-    /**
-     * Helper method for defining associations.
-     * This method is not a part of Sequelize lifecycle.
-     * The `models/index` file will call this method automatically.
-     */
-    static associate(models: ModelsType) {
-      // define association here
-      Files.belongsToMany(models.Products, { through: "ProductFiles" });
-    }
-  }
-  Files.init({
+export var FileModelFactory = (sequelize: Sequelize) => {
+  File.init({
     id: {
       type: DataTypes.INTEGER,
       primaryKey: true,
@@ -37,5 +32,5 @@ export var FileModelFactory = (sequelize: Sequelize): GenericRepo<FileEntity, Fi
     modelName: 'Files',
   });
 
-  return Files as any;
+  return File;
 }

@@ -1,14 +1,13 @@
 'use strict';
 import { DataTypes, Model, Sequelize } from 'sequelize';
-import { StockItemEntity } from './stockitem';
-import { TagsEntity } from './tags';
-import { FileEntity } from './files';
-import { GenericEntity } from './helpers/genericEntity';
-import { GenericRepo } from './helpers/genericRepo';
 import { ModelsType } from '.';
+import { StockItem } from './stockitem';
+import { Tag } from './tags';
+import { File } from './files';
+import { ProductBarcode } from './productbarcode';
 
 export interface ProductDataObject {
-  id: number
+  id?: number
   title: string
   
   /**@description How long a product is good if frozen */
@@ -17,20 +16,16 @@ export interface ProductDataObject {
   openedLifespanDays?: number | null
 }
 
-export interface ProductEntity extends GenericEntity<ProductEntity, ProductDataObject> {
-  StockItems: Array<StockItemEntity>
-
-  setFiles(files: FileEntity[]): Promise<any>
-  removeFiles(): Promise<any>
-  countFiles(): Promise<number>
-  getProductBarcodes(): Promise<any>
-  getStockItems(): Promise<StockItemEntity[]>
-  getTags(): Promise<TagsEntity[]>
-  setTags(tags: TagsEntity[]): Promise<any>
-  removeTags(): Promise<any>
-}
-
-export class ProductModelImpl extends Model {
+export class Product extends Model<ProductDataObject> {
+  public StockItems!: StockItem[];
+  public setFiles!: (files: File[]) => Promise<any>;
+  public removeFiles!: () => Promise<any>;
+  public countFiles!: () => Promise<number>;
+  public getProductBarcodes!: () => Promise<ProductBarcode[]>;
+  public getStockItems!: () => Promise<StockItem[]>;
+  public getTags!: () => Promise<Tag[]>;
+  public setTags!: (tags: Tag[]) => Promise<any>;
+  public removeTags!: () => Promise<any>;
   /**
    * Helper method for defining associations.
    * This method is not a part of Sequelize lifecycle.
@@ -39,16 +34,21 @@ export class ProductModelImpl extends Model {
   static associate(models: ModelsType) {
     // define association here
 
-    ProductModelImpl.belongsToMany(models.Files, { through: "ProductFiles" });
-    ProductModelImpl.belongsToMany(models.Tags, { through: "ProductTags" });
-    ProductModelImpl.hasMany(models.StockItems);
-    ProductModelImpl.hasMany(models.ProductBarcodes);
+    Product.belongsToMany(models.Files, { through: models.ProductFiles });
+    Product.belongsToMany(models.Tags, { through: "ProductTags" });
+    Product.hasMany(models.StockItems);
+    Product.hasMany(models.ProductBarcodes);
   }
 }
 
-export var ProductModelFactory = (sequelize: Sequelize): GenericRepo<ProductEntity, ProductDataObject> => {
+export var ProductModelFactory = (sequelize: Sequelize) => {
 
-  ProductModelImpl.init({
+  Product.init({
+    id: {
+      type: DataTypes.INTEGER,
+      primaryKey: true,
+      autoIncrement: true
+    },
     title: DataTypes.STRING,
     freezerLifespanDays:      { type: DataTypes.NUMBER, allowNull: true },
     refrigeratorLifespanDays: { type: DataTypes.NUMBER, allowNull: true },
@@ -58,5 +58,5 @@ export var ProductModelFactory = (sequelize: Sequelize): GenericRepo<ProductEnti
     modelName: 'Product',
   });
 
-  return ProductModelImpl as any;
+  return Product;
 };

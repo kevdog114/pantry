@@ -1,21 +1,27 @@
-import { BuildOptions, DataTypes, Model, Sequelize } from "sequelize";
+import { DataTypes, Model, Sequelize } from "sequelize";
 import * as bcrypt from 'bcryptjs';
 
-export interface UserModel extends Model {
-    readonly id: number;
+export interface UserDataObject {
+    id?: number;
     username: string;
-    password?: string;
-
-    validPassword(password: string): boolean;
+    password: string;
 }
 
-export type UserStatic = typeof Model & {
-    new(values?: object, options?: BuildOptions): UserModel;
-    associate(models: any): void;
+export class User extends Model<UserDataObject> {
+    public readonly id!: number;
+    public username!: string;
+    public password!: string;
+
+    public validPassword(password: string): boolean {
+        return bcrypt.compareSync(password, this.password);
+    }
+
+    public static associate(models: any) {
+    };
 }
 
 export const UserModelFactory = (sequelize: Sequelize) => {
-    const User = <UserStatic>sequelize.define("User", {
+    User.init({
         id: {
             allowNull: false,
             autoIncrement: true,
@@ -32,14 +38,16 @@ export const UserModelFactory = (sequelize: Sequelize) => {
             allowNull: false,
         },
     }, {
+        sequelize,
+        modelName: 'User',
         hooks: {
-            beforeCreate: (user: UserModel, options) => {
+            beforeCreate: (user: User, options) => {
                 if (user.password) {
                     const salt = bcrypt.genSaltSync(10);
                     user.password = bcrypt.hashSync(user.password, salt);
                 }
             },
-            beforeUpdate: (user: UserModel, options) => {
+            beforeUpdate: (user: User, options) => {
                 if (user.changed('password')) {
                     const salt = bcrypt.genSaltSync(10);
                     user.password = bcrypt.hashSync(user.password as string, salt);
@@ -47,13 +55,6 @@ export const UserModelFactory = (sequelize: Sequelize) => {
             }
         }
     });
-
-    User.prototype.validPassword = function(password: string) {
-        return bcrypt.compareSync(password, this.password);
-    }
-
-    User.associate = (models) => {
-    };
 
     return User;
 }
