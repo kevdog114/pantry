@@ -3,7 +3,7 @@ import { HttpClient, HttpClientModule } from '@angular/common/http';
 import { Component, ElementRef, EventEmitter, OnInit, Output, ViewChild } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { Product } from '../../../types/product';
-import { environment } from '../../../../environments/environment';
+import { environment } from '../../../environments/environment';
 
 @Component({
   selector: 'app-photo-upload',
