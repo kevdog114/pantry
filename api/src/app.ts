@@ -1,10 +1,11 @@
-import express from "express";
+import express, { Request, Response } from "express";
 import * as ProductsController from "./controllers/ProductsController";
 import * as ProductSearchController from "./controllers/ProductSearchController";
 import * as ImageController from "./controllers/ImageController";
 import * as StockItemController from "./controllers/StockItemController";
 import * as TagsController from "./controllers/TagsController";
 import * as GeminiController from "./controllers/GeminiController";
+import * as LabelPrinterController from "./controllers/labelPrinterController";
 import cors from "cors";
 import fileUpload from "express-fileupload";
 
@@ -53,7 +54,9 @@ app.get("/product-search-all", ProductSearchController.getall);
 app.post("/gemini/chat", GeminiController.post);
 app.post("/gemini/image", GeminiController.postImage);
 
-app.get('/*', (req, res) => {
+app.post("/labels/quick-print", LabelPrinterController.printQuickLabel);
+
+app.get('/*', (req: Request, res: Response) => {
     res.sendFile('index.html', { root: '../ui/pantry-ui/dist/pantry-ui' });
 });
 
