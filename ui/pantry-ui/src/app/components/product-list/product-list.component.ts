@@ -15,6 +15,8 @@ import { MatIconModule } from "@angular/material/icon";
 import { LocalStorageService } from "../../local-storage.service";
 import { MatListModule } from "@angular/material/list";
 import { MatInputModule } from "@angular/material/input";
+import { MatDialog } from "@angular/material/dialog";
+import { PhotoUploadComponent } from "../photo-upload/photo-upload.component";
 
 type DisplayModeOption = "grid" | "list";
 type SortOption = "alphabetical" | "expire";
@@ -37,7 +39,8 @@ type SortOption = "alphabetical" | "expire";
         MatButtonToggleModule,
         MatIconModule,
         MatListModule,
-        MatInputModule
+        MatInputModule,
+        PhotoUploadComponent
     ]
 })
 export class ProductListComponent implements AfterViewInit
@@ -50,7 +53,7 @@ export class ProductListComponent implements AfterViewInit
         return this.localStorage.getItem("product-list-display-mode");
     }
     
-    constructor(private svc: ProductListService, private localStorage: LocalStorageService) {
+    constructor(private svc: ProductListService, private localStorage: LocalStorageService, private dialog: MatDialog) {
         console.log("display mode", this.DisplayMode);
         if(this.DisplayMode === null)
             this.DisplayMode = "grid";
@@ -108,5 +111,16 @@ export class ProductListComponent implements AfterViewInit
             return environment.apiUrl + "/files/" + product.Files[0].id + "?size=small";
         else
             return "";
+    }
+
+    public openPhotoUploadDialog = () => {
+        const dialogRef = this.dialog.open(PhotoUploadComponent, {
+            width: '500px'
+        });
+
+        dialogRef.componentInstance.uploadComplete.subscribe(() => {
+            dialogRef.close();
+            this.refreshList();
+        });
     }
 }

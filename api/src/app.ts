@@ -51,6 +51,7 @@ app.get("/product-search", ProductSearchController.search);
 app.get("/product-search-all", ProductSearchController.getall);
 
 app.post("/gemini/chat", GeminiController.post);
+app.post("/gemini/image", GeminiController.postImage);
 
 app.get('/*', (req, res) => {
     res.sendFile('index.html', { root: '../ui/pantry-ui/dist/pantry-ui' });
