@@ -1,4 +1,4 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { GoogleGenerativeAI, Content } from "@google/generative-ai";
 import dotenv from "dotenv";
 import { Request, Response } from "express";
 import { db } from "../../models";
@@ -20,7 +20,7 @@ const geminiConfig = {
 };
 
 const geminiModel = googleAI.getGenerativeModel({
-  model: "gemini-2.5-flash",
+  model: "gemini-1.5-flash",
   ...geminiConfig,
 });
 
@@ -42,10 +42,10 @@ const getProductContext = async (): Promise<string> => {
   for (const product of products) {
     const stockItems = product.StockItems;
     if (stockItems && stockItems.length > 0) {
-      context += `Product: ${product.title}\n`;
+      context += `Product: ${product.dataValues.title}\n`;
       for (const stockItem of stockItems) {
-        context += `  - Quantity: ${stockItem.quantity}\n`;
-        context += `  - Expiration Date: ${stockItem.expiration}\n`;
+        context += `  - Quantity: ${stockItem.dataValues.quantity}\n`;
+        context += `  - Expiration Date: ${stockItem.dataValues.expiration}\n`;
       }
     }
   }
@@ -54,11 +54,40 @@ const getProductContext = async (): Promise<string> => {
 
 export const post = async (req: Request, res: Response) => {
   try {
-    const { prompt } = req.body;
-    const productContext = await getProductContext();
-    const fullPrompt = `${productContext}\n${prompt}`;
+    const { prompt, history = [] } = req.body as {
+      prompt: string;
+      history: Content[];
+    };
 
-    const result = await geminiModel.generateContent(fullPrompt);
+    const productContext = await getProductContext();
+    const systemMessage = {
+      role: "user",
+      parts: [
+        {
+          text: `Here is the current inventory of my pantry. Please use this as context for my questions:\n${productContext}`,
+        },
+      ],
+    };
+    const modelAck = {
+      role: "model",
+      parts: [
+        {
+          text: "Okay, I have the pantry inventory. What would you like to know or do?",
+        },
+      ],
+    };
+
+    const contents: Content[] = [
+      systemMessage,
+      modelAck,
+      ...history,
+      {
+        role: "user",
+        parts: [{ text: prompt }],
+      },
+    ];
+
+    const result = await geminiModel.generateContent({ contents });
     const response = result.response;
     res.json({
       message: "success",
