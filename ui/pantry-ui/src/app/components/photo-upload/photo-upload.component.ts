@@ -87,7 +87,7 @@ export class PhotoUploadComponent implements OnInit {
   private stopCamera() {
     if (this.videoStream) {
       this.videoStream.getTracks().forEach(track => track.stop());
-.     this.videoStream = null;
+      this.videoStream = null;
       this.isCameraOn = false;
     }
   }
