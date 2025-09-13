@@ -30,7 +30,7 @@ export class AppComponent {
    *
    */
   constructor(private hardwareScanner: HardwareBarcodeScannerService, iconRegistry: MatIconRegistry) {
-    this.title = environment.siteTitle
+    this.title = "kev test"; //environment.siteTitle
     hardwareScanner.ListenForScanner();
 
     iconRegistry.setDefaultFontSetClass("material-symbols-outlined");
