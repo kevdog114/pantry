@@ -21,6 +21,7 @@ export class PhotoUploadComponent implements OnInit {
   videoStream: MediaStream | null = null;
   capturedImage: string | null = null;
   isCameraOn = false;
+  fileSelected = false;
 
   constructor(private http: HttpClient) {}
 
@@ -28,6 +29,7 @@ export class PhotoUploadComponent implements OnInit {
 
   startCamera() {
     this.isCameraOn = true;
+    this.fileSelected = false;
     navigator.mediaDevices.getUserMedia({ video: true })
       .then(stream => {
         this.videoStream = stream;
@@ -54,9 +56,23 @@ export class PhotoUploadComponent implements OnInit {
     }
   }
 
+  onFileSelected(event: Event) {
+    const target = event.target as HTMLInputElement;
+    if (target.files && target.files.length) {
+      const file = target.files[0];
+      const reader = new FileReader();
+      reader.onload = (e: any) => {
+        this.capturedImage = e.target.result;
+        this.fileSelected = true;
+        this.stopCamera();
+      };
+      reader.readAsDataURL(file);
+    }
+  }
+
   retake() {
     this.capturedImage = null;
-    this.startCamera();
+    this.fileSelected = false;
   }
 
   uploadImage() {

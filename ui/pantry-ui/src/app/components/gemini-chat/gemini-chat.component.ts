@@ -2,12 +2,13 @@ import { Component } from '@angular/core';
 import { GeminiService } from '../../services/gemini.service';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { PhotoUploadComponent } from '../photo-upload/photo-upload.component';
 
 @Component({
   selector: 'app-gemini-chat',
   templateUrl: './gemini-chat.component.html',
   styleUrls: ['./gemini-chat.component.css'],
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, PhotoUploadComponent],
   standalone: true,
 })
 export class GeminiChatComponent {
@@ -39,5 +40,9 @@ export class GeminiChatComponent {
 
   newChat() {
     this.messages = [];
+  }
+
+  onUploadComplete(product: any) {
+    this.messages.push({ sender: 'Gemini', text: `I have analyzed the image and created the following product: ${product.name}` });
   }
 }

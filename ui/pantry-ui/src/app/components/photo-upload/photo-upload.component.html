@@ -1,9 +1,11 @@
 <div class="photo-upload-container">
   <div *ngIf="!capturedImage">
-    <video #videoElement autoplay playsinline></video>
+    <video #videoElement autoplay playsinline [hidden]="fileSelected"></video>
     <div class="button-row">
-      <button mat-raised-button color="primary" (click)="startCamera()" *ngIf="!isCameraOn">Start Camera</button>
+      <button mat-raised-button color="primary" (click)="startCamera()" *ngIf="!isCameraOn && !fileSelected">Start Camera</button>
       <button mat-raised-button color="accent" (click)="captureImage()" *ngIf="isCameraOn">Capture</button>
+      <input type="file" #fileInput (change)="onFileSelected($event)" accept="image/*" style="display: none;">
+      <button mat-raised-button (click)="fileInput.click()" *ngIf="!isCameraOn">Select File</button>
     </div>
   </div>
 
