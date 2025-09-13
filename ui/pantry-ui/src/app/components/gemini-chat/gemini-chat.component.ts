@@ -21,12 +21,23 @@ export class GeminiChatComponent {
       return;
     }
 
-    this.messages.push({ sender: 'You', text: this.newMessage });
     const prompt = this.newMessage;
+    this.messages.push({ sender: 'You', text: this.newMessage });
     this.newMessage = '';
 
-    this.geminiService.sendMessage(prompt).subscribe(response => {
+    const history = this.messages.slice(0, -1).map(message => {
+      return {
+        role: message.sender === 'You' ? 'user' : 'model',
+        parts: [{ text: message.text }]
+      };
+    });
+
+    this.geminiService.sendMessage(prompt, history).subscribe(response => {
       this.messages.push({ sender: 'Gemini', text: response.data });
     });
+  }
+
+  newChat() {
+    this.messages = [];
   }
 }

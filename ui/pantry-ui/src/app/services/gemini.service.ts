@@ -12,7 +12,7 @@ export class GeminiService {
 
   constructor(private http: HttpClient) { }
 
-  sendMessage(prompt: string): Observable<any> {
-    return this.http.post<any>(this.apiUrl, { prompt });
+  sendMessage(prompt: string, history: any[]): Observable<any> {
+    return this.http.post<any>(this.apiUrl, { prompt, history });
   }
 }
