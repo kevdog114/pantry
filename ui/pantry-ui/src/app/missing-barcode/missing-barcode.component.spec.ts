@@ -1,5 +1,5 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-
+import { HttpClientTestingModule } from '@angular/common/http/testing';
 import { MissingBarcodeComponent } from './missing-barcode.component';
 
 describe('MissingBarcodeComponent', () => {
@@ -8,7 +8,7 @@ describe('MissingBarcodeComponent', () => {
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
-      imports: [MissingBarcodeComponent]
+      imports: [MissingBarcodeComponent, HttpClientTestingModule]
     })
     .compileComponents();
 

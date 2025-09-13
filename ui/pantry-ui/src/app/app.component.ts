@@ -41,7 +41,7 @@ export class AppComponent implements OnInit {
     iconRegistry: MatIconRegistry,
     private authService: AuthService,
     private router: Router) {
-    this.title = "kev test"; //environment.siteTitle
+    this.title = environment.siteTitle;
     hardwareScanner.ListenForScanner();
 
     iconRegistry.setDefaultFontSetClass("material-symbols-outlined");
