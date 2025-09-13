@@ -3,7 +3,7 @@ version: '2'
 services:
   pantry-api:
     build:
-      context: .
+      context: https://github.com/kevdog114/pantry.git
       dockerfile: api/Dockerfile
     ports:
       - 4300:4300
@@ -13,7 +13,7 @@ services:
       - pantry_data:/app/data
   pantry-ui:
     build:
-      context: .
+      context: https://github.com/kevdog114/pantry.git
       dockerfile: ui/pantry-ui/Dockerfile
       args:
         - api_baseurl=${api_baseurl}
