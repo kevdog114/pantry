@@ -1,1 +1,12 @@
-<p>gemini-chat works!</p>
+<div class="chat-container">
+  <div class="messages">
+    <div *ngFor="let message of messages" class="message">
+      <span class="sender">{{ message.sender }}: </span>
+      <span>{{ message.text }}</span>
+    </div>
+  </div>
+  <div class="input-area">
+    <input [(ngModel)]="newMessage" (keyup.enter)="sendMessage()" placeholder="Type a message...">
+    <button (click)="sendMessage()">Send</button>
+  </div>
+</div>
