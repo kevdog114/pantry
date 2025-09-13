@@ -5,6 +5,7 @@
       <span>{{ message.text }}</span>
     </div>
   </div>
+  <app-photo-upload (uploadComplete)="onUploadComplete($event)"></app-photo-upload>
   <div class="input-area">
     <input [(ngModel)]="newMessage" (keyup.enter)="sendMessage()" placeholder="Type a message...">
     <button (click)="sendMessage()">Send</button>

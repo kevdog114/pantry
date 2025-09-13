@@ -13,6 +13,7 @@ import { GeminiChatComponent } from './components/gemini-chat/gemini-chat.compon
 import { LoginComponent } from './login/login';
 import { ProfileComponent } from './profile/profile';
 import { AuthGuard } from './services/auth-guard';
+import { QuickLabelComponent } from './quick-label/quick-label.component';
 
 export const routes: Routes = [
     {
@@ -88,6 +89,10 @@ export const routes: Routes = [
         path: "gemini-chat",
         component: GeminiChatComponent,
         canActivate: [AuthGuard]
+    },
+    {
+        path: "quick-label",
+        component: QuickLabelComponent
     },
     {
         path: "**",

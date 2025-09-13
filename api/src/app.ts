@@ -1,4 +1,4 @@
-import express from "express";
+import express, { Request, Response } from "express";
 import * as ProductsController from "./controllers/ProductsController";
 import * as ProductSearchController from "./controllers/ProductSearchController";
 import * as ImageController from "./controllers/ImageController";
@@ -7,6 +7,7 @@ import * as TagsController from "./controllers/TagsController";
 import * as GeminiController from "./controllers/GeminiController";
 import * as AuthController from "./controllers/AuthController";
 import { isAuthenticated } from "./middleware/auth";
+import * as LabelPrinterController from "./controllers/labelPrinterController";
 import cors from "cors";
 import fileUpload from "express-fileupload";
 import session from "express-session";
@@ -103,7 +104,9 @@ app.get("/product-search-all", ProductSearchController.getall);
 app.post("/gemini/chat", GeminiController.post);
 app.post("/gemini/image", GeminiController.postImage);
 
-app.get('/*', (req, res) => {
+app.post("/labels/quick-print", LabelPrinterController.printQuickLabel);
+
+app.get('/*', (req: Request, res: Response) => {
     res.sendFile('index.html', { root: '../ui/pantry-ui/dist/pantry-ui' });
 });
 

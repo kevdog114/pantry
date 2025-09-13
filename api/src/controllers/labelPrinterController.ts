@@ -23,3 +23,20 @@ export const printLabel = async (req: Request, res: Response, next: NextFunction
 
     res.send({status: "ok"});
 }
+
+export const printQuickLabel = async (req: Request, res: Response, next: NextFunction): Promise<any> => {
+
+    var labelRequest = {
+        "text": req.body.text,
+        "font_size": "50",
+        "label_size": "62",
+        "align": "center"
+    };
+
+    await fetch(process.env.LABEL_PRINTER_HOST + "/api/label", {
+        method: 'POST',
+        body: new URLSearchParams(labelRequest)
+    });
+
+    res.send({status: "ok"});
+}
