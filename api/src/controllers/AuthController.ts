@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { db } from '../models';
+import { db } from '../../models';
 
 export const login = (req: Request, res: Response) => {
     res.json({ user: req.user });
