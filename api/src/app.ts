@@ -13,7 +13,7 @@ import fileUpload from "express-fileupload";
 import session from "express-session";
 import passport from "passport";
 import { Strategy as LocalStrategy } from "passport-local";
-import { db } from "./models";
+import { db } from "../models";
 
 const app = express();
 
