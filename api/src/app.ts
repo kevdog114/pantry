@@ -6,6 +6,7 @@ import * as StockItemController from "./controllers/StockItemController";
 import * as TagsController from "./controllers/TagsController";
 import * as GeminiController from "./controllers/GeminiController";
 import * as AuthController from "./controllers/AuthController";
+import * as GitInfoController from "./controllers/GitInfoController";
 import { isAuthenticated } from "./middleware/auth";
 import * as LabelPrinterController from "./controllers/labelPrinterController";
 import cors from "cors";
@@ -68,6 +69,7 @@ app.use(express.static('../ui/pantry-ui/dist/pantry-ui'));
 
 app.set("port", process.env.PORT || "4300");
 
+app.get("/git-info", GitInfoController.getGitInfo);
 app.post("/auth/login", passport.authenticate('local'), AuthController.login);
 app.get("/auth/user", AuthController.getCurrentUser);
 // All routes below this are protected

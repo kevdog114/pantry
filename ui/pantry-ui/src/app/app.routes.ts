@@ -14,6 +14,7 @@ import { LoginComponent } from './login/login';
 import { ProfileComponent } from './profile/profile';
 import { AuthGuard } from './services/auth-guard';
 import { QuickLabelComponent } from './quick-label/quick-label.component';
+import { GitInfoComponent } from './git-info/git-info.component';
 
 export const routes: Routes = [
     {
@@ -93,6 +94,10 @@ export const routes: Routes = [
     {
         path: "quick-label",
         component: QuickLabelComponent
+    },
+    {
+        path: "git-info",
+        component: GitInfoComponent
     },
     {
         path: "**",
