@@ -20,12 +20,12 @@ const geminiConfig = {
 };
 
 const geminiModel = googleAI.getGenerativeModel({
-  model: "gemini-1.5-flash",
+  model: process.env.GEMINI_TEXT_MODEL || "gemini-1.5-flash",
   ...geminiConfig,
 });
 
 const geminiVisionModel = googleAI.getGenerativeModel({
-    model: "gemini-pro-vision",
+    model: process.env.GEMINI_VISION_MODEL || "gemini-pro-vision",
     ...geminiConfig,
 })
 
