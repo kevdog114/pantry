@@ -10,7 +10,7 @@
   </div>
 
   <div *ngIf="capturedImage">
-    <img [src]="capturedImage" alt="Captured product image">
+    <img [src]="capturedImage" alt="Captured product image" class="captured-image">
     <div class="button-row">
       <button mat-raised-button (click)="retake()">Retake</button>
       <button mat-raised-button color="primary" (click)="uploadImage()">Upload</button>
