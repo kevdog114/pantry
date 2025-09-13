@@ -1,5 +1,5 @@
 import app from "./app";
-import { db } from "./models";
+import { db } from "../models";
 import * as crypto from "crypto";
 
 const createDefaultAdmin = async () => {
