@@ -36,13 +36,13 @@ export const UserModelFactory = (sequelize: Sequelize) => {
         sequelize,
         tableName: 'Users',
         hooks: {
-            beforeCreate: (user: User) => {
+            beforeCreate: (user: User, options) => {
                 if (user.password) {
                     const salt = bcrypt.genSaltSync(10);
                     user.password = bcrypt.hashSync(user.password, salt);
                 }
             },
-            beforeUpdate: (user: User) => {
+            beforeUpdate: (user: User, options) => {
                 if (user.changed('password')) {
                     const salt = bcrypt.genSaltSync(10);
                     user.password = bcrypt.hashSync(user.password as string, salt);
