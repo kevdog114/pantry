@@ -1,5 +1,5 @@
-import { Component } from '@angular/core';
-import { RouterModule, RouterOutlet } from '@angular/router';
+import { Component, OnInit } from '@angular/core';
+import { RouterModule, Router, RouterOutlet } from '@angular/router';
 import { MatIconModule, MatIconRegistry } from '@angular/material/icon';
 import { MatToolbarModule } from '@angular/material/toolbar';
 import { MatButtonModule } from '@angular/material/button';
@@ -10,6 +10,10 @@ import { environment } from '../environments/environment';
 import { MatSidenavModule } from '@angular/material/sidenav';
 import { SideMenuComponent } from './side-menu/side-menu.component';
 import { HardwareBarcodeScannerService } from './hardware-barcode-scanner.service';
+import { AuthService } from './services/auth';
+import { Observable, of } from 'rxjs';
+import { catchError, map } from 'rxjs/operators';
+import { CommonModule } from '@angular/common';
 
 @Component({
   selector: 'app-root',
@@ -18,21 +22,42 @@ import { HardwareBarcodeScannerService } from './hardware-barcode-scanner.servic
     ProductListComponent,
     RouterModule,
     MatSidenavModule,
-    SideMenuComponent
+    SideMenuComponent,
+    CommonModule
   ],
   templateUrl: './app.component.html',
-  styleUrl: './app.component.css'
+  styleUrl: './app.component.css',
+  standalone: true
 })
-export class AppComponent {
+export class AppComponent implements OnInit {
   title = "Pantry"
+  isAuthenticated: Observable<boolean> = of(false);
 
   /**
    *
    */
-  constructor(private hardwareScanner: HardwareBarcodeScannerService, iconRegistry: MatIconRegistry) {
+  constructor(
+    private hardwareScanner: HardwareBarcodeScannerService,
+    iconRegistry: MatIconRegistry,
+    private authService: AuthService,
+    private router: Router) {
     this.title = "kev test"; //environment.siteTitle
     hardwareScanner.ListenForScanner();
 
     iconRegistry.setDefaultFontSetClass("material-symbols-outlined");
+  }
+
+  ngOnInit() {
+    this.isAuthenticated = this.authService.getUser().pipe(
+        map(response => !!response.user),
+        catchError(() => of(false))
+    );
+  }
+
+  logout() {
+    this.authService.logout().subscribe(() => {
+        this.router.navigate(['/login']);
+        this.isAuthenticated = of(false);
+    });
   }
 }

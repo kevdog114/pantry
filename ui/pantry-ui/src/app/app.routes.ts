@@ -10,59 +10,84 @@ import { MissingBarcodeComponent } from './missing-barcode/missing-barcode.compo
 import { RoadmapComponent } from './roadmap/roadmap.component';
 import { TagsComponent } from './tags/tags.component';
 import { GeminiChatComponent } from './components/gemini-chat/gemini-chat.component';
+import { LoginComponent } from './login/login';
+import { ProfileComponent } from './profile/profile';
+import { AuthGuard } from './services/auth-guard';
 
 export const routes: Routes = [
     {
+        path: "login",
+        component: LoginComponent
+    },
+    {
+        path: "profile",
+        component: ProfileComponent,
+        canActivate: [AuthGuard]
+    },
+    {
         path: "home",
-        component: ProductListComponent
+        component: ProductListComponent,
+        canActivate: [AuthGuard]
     },
     {
         path: "products/create",
-        component: ProductEditComponent
+        component: ProductEditComponent,
+        canActivate: [AuthGuard]
     },
     {
         path: "products/:id/edit",
-        component: ProductEditComponent
+        component: ProductEditComponent,
+        canActivate: [AuthGuard]
     },
     {
         path: "products/:id",
-        component: ProductViewComponent
+        component: ProductViewComponent,
+        canActivate: [AuthGuard]
     },
     {
         path: "products/:productId/stock-items",
-        component: StockEditComponent
+        component: StockEditComponent,
+        canActivate: [AuthGuard]
     },
     {
         path: "products/:productId/stock-items/:stockId",
-        component: StockEditComponent
+        component: StockEditComponent,
+        canActivate: [AuthGuard]
     },
     {
         path: "barcode/scanner",
-        component: BarcodeScannerComponent
+        component: BarcodeScannerComponent,
+        canActivate: [AuthGuard]
     },
     {
         path: "barcode/lookup",
-        component: MissingBarcodeComponent
+        component: MissingBarcodeComponent,
+        canActivate: [AuthGuard]
     },
     {
         path: "settings",
-        component: SettingsComponent
+        component: SettingsComponent,
+        canActivate: [AuthGuard]
     },
     {
         path: "settings/tags",
-        component: TagsComponent
+        component: TagsComponent,
+        canActivate: [AuthGuard]
     },
     {
         path: "search",
-        component: SearchComponent
+        component: SearchComponent,
+        canActivate: [AuthGuard]
     },
     {
         path: "roadmap",
-        component: RoadmapComponent
+        component: RoadmapComponent,
+        canActivate: [AuthGuard]
     },
     {
         path: "gemini-chat",
-        component: GeminiChatComponent
+        component: GeminiChatComponent,
+        canActivate: [AuthGuard]
     },
     {
         path: "**",
