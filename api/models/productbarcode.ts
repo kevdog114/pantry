@@ -1,11 +1,9 @@
 'use strict';
 import { DataTypes, Model, Sequelize } from 'sequelize';
-import { GenericEntity } from './helpers/genericEntity';
-import { GenericRepo } from './helpers/genericRepo';
 import { ModelsType } from '.';
 
 export interface ProductBarcodeDataObject {
-  id: number
+  id?: number
   ProductId: number | string
   barcode: string
   brand: string
@@ -13,23 +11,25 @@ export interface ProductBarcodeDataObject {
   description: string
 }
 
-export interface ProductBarcodeEntity extends GenericEntity<ProductBarcodeEntity, ProductBarcodeDataObject> {
-  
+export class ProductBarcode extends Model<ProductBarcodeDataObject> {
+  /**
+   * Helper method for defining associations.
+   * This method is not a part of Sequelize lifecycle.
+   * The `models/index` file will call this method automatically.
+   */
+  static associate(models: ModelsType) {
+    ProductBarcode.belongsTo(models.Products);
+    ProductBarcode.hasOne(models.StockItems);
+  }
 }
 
-export var ProductBarcodeModelFactory = (sequelize: Sequelize): GenericRepo<ProductBarcodeEntity, ProductBarcodeDataObject> => {
-  class ProductBarcode extends Model {
-    /**
-     * Helper method for defining associations.
-     * This method is not a part of Sequelize lifecycle.
-     * The `models/index` file will call this method automatically.
-     */
-    static associate(models: ModelsType) {
-      ProductBarcode.belongsTo(models.Products);
-      ProductBarcode.hasOne(models.StockItems);
-    }
-  }
+export var ProductBarcodeModelFactory = (sequelize: Sequelize) => {
   ProductBarcode.init({
+    id: {
+      type: DataTypes.INTEGER,
+      primaryKey: true,
+      autoIncrement: true
+    },
     ProductId: DataTypes.INTEGER,
     barcode: DataTypes.STRING,
     brand: DataTypes.STRING,

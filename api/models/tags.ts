@@ -1,32 +1,32 @@
 'use strict';
 import { DataTypes, Model, Sequelize } from 'sequelize';
-import { GenericEntity } from './helpers/genericEntity';
-import { GenericRepo } from './helpers/genericRepo';
 import { ModelsType } from '.';
 
 export interface TagsDataObject {
-  id: number
+  id?: number
   tagname: string
   taggroup: string
 }
 
-export interface TagsEntity extends GenericEntity<TagsEntity, TagsDataObject> {
-
+export class Tag extends Model<TagsDataObject> {
+  /**
+   * Helper method for defining associations.
+   * This method is not a part of Sequelize lifecycle.
+   * The `models/index` file will call this method automatically.
+   */
+  static associate(models: ModelsType) {
+    // define association here
+    Tag.belongsToMany(models.Products, { through: "ProductTags" });
+  }
 }
 
-export var TagsModelFactory = (sequelize: Sequelize): GenericRepo<TagsEntity, TagsDataObject> => {
-  class Tags extends Model {
-    /**
-     * Helper method for defining associations.
-     * This method is not a part of Sequelize lifecycle.
-     * The `models/index` file will call this method automatically.
-     */
-    static associate(models: ModelsType) {
-      // define association here
-      Tags.belongsToMany(models.Products, { through: "ProductTags" });
-    }
-  }
-  Tags.init({
+export var TagsModelFactory = (sequelize: Sequelize) => {
+  Tag.init({
+    id: {
+      type: DataTypes.INTEGER,
+      primaryKey: true,
+      autoIncrement: true
+    },
     tagname: DataTypes.STRING,
     taggroup: DataTypes.STRING
   }, {
@@ -34,5 +34,5 @@ export var TagsModelFactory = (sequelize: Sequelize): GenericRepo<TagsEntity, Ta
     modelName: 'Tags',
   });
 
-  return Tags as any;
+  return Tag;
 };

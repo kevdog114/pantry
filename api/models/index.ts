@@ -5,6 +5,7 @@ import { ProductModelFactory } from './product';
 import { FileModelFactory } from './files';
 import { StockItemModelFactory } from './stockitem';
 import { ProductBarcodeModelFactory } from './productbarcode';
+import { ProductFilesModelFactory } from './productfiles';
 import { TagsModelFactory } from './tags';
 import { UserModelFactory } from './user';
 
@@ -24,6 +25,7 @@ const dbTmp = {
   Users: UserModelFactory(sequelize),
   Products: ProductModelFactory(sequelize),
   Files: FileModelFactory(sequelize),
+  ProductFiles: ProductFilesModelFactory(sequelize),
   StockItems: StockItemModelFactory(sequelize),
   ProductBarcodes: ProductBarcodeModelFactory(sequelize),
   Tags: TagsModelFactory(sequelize),
@@ -38,6 +40,7 @@ export type ModelsType = {
 dbTmp.Users.associate(dbTmp as any);
 dbTmp.Products.associate(dbTmp as any);
 dbTmp.Files.associate(dbTmp as any);
+dbTmp.ProductFiles.associate(dbTmp as any);
 dbTmp.StockItems.associate(dbTmp as any);
 dbTmp.ProductBarcodes.associate(dbTmp as any);
 dbTmp.Tags.associate(dbTmp as any);

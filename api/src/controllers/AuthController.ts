@@ -1,11 +1,11 @@
-import { Request, Response } from 'express';
+import { Request, Response, NextFunction } from 'express';
 import { db } from '../../models';
 
 export const login = (req: Request, res: Response) => {
     res.json({ user: req.user });
 };
 
-export const logout = (req: Request, res: Response, next) => {
+export const logout = (req: Request, res: Response, next: NextFunction) => {
     req.logout((err) => {
         if (err) {
             return next(err);

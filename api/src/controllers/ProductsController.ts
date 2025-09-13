@@ -1,7 +1,7 @@
 import { NextFunction, Response, Request } from "express";
 import { db } from "../../models"
 import { Op } from "sequelize";
-import { ProductEntity } from "../../models/product";
+import { Product } from "../../models/product";
 
 
 const INCLUDES = ["Files", "StockItems", "ProductBarcodes", "Tags"];
@@ -9,7 +9,7 @@ const INCLUDES = ["Files", "StockItems", "ProductBarcodes", "Tags"];
 
 export const getById = async (req: Request, res: Response, next: NextFunction): Promise<any> => {
     
-    var a = (await db.Products.findByPk(req.params.id, { include: INCLUDES })) as ProductEntity | null;
+    var a = (await db.Products.findByPk(req.params.id, { include: INCLUDES })) as Product | null;
 
     res.send(a);
 }
@@ -30,7 +30,7 @@ export const create = async (req: Request, res: Response, next: NextFunction): P
         // add it
         await db.ProductBarcodes.create({
             barcode: newBarcode.barcode,
-            ProductId: p.dataValues.id,
+            ProductId: p.dataValues.id!,
             brand: newBarcode.brand,
             description: newBarcode.description,
             quantity: newBarcode.quantity
@@ -134,7 +134,7 @@ export const updateById = async(req: Request, res: Response, next: NextFunction)
 }
 
 export const getAll = async (req: Request, res: Response, next: NextFunction): Promise<any> => {
-    type productEntityWithSummary = ProductEntity & {
+    type productEntityWithSummary = Product & {
         dataValues: {
             minExpiration: Date,
             quantityExpiringSoon: number,
@@ -158,7 +158,7 @@ export const getAll = async (req: Request, res: Response, next: NextFunction): P
             quantityExpiringSoon = stockItems[0].dataValues.quantity;
             totalQuantity = 0;
 
-            stockItems.forEach(stockItem => {
+            stockItems.forEach((stockItem: any) => {
                 totalQuantity! += stockItem.dataValues.quantity;
                 if(stockItem.dataValues.expiration < minExp!)
                 {
