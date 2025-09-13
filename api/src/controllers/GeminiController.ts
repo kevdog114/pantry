@@ -1,7 +1,7 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import dotenv from "dotenv";
 import { Request, Response } from "express";
-import { db } from "../models";
+import { db } from "../../models";
 
 dotenv.config();
 
