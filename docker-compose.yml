@@ -2,10 +2,8 @@ version: '2'
 
 services:
   pantry-api:
-    build:
-      context: https://github.com/kevdog114/pantry.git
-      dockerfile: api/Dockerfile
-    pull_policy: build
+    image: klschaefer/pantry-api:latest
+    pull_policy: always
     ports:
       - 4300:4300
     env_file:
@@ -13,15 +11,13 @@ services:
     volumes:
       - pantry_data:/app/data
   pantry-ui:
-    build:
-      context: https://github.com/kevdog114/pantry.git
-      dockerfile: ui/pantry-ui/Dockerfile
-      args:
-        - api_baseurl=${api_baseurl}
-        - site_title=${site_title}
-    pull_policy: build
+    image: klschaefer/pantry-ui:latest
+    pull_policy: always
     ports:
       - 4200:4200
+    environment:
+      - API_BASEURL=${API_BASEURL}
+      - SITE_TITLE=${SITE_TITLE}
 
 volumes:
   pantry_data:
