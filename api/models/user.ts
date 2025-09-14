@@ -8,9 +8,9 @@ export interface UserDataObject {
 }
 
 export class User extends Model<UserDataObject> {
-    public readonly id!: number;
-    public username!: string;
-    public password!: string;
+    declare id: number;
+    declare username: string;
+    declare password: string;
 
     public validPassword(password: string): boolean {
         return bcrypt.compareSync(password, this.password);
