@@ -36,7 +36,7 @@ export class Product extends Model<ProductDataObject> {
 
     Product.belongsToMany(models.Files, { through: models.ProductFiles });
     Product.belongsToMany(models.Tags, { through: "ProductTags" });
-    Product.hasMany(models.StockItems);
+    Product.hasMany(models.StockItems, { foreignKey: 'ProductId' });
     Product.hasMany(models.ProductBarcodes);
   }
 }
