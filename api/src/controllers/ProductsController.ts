@@ -1,7 +1,7 @@
 import { NextFunction, Response, Request } from "express";
 import { db } from "../../models"
 import { Op } from "sequelize";
-import { Product } from "../../models/product";
+import { Product, ProductDataObject } from "../../models/product";
 
 
 export const getById = async (req: Request, res: Response, next: NextFunction): Promise<any> => {
@@ -141,12 +141,11 @@ export const updateById = async(req: Request, res: Response, next: NextFunction)
 }
 
 export const getAll = async (req: Request, res: Response, next: NextFunction): Promise<any> => {
-    type productEntityWithSummary = Product & {
-        dataValues: {
-            minExpiration: Date,
-            quantityExpiringSoon: number,
-            totalQuantity: number
-        }
+    type productEntityWithSummary = ProductDataObject & {
+        minExpiration: Date,
+        quantityExpiringSoon: number,
+        totalQuantity: number,
+        StockItems: any[]
     }
     var products = (await db.Products
         .findAll({
@@ -156,7 +155,7 @@ export const getAll = async (req: Request, res: Response, next: NextFunction): P
                 db.ProductBarcodes,
                 db.Tags
             ]
-        })) as unknown as productEntityWithSummary[];
+        })).map(p => p.get({ plain: true })) as unknown as productEntityWithSummary[];
     
     products.forEach(product => {
         let stockItems = product.StockItems;
@@ -166,22 +165,22 @@ export const getAll = async (req: Request, res: Response, next: NextFunction): P
 
         if(stockItems && stockItems.length > 0)
         {
-            minExp = stockItems[0].dataValues.expiration;
-            quantityExpiringSoon = stockItems[0].dataValues.quantity;
+            minExp = stockItems[0].expiration;
+            quantityExpiringSoon = stockItems[0].quantity;
             totalQuantity = 0;
 
             stockItems.forEach((stockItem: any) => {
-                totalQuantity! += stockItem.dataValues.quantity;
-                if(stockItem.dataValues.expiration < minExp!)
+                totalQuantity! += stockItem.quantity;
+                if(stockItem.expiration < minExp!)
                 {
-                    minExp = stockItem.dataValues.expiration;
-                    quantityExpiringSoon = stockItem.dataValues.quantity;
+                    minExp = stockItem.expiration;
+                    quantityExpiringSoon = stockItem.quantity;
                 }
             });
 
-            product.dataValues.minExpiration = minExp;
-            product.dataValues.quantityExpiringSoon = quantityExpiringSoon;
-            product.dataValues.totalQuantity = totalQuantity;
+            product.minExpiration = minExp;
+            product.quantityExpiringSoon = quantityExpiringSoon;
+            product.totalQuantity = totalQuantity;
         }
     });
 
@@ -189,20 +188,20 @@ export const getAll = async (req: Request, res: Response, next: NextFunction): P
 
     products.sort((a, b) => {
         
-        if(a.dataValues.minExpiration === b.dataValues.minExpiration)
+        if(a.minExpiration === b.minExpiration)
             return 0;
-        else if(a.dataValues.minExpiration === undefined)
+        else if(a.minExpiration === undefined)
             return 1;
-        else if(b.dataValues.minExpiration === undefined)
+        else if(b.minExpiration === undefined)
             return -1;
-        else return a.dataValues.minExpiration < b.dataValues.minExpiration
+        else return a.minExpiration < b.minExpiration
             ? -1 : 1;
     });
 
     console.log("Products sorted", products.map(a => {
         return {
-            id: a.dataValues.id,
-            exp: a.dataValues.minExpiration
+            id: a.id,
+            exp: a.minExpiration
         }
     }));
         
