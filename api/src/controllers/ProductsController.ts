@@ -4,12 +4,14 @@ import { Op } from "sequelize";
 import { Product } from "../../models/product";
 
 
-const INCLUDES = ["Files", "StockItems", "ProductBarcodes", "Tags"];
-
-
 export const getById = async (req: Request, res: Response, next: NextFunction): Promise<any> => {
     
-    var a = (await db.Products.findByPk(req.params.id, { include: INCLUDES })) as Product | null;
+    var a = (await db.Products.findByPk(req.params.id, { include: [
+        db.StockItems,
+        db.Files,
+        db.ProductBarcodes,
+        db.Tags
+    ] })) as Product | null;
 
     res.send(a);
 }
@@ -130,7 +132,12 @@ export const updateById = async(req: Request, res: Response, next: NextFunction)
     await entity.removeTags();
     await entity.setTags(tags);
 
-    res.send(await db.Products.findByPk(req.params.id, { include: INCLUDES }));
+    res.send(await db.Products.findByPk(req.params.id, { include: [
+        db.StockItems,
+        db.Files,
+        db.ProductBarcodes,
+        db.Tags
+    ] }));
 }
 
 export const getAll = async (req: Request, res: Response, next: NextFunction): Promise<any> => {
@@ -143,7 +150,12 @@ export const getAll = async (req: Request, res: Response, next: NextFunction): P
     }
     var products = (await db.Products
         .findAll({
-            include: INCLUDES
+            include: [
+                db.StockItems,
+                db.Files,
+                db.ProductBarcodes,
+                db.Tags
+            ]
         })) as unknown as productEntityWithSummary[];
     
     products.forEach(product => {
