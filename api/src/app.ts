@@ -28,6 +28,14 @@ app.use(fileUpload({
   useTempFiles: true
 }));
 app.use(express.json());
+app.use((req, res, next) => {
+    const start = Date.now();
+    res.on('finish', () => {
+        const duration = Date.now() - start;
+        console.log(`${req.method} ${req.originalUrl} ${res.statusCode} ${duration}ms`);
+    });
+    next();
+});
 app.use(session({
     secret: process.env.SESSION_SECRET || "secret",
     resave: false,
