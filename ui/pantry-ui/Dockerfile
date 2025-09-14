@@ -5,10 +5,10 @@ WORKDIR /app
 
 RUN  npm install -g @angular/cli@19
 
-COPY ui/pantry-ui/package.json ui/pantry-ui/package-lock.json ./
+COPY package.json package-lock.json ./
 RUN npm ci
 
-COPY ui/pantry-ui/. .
+COPY . .
 
 RUN chmod +x /app/entrypoint.sh
 ENTRYPOINT ["/app/entrypoint.sh"]
