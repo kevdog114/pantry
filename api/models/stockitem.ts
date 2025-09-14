@@ -21,7 +21,7 @@ export class StockItem extends Model<StockItemDataObject> {
    */
   static associate(models: ModelsType) {
     // define association here
-    StockItem.belongsTo(models.Products);
+    StockItem.belongsTo(models.Products, { foreignKey: 'ProductId' });
     StockItem.belongsTo(models.ProductBarcodes);
   }
 }
