@@ -4,7 +4,7 @@
 </div>
 
 <div class="list-group">
-    <a [routerLink]="['/recipes', recipe.id]" class="list-group-item list-group-item-action" aria-current="true" *ngFor="let recipe of recipes; track recipe">
+    <a [routerLink]="['/recipes', recipe.id, 'edit']" class="list-group-item list-group-item-action" aria-current="true" *ngFor="let recipe of recipes; track recipe">
         <div class="d-flex w-100 justify-content-between">
             <div class="w-100">
                 <div class="d-flex w-100 justify-content-between">
