@@ -14,23 +14,23 @@ export class RecipeListService
 
     }
 
-    private a = (b: string): string => {
+    private buildApiUrl = (b: string): string => {
         return environment.apiUrl + b;
     }
 
     public getAll = (): Observable<Recipe[]> => {
-        return this.http.get<Recipe[]>(this.a("/recipes"))
+        return this.http.get<Recipe[]>(this.buildApiUrl("/recipes"))
     }
 
     public get = (id: number): Observable<Recipe> => {
-        return this.http.get<Recipe>(this.a(`/recipes/${id}`))
+        return this.http.get<Recipe>(this.buildApiUrl(`/recipes/${id}`))
     }
 
     public update = (recipe: Recipe): Observable<Recipe> => {
-        return this.http.put<Recipe>(this.a(`/recipes/${recipe.id}`), recipe);
+        return this.http.put<Recipe>(this.buildApiUrl(`/recipes/${recipe.id}`), recipe);
     }
 
     public create = (recipe: Recipe): Observable<Recipe> => {
-        return this.http.post<Recipe>(this.a(`/recipes/`), recipe);
+        return this.http.post<Recipe>(this.buildApiUrl(`/recipes/`), recipe);
     }
 }
