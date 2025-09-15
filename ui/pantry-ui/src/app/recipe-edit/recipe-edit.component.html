@@ -42,7 +42,7 @@
         </mat-tab>
         <mat-tab label="Steps">
             <button mat-icon-button (click)="addStep()"><mat-icon>add</mat-icon></button>
-            <div *ngFor="let step of recipe.steps; let i = index">
+            <div *ngFor="let step of recipe.steps; let i = index; trackBy: trackByFn">
                 <mat-form-field>
                     <mat-label>Step {{i + 1}}</mat-label>
                     <input matInput [(ngModel)]="step.description" [name]="'step-' + i">
