@@ -1,14 +1,19 @@
 'use strict';
-import { DataTypes, Model, Sequelize } from 'sequelize';
+import {
+  Model
+} from 'sequelize';
 import { ModelsType } from '.';
 
 export interface TagsDataObject {
-  id?: number
-  tagname: string
+  id?: number,
+  tagname: string,
   taggroup: string
 }
 
 export class Tag extends Model<TagsDataObject> {
+  id: number;
+  tagname: string;
+  taggroup: string;
   /**
    * Helper method for defining associations.
    * This method is not a part of Sequelize lifecycle.
@@ -16,12 +21,13 @@ export class Tag extends Model<TagsDataObject> {
    */
   static associate(models: ModelsType) {
     // define association here
-    Tag.belongsToMany(models.Products, { through: "ProductTags" });
-    Tag.belongsToMany(models.ProductBarcodes, { through: "ProductBarcodeTags" });
+    Tag.belongsToMany(models.Product, { through: "ProductTags" });
+    Tag.belongsToMany(models.ProductBarcode, { through: "ProductBarcodeTags" });
   }
 }
 
-export var TagsModelFactory = (sequelize: Sequelize) => {
+import { DataTypes, Sequelize } from 'sequelize';
+export const TagsModelFactory = (sequelize: Sequelize) => {
   Tag.init({
     id: {
       type: DataTypes.INTEGER,
@@ -32,7 +38,7 @@ export var TagsModelFactory = (sequelize: Sequelize) => {
     taggroup: DataTypes.STRING
   }, {
     sequelize,
-    modelName: 'Tags',
+    modelName: 'Tag',
   });
 
   return Tag;

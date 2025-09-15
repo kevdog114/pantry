@@ -28,28 +28,24 @@ export const create = async (req: Request, res: Response, next: NextFunction): P
     var newBarcodes: any[] = req.body.ProductBarcodes;
     if(newBarcodes == undefined) newBarcodes = [];
 
-    newBarcodes.forEach(async newBarcode => {
+    for(const newBarcode of newBarcodes) {
         // add it
         var newEntity = await db.ProductBarcodes.create({
             barcode: newBarcode.barcode,
-            ProductId: p.dataValues.id!,
+            ProductId: p.id,
             brand: newBarcode.brand,
             description: newBarcode.description,
             quantity: newBarcode.quantity
         });
 
         if(newBarcode.Tags) {
-            let tagIds = newBarcode.Tags.map((a: any) => a.id);
-            let tags = await db.Tags.findAll({
-                where: {
-                    id: {
-                        [Op.in]: tagIds
-                    }
-                }
-            });
-            await (newEntity as any).setTags(tags);
+            const tagIds = newBarcode.Tags.map((t:any) => t.id).filter((id: number) => id > 0);
+            if (tagIds.length > 0) {
+                const tags = await db.Tags.findAll({ where: { id: { [Op.in]: tagIds } } });
+                await (newEntity as any).setTags(tags);
+            }
         }
-    });
+    }
 
 
     let associatedFiles = [];
@@ -64,8 +60,8 @@ export const create = async (req: Request, res: Response, next: NextFunction): P
         }
     });
 
-    await p.removeFiles();
-    await p.setFiles(files);
+    await (p as any).removeFiles();
+    await (p as any).setFiles(files);
 
     res.send(p);
 }
@@ -86,14 +82,14 @@ export const updateById = async(req: Request, res: Response, next: NextFunction)
     });
 
     // update the barcodes
-    var existingBarcodes: Array<any> = await entity.getProductBarcodes();
+    var existingBarcodes: any[] = await (entity as any).getProductBarcodes({include: [db.Tags]});
     var newBarcodes: Array<any> = req.body.ProductBarcodes;
     if(existingBarcodes == null) existingBarcodes = [];
     if(newBarcodes == null) newBarcodes = [];
 
     for(let i = 0; i < existingBarcodes.length; i++) {
         let existingBarcode = existingBarcodes[i];
-        var matchingBarcode = newBarcodes.find(a => a.barcode == existingBarcode.barcode);
+        var matchingBarcode = newBarcodes.find(a => a.id == existingBarcode.id);
         if(matchingBarcode == undefined)
         {
             // delete it
@@ -103,7 +99,7 @@ export const updateById = async(req: Request, res: Response, next: NextFunction)
 
     for(let i = 0; i < newBarcodes.length; i++) {
         let newBarcode = newBarcodes[i];
-        var matchingBarcode = existingBarcodes.find(a => a.barcode == newBarcode.barcode);
+        var matchingBarcode = existingBarcodes.find(a => a.id == newBarcode.id);
         if(matchingBarcode == undefined)
         {
             // add it
@@ -116,20 +112,32 @@ export const updateById = async(req: Request, res: Response, next: NextFunction)
             });
 
             if(newBarcode.Tags) {
-                let tagIds = newBarcode.Tags.map((a: any) => a.id);
-                let tags = await db.Tags.findAll({
-                    where: {
-                        id: {
-                            [Op.in]: tagIds
+                let tagIds = newBarcode.Tags.map((a: any) => a.id).filter((id: number) => id > 0);
+                if (tagIds.length > 0) {
+                    let tags = await db.Tags.findAll({
+                        where: {
+                            id: {
+                                [Op.in]: tagIds
+                            }
                         }
-                    }
-                });
-                await (newEntity as any).setTags(tags);
+                    });
+                    await (newEntity as any).setTags(tags);
+                }
             }
         } else {
             // update it
+            await matchingBarcode.update(newBarcode);
             if(newBarcode.Tags) {
-                let tagIds = newBarcode.Tags.map((a: any) => a.id);
+                const tagsToAdd = newBarcode.Tags.filter(t => t.id === 0);
+                for(const t of tagsToAdd) {
+                  const newTag = await db.Tags.create({
+                    tagname: t.tagname,
+                    taggroup: ''
+                  });
+                  t.id = newTag.id;
+                }
+
+                let tagIds = newBarcode.Tags.map((a: any) => a.id).filter((id: number) => id > 0);
                 let tags = await db.Tags.findAll({
                     where: {
                         id: {
@@ -138,6 +146,8 @@ export const updateById = async(req: Request, res: Response, next: NextFunction)
                     }
                 });
                 await (matchingBarcode as any).setTags(tags);
+            } else {
+                await (matchingBarcode as any).setTags([]);
             }
         }
     }
@@ -154,8 +164,8 @@ export const updateById = async(req: Request, res: Response, next: NextFunction)
         }
     });
 
-    await entity.removeFiles();
-    await entity.setFiles(files);
+    await (entity as any).removeFiles();
+    await (entity as any).setFiles(files);
 
 
     let associatedTags = [];
@@ -170,13 +180,13 @@ export const updateById = async(req: Request, res: Response, next: NextFunction)
         }
     })
 
-    await entity.removeTags();
-    await entity.setTags(tags);
+    await (entity as any).removeTags();
+    await (entity as any).setTags(tags);
 
     res.send(await db.Products.findByPk(req.params.id, { include: [
         db.StockItems,
         db.Files,
-        db.ProductBarcodes,
+        { model: db.ProductBarcodes, include: [db.Tags]},
         db.Tags
     ] }));
 }
@@ -186,14 +196,13 @@ export const getAll = async (req: Request, res: Response, next: NextFunction): P
         minExpiration: Date,
         quantityExpiringSoon: number,
         totalQuantity: number,
-        StockItems: any[]
     }
     var products = (await db.Products
         .findAll({
             include: [
                 db.StockItems,
                 db.Files,
-                db.ProductBarcodes,
+                { model: db.ProductBarcodes, include: [db.Tags]},
                 db.Tags
             ]
         })).map(p => p.get({ plain: true })) as unknown as productEntityWithSummary[];
@@ -264,7 +273,8 @@ export const searchProductByBarcode = async (req: Request, res: Response, next: 
     var product = await db.ProductBarcodes.findOne({
         where: {
             barcode: req.query.barcode as string
-        }
+        },
+        include: [db.Tags]
     });
     
     if(product !== null)

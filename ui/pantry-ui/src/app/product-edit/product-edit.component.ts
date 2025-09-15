@@ -11,7 +11,6 @@ import { MatCardModule } from '@angular/material/card';
 import { Router } from '@angular/router';
 import { environment } from '../../environments/environment';
 import { MatTabsModule } from '@angular/material/tabs';
-import { TagsComponent } from '../tags/tags.component';
 
 @Component({
   selector: 'app-product-edit',
@@ -22,8 +21,7 @@ import { TagsComponent } from '../tags/tags.component';
     MatButtonModule,
     MatIconModule,
     MatCardModule,
-    MatTabsModule,
-    TagsComponent
+    MatTabsModule
   ],
   templateUrl: './product-edit.component.html',
   styleUrl: './product-edit.component.css'
@@ -60,9 +58,6 @@ export class ProductEditComponent implements AfterViewInit {
     if(productId !== undefined)
     {
       this.svc.Get(productId).subscribe(p => {
-        p.ProductBarcodes.forEach(b => {
-          if(!b.Tags) b.Tags = [];
-        })
         this.product = p;
       });
     }
@@ -97,8 +92,7 @@ export class ProductEditComponent implements AfterViewInit {
             brand: "",
             description: "",
             id: 0,
-            quantity: 0,
-            Tags: []
+            quantity: 0
           });
         })
       }
@@ -127,8 +121,7 @@ export class ProductEditComponent implements AfterViewInit {
       brand: "",
       description: "",
       id: 0,
-      quantity: 0,
-      Tags: []
+      quantity: 0
     });
   }
 

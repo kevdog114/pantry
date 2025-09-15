@@ -1,7 +1,6 @@
 'use strict';
 import { DataTypes, Model, Sequelize } from 'sequelize';
 import { ModelsType } from '.';
-import { TagsDataObject } from './tags';
 
 export interface ProductBarcodeDataObject {
   id?: number
@@ -10,7 +9,6 @@ export interface ProductBarcodeDataObject {
   brand: string
   quantity: number
   description: string
-  Tags?: TagsDataObject[]
 }
 
 export class ProductBarcode extends Model<ProductBarcodeDataObject> {
@@ -20,9 +18,9 @@ export class ProductBarcode extends Model<ProductBarcodeDataObject> {
    * The `models/index` file will call this method automatically.
    */
   static associate(models: ModelsType) {
-    ProductBarcode.belongsTo(models.Products);
+    ProductBarcode.belongsTo(models.Product);
     ProductBarcode.hasOne(models.StockItems);
-    ProductBarcode.belongsToMany(models.Tags, { through: "ProductBarcodeTags" });
+    ProductBarcode.belongsToMany(models.Tag, { through: "ProductBarcodeTags" });
   }
 }
 
@@ -40,7 +38,7 @@ export var ProductBarcodeModelFactory = (sequelize: Sequelize) => {
     description: DataTypes.STRING
   }, {
     sequelize,
-    modelName: 'ProductBarcode',
+    modelName: 'ProductBarcodes',
   });
   return ProductBarcode;
 };
