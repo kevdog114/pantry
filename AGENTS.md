@@ -13,19 +13,36 @@ The entire application is designed to be run with Docker, using the `docker-comp
 
 ## How to Run the Application
 
-The recommended way to run the application is by using Docker Compose.
+There are two ways to run the application using Docker Compose:
+
+### Production Mode
+
+This method uses pre-built Docker images from Docker Hub.
 
 1.  **Create a `stack.env` file:** In the root directory, create a file named `stack.env`. This file will contain the environment variables required by the application. The following variables are required:
-    *   `api_baseurl`: The base URL for the API (e.g., `http://localhost:4300`).
+    *   `API_BASEURL`: The base URL for the API (e.g., `http://localhost:4300`).
     *   `ALLOW_ORIGIN`: The URL of the UI, for CORS (e.g., `http://localhost:4200`).
-    *   `site_title`: The title to be displayed on the website (e.g., "My Pantry").
+    *   `SITE_TITLE`: The title to be displayed on the website (e.g., "My Pantry").
 
 2.  **Run Docker Compose:**
     ```bash
-    docker-compose up -d --build
+    docker-compose up -d
     ```
 
-This will build the Docker images for the API and UI and start the containers in detached mode.
+This will pull the latest Docker images for the API and UI and start the containers in detached mode.
+
+### Local Development Mode
+
+This method builds the Docker images from your local source code, which is useful for development.
+
+1.  **Create a `stack.env` file:** (See Production Mode instructions).
+
+2.  **Run Docker Compose with the development file:**
+    ```bash
+    docker-compose -f docker-compose.dev.yml up -d --build
+    ```
+
+This will build the Docker images from the local `api/` and `ui/pantry-ui/` directories and start the containers.
 
 *   The UI will be available at `http://localhost:4200`.
 *   The API will be available at `http://localhost:4300`.
