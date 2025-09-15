@@ -1,6 +1,7 @@
 'use strict';
 import { DataTypes, Model, Sequelize } from 'sequelize';
 import { ModelsType } from '.';
+import { TagsDataObject } from './tags';
 
 export interface ProductBarcodeDataObject {
   id?: number
@@ -9,6 +10,7 @@ export interface ProductBarcodeDataObject {
   brand: string
   quantity: number
   description: string
+  Tags?: TagsDataObject[]
 }
 
 export class ProductBarcode extends Model<ProductBarcodeDataObject> {
@@ -20,6 +22,7 @@ export class ProductBarcode extends Model<ProductBarcodeDataObject> {
   static associate(models: ModelsType) {
     ProductBarcode.belongsTo(models.Products);
     ProductBarcode.hasOne(models.StockItems);
+    ProductBarcode.belongsToMany(models.Tags, { through: "ProductBarcodeTags" });
   }
 }
 
