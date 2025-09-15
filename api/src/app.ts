@@ -95,6 +95,7 @@ app.get("/recipes", RecipeController.getAll);
 app.post("/recipes", RecipeController.create);
 app.get("/recipes/:id", RecipeController.getById);
 app.put("/recipes/:id", RecipeController.update);
+app.delete("/recipes/:id", RecipeController.deleteById);
 
 app.post("/files", ImageController.create);
 app.get("/files/:id", ImageController.getById);

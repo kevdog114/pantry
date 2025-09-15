@@ -56,6 +56,13 @@ export class RecipeEditComponent implements AfterViewInit {
   ngAfterViewInit(): void {
   }
 
+  public delete = () => {
+    if(this.recipe && this.recipe.id)
+      this.svc.delete(this.recipe.id).subscribe(() => {
+        this.router.navigate(["/recipes"]);
+      })
+  }
+
   public save = () => {
     if(this.recipe === undefined)
       return;

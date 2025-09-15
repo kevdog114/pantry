@@ -33,4 +33,8 @@ export class RecipeListService
     public create = (recipe: Recipe): Observable<Recipe> => {
         return this.http.post<Recipe>(this.buildApiUrl(`/recipes/`), recipe);
     }
+
+    public delete = (id: number): Observable<any> => {
+        return this.http.delete(this.buildApiUrl(`/recipes/${id}`));
+    }
 }
