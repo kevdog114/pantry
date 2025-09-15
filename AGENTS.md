@@ -104,3 +104,5 @@ To run the unit tests, use the following command:
 ```bash
 npm test
 ```
+
+**Note:** The unit tests run using Karma and Chrome. You must have Google Chrome installed on your system for the tests to run. If you have Chrome installed in a non-standard location, you may need to set the `CHROME_BIN` environment variable to the path of the Chrome executable.
