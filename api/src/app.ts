@@ -1,5 +1,6 @@
 import express, { Request, Response } from "express";
 import * as ProductsController from "./controllers/ProductsController";
+import * as RecipeController from "./controllers/RecipeController";
 import * as ProductSearchController from "./controllers/ProductSearchController";
 import * as ImageController from "./controllers/ImageController";
 import * as StockItemController from "./controllers/StockItemController";
@@ -89,6 +90,10 @@ app.delete("/products/:id", ProductsController.deleteById);
 app.get("/products", ProductsController.getAll);
 app.post("/products", ProductsController.create);
 app.put("/products/:id", ProductsController.updateById);
+
+app.get("/recipes", RecipeController.getAll);
+app.post("/recipes", RecipeController.create);
+
 app.post("/files", ImageController.create);
 app.get("/files/:id", ImageController.getById);
 app.delete("/files/:id", ImageController.deleteById);
