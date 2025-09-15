@@ -1,4 +1,6 @@
-FROM node:22-alpine
+FROM ubuntu:latest
+
+RUN apt-get update && apt-get install -y nodejs npm
 
 RUN mkdir /app
 WORKDIR /app

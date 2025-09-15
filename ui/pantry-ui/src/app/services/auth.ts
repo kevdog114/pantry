@@ -27,4 +27,16 @@ export class AuthService {
   getUser(): Observable<any> {
     return this.http.get(`${this.baseUrl}/user`, { withCredentials: true });
   }
+
+  getPersonalAccessTokens(): Observable<any> {
+    return this.http.get(environment.apiUrl + '/personal-access-tokens', { withCredentials: true });
+  }
+
+  createPersonalAccessToken(name: string): Observable<any> {
+    return this.http.post(environment.apiUrl + '/personal-access-tokens', { name }, { withCredentials: true });
+  }
+
+  deletePersonalAccessToken(id: number): Observable<any> {
+    return this.http.delete(environment.apiUrl + '/personal-access-tokens/' + id, { withCredentials: true });
+  }
 }

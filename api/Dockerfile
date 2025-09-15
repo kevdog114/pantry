@@ -1,6 +1,7 @@
-FROM node:22-alpine
+FROM ubuntu:latest
 
-RUN apk add --no-cache python3 py3-setuptools make g++
+RUN apt-get update && apt-get install -y nodejs npm
+RUN apt-get install -y python3 python3-setuptools make g++
 
 RUN mkdir /app
 RUN mkdir /app/data

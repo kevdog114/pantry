@@ -1,15 +1,58 @@
-<div>
-  <h2>Change Password</h2>
-  <form (ngSubmit)="changePassword()">
+<div class="container">
+  <div class="menu">
+    <ul>
+      <li><a href="#">Account</a></li>
+      <li><a href="#">Personal Access Tokens</a></li>
+    </ul>
+  </div>
+  <div class="content">
     <div>
-      <label for="oldPassword">Old Password:</label>
-      <input type="password" id="oldPassword" name="oldPassword" [(ngModel)]="passwords.oldPassword">
+      <h2>Change Password</h2>
+      <form (ngSubmit)="changePassword()">
+        <div>
+          <label for="oldPassword">Old Password:</label>
+          <input type="password" id="oldPassword" name="oldPassword" [(ngModel)]="passwords.oldPassword">
+        </div>
+        <div>
+          <label for="newPassword">New Password:</label>
+          <input type="password" id="newPassword" name="newPassword" [(ngModel)]="passwords.newPassword">
+        </div>
+        <button type="submit">Change Password</button>
+      </form>
+      <p>{{ message }}</p>
     </div>
+    <hr>
     <div>
-      <label for="newPassword">New Password:</label>
-      <input type="password" id="newPassword" name="newPassword" [(ngModel)]="passwords.newPassword">
+      <h2>Personal Access Tokens</h2>
+      <div *ngIf="generatedToken">
+        <h3>New Token Generated</h3>
+        <p>Here is your new token. Please copy it now. You will not be able to see it again.</p>
+        <code>{{ generatedToken }}</code>
+      </div>
+      <form (ngSubmit)="createToken()">
+        <div>
+          <label for="newTokenName">Token Name:</label>
+          <input type="text" id="newTokenName" name="newTokenName" [(ngModel)]="newTokenName">
+        </div>
+        <button type="submit">Create Token</button>
+      </form>
+      <h3>Your Tokens</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Created At</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let token of tokens">
+            <td>{{ token.name }}</td>
+            <td>{{ token.createdAt | date }}</td>
+            <td><button (click)="deleteToken(token.id)">Delete</button></td>
+          </tr>
+        </tbody>
+      </table>
     </div>
-    <button type="submit">Change Password</button>
-  </form>
-  <p>{{ message }}</p>
+  </div>
 </div>
