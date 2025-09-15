@@ -9,7 +9,7 @@ export const getById = async (req: Request, res: Response, next: NextFunction): 
     var a = (await db.Products.findByPk(req.params.id, { include: [
         db.StockItems,
         db.Files,
-        db.ProductBarcodes,
+        { model: db.ProductBarcodes, include: [db.Tags]},
         db.Tags
     ] })) as Product | null;
 
@@ -30,13 +30,25 @@ export const create = async (req: Request, res: Response, next: NextFunction): P
 
     newBarcodes.forEach(async newBarcode => {
         // add it
-        await db.ProductBarcodes.create({
+        var newEntity = await db.ProductBarcodes.create({
             barcode: newBarcode.barcode,
             ProductId: p.dataValues.id!,
             brand: newBarcode.brand,
             description: newBarcode.description,
             quantity: newBarcode.quantity
-        })
+        });
+
+        if(newBarcode.Tags) {
+            let tagIds = newBarcode.Tags.map((a: any) => a.id);
+            let tags = await db.Tags.findAll({
+                where: {
+                    id: {
+                        [Op.in]: tagIds
+                    }
+                }
+            });
+            await (newEntity as any).setTags(tags);
+        }
     });
 
 
@@ -78,28 +90,57 @@ export const updateById = async(req: Request, res: Response, next: NextFunction)
     var newBarcodes: Array<any> = req.body.ProductBarcodes;
     if(existingBarcodes == null) existingBarcodes = [];
     if(newBarcodes == null) newBarcodes = [];
-    existingBarcodes.forEach(async existingBarcode => {
+
+    for(let i = 0; i < existingBarcodes.length; i++) {
+        let existingBarcode = existingBarcodes[i];
         var matchingBarcode = newBarcodes.find(a => a.barcode == existingBarcode.barcode);
         if(matchingBarcode == undefined)
         {
             // delete it
             await existingBarcode.destroy();
         }
-    });
-    newBarcodes.forEach(async newBarcode => {
+    }
+
+    for(let i = 0; i < newBarcodes.length; i++) {
+        let newBarcode = newBarcodes[i];
         var matchingBarcode = existingBarcodes.find(a => a.barcode == newBarcode.barcode);
         if(matchingBarcode == undefined)
         {
             // add it
-            await db.ProductBarcodes.create({
+            let newEntity = await db.ProductBarcodes.create({
                 barcode: newBarcode.barcode,
                 ProductId: req.params.id,
                 brand: newBarcode.brand,
                 description: newBarcode.description,
                 quantity: newBarcode.quantity
-            })
+            });
+
+            if(newBarcode.Tags) {
+                let tagIds = newBarcode.Tags.map((a: any) => a.id);
+                let tags = await db.Tags.findAll({
+                    where: {
+                        id: {
+                            [Op.in]: tagIds
+                        }
+                    }
+                });
+                await (newEntity as any).setTags(tags);
+            }
+        } else {
+            // update it
+            if(newBarcode.Tags) {
+                let tagIds = newBarcode.Tags.map((a: any) => a.id);
+                let tags = await db.Tags.findAll({
+                    where: {
+                        id: {
+                            [Op.in]: tagIds
+                        }
+                    }
+                });
+                await (matchingBarcode as any).setTags(tags);
+            }
         }
-    })
+    }
 
     let associatedFiles = [];
     if(req.body.fileIds)
@@ -178,9 +219,12 @@ export const getAll = async (req: Request, res: Response, next: NextFunction): P
                 }
             });
 
-            product.minExpiration = minExp;
-            product.quantityExpiringSoon = quantityExpiringSoon;
-            product.totalQuantity = totalQuantity;
+            if(minExp)
+              product.minExpiration = minExp;
+            if(quantityExpiringSoon)
+              product.quantityExpiringSoon = quantityExpiringSoon;
+            if(totalQuantity)
+              product.totalQuantity = totalQuantity;
         }
     });
 
