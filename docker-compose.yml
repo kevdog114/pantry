@@ -1,6 +1,9 @@
+version: '2'
+
 services:
   pantry-api:
-    build: ./api
+    image: klschaefer/pantry-api:latest
+    pull_policy: always
     ports:
       - 4300:4300
     env_file:
@@ -8,7 +11,8 @@ services:
     volumes:
       - pantry_data:/app/data
   pantry-ui:
-    build: ./ui/pantry-ui
+    image: klschaefer/pantry-ui:latest
+    pull_policy: always
     ports:
       - 4200:4200
     environment:
