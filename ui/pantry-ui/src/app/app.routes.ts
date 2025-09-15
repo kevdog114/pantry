@@ -14,8 +14,14 @@ import { LoginComponent } from './login/login';
 import { ProfileComponent } from './profile/profile';
 import { AuthGuard } from './services/auth-guard';
 import { QuickLabelComponent } from './quick-label/quick-label.component';
+import { RecipeListComponent } from './components/recipe-list/recipe-list.component';
 
 export const routes: Routes = [
+    {
+        path: "recipes",
+        component: RecipeListComponent,
+        canActivate: [AuthGuard]
+    },
     {
         path: "login",
         component: LoginComponent
