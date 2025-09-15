@@ -1,42 +1,58 @@
 <form *ngIf="recipe">
-    <div class="row">
-        <mat-form-field>
-            <mat-label>Recipe Title</mat-label>
-            <input name="title" matInput [(ngModel)]="recipe.title" />
-        </mat-form-field>
-    </div>
-    <div class="row">
-        <mat-form-field>
-            <mat-label>Description</mat-label>
-            <textarea name="description" matInput [(ngModel)]="recipe.description"></textarea>
-        </mat-form-field>
-    </div>
-    <div class="row">
-        <div class="col-sm-4">
-            <mat-form-field class="w-100">
-                <mat-label>Prep Time</mat-label>
-                <input name="prepTime" matInput [(ngModel)]="recipe.prepTime">
-            </mat-form-field>
-        </div>
-        <div class="col-sm-4">
-            <mat-form-field class="w-100">
-                <mat-label>Cook Time</mat-label>
-                <input name="cookTime" matInput [(ngModel)]="recipe.cookTime">
-            </mat-form-field>
-        </div>
-        <div class="col-sm-4">
-            <mat-form-field class="w-100">
-                <mat-label>Total Time</mat-label>
-                <input name="totalTime" matInput [(ngModel)]="recipe.totalTime">
-            </mat-form-field>
-        </div>
-        <div class="col-sm-4">
-            <mat-form-field class="w-100">
-                <mat-label>Yield</mat-label>
-                <input name="yield" matInput [(ngModel)]="recipe.yield">
-            </mat-form-field>
-        </div>
-    </div>
+    <mat-tab-group>
+        <mat-tab label="Details">
+            <div class="row">
+                <mat-form-field>
+                    <mat-label>Recipe Title</mat-label>
+                    <input name="title" matInput [(ngModel)]="recipe.title" />
+                </mat-form-field>
+            </div>
+            <div class="row">
+                <mat-form-field>
+                    <mat-label>Description</mat-label>
+                    <textarea name="description" matInput [(ngModel)]="recipe.description"></textarea>
+                </mat-form-field>
+            </div>
+            <div class="row">
+                <div class="col-sm-4">
+                    <mat-form-field class="w-100">
+                        <mat-label>Prep Time</mat-label>
+                        <input name="prepTime" matInput [(ngModel)]="recipe.prepTime">
+                    </mat-form-field>
+                </div>
+                <div class="col-sm-4">
+                    <mat-form-field class="w-100">
+                        <mat-label>Cook Time</mat-label>
+                        <input name="cookTime" matInput [(ngModel)]="recipe.cookTime">
+                    </mat-form-field>
+                </div>
+                <div class="col-sm-4">
+                    <mat-form-field class="w-100">
+                        <mat-label>Total Time</mat-label>
+                        <input name="totalTime" matInput [(ngModel)]="recipe.totalTime">
+                    </mat-form-field>
+                </div>
+                <div class="col-sm-4">
+                    <mat-form-field class="w-100">
+                        <mat-label>Yield</mat-label>
+                        <input name="yield" matInput [(ngModel)]="recipe.yield">
+                    </mat-form-field>
+                </div>
+            </div>
+        </mat-tab>
+        <mat-tab label="Steps">
+            <button mat-icon-button (click)="addStep()"><mat-icon>add</mat-icon></button>
+            <div *ngFor="let step of recipe.steps; let i = index">
+                <mat-form-field>
+                    <mat-label>Step {{i + 1}}</mat-label>
+                    <input matInput [(ngModel)]="step.description" [name]="'step-' + i">
+                </mat-form-field>
+                <button mat-icon-button (click)="removeStep(i)"><mat-icon>delete</mat-icon></button>
+                <button mat-icon-button (click)="moveStepUp(i)" [disabled]="i === 0"><mat-icon>arrow_upward</mat-icon></button>
+                <button mat-icon-button (click)="moveStepDown(i)" [disabled]="i === recipe.steps.length - 1"><mat-icon>arrow_downward</mat-icon></button>
+            </div>
+        </mat-tab>
+    </mat-tab-group>
 
     <button mat-raised-button (click)="save()">Save</button>
     <button mat-raised-button (click)="delete()">Delete</button>

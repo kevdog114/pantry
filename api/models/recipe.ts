@@ -19,7 +19,11 @@ export class Recipe extends Model<RecipeDataObject> {
    * The `models/index` file will call this method automatically.
    */
   static associate(models: ModelsType) {
-    // define association here
+    Recipe.hasMany(models.RecipeSteps, {
+      foreignKey: 'recipeId',
+      as: 'steps',
+      onDelete: 'CASCADE'
+    });
   }
 }
 

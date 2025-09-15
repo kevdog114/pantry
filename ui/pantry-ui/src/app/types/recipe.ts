@@ -1,3 +1,5 @@
+import { RecipeStep } from "./recipe-step";
+
 export interface Recipe {
     id: number;
     title: string;
@@ -6,4 +8,5 @@ export interface Recipe {
     cookTime?: number | null;
     totalTime?: number | null;
     yield?: string | null;
+    steps: RecipeStep[];
 }
