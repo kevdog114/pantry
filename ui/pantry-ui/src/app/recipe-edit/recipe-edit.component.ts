@@ -38,6 +38,9 @@ export class RecipeEditComponent implements AfterViewInit {
     {
       this.svc.get(parseInt(recipeId)).subscribe(p => {
         this.recipe = p;
+        if(!this.recipe.steps) {
+          this.recipe.steps = [];
+        }
       });
     }
     else {
@@ -45,8 +48,38 @@ export class RecipeEditComponent implements AfterViewInit {
       this.recipe = {
         id: 0,
         title: "",
-        description: ""
+        description: "",
+        steps: []
       }
+    }
+  }
+
+  public addStep = () => {
+    this.recipe?.steps.push({
+      id: 0,
+      recipeId: this.recipe.id,
+      stepNumber: this.recipe.steps.length + 1,
+      description: ""
+    });
+  }
+
+  public removeStep = (index: number) => {
+    this.recipe?.steps.splice(index, 1);
+  }
+
+  public moveStepUp = (index: number) => {
+    if (index > 0) {
+      const step = this.recipe!.steps[index];
+      this.recipe!.steps.splice(index, 1);
+      this.recipe!.steps.splice(index - 1, 0, step);
+    }
+  }
+
+  public moveStepDown = (index: number) => {
+    if (index < this.recipe!.steps.length - 1) {
+      const step = this.recipe!.steps[index];
+      this.recipe!.steps.splice(index, 1);
+      this.recipe!.steps.splice(index + 1, 0, step);
     }
   }
 

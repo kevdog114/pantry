@@ -9,6 +9,7 @@ import { ProductFilesModelFactory } from './productfiles';
 import { TagsModelFactory } from './tags';
 import { UserModelFactory } from './user';
 import { RecipeModelFactory } from './recipe';
+import { RecipeStepModelFactory } from './recipestep';
 
 const process = require('process');
 const env = "development"; // process.env.NODE_ENV || 'development';
@@ -31,6 +32,7 @@ const dbTmp = {
   ProductBarcodes: ProductBarcodeModelFactory(sequelize),
   Tags: TagsModelFactory(sequelize),
   Recipes: RecipeModelFactory(sequelize),
+  RecipeSteps: RecipeStepModelFactory(sequelize),
   sequelize: sequelize,
   Sequelize: Sequelize
 }
@@ -47,5 +49,6 @@ dbTmp.StockItems.associate(dbTmp as any);
 dbTmp.ProductBarcodes.associate(dbTmp as any);
 dbTmp.Tags.associate(dbTmp as any);
 dbTmp.Recipes.associate(dbTmp as any);
+dbTmp.RecipeSteps.associate(dbTmp as any);
 
 export const db = dbTmp;

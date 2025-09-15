@@ -15,6 +15,17 @@ export const create = async (req: Request, res: Response, next: NextFunction): P
         totalTime: req.body.totalTime,
         yield: req.body.yield
     });
+
+    if (req.body.steps && req.body.steps.length > 0) {
+        for (let i = 0; i < req.body.steps.length; i++) {
+            await db.RecipeSteps.create({
+                recipeId: recipe.id,
+                stepNumber: i + 1,
+                description: req.body.steps[i].description
+            });
+        }
+    }
+
     res.send(recipe);
 }
 
@@ -30,7 +41,15 @@ export const deleteById = async (req: Request, res: Response, next: NextFunction
 }
 
 export const getById = async (req: Request, res: Response, next: NextFunction): Promise<any> => {
-    const recipe = await db.Recipes.findByPk(req.params.id);
+    const recipe = await db.Recipes.findByPk(req.params.id, {
+        include: [{
+            model: db.RecipeSteps,
+            as: 'steps'
+        }],
+        order: [
+            [{ model: db.RecipeSteps, as: 'steps' }, 'stepNumber', 'ASC']
+        ]
+    });
     res.send(recipe);
 }
 
@@ -49,5 +68,22 @@ export const update = async (req: Request, res: Response, next: NextFunction): P
         totalTime: req.body.totalTime,
         yield: req.body.yield
     });
+
+    await db.RecipeSteps.destroy({
+        where: {
+            recipeId: recipe.id
+        }
+    });
+
+    if (req.body.steps && req.body.steps.length > 0) {
+        for (let i = 0; i < req.body.steps.length; i++) {
+            await db.RecipeSteps.create({
+                recipeId: recipe.id,
+                stepNumber: i + 1,
+                description: req.body.steps[i].description
+            });
+        }
+    }
+
     res.send(recipe);
 }
