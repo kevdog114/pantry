@@ -83,6 +83,10 @@ export class RecipeEditComponent implements AfterViewInit {
     }
   }
 
+  trackByFn(index: number, item: any) {
+    return index;
+  }
+
   constructor(private svc: RecipeListService, private router: Router) {
   }
 
