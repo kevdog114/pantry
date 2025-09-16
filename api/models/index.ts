@@ -46,4 +46,10 @@ export type ModelsType = {
 dbTmp.Users.hasMany(dbTmp.PersonalAccessTokens, { foreignKey: 'userId', as: 'personalAccessTokens' });
 dbTmp.PersonalAccessTokens.belongsTo(dbTmp.Users, { foreignKey: 'userId', as: 'user' });
 
+Object.values(dbTmp).forEach((model: any) => {
+  if (model.associate) {
+    model.associate(dbTmp);
+  }
+});
+
 export const db = dbTmp;
