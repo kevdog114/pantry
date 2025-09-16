@@ -1,5 +1,6 @@
 <div class="photo-upload-container">
-  <div *ngIf="!capturedImage">
+  <mat-progress-spinner *ngIf="isLoading" mode="indeterminate"></mat-progress-spinner>
+  <div *ngIf="!capturedImage && !isLoading">
     <video #videoElement autoplay playsinline [hidden]="fileSelected"></video>
     <div class="button-row">
       <button mat-raised-button color="primary" (click)="startCamera()" *ngIf="!isCameraOn && !fileSelected">Start Camera</button>
@@ -9,7 +10,7 @@
     </div>
   </div>
 
-  <div *ngIf="capturedImage">
+  <div *ngIf="capturedImage && !isLoading">
     <img [src]="capturedImage" alt="Captured product image" class="captured-image">
     <div class="button-row">
       <button mat-raised-button (click)="retake()">Retake</button>
