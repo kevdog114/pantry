@@ -11,6 +11,13 @@ Pantry is a full-stack web application designed for managing your pantry. It con
 
 The entire application is designed to be run with Docker, using the `docker-compose.yml` file in the root directory.
 
+## Prerequisites
+
+Before you can run the application using Docker, you need to have the following software installed:
+
+*   **Docker:** Follow the official instructions to install Docker on your system: [https://docs.docker.com/get-docker/](https://docs.docker.com/get-docker/)
+*   **Docker Compose:** Docker Compose is included with Docker Desktop for Windows and macOS. For Linux systems, you may need to install it separately. Follow the official instructions: [https://docs.docker.com/compose/install/](https://docs.docker.com/compose/install/)
+
 ## How to Run the Application
 
 There are two ways to run the application using Docker Compose:
@@ -91,7 +98,7 @@ The UI is an Angular application written in TypeScript.
 
 ### Development
 
-To work on the UI locally, navigate to the `ui/pantry-ui/` directory.
+To work on the UI locally, navigate to the `ui/pentry-ui/` directory.
 
 1.  **Install Dependencies:**
     ```bash
