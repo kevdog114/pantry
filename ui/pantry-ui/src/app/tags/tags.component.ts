@@ -1,17 +1,15 @@
-import { AfterViewInit, Component } from '@angular/core';
-import { Tag, TagGroup, TagsService } from '../tags.service';
+import { Component, ElementRef, Input, OnInit, ViewChild } from '@angular/core';
+import { Tag, TagsService } from '../tags.service';
 import { MatCardModule } from '@angular/material/card';
 import { MatInputModule } from '@angular/material/input';
 import { MatIconModule } from '@angular/material/icon';
 import { CommonModule } from '@angular/common';
-import { FormsModule } from '@angular/forms';
+import { FormControl, FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
-
-interface TagsByGroup
-{
-  group: TagGroup,
-  tags: Tag[]
-}
+import { MatChipsModule } from '@angular/material/chips';
+import { MatAutocompleteModule, MatAutocompleteSelectedEvent } from '@angular/material/autocomplete';
+import { Observable } from 'rxjs';
+import { map, startWith } from 'rxjs/operators';
 
 @Component({
   selector: 'app-tags',
@@ -21,48 +19,59 @@ interface TagsByGroup
     MatIconModule,
     CommonModule,
     FormsModule,
-    MatButtonModule
+    MatButtonModule,
+    MatChipsModule,
+    MatAutocompleteModule,
+    ReactiveFormsModule
   ],
+  standalone: true,
   templateUrl: './tags.component.html',
-  styleUrl: './tags.component.css'
+  styleUrls: ['./tags.component.css']
 })
-export class TagsComponent implements AfterViewInit {
+export class TagsComponent implements OnInit {
 
-  public tags: TagsByGroup[] = [];
+  @Input() barcode: any;
   
+  tagCtrl = new FormControl();
+  allTags: Tag[] = [];
+  filteredTags: Observable<Tag[]>;
+
+  @ViewChild('tagInput') tagInput!: ElementRef<HTMLInputElement>;
+
   constructor(private svc: TagsService) {
-    
+    this.filteredTags = this.tagCtrl.valueChanges.pipe(
+      startWith(null),
+      map((tag: string | null) => tag ? this._filter(tag) : this.allTags.slice()));
   }
-  ngAfterViewInit(): void {
-    this.svc.GetGroups().subscribe(groups => {
-      this.tags = groups.map(g => {
-        return {
-          group: g,
-          tags: []
-        }
-      });
 
-
-      this.svc.GetAll().subscribe(tags => {
-        tags.forEach(tag => {
-          var matchingGroup = this.tags.find(a => a.group.code == tag.taggroup);
-          if(matchingGroup)
-          {
-            matchingGroup.tags.push(tag);
-          }
-        })
-      })
+  ngOnInit(): void {
+    this.svc.GetAll().subscribe(tags => {
+      this.allTags = tags.filter(t => t.taggroup === 'Category');
     });
+    if (!this.barcode.Tags) {
+      this.barcode.Tags = [];
+    }
   }
 
-  public addTag = (tag: TagsByGroup) => {
-    tag.tags.push({
-      taggroup: tag.group.code,
-      tagname: ""
-    })
+  add(event: MatAutocompleteSelectedEvent): void {
+    const value = event.option.value;
+    if (value && !this.barcode.Tags.find((t: Tag) => t.id === value.id)) {
+      this.barcode.Tags.push(value);
+    }
+    this.tagInput.nativeElement.value = '';
+    this.tagCtrl.setValue(null);
   }
 
-  public removeTagItem = (tag: TagsByGroup, tagItem: Tag) => {
-    tag.tags.splice(tag.tags.indexOf(tagItem), 1);
+  remove(tag: Tag): void {
+    const index = this.barcode.Tags.indexOf(tag);
+
+    if (index >= 0) {
+      this.barcode.Tags.splice(index, 1);
+    }
+  }
+
+  private _filter(value: string): Tag[] {
+    const filterValue = typeof value === 'string' ? value.toLowerCase() : '';
+    return this.allTags.filter(tag => tag.tagname.toLowerCase().includes(filterValue));
   }
 }

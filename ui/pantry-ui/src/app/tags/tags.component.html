@@ -1,20 +1,24 @@
-<h1>Tags editor</h1>
-
-<mat-card *ngFor="let tag of tags">
-    <mat-card-header>
-        <mat-card-title>
-            {{tag.group.display}}
-            <button mat-icon-button (click)="addTag(tag)"><mat-icon>add</mat-icon></button>
-        </mat-card-title>
-    </mat-card-header>
-    <mat-card-content>
-        <div *ngFor="let tagItem of tag.tags; track tagItem">
-            <mat-form-field>
-                <input matInput [(ngModel)]="tagItem.tagname">
-                <button mat-icon-button matSuffix (click)="removeTagItem(tag, tagItem)">
-                    <mat-icon>delete</mat-icon>
-                </button>
-            </mat-form-field>
-        </div>
-    </mat-card-content>
-</mat-card>
+<mat-form-field class="example-chip-list">
+  <mat-label>Category Tags</mat-label>
+  <mat-chip-grid #chipGrid aria-label="Tag selection">
+    @for (tag of barcode.Tags; track tag) {
+      <mat-chip-row (removed)="remove(tag)">
+        {{tag.tagname}}
+        <button matChipRemove [attr.aria-label]="'remove ' + tag.tagname">
+          <mat-icon>cancel</mat-icon>
+        </button>
+      </mat-chip-row>
+    }
+  </mat-chip-grid>
+  <input placeholder="New Tag..."
+         #tagInput
+         [formControl]="tagCtrl"
+         [matAutocomplete]="auto"
+         [matChipInputFor]="chipGrid"
+         />
+  <mat-autocomplete #auto="matAutocomplete" (optionSelected)="add($event)">
+    @for (tag of filteredTags | async; track tag) {
+      <mat-option [value]="tag">{{tag.tagname}}</mat-option>
+    }
+  </mat-autocomplete>
+</mat-form-field>

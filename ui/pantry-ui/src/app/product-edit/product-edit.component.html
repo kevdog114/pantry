@@ -42,33 +42,31 @@
                     
             @for(barcode of product.ProductBarcodes; track barcode.barcode) {
                 <div class="row">
-                    <div class="col-sm-3">
+                    <div class="col-sm-2">
                         <mat-form-field>
                             <mat-label>Barcode</mat-label>
                             <input [name]="'barcode-' + $index" class="barcode-input" matInput [(ngModel)]="barcode.barcode">
                         </mat-form-field>
                     </div>
-                    <div class="col-sm-4">
+                    <div class="col-sm-2">
                         <mat-form-field>
                             <mat-label>Brand</mat-label>
                             <input [name]="'brand-' + $index" matInput [(ngModel)]="barcode.brand">
                         </mat-form-field>
                     </div>
-                    <div class="col-sm-4">
+                    <div class="col-sm-3">
                         <mat-form-field>
                             <mat-label>Description</mat-label>
                             <input [name]="'description-' + $index" matInput [(ngModel)]="barcode.description">
                         </mat-form-field>
                     </div>
+                    <div class="col-sm-4">
+                        <app-tags [barcode]="barcode"></app-tags>
+                    </div>
                     <div class="col-sm-1">
                         <button mat-icon-button matSuffix (click)="removeBarcode(barcode)">
                             <mat-icon>delete</mat-icon>
                         </button>
-                    </div>
-                </div>
-                <div class="row">
-                    <div class="col">
-                        <app-tags></app-tags>
                     </div>
                 </div>
                 }
