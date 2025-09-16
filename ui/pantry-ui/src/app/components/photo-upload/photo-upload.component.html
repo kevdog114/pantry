@@ -5,6 +5,7 @@
     <div class="button-row">
       <button mat-raised-button color="primary" (click)="startCamera()" *ngIf="!isCameraOn && !fileSelected">Start Camera</button>
       <button mat-raised-button color="accent" (click)="captureImage()" *ngIf="isCameraOn">Capture</button>
+      <button mat-raised-button (click)="switchCamera()" *ngIf="isCameraOn && cameras.length > 1">Switch Camera</button>
       <input type="file" #fileInput (change)="onFileSelected($event)" accept="image/*" style="display: none;">
       <button mat-raised-button (click)="fileInput.click()" *ngIf="!isCameraOn">Select File</button>
     </div>

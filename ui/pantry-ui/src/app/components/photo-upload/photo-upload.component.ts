@@ -25,15 +25,34 @@ export class PhotoUploadComponent implements OnInit {
   isCameraOn = false;
   fileSelected = false;
   isLoading = false;
+  cameras: MediaDeviceInfo[] = [];
+  currentCameraIndex = 0;
 
   constructor(private http: HttpClient, private router: Router) {}
 
-  ngOnInit(): void {}
+  ngOnInit(): void {
+    this.getCameras();
+  }
 
-  startCamera() {
+  getCameras() {
+    navigator.mediaDevices.enumerateDevices()
+      .then(devices => {
+        this.cameras = devices.filter(device => device.kind === 'videoinput');
+      })
+      .catch(err => console.error('Error enumerating devices:', err));
+  }
+
+  startCamera(deviceId?: string) {
     this.isCameraOn = true;
     this.fileSelected = false;
-    navigator.mediaDevices.getUserMedia({ video: true })
+
+    const constraints = {
+      video: {
+        deviceId: deviceId ? { exact: deviceId } : undefined
+      }
+    };
+
+    navigator.mediaDevices.getUserMedia(constraints)
       .then(stream => {
         this.videoStream = stream;
         if (this.videoElement) {
@@ -41,6 +60,15 @@ export class PhotoUploadComponent implements OnInit {
         }
       })
       .catch(err => console.error('Error accessing camera:', err));
+  }
+
+  switchCamera() {
+    if (this.cameras.length > 1) {
+      this.currentCameraIndex = (this.currentCameraIndex + 1) % this.cameras.length;
+      const deviceId = this.cameras[this.currentCameraIndex].deviceId;
+      this.stopCamera();
+      this.startCamera(deviceId);
+    }
   }
 
   captureImage() {
