@@ -1,4 +1,5 @@
 import { AfterViewInit, Component, input, Input } from '@angular/core';
+import { TagsComponent } from '../tags/tags.component';
 import { FormsModule } from '@angular/forms';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
@@ -21,7 +22,8 @@ import { MatTabsModule } from '@angular/material/tabs';
     MatButtonModule,
     MatIconModule,
     MatCardModule,
-    MatTabsModule
+    MatTabsModule,
+    TagsComponent
   ],
   templateUrl: './product-edit.component.html',
   styleUrl: './product-edit.component.css'
