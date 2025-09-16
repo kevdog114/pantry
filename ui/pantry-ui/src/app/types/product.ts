@@ -26,8 +26,6 @@ export interface ProductBarcode
     brand: string
     quantity: number
     description: string
-
-    Tags: ProductTags[]
 }
 
 export interface ProductTags

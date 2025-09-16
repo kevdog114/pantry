@@ -19,7 +19,7 @@ export const create = async (req: Request, res: Response, next: NextFunction): P
     if (req.body.steps && req.body.steps.length > 0) {
         for (let i = 0; i < req.body.steps.length; i++) {
             await db.RecipeSteps.create({
-                recipeId: (recipe as any).id,
+                recipeId: recipe.id,
                 stepNumber: i + 1,
                 description: req.body.steps[i].description
             });
@@ -71,14 +71,14 @@ export const update = async (req: Request, res: Response, next: NextFunction): P
 
     await db.RecipeSteps.destroy({
         where: {
-            recipeId: (recipe as any).id
+            recipeId: recipe.id
         }
     });
 
     if (req.body.steps && req.body.steps.length > 0) {
         for (let i = 0; i < req.body.steps.length; i++) {
             await db.RecipeSteps.create({
-                recipeId: (recipe as any).id,
+                recipeId: recipe.id,
                 stepNumber: i + 1,
                 description: req.body.steps[i].description
             });

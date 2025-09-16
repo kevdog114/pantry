@@ -6,10 +6,6 @@ import { Tag } from './tags';
 import { File } from './files';
 import { ProductBarcode } from './productbarcode';
 
-import { ProductBarcodeDataObject } from './productbarcode';
-import { StockItemDataObject } from './stockitem';
-
-
 export interface ProductDataObject {
   id?: number
   title: string
@@ -18,9 +14,6 @@ export interface ProductDataObject {
   freezerLifespanDays?: number | null,
   refrigeratorLifespanDays?: number | null,
   openedLifespanDays?: number | null
-
-  StockItems?: StockItemDataObject[]
-  ProductBarcodes?: ProductBarcodeDataObject[]
 }
 
 export class Product extends Model<ProductDataObject> {
