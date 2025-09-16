@@ -4,11 +4,13 @@ import { Component, ElementRef, EventEmitter, OnInit, Output, ViewChild } from '
 import { MatButtonModule } from '@angular/material/button';
 import { Product } from '../../../types/product';
 import { environment } from '../../../environments/environment';
+import { Router } from '@angular/router';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 
 @Component({
   selector: 'app-photo-upload',
   standalone: true,
-  imports: [CommonModule, MatButtonModule, HttpClientModule],
+  imports: [CommonModule, MatButtonModule, HttpClientModule, MatProgressSpinnerModule],
   templateUrl: './photo-upload.component.html',
   styleUrl: './photo-upload.component.css'
 })
@@ -22,8 +24,9 @@ export class PhotoUploadComponent implements OnInit {
   capturedImage: string | null = null;
   isCameraOn = false;
   fileSelected = false;
+  isLoading = false;
 
-  constructor(private http: HttpClient) {}
+  constructor(private http: HttpClient, private router: Router) {}
 
   ngOnInit(): void {}
 
@@ -78,13 +81,16 @@ export class PhotoUploadComponent implements OnInit {
 
   uploadImage() {
     if (this.capturedImage) {
+      this.isLoading = true;
       const blob = this.dataURLtoBlob(this.capturedImage);
       const formData = new FormData();
       formData.append('file', blob, 'product-image.jpg');
 
       this.http.post<Product>(`${environment.apiUrl}/gemini/image`, formData)
         .subscribe(product => {
+          this.isLoading = false;
           this.uploadComplete.emit(product);
+          this.router.navigate(['/product', product.id]);
         });
     }
   }
