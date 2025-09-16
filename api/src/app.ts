@@ -7,6 +7,7 @@ import * as StockItemController from "./controllers/StockItemController";
 import * as TagsController from "./controllers/TagsController";
 import * as GeminiController from "./controllers/GeminiController";
 import * as AuthController from "./controllers/AuthController";
+import { PersonalAccessTokenController } from "./controllers/PersonalAccessTokenController";
 import { isAuthenticated } from "./middleware/auth";
 import * as LabelPrinterController from "./controllers/labelPrinterController";
 import cors from "cors";
@@ -84,6 +85,11 @@ app.use(isAuthenticated);
 
 app.post("/auth/logout", AuthController.logout);
 app.post("/auth/password", AuthController.changePassword);
+
+const patController = new PersonalAccessTokenController();
+const patRouter = express.Router();
+patController.routes(patRouter);
+app.use('/auth', patRouter);
 
 app.get("/products/:id", ProductsController.getById);
 app.delete("/products/:id", ProductsController.deleteById);

@@ -10,6 +10,7 @@ import { TagsModelFactory } from './tags';
 import { UserModelFactory } from './user';
 import { RecipeModelFactory } from './recipe';
 import { RecipeStepModelFactory } from './recipestep';
+import { PersonalAccessTokenModelFactory } from './personalaccesstoken';
 
 const process = require('process');
 const env = "development"; // process.env.NODE_ENV || 'development';
@@ -33,6 +34,7 @@ const dbTmp = {
   Tags: TagsModelFactory(sequelize),
   Recipes: RecipeModelFactory(sequelize),
   RecipeSteps: RecipeStepModelFactory(sequelize),
+  PersonalAccessTokens: PersonalAccessTokenModelFactory(sequelize),
   sequelize: sequelize,
   Sequelize: Sequelize
 }
@@ -41,14 +43,7 @@ export type ModelsType = {
   [Property in keyof typeof dbTmp]: ModelStatic<Model<any, any>>
 };
 
-dbTmp.Users.associate(dbTmp as any);
-dbTmp.Products.associate(dbTmp as any);
-dbTmp.Files.associate(dbTmp as any);
-dbTmp.ProductFiles.associate(dbTmp as any);
-dbTmp.StockItems.associate(dbTmp as any);
-dbTmp.ProductBarcodes.associate(dbTmp as any);
-dbTmp.Tags.associate(dbTmp as any);
-dbTmp.Recipes.associate(dbTmp as any);
-dbTmp.RecipeSteps.associate(dbTmp as any);
+dbTmp.Users.hasMany(dbTmp.PersonalAccessTokens, { foreignKey: 'userId', as: 'personalAccessTokens' });
+dbTmp.PersonalAccessTokens.belongsTo(dbTmp.Users, { foreignKey: 'userId', as: 'user' });
 
 export const db = dbTmp;

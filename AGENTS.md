@@ -11,21 +11,45 @@ Pantry is a full-stack web application designed for managing your pantry. It con
 
 The entire application is designed to be run with Docker, using the `docker-compose.yml` file in the root directory.
 
+## Prerequisites
+
+Before you can run the application using Docker, you need to have the following software installed:
+
+*   **Docker:** Follow the official instructions to install Docker on your system: [https://docs.docker.com/get-docker/](https://docs.docker.com/get-docker/)
+*   **Docker Compose:** Docker Compose is included with Docker Desktop for Windows and macOS. For Linux systems, you may need to install it separately. Follow the official instructions: [https://docs.docker.com/compose/install/](https://docs.docker.com/compose/install/)
+
 ## How to Run the Application
 
-The recommended way to run the application is by using Docker Compose.
+There are two ways to run the application using Docker Compose:
+
+### Production Mode
+
+This method uses pre-built Docker images from Docker Hub.
 
 1.  **Create a `stack.env` file:** In the root directory, create a file named `stack.env`. This file will contain the environment variables required by the application. The following variables are required:
-    *   `api_baseurl`: The base URL for the API (e.g., `http://localhost:4300`).
+    *   `API_BASEURL`: The base URL for the API (e.g., `http://localhost:4300`).
     *   `ALLOW_ORIGIN`: The URL of the UI, for CORS (e.g., `http://localhost:4200`).
-    *   `site_title`: The title to be displayed on the website (e.g., "My Pantry").
+    *   `SITE_TITLE`: The title to be displayed on the website (e.g., "My Pantry").
 
 2.  **Run Docker Compose:**
     ```bash
-    docker-compose up -d --build
+    docker-compose up -d
     ```
 
-This will build the Docker images for the API and UI and start the containers in detached mode.
+This will pull the latest Docker images for the API and UI and start the containers in detached mode.
+
+### Local Development Mode
+
+This method builds the Docker images from your local source code, which is useful for development.
+
+1.  **Create a `stack.env` file:** (See Production Mode instructions).
+
+2.  **Run Docker Compose with the development file:**
+    ```bash
+    docker-compose -f docker-compose.dev.yml up -d --build
+    ```
+
+This will build the Docker images from the local `api/` and `ui/pantry-ui/` directories and start the containers.
 
 *   The UI will be available at `http://localhost:4200`.
 *   The API will be available at `http://localhost:4300`.
@@ -74,7 +98,7 @@ The UI is an Angular application written in TypeScript.
 
 ### Development
 
-To work on the UI locally, navigate to the `ui/pantry-ui/` directory.
+To work on the UI locally, navigate to the `ui/pentry-ui/` directory.
 
 1.  **Install Dependencies:**
     ```bash
@@ -104,3 +128,5 @@ To run the unit tests, use the following command:
 ```bash
 npm test
 ```
+
+**Note:** The unit tests run using Karma and Chrome. You must have Google Chrome installed on your system for the tests to run. If you have Chrome installed in a non-standard location, you may need to set the `CHROME_BIN` environment variable to the path of the Chrome executable.

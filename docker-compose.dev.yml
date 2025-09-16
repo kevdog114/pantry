@@ -1,0 +1,23 @@
+version: '2'
+
+services:
+  pantry-api:
+    build: ./api
+    container_name: pantry-api-dev
+    ports:
+      - 4300:4300
+    env_file:
+      - stack.env
+    volumes:
+      - pantry_data:/app/data
+  pantry-ui:
+    build: ./ui/pantry-ui
+    container_name: pantry-ui-dev
+    ports:
+      - 4200:4200
+    environment:
+      - API_BASEURL=${API_BASEURL}
+      - SITE_TITLE=${SITE_TITLE}
+
+volumes:
+  pantry_data:
