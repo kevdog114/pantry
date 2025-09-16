@@ -5,6 +5,7 @@ import { Observable } from 'rxjs';
 
 export interface Tag
 {
+  id: number
   tagname: string
   taggroup: string
 }
