@@ -38,7 +38,7 @@ export var ProductBarcodeModelFactory = (sequelize: Sequelize) => {
     description: DataTypes.STRING
   }, {
     sequelize,
-    modelName: 'ProductBarcodes',
+    modelName: 'ProductBarcode',
   });
   return ProductBarcode;
 };
