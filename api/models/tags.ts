@@ -21,8 +21,8 @@ export class Tag extends Model<TagsDataObject> {
    */
   static associate(models: ModelsType) {
     // define association here
-    Tag.belongsToMany(models.Product, { through: "ProductTags" });
-    Tag.belongsToMany(models.ProductBarcode, { through: "ProductBarcodeTags" });
+    Tag.belongsToMany(models.Products, { through: "ProductTags" });
+    Tag.belongsToMany(models.ProductBarcodes, { through: "ProductBarcodeTags" });
   }
 }
 

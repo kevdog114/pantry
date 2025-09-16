@@ -18,9 +18,9 @@ export class ProductBarcode extends Model<ProductBarcodeDataObject> {
    * The `models/index` file will call this method automatically.
    */
   static associate(models: ModelsType) {
-    ProductBarcode.belongsTo(models.Product);
+    ProductBarcode.belongsTo(models.Products);
     ProductBarcode.hasOne(models.StockItems);
-    ProductBarcode.belongsToMany(models.Tag, { through: "ProductBarcodeTags" });
+    ProductBarcode.belongsToMany(models.Tags, { through: "ProductBarcodeTags" });
   }
 }
 
