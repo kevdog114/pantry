@@ -1,7 +1,7 @@
 <mat-form-field class="example-chip-list">
-  <mat-label>Category Tags</mat-label>
+  <mat-label>{{ category }} Tags</mat-label>
   <mat-chip-grid #chipGrid aria-label="Tag selection">
-    @for (tag of barcode.Tags; track tag) {
+    @for (tag of selectedTags; track tag) {
       <mat-chip-row (removed)="remove(tag)">
         {{tag.tagname}}
         <button matChipRemove [attr.aria-label]="'remove ' + tag.tagname">

@@ -1,4 +1,4 @@
-import { Component, ElementRef, Input, OnInit, ViewChild } from '@angular/core';
+import { Component, ElementRef, EventEmitter, Input, OnInit, Output, ViewChild } from '@angular/core';
 import { Tag, TagsService } from '../tags.service';
 import { MatCardModule } from '@angular/material/card';
 import { MatInputModule } from '@angular/material/input';
@@ -30,8 +30,10 @@ import { map, startWith } from 'rxjs/operators';
 })
 export class TagsComponent implements OnInit {
 
-  @Input() barcode: any;
-  
+  @Input() category!: string;
+  @Input() selectedTags: Tag[] = [];
+  @Output() selectionChange = new EventEmitter<Tag[]>();
+
   tagCtrl = new FormControl();
   allTags: Tag[] = [];
   filteredTags: Observable<Tag[]>;
@@ -46,27 +48,29 @@ export class TagsComponent implements OnInit {
 
   ngOnInit(): void {
     this.svc.GetAll().subscribe(tags => {
-      this.allTags = tags.filter(t => t.taggroup === 'Category');
+      this.allTags = tags.filter(t => t.taggroup === this.category);
     });
-    if (!this.barcode.Tags) {
-      this.barcode.Tags = [];
+    if (!this.selectedTags) {
+      this.selectedTags = [];
     }
   }
 
   add(event: MatAutocompleteSelectedEvent): void {
     const value = event.option.value;
-    if (value && !this.barcode.Tags.find((t: Tag) => t.id === value.id)) {
-      this.barcode.Tags.push(value);
+    if (value && !this.selectedTags.find((t: Tag) => t.id === value.id)) {
+      this.selectedTags.push(value);
+      this.selectionChange.emit(this.selectedTags);
     }
     this.tagInput.nativeElement.value = '';
     this.tagCtrl.setValue(null);
   }
 
   remove(tag: Tag): void {
-    const index = this.barcode.Tags.indexOf(tag);
+    const index = this.selectedTags.indexOf(tag);
 
     if (index >= 0) {
-      this.barcode.Tags.splice(index, 1);
+      this.selectedTags.splice(index, 1);
+      this.selectionChange.emit(this.selectedTags);
     }
   }
 

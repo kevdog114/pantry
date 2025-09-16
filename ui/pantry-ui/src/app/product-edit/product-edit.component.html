@@ -61,7 +61,7 @@
                         </mat-form-field>
                     </div>
                     <div class="col-sm-4">
-                        <app-tags [barcode]="barcode"></app-tags>
+                        <app-tags category="Category" [selectedTags]="barcode.Tags" (selectionChange)="barcode.Tags = $event"></app-tags>
                     </div>
                     <div class="col-sm-1">
                         <button mat-icon-button matSuffix (click)="removeBarcode(barcode)">
