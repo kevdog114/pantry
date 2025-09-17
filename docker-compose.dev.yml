@@ -8,6 +8,8 @@ services:
       - 4300:4300
     env_file:
       - stack.env
+    environment:
+      - DEFAULT_ADMIN_PASSWORD=${DEFAULT_ADMIN_PASSWORD}
     volumes:
       - pantry_data:/app/data
   pantry-ui:

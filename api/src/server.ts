@@ -5,7 +5,7 @@ import * as crypto from "crypto";
 const createDefaultAdmin = async () => {
     const users = await db.Users.findAll();
     if (users.length === 0) {
-        const password = crypto.randomBytes(16).toString('hex');
+        const password = process.env.DEFAULT_ADMIN_PASSWORD || crypto.randomBytes(16).toString('hex');
         await db.Users.create({
             username: 'admin',
             password: password,
