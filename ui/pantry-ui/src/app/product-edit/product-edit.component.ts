@@ -94,7 +94,8 @@ export class ProductEditComponent implements AfterViewInit {
             brand: "",
             description: "",
             id: 0,
-            quantity: 0
+            quantity: 0,
+            Tags: []
           });
         })
       }
@@ -123,7 +124,8 @@ export class ProductEditComponent implements AfterViewInit {
       brand: "",
       description: "",
       id: 0,
-      quantity: 0
+      quantity: 0,
+      Tags: []
     });
   }
 
