@@ -79,23 +79,35 @@ To work on the API locally, navigate to the `api/` directory.
     ```
     This will start the server and watch for changes. The API will be available at `http://localhost:4300`.
 
-### Database Migrations
+### Database Management
 
-The project uses Sequelize for database migrations.
+The project uses Prisma ORM for database management.
 
-*   **Run Migrations:**
+*   **Development Migrations:**
     ```bash
-    npx sequelize-cli db:migrate
+    # Create and apply a new migration
+    npx prisma migrate dev
+
+    # Update database schema without migrations
+    npx prisma db push
     ```
 
-*   **Undo Migrations:**
+*   **Production Deployment:**
     ```bash
-    npx sequelize-cli db:migrate:undo
+    # Apply pending migrations in production
+    npx prisma migrate deploy
     ```
 
-*   **Create a new Migration:**
+*   **Database Tools:**
     ```bash
-    npx sequelize-cli migration:generate --name your-migration-name
+    # Reset database and apply migrations
+    npx prisma migrate reset
+
+    # Open Prisma Studio for data management
+    npx prisma studio
+
+    # Update Prisma Client after schema changes
+    npx prisma generate
     ```
 
 ## UI (Frontend)

@@ -1,14 +1,20 @@
 import app from "./app";
-import { db } from "../models";
+import prisma from './lib/prisma';
 import * as crypto from "crypto";
+import * as bcrypt from 'bcryptjs';
 
 const createDefaultAdmin = async () => {
-    const users = await db.Users.findAll();
+    const users = await prisma.user.findMany();
     if (users.length === 0) {
         const password = process.env.DEFAULT_ADMIN_PASSWORD || crypto.randomBytes(16).toString('hex');
-        await db.Users.create({
-            username: 'admin',
-            password: password,
+        const salt = bcrypt.genSaltSync(10);
+        const hashedPassword = bcrypt.hashSync(password, salt);
+        
+        await prisma.user.create({
+            data: {
+                username: 'admin',
+                password: hashedPassword,
+            }
         });
         console.log("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
         console.log("!!! NO USERS FOUND, CREATED DEFAULT ADMIN WITH PASSWORD: !!!");
