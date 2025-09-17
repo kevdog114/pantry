@@ -7,9 +7,7 @@ services:
     ports:
       - 4300:4300
     env_file:
-      - stack.env
-    environment:
-      - DEFAULT_ADMIN_PASSWORD=${DEFAULT_ADMIN_PASSWORD}
+      - stack.dev.env
     volumes:
       - pantry_data:/app/data
   pantry-ui:
@@ -17,9 +15,8 @@ services:
     container_name: pantry-ui-dev
     ports:
       - 4200:4200
-    environment:
-      - API_BASEURL=${API_BASEURL}
-      - SITE_TITLE=${SITE_TITLE}
+    env_file:
+      - stack.dev.env
 
 volumes:
   pantry_data:
