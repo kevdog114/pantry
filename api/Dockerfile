@@ -12,6 +12,8 @@ RUN npm ci
 
 COPY . .
 
+RUN npx prisma generate
+
 RUN chmod +x /app/run.sh
 
 CMD ["/app/run.sh"]
