@@ -64,14 +64,14 @@ export class StockEditComponent implements AfterViewInit {
         this.product = product;
         var matchingStock: StockItem | undefined = undefined;
         if(this._stockId !== undefined) {
-          matchingStock = product.StockItems.find(a => a.id == this._stockId);
+          matchingStock = product.stockItems.find(a => a.id == this._stockId);
         }
         if(matchingStock !== undefined)
           this.stockItem = matchingStock;
         else {
           var newStock: Partial<StockItem> = {
             expiration: new Date(),
-            ProductId: this._productId!,
+            productId: this._productId!,
             quantity: 1,
           };
 

@@ -7,8 +7,8 @@
     <div class="row">
         <mat-form-field>
             <mat-label>Product Barcode</mat-label>
-            <mat-select [(value)]="stockItem.ProductBarcodeId">
-                <mat-option *ngFor="let bc of product?.ProductBarcodes" [value]="bc.id">({{bc.barcode}}) {{bc.brand}} - {{bc.description}} - {{bc.quantity}}</mat-option>
+            <mat-select [(value)]="stockItem.productBarcodeId">
+                <mat-option *ngFor="let bc of product?.productBarcodes" [value]="bc.id">({{bc.barcode}}) {{bc.brand}} - {{bc.description}} - {{bc.quantity}}</mat-option>
             </mat-select>
         </mat-form-field>
     </div>

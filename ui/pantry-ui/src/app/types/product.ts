@@ -7,11 +7,11 @@ export interface FileMeta
 export interface StockItem
 {
     id?: number,
-    ProductId: number,
+    productId: number,
     quantity: number,
     expiration: Date
 
-    ProductBarcodeId: number
+    productBarcodeId: number
     isOpened: boolean
     isFrozen: boolean
     expirationExtensionAfterThaw: number
@@ -26,7 +26,7 @@ export interface ProductBarcode
     brand: string
     quantity: number
     description: string
-    Tags: Array<ProductTags>
+    tags: Array<ProductTags>
 }
 
 export interface ProductTags
@@ -40,11 +40,11 @@ export interface Product
 {
     id: number
     title: string
-    Files: Array<FileMeta>
+    files: Array<FileMeta>
     fileIds: Array<number>
-    ProductBarcodes: Array<ProductBarcode>
-    StockItems: Array<StockItem>
-    Tags: Array<ProductTags>
+    productBarcodes: Array<ProductBarcode>
+    stockItems: Array<StockItem>
+    tags: Array<ProductTags>
     minExpiration?: Date
     quantityExpiringSoon?: number
     totalQuantity?: number

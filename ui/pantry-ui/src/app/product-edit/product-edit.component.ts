@@ -67,11 +67,11 @@ export class ProductEditComponent implements AfterViewInit {
       this.isCreate = true;
       this.product = {
         fileIds: [],
-        Files: [],
-        Tags: [],
+        files: [],
+        tags: [],
         id: 0,
-        ProductBarcodes: [],
-        StockItems: [],
+        productBarcodes: [],
+        stockItems: [],
         title: ""
       }
     }
@@ -88,14 +88,14 @@ export class ProductEditComponent implements AfterViewInit {
       if(this.queryData.barcodes)
       {
         this.queryData.barcodes.forEach(barcode => {
-          this.product?.ProductBarcodes.push({
+          this.product?.productBarcodes.push({
             barcode: barcode,
             ProductId: this.product!.id,
             brand: "",
             description: "",
             id: 0,
             quantity: 0,
-            Tags: []
+            tags: []
           });
         })
       }
@@ -107,7 +107,7 @@ export class ProductEditComponent implements AfterViewInit {
   }
 
   public removeBarcode = (a: any) => {
-    this.product?.ProductBarcodes.splice(this.product.ProductBarcodes.indexOf(a), 1);
+    this.product?.productBarcodes.splice(this.product.productBarcodes.indexOf(a), 1);
   }
 
   public delete = () => {
@@ -118,24 +118,24 @@ export class ProductEditComponent implements AfterViewInit {
   }
 
   public addBarcode = () => {
-    this.product?.ProductBarcodes.push({
+    this.product?.productBarcodes.push({
       barcode: "",
       ProductId: this.product!.id,
       brand: "",
       description: "",
       id: 0,
       quantity: 0,
-      Tags: []
+      tags: []
     });
   }
 
   public removeImage = (file: FileMeta) => {
-    var index = this.product!.Files.findIndex(a => a.id == file.id);
+    var index = this.product!.files.findIndex(a => a.id == file.id);
 
     if(index >= 0)
-      this.product!.Files.splice(index, 1);
+      this.product!.files.splice(index, 1);
 
-    console.log(this.product!.Files);
+    console.log(this.product!.files);
   }
 
   public save = () => {
@@ -144,7 +144,7 @@ export class ProductEditComponent implements AfterViewInit {
 
     console.log(this.product);
 
-    this.product.fileIds = this.product.Files.map(a => a.id);
+    this.product.fileIds = this.product.files.map(a => a.id);
 
     if(this.isCreate)
     {
@@ -179,7 +179,7 @@ addFiles = (fileList: FileList) => {
 
         this.svc.UploadFile(file).subscribe(result => {
           console.log("file upload result", result);
-          this.product!.Files.push(result);
+          this.product!.files.push(result);
         });
     }
 
