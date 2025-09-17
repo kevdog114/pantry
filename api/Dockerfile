@@ -1,6 +1,8 @@
 FROM node:22-alpine
 
+ARG TARGETARCH
 ENV PRISMA_SKIP_POSTINSTALL_GENERATE=true
+ENV PRISMA_CLI_BINARY_TARGETS=${TARGETARCH:+linux-musl-${TARGETARCH}}
 
 RUN apk add --no-cache python3 py3-setuptools make g++ openssl openssl-dev
 
@@ -14,8 +16,12 @@ RUN npm ci
 
 COPY . .
 
-ENV PRISMA_CLI_BINARY_TARGETS=linux-musl-arm64,linux-musl-x64
-RUN npx prisma generate
+RUN if [ "$TARGETARCH" = "amd64" ]; then \
+    export PRISMA_CLI_BINARY_TARGETS=linux-musl-x64; \
+    elif [ "$TARGETARCH" = "arm64" ]; then \
+    export PRISMA_CLI_BINARY_TARGETS=linux-musl-arm64; \
+    fi && \
+    npx prisma generate
 
 RUN chmod +x /app/run.sh
 
