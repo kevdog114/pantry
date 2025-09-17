@@ -107,14 +107,14 @@ export const updateById = async (req: Request, res: Response, next: NextFunction
                     set: req.body.tagIds.map((id: number) => ({ id }))
                 }
             }),
-            ...(req.body.ProductBarcodes && {
+            ...(req.body.barcodes && {
                 barcodes: {
                     deleteMany: {},
-                    create: req.body.ProductBarcodes.map((barcode: any) => ({
+                    create: req.body.barcodes.map((barcode: any) => ({
                         barcode: barcode.barcode,
-                        ...(barcode.Tags && barcode.Tags.length > 0 && {
+                        ...(barcode.Tags && barcode.tags.length > 0 && {
                             tags: {
-                                connect: barcode.Tags.filter((t: any) => t.id > 0).map((t: any) => ({ id: t.id }))
+                                connect: barcode.tags.filter((t: any) => t.id > 0).map((t: any) => ({ id: t.id }))
                             }
                         })
                     }))

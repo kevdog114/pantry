@@ -42,7 +42,7 @@ export interface Product
     title: string
     files: Array<FileMeta>
     fileIds: Array<number>
-    productBarcodes: Array<ProductBarcode>
+    barcodes: Array<ProductBarcode>
     stockItems: Array<StockItem>
     tags: Array<ProductTags>
     minExpiration?: Date

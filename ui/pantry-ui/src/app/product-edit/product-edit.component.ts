@@ -70,7 +70,7 @@ export class ProductEditComponent implements AfterViewInit {
         files: [],
         tags: [],
         id: 0,
-        productBarcodes: [],
+        barcodes: [],
         stockItems: [],
         title: ""
       }
@@ -88,7 +88,7 @@ export class ProductEditComponent implements AfterViewInit {
       if(this.queryData.barcodes)
       {
         this.queryData.barcodes.forEach(barcode => {
-          this.product?.productBarcodes.push({
+          this.product?.barcodes.push({
             barcode: barcode,
             ProductId: this.product!.id,
             brand: "",
@@ -107,7 +107,7 @@ export class ProductEditComponent implements AfterViewInit {
   }
 
   public removeBarcode = (a: any) => {
-    this.product?.productBarcodes.splice(this.product.productBarcodes.indexOf(a), 1);
+    this.product?.barcodes.splice(this.product.barcodes.indexOf(a), 1);
   }
 
   public delete = () => {
@@ -118,7 +118,7 @@ export class ProductEditComponent implements AfterViewInit {
   }
 
   public addBarcode = () => {
-    this.product?.productBarcodes.push({
+    this.product?.barcodes.push({
       barcode: "",
       ProductId: this.product!.id,
       brand: "",
