@@ -40,8 +40,8 @@ export class StockEditComponent implements AfterViewInit {
 
 
   @Input()
-  set productId(newProductId: number) {
-    this._productId = newProductId;
+  set productId(newProductId: string) {
+    this._productId = parseInt(newProductId, 10);
   }
 
   @Input()
