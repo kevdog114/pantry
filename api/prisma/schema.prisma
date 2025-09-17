@@ -29,6 +29,7 @@ model Product {
   files                   File[]     @relation("ProductToFile")
   tags                    Tag[]      @relation("ProductToTag")
   barcodes               ProductBarcode[]
+  recipeProducts         RecipeProduct[] @relation("ProductIngredients")
   createdAt              DateTime   @default(now())
   updatedAt              DateTime   @updatedAt
 }
@@ -92,6 +93,7 @@ model Recipe {
   name        String
   description String?
   steps       RecipeStep[]
+  ingredients RecipeProduct[] @relation("RecipeIngredients")
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
 }
@@ -104,4 +106,26 @@ model RecipeStep {
   instruction String
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+}
+
+model UnitOfMeasure {
+  id             Int             @id @default(autoincrement())
+  name           String          @unique
+  recipeProducts RecipeProduct[] @relation("UnitOfMeasureForIngredients")
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+}
+
+model RecipeProduct {
+  id              Int           @id @default(autoincrement())
+  recipeId        Int
+  recipe          Recipe        @relation("RecipeIngredients", fields: [recipeId], references: [id])
+  productId       Int
+  product         Product       @relation("ProductIngredients", fields: [productId], references: [id])
+  unitOfMeasureId Int
+  unitOfMeasure   UnitOfMeasure @relation("UnitOfMeasureForIngredients", fields: [unitOfMeasureId], references: [id])
+  amount          Float
+  notes           String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
 }
