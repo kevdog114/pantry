@@ -50,3 +50,21 @@ code {
   padding: 5px;
   border-radius: 3px;
 }
+
+@media (prefers-color-scheme: dark) {
+  .menu ul li a {
+    color: #eee;
+  }
+
+  .menu ul li a:hover {
+    background-color: #333;
+  }
+
+  th {
+    background-color: #333;
+  }
+
+  th, td {
+    border-color: #555;
+  }
+}

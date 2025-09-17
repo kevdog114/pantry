@@ -29,14 +29,14 @@ export class AuthService {
   }
 
   getPersonalAccessTokens(): Observable<any> {
-    return this.http.get(environment.apiUrl + '/personal-access-tokens', { withCredentials: true });
+    return this.http.get(`${this.baseUrl}/personal-access-tokens`, { withCredentials: true });
   }
 
   createPersonalAccessToken(name: string): Observable<any> {
-    return this.http.post(environment.apiUrl + '/personal-access-tokens', { name }, { withCredentials: true });
+    return this.http.post(`${this.baseUrl}/personal-access-tokens`, { name }, { withCredentials: true });
   }
 
   deletePersonalAccessToken(id: number): Observable<any> {
-    return this.http.delete(environment.apiUrl + '/personal-access-tokens/' + id, { withCredentials: true });
+    return this.http.delete(`${this.baseUrl}/personal-access-tokens/${id}`, { withCredentials: true });
   }
 }
