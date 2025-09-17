@@ -32,7 +32,7 @@ export const create = async (req: Request, res: Response, next: NextFunction): P
         // add it
         var newEntity = await db.ProductBarcodes.create({
             barcode: newBarcode.barcode,
-            ProductId: p.id,
+            ProductId: (p as any).id,
             brand: newBarcode.brand,
             description: newBarcode.description,
             quantity: newBarcode.quantity
@@ -74,12 +74,13 @@ export const updateById = async(req: Request, res: Response, next: NextFunction)
         return;
     }
 
-    entity = await entity.update({
+    await entity.update({
         title: req.body.title,
         freezerLifespanDays: req.body.freezerLifespanDays,
         openedLifespanDays: req.body.openedLifespanDays,
         refrigeratorLifespanDays: req.body.refrigeratorLifespanDays
     });
+    await entity.reload();
 
     // update the barcodes
     var existingBarcodes: any[] = await (entity as any).getProductBarcodes({include: [db.Tags]});
@@ -208,7 +209,7 @@ export const getAll = async (req: Request, res: Response, next: NextFunction): P
         })).map(p => p.get({ plain: true })) as unknown as productEntityWithSummary[];
     
     products.forEach(product => {
-        let stockItems = product.StockItems;
+        let stockItems = (product as any).StockItems;
         let minExp: Date | undefined = undefined;
         let quantityExpiringSoon: number | undefined = undefined;
         let totalQuantity: number | undefined = undefined;

@@ -36,7 +36,7 @@ const getProductContext = async (): Promise<string> => {
 
   let context = "Here is a list of products I have:\n";
   for (const product of products) {
-    const stockItems = product.StockItems;
+    const stockItems = (product as any).StockItems;
     if (stockItems && stockItems.length > 0) {
       context += `Product: ${product.title}\n`;
       for (const stockItem of stockItems) {
