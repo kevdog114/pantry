@@ -1,5 +1,5 @@
 import { Request, Response, Router } from "express";
-import { db } from "../../models";
+import prisma from '../lib/prisma';
 import * as crypto from 'crypto';
 
 export class PersonalAccessTokenController {
@@ -11,11 +11,15 @@ export class PersonalAccessTokenController {
 
     public async index(req: Request, res: Response) {
         const user = req.user as any;
-        const tokens = await db.PersonalAccessTokens.findAll({
+        const tokens = await prisma.personalAccessToken.findMany({
             where: {
                 userId: user.id
             },
-            attributes: ['id', 'name', 'createdAt']
+            select: {
+                id: true,
+                description: true,
+                createdAt: true
+            }
         });
 
         res.json(tokens);
@@ -28,22 +32,25 @@ export class PersonalAccessTokenController {
         const token = crypto.randomBytes(32).toString('hex');
         const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
 
-        const pat = await db.PersonalAccessTokens.create({
-            name,
-            token: hashedToken,
-            userId: user.id
+        const pat = await prisma.personalAccessToken.create({
+            data: {
+                description: name,
+                token: hashedToken,
+                userId: user.id
+            }
         });
 
-        res.json({ ...pat.toJSON(), token });
+        const { token: _, ...patWithoutToken } = pat;
+        res.json({ ...patWithoutToken, token });
     }
 
     public async delete(req: Request, res: Response) {
         const user = req.user as any;
         const { id } = req.params;
 
-        await db.PersonalAccessTokens.destroy({
+        await prisma.personalAccessToken.deleteMany({
             where: {
-                id,
+                id: parseInt(id),
                 userId: user.id
             }
         });

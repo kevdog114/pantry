@@ -15,7 +15,8 @@ import fileUpload from "express-fileupload";
 import session from "express-session";
 import passport from "passport";
 import { Strategy as LocalStrategy } from "passport-local";
-import { db } from "../models";
+import * as bcrypt from 'bcryptjs';
+import prisma from './lib/prisma';
 
 const app = express();
 
@@ -48,11 +49,11 @@ app.use(passport.session());
 
 passport.use(new LocalStrategy(async (username, password, done) => {
     try {
-        const user = await db.Users.findOne({ where: { username } });
+        const user = await prisma.user.findUnique({ where: { username } });
         if (!user) {
             return done(null, false, { message: 'Incorrect username.' });
         }
-        if (!user.validPassword(password)) {
+        if (!bcrypt.compareSync(password, user.password)) {
             return done(null, false, { message: 'Incorrect password.' });
         }
         return done(null, user);
@@ -67,7 +68,7 @@ passport.serializeUser((user, done) => {
 
 passport.deserializeUser(async (id, done) => {
     try {
-        const user = await db.Users.findByPk(id as number);
+        const user = await prisma.user.findUnique({ where: { id: id as number } });
         done(null, user);
     } catch (err) {
         done(err);

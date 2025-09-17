@@ -1,47 +1,48 @@
 import { NextFunction, Request, Response } from "express";
-import { db } from "../../models"
+import prisma from '../lib/prisma';
 
 export const deleteById = async (req: Request, res: Response, next: NextFunction): Promise<any> => {
-    var entity = await db.StockItems.findByPk(req.params.id);
-    if(entity != null) {
-        await entity?.destroy();
-        res.send({});
-    }
+    await prisma.stockItem.delete({
+        where: {
+            id: parseInt(req.params.id)
+        }
+    });
+    res.send({});
 }
 
 export const getById = async (req: Request, res: Response, next: NextFunction): Promise<any> => {
-    var entity = await db.StockItems.findByPk(req.params.id);
-    res.send(entity);
+    const stockItem = await prisma.stockItem.findUnique({
+        where: {
+            id: parseInt(req.params.id)
+        }
+    });
+    res.send(stockItem);
 }
 
 export const update = async (req: Request, res: Response, next: NextFunction): Promise<any> => {
-    var entity = await db.StockItems.findByPk(req.params.id);
-    if(entity == null)
-    {
-        res.sendStatus(404);
-        return;
-    }
-
-    entity = await entity.update({
-        expiration: req.body.expiration,
-        quantity: req.body.quantity,
-        expirationExtensionAfterThaw: req.body.expirationExtensionAfterThaw,
-        isFrozen: req.body.isFrozen,
-        isOpened: req.body.isOpened,
-        ProductBarcodeId: req.body.ProductBarcodeId,
+    const stockItem = await prisma.stockItem.update({
+        where: {
+            id: parseInt(req.params.id)
+        },
+        data: {
+            expirationDate: req.body.expiration ? new Date(req.body.expiration) : undefined,
+            quantity: req.body.quantity,
+            frozen: req.body.isFrozen,
+            opened: req.body.isOpened
+        }
     });
-
-    res.send(entity);
+    res.send(stockItem);
 }
 
 export const create = async (req: Request, res: Response, next: NextFunction): Promise<any> => {
-    res.send(await db.StockItems.create({
-        ProductId: req.body.ProductId,
-        expiration: req.body.expiration,
-        quantity: req.body.quantity,
-        expirationExtensionAfterThaw: req.body.expirationExtensionAfterThaw,
-        isFrozen: req.body.isFrozen,
-        isOpened: req.body.isOpened,
-        ProductBarcodeId: req.body.ProductBarcodeId,
-    }));
+    const stockItem = await prisma.stockItem.create({
+        data: {
+            productId: req.body.ProductId,
+            expirationDate: req.body.expiration ? new Date(req.body.expiration) : undefined,
+            quantity: req.body.quantity,
+            frozen: req.body.isFrozen,
+            opened: req.body.isOpened
+        }
+    });
+    res.send(stockItem);
 }

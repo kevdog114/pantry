@@ -1,0 +1,107 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:../data/pantry.sqlite"
+}
+
+model User {
+  id       Int      @id @default(autoincrement())
+  username String   @unique
+  password String
+  tokens   PersonalAccessToken[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Product {
+  id                       Int       @id @default(autoincrement())
+  title                    String
+  freezerLifespanDays     Int?
+  refrigeratorLifespanDays Int?
+  openedLifespanDays      Int?
+  stockItems              StockItem[]
+  files                   File[]     @relation("ProductToFile")
+  tags                    Tag[]      @relation("ProductToTag")
+  barcodes               ProductBarcode[]
+  createdAt              DateTime   @default(now())
+  updatedAt              DateTime   @updatedAt
+}
+
+model File {
+  id        Int       @id @default(autoincrement())
+  path      String
+  mimeType  String
+  products  Product[] @relation("ProductToFile")
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+}
+
+model Tag {
+  id        Int       @id @default(autoincrement())
+  name      String    @unique
+  group     String?
+  products  Product[] @relation("ProductToTag")
+  barcodes  ProductBarcode[] @relation("BarcodeToTag")
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+}
+
+model ProductBarcode {
+  id        Int       @id @default(autoincrement())
+  barcode   String    @unique
+  productId Int
+  product   Product   @relation(fields: [productId], references: [id])
+  tags      Tag[]     @relation("BarcodeToTag")
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+}
+
+model StockItem {
+  id                Int       @id @default(autoincrement())
+  productId         Int
+  product          Product   @relation(fields: [productId], references: [id])
+  quantity         Int       @default(1)
+  frozen           Boolean   @default(false)
+  opened           Boolean   @default(false)
+  purchaseDate     DateTime?
+  openedDate       DateTime?
+  expirationDate   DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+}
+
+model PersonalAccessToken {
+  id          Int      @id @default(autoincrement())
+  userId      Int
+  user        User     @relation(fields: [userId], references: [id])
+  token       String   @unique
+  description String?
+  lastUsed    DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Recipe {
+  id          Int          @id @default(autoincrement())
+  name        String
+  description String?
+  steps       RecipeStep[]
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+}
+
+model RecipeStep {
+  id          Int      @id @default(autoincrement())
+  recipeId    Int
+  recipe      Recipe   @relation(fields: [recipeId], references: [id])
+  stepNumber  Int
+  instruction String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}

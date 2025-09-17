@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
-import { db } from '../../models';
+import prisma from '../lib/prisma';
+import * as bcrypt from 'bcryptjs';
 
 export const login = (req: Request, res: Response) => {
     res.json({ user: req.user });
@@ -20,17 +21,31 @@ export const changePassword = async (req: Request, res: Response) => {
     }
 
     const { oldPassword, newPassword } = req.body;
-    const user = await db.Users.findByPk((req.user as any).id);
+    const user = await prisma.user.findUnique({
+        where: {
+            id: (req.user as any).id
+        }
+    });
 
     if (!user) {
         return res.status(404).json({ message: 'User not found' });
     }
 
-    if (!user.validPassword(oldPassword)) {
+    if (!bcrypt.compareSync(oldPassword, user.password)) {
         return res.status(401).json({ message: 'Invalid password' });
     }
 
-    await user.update({ password: newPassword });
+    const salt = bcrypt.genSaltSync(10);
+    const hashedPassword = bcrypt.hashSync(newPassword, salt);
+
+    await prisma.user.update({
+        where: {
+            id: user.id
+        },
+        data: {
+            password: hashedPassword
+        }
+    });
 
     res.json({ message: 'Password changed successfully' });
 };

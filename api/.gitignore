@@ -1,2 +1,4 @@
 *.sqlite
 upload
+
+/src/generated/prisma

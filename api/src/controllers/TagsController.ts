@@ -1,48 +1,49 @@
 import { NextFunction, Response, Request } from "express";
-import { db } from "../../models"
+import prisma from '../lib/prisma';
 
 export const getById = async (req: Request, res: Response, next: NextFunction): Promise<any> => {
-    var a = await db.Tags.findByPk(req.params.id);
-    res.send(a);
+    const tag = await prisma.tag.findUnique({
+        where: {
+            id: parseInt(req.params.id)
+        }
+    });
+    res.send(tag);
 }
 
 export const getAll = async (req: Request, res: Response, next: NextFunction): Promise<any> => {
-    var a = await db.Tags.findAll();
-    res.send(a);
+    const tags = await prisma.tag.findMany();
+    res.send(tags);
 }
+
 export const getAllForGroup = async (req: Request, res: Response, next: NextFunction): Promise<any> => {
-    var a = await db.Tags.findAll({
+    const tags = await prisma.tag.findMany({
         where: {
-            taggroup: req.params.group
+            group: req.params.group
         }
     });
-
-    res.send(a);
+    res.send(tags);
 }
 
 export const create = async (req: Request, res: Response, next: NextFunction): Promise<any> => {
-    
-    var p = await db.Tags.create({
-        tagname: req.body.tagname,
-        taggroup: req.body.taggroup
+    const tag = await prisma.tag.create({
+        data: {
+            name: req.body.tagname,
+            group: req.body.taggroup
+        }
     });
-
-    res.send(p);
+    res.send(tag);
 }
 
 export const updateById = async(req: Request, res: Response, next: NextFunction): Promise<any> => {
-    var entity = await db.Tags.findByPk(req.params.id);
-    if(entity == null)
-    {
-        res.sendStatus(404);
-        return;
-    }
-    
-    entity = await entity.update({
-        tagname: req.body.tagname
+    const tag = await prisma.tag.update({
+        where: {
+            id: parseInt(req.params.id)
+        },
+        data: {
+            name: req.body.tagname
+        }
     });
-
-    res.send(entity);
+    res.send(tag);
 }
 
 export const getGroups = async (req: Request, res: Response, next: NextFunction): Promise<any> => {
