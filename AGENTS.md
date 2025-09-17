@@ -40,19 +40,25 @@ This will pull the latest Docker images for the API and UI and start the contain
 
 ### Local Development Mode
 
-This method builds the Docker images from your local source code, which is useful for development.
+This method builds the Docker images from your local source code, which is ideal for development.
 
-1.  **Create a `stack.env` file:** (See Production Mode instructions).
+1.  **Environment Configuration:**
+    The development environment uses the `stack.dev.env` file for configuration. This file is already present in the repository and contains the necessary environment variables, including `DEFAULT_ADMIN_PASSWORD`. You can modify this file if you need to change any configuration values.
 
-2.  **Run Docker Compose with the development file:**
+2.  **Run Docker Compose:**
+    Use the `docker-compose.dev.yml` file to build and start the application. Run the following command from the root of the repository:
     ```bash
     docker-compose -f docker-compose.dev.yml up -d --build
     ```
+    The `--build` flag ensures that the Docker images are rebuilt from your local source code.
 
-This will build the Docker images from the local `api/` and `ui/pantry-ui/` directories and start the containers.
+3.  **Accessing the Application:**
+    *   The backend API will be available at `http://localhost:4300`.
+    *   The frontend UI will be available at `http://localhost:4200`.
 
-*   The UI will be available at `http://localhost:4200`.
-*   The API will be available at `http://localhost:4300`.
+4.  **Default Admin Credentials:**
+    *   Username: `admin`
+    *   Password: `admin` (or whatever value is set for `DEFAULT_ADMIN_PASSWORD` in `stack.dev.env`)
 
 ## API (Backend)
 
