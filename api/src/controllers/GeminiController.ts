@@ -1,7 +1,7 @@
 import { GoogleGenerativeAI, Content } from "@google/generative-ai";
 import dotenv from "dotenv";
 import { Request, Response } from "express";
-import { db } from "../../models";
+import prisma from '../lib/prisma';
 import { UploadedFile } from "express-fileupload";
 import * as fs from "fs";
 
@@ -30,18 +30,19 @@ const geminiVisionModel = googleAI.getGenerativeModel({
 })
 
 const getProductContext = async (): Promise<string> => {
-  const products = (await db.Products.findAll({
-    include: [db.StockItems],
-  })).map(p => p.get({ plain: true }));
+  const products = await prisma.product.findMany({
+    include: {
+      stockItems: true
+    }
+  });
 
   let context = "Here is a list of products I have:\n";
   for (const product of products) {
-    const stockItems = (product as any).StockItems;
-    if (stockItems && stockItems.length > 0) {
+    if (product.stockItems.length > 0) {
       context += `Product: ${product.title}\n`;
-      for (const stockItem of stockItems) {
+      for (const stockItem of product.stockItems) {
         context += `  - Quantity: ${stockItem.quantity}\n`;
-        context += `  - Expiration Date: ${stockItem.expiration}\n`;
+        context += `  - Expiration Date: ${stockItem.expirationDate}\n`;
       }
     }
   }
@@ -122,25 +123,26 @@ export const postImage = async (req: Request, res: Response) => {
         const response = result.response;
         const productName = response.text();
 
-        // create a new product
-        const product = await db.Products.create({
-            title: productName
-        });
-
-        // create a new record in the database
-        var entity = await db.Files.create({
-            filename: image.name
+        // create a new product with associated file
+        const product = await prisma.product.create({
+            data: {
+                title: productName,
+                files: {
+                    create: {
+                        path: uploadDir,
+                        mimeType: image.mimetype
+                    }
+                }
+            },
+            include: {
+                files: true
+            }
         });
 
         // Move the uploaded image to our upload folder
-        fs.copyFileSync(image.tempFilePath, uploadDir + entity.dataValues.id);
+        const fileId = product.files[0].id;
+        fs.copyFileSync(image.tempFilePath, uploadDir + fileId);
         fs.unlinkSync(image.tempFilePath);
-
-        // associate the file with the product
-        await db.ProductFiles.create({
-            ProductId: product.dataValues.id,
-            FileId: entity.dataValues.id
-        });
 
         res.send(product);
 

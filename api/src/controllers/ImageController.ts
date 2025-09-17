@@ -1,6 +1,6 @@
 import { NextFunction, Request, Response } from "express";
 import { UploadedFile } from "express-fileupload";
-import { db } from "../../models"
+import prisma from '../lib/prisma';
 import * as fs from "fs";
 import sharp from "sharp";
 
@@ -34,35 +34,60 @@ export const ensureThumbnailExistsAndGetPath = async (imgId: number, thumbnailSi
 }
 
 export const deleteById = async (req: Request, res: Response, next: NextFunction): Promise<any> => {
-    var entity = await db.Files.findByPk(req.params.id);
-    if(entity != null) {
-        fs.unlinkSync(uploadDir + entity.dataValues.id!);
+    const file = await prisma.file.findUnique({
+        where: {
+            id: parseInt(req.params.id)
+        }
+    });
+
+    if(file) {
+        await prisma.file.delete({
+            where: {
+                id: file.id
+            }
+        });
+        fs.unlinkSync(uploadDir + file.id);
+        res.sendStatus(200);
+    } else {
+        res.sendStatus(404);
     }
 }
 
 export const getById = async (req: Request, res: Response, next: NextFunction): Promise<any> => {
-    var entity = await db.Files.findByPk(req.params.id);
-    if(entity != null) {
-        if(req.query.size !== undefined)
-            res.download(await ensureThumbnailExistsAndGetPath(entity.dataValues.id!, req.query.size as ThumbnailSizes), entity.dataValues.filename);
-        else
-            res.download(uploadDir + entity.dataValues.id!, entity.dataValues.filename);
+    const file = await prisma.file.findUnique({
+        where: {
+            id: parseInt(req.params.id)
+        }
+    });
+
+    if(file) {
+        if(req.query.size !== undefined) {
+            const path = await ensureThumbnailExistsAndGetPath(file.id, req.query.size as ThumbnailSizes);
+            res.download(path, file.path);
+        } else {
+            res.download(uploadDir + file.id, file.path);
+        }
+    } else {
+        res.sendStatus(404);
     }
 }
 
 export const create = async (req: Request, res: Response, next: NextFunction): Promise<any> => {
-        const image: UploadedFile = <any>req.files!.file;
+    if (!req.files || !req.files.file) {
+        res.sendStatus(400);
+        return;
+    }
 
-        // If no image submitted, exit
-        if (!image) return res.sendStatus(400);
+    const image = req.files.file as UploadedFile;
+    const file = await prisma.file.create({
+        data: {
+            path: image.name,
+            mimeType: image.mimetype
+        }
+    });
 
-        // create a new record in the database
-        var entity = await db.Files.create({
-            filename: image.name
-        });
+    fs.copyFileSync(image.tempFilePath, uploadDir + file.id);
+    fs.unlinkSync(image.tempFilePath);
 
-        // Move the uploaded image to our upload folder
-        image.mv(uploadDir + entity.dataValues.id!);
-    
-        res.send(entity);
+    res.send(file);
 }
