@@ -12,6 +12,7 @@ import { MatCardModule } from '@angular/material/card';
 import { Router } from '@angular/router';
 import { environment } from '../../environments/environment';
 import { MatTabsModule } from '@angular/material/tabs';
+import { GeminiService } from '../services/gemini.service';
 
 @Component({
   selector: 'app-product-edit',
@@ -77,7 +78,25 @@ export class ProductEditComponent implements AfterViewInit {
     }
   }
 
-  constructor(private svc: ProductListService, private router: Router) {
+  constructor(private svc: ProductListService, private router: Router, private geminiService: GeminiService) {
+  }
+
+  public askGeminiExpiration() {
+    if (this.product && this.product.title) {
+      this.geminiService.getExpirationSuggestion(this.product.title).subscribe({
+        next: (response) => {
+          if (response.message === 'success' && response.data) {
+            const data = response.data;
+            if (this.product) {
+              if (data.freezerLifespanDays) this.product.freezerLifespanDays = data.freezerLifespanDays;
+              if (data.refrigeratorLifespanDays) this.product.refrigeratorLifespanDays = data.refrigeratorLifespanDays;
+              if (data.openedLifespanDays) this.product.openedLifespanDays = data.openedLifespanDays;
+            }
+          }
+        },
+        error: (err) => console.error('Error fetching expiration suggestion:', err)
+      });
+    }
   }
 
   ngAfterViewInit(): void {
