@@ -86,6 +86,9 @@ export const create = async (req: Request, res: Response, next: NextFunction): P
         }
     });
 
+    if (!fs.existsSync(uploadDir)) {
+        fs.mkdirSync(uploadDir, { recursive: true });
+    }
     fs.copyFileSync(image.tempFilePath, uploadDir + file.id);
     fs.unlinkSync(image.tempFilePath);
 
