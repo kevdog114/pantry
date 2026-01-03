@@ -5,6 +5,13 @@
             <input name="title" matInput [(ngModel)]="product.title" />
         </mat-form-field>
     </div>
+    <div class="row mb-2">
+        <div class="col-12">
+            <button mat-stroked-button color="primary" (click)="askGeminiExpiration()" [disabled]="!product.title">
+                <mat-icon>auto_awesome</mat-icon> Ask AI for Expiration Settings
+            </button>
+        </div>
+    </div>
     <div class="row">
         <div class="col-sm-4">
             <mat-form-field class="w-100">

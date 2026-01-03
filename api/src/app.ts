@@ -126,6 +126,7 @@ app.get("/product-search-all", ProductSearchController.getall);
 
 app.post("/gemini/chat", GeminiController.post);
 app.post("/gemini/image", GeminiController.postImage);
+app.post("/gemini/expiration", GeminiController.postExpiration);
 
 app.post("/labels/quick-print", LabelPrinterController.printQuickLabel);
 

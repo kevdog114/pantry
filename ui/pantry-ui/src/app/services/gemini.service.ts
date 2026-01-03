@@ -15,4 +15,8 @@ export class GeminiService {
   sendMessage(prompt: string, history: any[]): Observable<any> {
     return this.http.post<any>(this.apiUrl, { prompt, history });
   }
+
+  getExpirationSuggestion(productTitle: string): Observable<any> {
+    return this.http.post<any>(`${environment.apiUrl}/gemini/expiration`, { productTitle });
+  }
 }

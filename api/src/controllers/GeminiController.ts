@@ -1,4 +1,4 @@
-import { GoogleGenerativeAI, Content } from "@google/generative-ai";
+import { GoogleGenerativeAI, Content, FunctionDeclarationSchemaType } from "@google/generative-ai";
 import dotenv from "dotenv";
 import { Request, Response } from "express";
 import prisma from '../lib/prisma';
@@ -154,3 +154,58 @@ export const postImage = async (req: Request, res: Response) => {
         });
     }
 }
+
+export const postExpiration = async (req: Request, res: Response) => {
+  try {
+    const { productTitle } = req.body as { productTitle: string };
+
+    if (!productTitle) {
+      res.status(400).json({ message: "Product title is required" });
+      return;
+    }
+
+    const prompt = `For the product '${productTitle}', estimate the recommended lifespan in days for the following conditions:
+      1. Freezer lifespan: How many days it is good in the freezer.
+      2. Refrigerator lifespan: How many days it is good in the refrigerator (after thawing if frozen).
+      3. Opened lifespan: How many days it is good after being opened.
+
+      Return the result as a JSON object with keys: freezerLifespanDays, refrigeratorLifespanDays, openedLifespanDays. Use integer values. If unknown, use reasonable estimates or defaults (e.g., 365 for freezer, 5 for fridge).`;
+
+    const schema = {
+      type: FunctionDeclarationSchemaType.OBJECT,
+      properties: {
+        freezerLifespanDays: { type: FunctionDeclarationSchemaType.INTEGER },
+        refrigeratorLifespanDays: { type: FunctionDeclarationSchemaType.INTEGER },
+        openedLifespanDays: { type: FunctionDeclarationSchemaType.INTEGER },
+      },
+      required: [
+        "freezerLifespanDays",
+        "refrigeratorLifespanDays",
+        "openedLifespanDays",
+      ],
+    } as any;
+
+    const result = await geminiModel.generateContent({
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+      generationConfig: {
+        responseMimeType: "application/json",
+        responseSchema: schema,
+      },
+    });
+
+    const response = result.response;
+    const jsonString = response.text();
+    const data = JSON.parse(jsonString);
+
+    res.json({
+      message: "success",
+      data: data,
+    });
+  } catch (error) {
+    console.log("response error", error);
+    res.status(500).json({
+      message: "error",
+      data: (error as Error).message,
+    });
+  }
+};
