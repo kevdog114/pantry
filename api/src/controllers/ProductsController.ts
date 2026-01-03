@@ -28,11 +28,11 @@ export const create = async (req: Request, res: Response, next: NextFunction): P
             openedLifespanDays: req.body.openedLifespanDays,
             refrigeratorLifespanDays: req.body.refrigeratorLifespanDays,
             barcodes: {
-                create: (req.body.ProductBarcodes || []).map((barcode: any) => ({
+                create: (req.body.barcodes || []).map((barcode: any) => ({
                     barcode: barcode.barcode,
-                    ...(barcode.Tags && barcode.Tags.length > 0 && {
+                    ...(barcode.tags && barcode.tags.length > 0 && {
                         tags: {
-                            connect: barcode.Tags.filter((t: any) => t.id > 0).map((t: any) => ({ id: t.id }))
+                            connect: barcode.tags.filter((t: any) => t.id > 0).map((t: any) => ({ id: t.id }))
                         }
                     })
                 }))
