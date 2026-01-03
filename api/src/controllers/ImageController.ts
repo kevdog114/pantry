@@ -61,6 +61,11 @@ export const getById = async (req: Request, res: Response, next: NextFunction): 
     });
 
     if(file) {
+        if (!fs.existsSync(uploadDir + file.id)) {
+            res.sendStatus(404);
+            return;
+        }
+
         if(req.query.size !== undefined) {
             const path = await ensureThumbnailExistsAndGetPath(file.id, req.query.size as ThumbnailSizes);
             res.download(path, file.path);
