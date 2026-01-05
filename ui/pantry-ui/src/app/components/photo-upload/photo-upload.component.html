@@ -3,11 +3,19 @@
   <div *ngIf="!capturedImage && !isLoading">
     <video #videoElement autoplay playsinline [hidden]="fileSelected"></video>
     <div class="button-row">
-      <button mat-raised-button color="primary" (click)="startCamera()" *ngIf="!isCameraOn && !fileSelected">Start Camera</button>
       <button mat-raised-button color="accent" (click)="captureImage()" *ngIf="isCameraOn">Capture</button>
-      <button mat-raised-button (click)="switchCamera()" *ngIf="isCameraOn && cameras.length > 1">Switch Camera</button>
+
+      <mat-form-field *ngIf="isCameraOn && cameras.length > 1" class="camera-select">
+        <mat-label>Camera</mat-label>
+        <mat-select [(ngModel)]="selectedDeviceId" (selectionChange)="onCameraChange()">
+          <mat-option *ngFor="let camera of cameras" [value]="camera.deviceId">
+            {{ camera.label || 'Camera ' + (cameras.indexOf(camera) + 1) }}
+          </mat-option>
+        </mat-select>
+      </mat-form-field>
+
       <input type="file" #fileInput (change)="onFileSelected($event)" accept="image/*" style="display: none;">
-      <button mat-raised-button (click)="fileInput.click()" *ngIf="!isCameraOn">Select File</button>
+      <button mat-raised-button (click)="fileInput.click()" *ngIf="!fileSelected">Select File</button>
     </div>
   </div>
 

@@ -41,8 +41,4 @@ export class GeminiChatComponent {
   newChat() {
     this.messages = [];
   }
-
-  onUploadComplete(product: any) {
-    this.messages.push({ sender: 'Gemini', text: `I have analyzed the image and created the following product: ${product.name}` });
-  }
 }

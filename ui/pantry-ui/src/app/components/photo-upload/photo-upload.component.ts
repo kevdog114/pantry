@@ -2,6 +2,9 @@ import { CommonModule } from '@angular/common';
 import { HttpClient, HttpClientModule } from '@angular/common/http';
 import { Component, ElementRef, EventEmitter, OnInit, Output, ViewChild } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
+import { MatSelectModule } from '@angular/material/select';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { FormsModule } from '@angular/forms';
 import { Product } from '../../../types/product';
 import { environment } from '../../../environments/environment';
 import { Router } from '@angular/router';
@@ -10,7 +13,7 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 @Component({
   selector: 'app-photo-upload',
   standalone: true,
-  imports: [CommonModule, MatButtonModule, HttpClientModule, MatProgressSpinnerModule],
+  imports: [CommonModule, MatButtonModule, HttpClientModule, MatProgressSpinnerModule, MatSelectModule, MatFormFieldModule, FormsModule],
   templateUrl: './photo-upload.component.html',
   styleUrl: './photo-upload.component.css'
 })
@@ -26,12 +29,13 @@ export class PhotoUploadComponent implements OnInit {
   fileSelected = false;
   isLoading = false;
   cameras: MediaDeviceInfo[] = [];
-  currentCameraIndex = 0;
+  selectedDeviceId: string = '';
 
-  constructor(private http: HttpClient, private router: Router) {}
+  constructor(private http: HttpClient, private router: Router) { }
 
   ngOnInit(): void {
-    this.getCameras();
+    const savedDeviceId = localStorage.getItem('pantry_camera_device_id');
+    this.startCamera(savedDeviceId || undefined);
   }
 
   getCameras() {
@@ -58,16 +62,39 @@ export class PhotoUploadComponent implements OnInit {
         if (this.videoElement) {
           this.videoElement.nativeElement.srcObject = stream;
         }
+        // Enumerate devices after permission is granted to ensure labels are present
+        this.getCameras();
+
+        // Update selected device ID if not already set or if using default
+        if (!deviceId) {
+          const track = stream.getVideoTracks()[0];
+          if (track) {
+            const settings = track.getSettings();
+            if (settings.deviceId) {
+              this.selectedDeviceId = settings.deviceId;
+            }
+          }
+        } else {
+          this.selectedDeviceId = deviceId;
+        }
       })
-      .catch(err => console.error('Error accessing camera:', err));
+      .catch(err => {
+        console.error('Error accessing camera:', err);
+        // If specific device failed (e.g. unplugged), try fallback to default
+        if (deviceId) {
+          console.log('Falling back to default camera...');
+          this.startCamera();
+        } else {
+          this.isCameraOn = false;
+        }
+      });
   }
 
-  switchCamera() {
-    if (this.cameras.length > 1) {
-      this.currentCameraIndex = (this.currentCameraIndex + 1) % this.cameras.length;
-      const deviceId = this.cameras[this.currentCameraIndex].deviceId;
+  onCameraChange() {
+    if (this.selectedDeviceId) {
+      localStorage.setItem('pantry_camera_device_id', this.selectedDeviceId);
       this.stopCamera();
-      this.startCamera(deviceId);
+      this.startCamera(this.selectedDeviceId);
     }
   }
 
