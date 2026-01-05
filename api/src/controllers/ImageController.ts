@@ -3,13 +3,12 @@ import { UploadedFile } from "express-fileupload";
 import prisma from '../lib/prisma';
 import * as fs from "fs";
 import sharp from "sharp";
-
-const uploadDir = __dirname + "/../../../data/upload/";
+import { storeFile, UPLOAD_DIR } from "../lib/FileStorage";
 
 export type ThumbnailSizes = "small";
 
 export const GetDimensionForThumbnailSize = (size: ThumbnailSizes): number => {
-    if(size === "small")
+    if (size === "small")
         return 150;
     else
         return 200;
@@ -18,16 +17,15 @@ export const GetDimensionForThumbnailSize = (size: ThumbnailSizes): number => {
 export const ensureThumbnailExistsAndGetPath = async (imgId: number, thumbnailSize: ThumbnailSizes): Promise<string> => {
     let maxSize = GetDimensionForThumbnailSize(thumbnailSize);
 
-    const imgPath = uploadDir + imgId;
+    const imgPath = UPLOAD_DIR + imgId;
     const thumbPath = imgPath + "_thumb_" + maxSize;
-    if(fs.existsSync(thumbPath) === false)
-    {
+    if (fs.existsSync(thumbPath) === false) {
         console.log("Generating thumbnail for " + imgId);
         await sharp(imgPath)
-          .resize(maxSize, maxSize, { fit: "contain" })
-          .jpeg()
-          .withMetadata()
-          .toFile(thumbPath);
+            .resize(maxSize, maxSize, { fit: "contain" })
+            .jpeg()
+            .withMetadata()
+            .toFile(thumbPath);
     }
 
     return thumbPath;
@@ -40,13 +38,13 @@ export const deleteById = async (req: Request, res: Response, next: NextFunction
         }
     });
 
-    if(file) {
+    if (file) {
         await prisma.file.delete({
             where: {
                 id: file.id
             }
         });
-        fs.unlinkSync(uploadDir + file.id);
+        fs.unlinkSync(UPLOAD_DIR + file.id);
         res.sendStatus(200);
     } else {
         res.sendStatus(404);
@@ -60,17 +58,17 @@ export const getById = async (req: Request, res: Response, next: NextFunction): 
         }
     });
 
-    if(file) {
-        if (!fs.existsSync(uploadDir + file.id)) {
+    if (file) {
+        if (!fs.existsSync(UPLOAD_DIR + file.id)) {
             res.sendStatus(404);
             return;
         }
 
-        if(req.query.size !== undefined) {
+        if (req.query.size !== undefined) {
             const path = await ensureThumbnailExistsAndGetPath(file.id, req.query.size as ThumbnailSizes);
             res.download(path, file.path);
         } else {
-            res.download(uploadDir + file.id, file.path);
+            res.download(UPLOAD_DIR + file.id, file.path);
         }
     } else {
         res.sendStatus(404);
@@ -91,11 +89,7 @@ export const create = async (req: Request, res: Response, next: NextFunction): P
         }
     });
 
-    if (!fs.existsSync(uploadDir)) {
-        fs.mkdirSync(uploadDir, { recursive: true });
-    }
-    fs.copyFileSync(image.tempFilePath, uploadDir + file.id);
-    fs.unlinkSync(image.tempFilePath);
+    storeFile(image.tempFilePath, file.id.toString());
 
     res.send(file);
 }
