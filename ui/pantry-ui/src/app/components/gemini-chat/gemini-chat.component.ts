@@ -74,9 +74,13 @@ export class GeminiChatComponent {
 
     this.geminiService.sendMessage(prompt, history).subscribe(response => {
       this.isLoading = false;
-      const data = response.data; // This is now a generic object { type, content?, recipe? }
+      const data = response.data;
 
-      if (data.type === 'recipe') {
+      // Robustly check for recipe
+      // Sometimes Gemini might return the type as 'Recipe' (case sensitive) or just include the structure
+      const isRecipe = (data.type && data.type.toLowerCase() === 'recipe') || (data.recipe && typeof data.recipe === 'object');
+
+      if (isRecipe && data.recipe) {
         this.messages.push({
           sender: 'Gemini',
           type: 'recipe',
@@ -85,10 +89,19 @@ export class GeminiChatComponent {
         });
       } else {
         // Default to chat
+        // Ensure content is a string. If it's an object, stringify it.
+        let content = data.content;
+        if (typeof content === 'object') {
+          content = JSON.stringify(content, null, 2);
+        } else if (!content) {
+          // Fallback if no content field, dump the whole data
+          content = JSON.stringify(data, null, 2);
+        }
+
         this.messages.push({
           sender: 'Gemini',
           type: 'chat',
-          content: data.content || JSON.stringify(data) // Fallback
+          content: content
         });
       }
 
