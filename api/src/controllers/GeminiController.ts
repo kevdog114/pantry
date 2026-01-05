@@ -488,3 +488,76 @@ export const postExpiration = async (req: Request, res: Response) => {
     });
   }
 };
+
+export const postQuickSuggest = async (req: Request, res: Response) => {
+  try {
+    const { tags } = req.body as { tags: string[] };
+
+    if (!tags || !Array.isArray(tags)) {
+      res.status(400).json({ message: "Tags are required and must be an array" });
+      return;
+    }
+
+    const productContext = await getProductContext();
+
+    const prompt = `You are a kitchen assistant. Suggest 3 distinct snacks based on these tags: ${tags.join(', ')}. 
+    Only suggest items that require ingredients currently in the user's inventory.
+    
+    Here is the inventory:
+    ${productContext}
+
+    Return a JSON object with a key 'suggestions' which is an array of objects. Each object should have:
+    - name: string
+    - prepTime: string (e.g. "5 mins")
+    - description: string
+    - ingredients: string[] (list of ingredients used)
+    `;
+
+    const schema = {
+      type: FunctionDeclarationSchemaType.OBJECT,
+      properties: {
+        suggestions: {
+          type: FunctionDeclarationSchemaType.ARRAY,
+          items: {
+            type: FunctionDeclarationSchemaType.OBJECT,
+            properties: {
+              name: { type: FunctionDeclarationSchemaType.STRING },
+              prepTime: { type: FunctionDeclarationSchemaType.STRING },
+              description: { type: FunctionDeclarationSchemaType.STRING },
+              ingredients: { type: FunctionDeclarationSchemaType.ARRAY, items: { type: FunctionDeclarationSchemaType.STRING } }
+            },
+            required: ["name", "prepTime", "description", "ingredients"]
+          }
+        }
+      },
+      required: ["suggestions"]
+    } as any;
+
+    const { result, warning } = await executeWithFallback(
+      "gemini_quick_snack_model",
+      async (model) => await model.generateContent({
+        contents: [{ role: "user", parts: [{ text: prompt }] }],
+        generationConfig: {
+          responseMimeType: "application/json",
+          responseSchema: schema,
+        },
+      })
+    );
+
+    const response = result.response;
+    const jsonString = response.text();
+    const data = JSON.parse(jsonString);
+
+    res.json({
+      message: "success",
+      data: data.suggestions,
+      warning
+    });
+  } catch (error) {
+    console.log("response error", error);
+    res.status(500).json({
+      message: "error",
+      data: (error as Error).message,
+    });
+  }
+};

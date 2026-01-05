@@ -17,6 +17,8 @@ import { MatListModule } from "@angular/material/list";
 import { MatInputModule } from "@angular/material/input";
 import { MatDialog } from "@angular/material/dialog";
 import { PhotoUploadComponent } from "../photo-upload/photo-upload.component";
+import { MatBottomSheet, MatBottomSheetModule } from '@angular/material/bottom-sheet';
+import { QuickSnackComponent } from '../quick-snack/quick-snack.component';
 
 type DisplayModeOption = "grid" | "list";
 type SortOption = "alphabetical" | "expire";
@@ -40,11 +42,11 @@ type SortOption = "alphabetical" | "expire";
         MatIconModule,
         MatListModule,
         MatInputModule,
-        PhotoUploadComponent
+        PhotoUploadComponent,
+        MatBottomSheetModule
     ]
 })
-export class ProductListComponent implements AfterViewInit
-{
+export class ProductListComponent implements AfterViewInit {
     public products: Product[] = [];
     public set DisplayMode(val: DisplayModeOption) {
         this.localStorage.setItem("product-list-display-mode", val);
@@ -52,10 +54,10 @@ export class ProductListComponent implements AfterViewInit
     public get DisplayMode() {
         return this.localStorage.getItem("product-list-display-mode");
     }
-    
-    constructor(private svc: ProductListService, private localStorage: LocalStorageService, private dialog: MatDialog) {
+
+    constructor(private svc: ProductListService, private localStorage: LocalStorageService, private dialog: MatDialog, private bottomSheet: MatBottomSheet) {
         console.log("display mode", this.DisplayMode);
-        if(this.DisplayMode === null)
+        if (this.DisplayMode === null)
             this.DisplayMode = "grid";
     }
 
@@ -77,8 +79,7 @@ export class ProductListComponent implements AfterViewInit
     }
 
     public refreshList = () => {
-        if(this.searchTerm !== null && this.searchTerm !== undefined && this.searchTerm.length > 0)
-        {
+        if (this.searchTerm !== null && this.searchTerm !== undefined && this.searchTerm.length > 0) {
             this.svc.searchProducts(this.searchTerm).subscribe(a => {
                 this.products = a;
             });
@@ -99,15 +100,15 @@ export class ProductListComponent implements AfterViewInit
             var val1 = sortOption == "alphabetical" ? a.title : a.minExpiration;
             var val2 = sortOption == "alphabetical" ? b.title : b.minExpiration;
 
-            if(val1 === val2) return 0;
-            if(val1 === null || val1 === undefined) return 1;
-            if(val2 === null || val2 === undefined) return -1;
+            if (val1 === val2) return 0;
+            if (val1 === null || val1 === undefined) return 1;
+            if (val2 === null || val2 === undefined) return -1;
             else return val1 < val2 ? -1 : 1;
         })
     }
 
     public GetFileDownloadUrl = (product: Product): string => {
-        if(product && product.files && product.files.length > 0)
+        if (product && product.files && product.files.length > 0)
             return environment.apiUrl + "/files/" + product.files[0].id + "?size=small";
         else
             return "";
@@ -122,5 +123,9 @@ export class ProductListComponent implements AfterViewInit
             dialogRef.close();
             this.refreshList();
         });
+    }
+
+    public openQuickSnack() {
+        this.bottomSheet.open(QuickSnackComponent);
     }
 }

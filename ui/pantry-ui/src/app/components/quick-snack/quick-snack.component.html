@@ -1,0 +1,54 @@
+<div class="quick-snack-container">
+    <div *ngIf="!hasSuggestions">
+        <h2>Quick Snack</h2>
+        <p>What are you in the mood for?</p>
+
+        <div class="chip-section">
+            <h4>Effort</h4>
+            <mat-chip-listbox multiple>
+                <mat-chip-option *ngFor="let chip of effortChips" (click)="toggleEffort(chip)"
+                    [selected]="isEffortSelected(chip)">
+                    {{chip}}
+                </mat-chip-option>
+            </mat-chip-listbox>
+        </div>
+
+        <div class="chip-section">
+            <h4>Vibe</h4>
+            <mat-chip-listbox multiple>
+                <mat-chip-option *ngFor="let chip of vibeChips" (click)="toggleVibe(chip)"
+                    [selected]="isVibeSelected(chip)">
+                    {{chip}}
+                </mat-chip-option>
+            </mat-chip-listbox>
+        </div>
+
+        <div class="actions">
+            <button mat-raised-button color="primary" (click)="suggestSnack()"
+                [disabled]="(selectedEffort.length === 0 && selectedVibe.length === 0) || loading">
+                Suggest Snack
+            </button>
+        </div>
+        <mat-progress-bar mode="indeterminate" *ngIf="loading"></mat-progress-bar>
+    </div>
+
+    <div *ngIf="hasSuggestions" class="result-section">
+        <div class="suggestion-card" *ngIf="getCurrentSuggestion() as suggestion">
+            <mat-card appearance="outlined">
+                <mat-card-header>
+                    <mat-card-title>{{suggestion.name}}</mat-card-title>
+                    <mat-card-subtitle>{{suggestion.prepTime}}</mat-card-subtitle>
+                </mat-card-header>
+                <mat-card-content>
+                    <p>{{suggestion.description}}</p>
+                    <p><strong>Ingredients:</strong> {{suggestion.ingredients.join(', ')}}</p>
+                </mat-card-content>
+                <mat-card-actions align="end">
+                    <button mat-button color="warn" (click)="spinAgain()" *ngIf="suggestions.length > 1">Spin Again
+                        <mat-icon>refresh</mat-icon></button>
+                    <button mat-raised-button color="primary" (click)="close()">Make This</button>
+                </mat-card-actions>
+            </mat-card>
+        </div>
+    </div>
+</div>

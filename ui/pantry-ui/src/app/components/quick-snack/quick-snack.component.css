@@ -1,0 +1,30 @@
+.quick-snack-container {
+    padding: 16px;
+    min-width: 300px;
+    padding-bottom: 32px;
+}
+
+.chip-section {
+    margin-bottom: 16px;
+}
+
+.actions {
+    margin-top: 24px;
+    margin-bottom: 8px;
+    display: flex;
+    justify-content: center;
+}
+
+.suggestion-card mat-card {
+    /* specific overrides if needed */
+}
+
+h2 {
+    margin-bottom: 8px;
+}
+
+h4 {
+    margin-bottom: 8px;
+    font-size: 1rem;
+    color: var(--mat-sys-on-surface-variant);
+}

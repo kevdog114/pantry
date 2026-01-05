@@ -28,6 +28,20 @@
                     </mat-option>
                 </mat-select>
             </mat-form-field>
+
+        </div>
+
+        <div class="setting-item">
+            <h3>Quick Snack Suggestion</h3>
+            <p>Select the AI model for quick snack suggestions.</p>
+            <mat-form-field appearance="fill">
+                <mat-label>Model</mat-label>
+                <mat-select [(ngModel)]="selectedQuickSnackModel">
+                    <mat-option *ngFor="let model of models" [value]="model.name">
+                        {{model.displayName}} ({{model.name}})
+                    </mat-option>
+                </mat-select>
+            </mat-form-field>
         </div>
 
         <div class="setting-item">

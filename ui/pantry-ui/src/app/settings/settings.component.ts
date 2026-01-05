@@ -22,10 +22,12 @@ export class SettingsComponent implements OnInit {
   chatModelKey = 'gemini_chat_model';
   visionModelKey = 'gemini_vision_model';
   expirationModelKey = 'gemini_expiration_model';
+  quickSnackModelKey = 'gemini_quick_snack_model';
 
   selectedChatModel: string = 'gemini-flash-latest';
   selectedVisionModel: string = 'gemini-flash-latest';
   selectedExpirationModel: string = 'gemini-flash-latest';
+  selectedQuickSnackModel: string = 'gemini-flash-latest';
 
   loading = true;
 
@@ -62,6 +64,7 @@ export class SettingsComponent implements OnInit {
         if (settings[this.chatModelKey]) this.selectedChatModel = settings[this.chatModelKey];
         if (settings[this.visionModelKey]) this.selectedVisionModel = settings[this.visionModelKey];
         if (settings[this.expirationModelKey]) this.selectedExpirationModel = settings[this.expirationModelKey];
+        if (settings[this.quickSnackModelKey]) this.selectedQuickSnackModel = settings[this.quickSnackModelKey];
         this.loading = false;
       },
       error: (err) => {
@@ -77,6 +80,7 @@ export class SettingsComponent implements OnInit {
     settings[this.chatModelKey] = this.selectedChatModel;
     settings[this.visionModelKey] = this.selectedVisionModel;
     settings[this.expirationModelKey] = this.selectedExpirationModel;
+    settings[this.quickSnackModelKey] = this.selectedQuickSnackModel;
 
     this.settingsService.updateSettings(settings).subscribe({
       next: () => {
