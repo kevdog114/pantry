@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ViewChild, ElementRef } from '@angular/core';
 import { GeminiService } from '../../services/gemini.service';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -19,12 +19,16 @@ export interface Recipe {
   };
 }
 
+export interface ChatContentItem {
+  type: 'chat' | 'recipe';
+  text?: string;
+  recipe?: Recipe;
+  expanded?: boolean;
+}
+
 export interface ChatMessage {
   sender: string;
-  type: 'chat' | 'recipe';
-  content?: string; // For text/markdwon
-  recipe?: Recipe;
-  expanded?: boolean; // For recipe card toggle
+  contents: ChatContentItem[];
 }
 
 @Component({
@@ -35,6 +39,8 @@ export interface ChatMessage {
   standalone: true,
 })
 export class GeminiChatComponent implements OnInit {
+  @ViewChild('scrollContainer') private scrollContainer!: ElementRef;
+
   showSidebar: boolean = true;
   isMobile: boolean = window.innerWidth <= 768; // Simple initial check
 
@@ -80,32 +86,50 @@ export class GeminiChatComponent implements OnInit {
       const session = response.data;
       this.messages = []; // Clear existing
 
+      let currentMessage: ChatMessage | null = null;
       // Reconstruct messages from DB history
       if (session.messages) {
         session.messages.forEach((msg: any) => {
+          const sender = msg.sender === 'user' ? 'You' : 'Gemini';
+          let contentItem: ChatContentItem | null = null;
+
           if (msg.type === 'recipe' && msg.recipeData) {
             let recipeObj;
             try {
               recipeObj = JSON.parse(msg.recipeData);
-            } catch (e) { console.error("Failed to parse recipe data", e); }
+            } catch (e) {
+              console.error("Failed to parse recipe data", e);
+            }
 
             if (recipeObj) {
-              this.messages.push({
-                sender: msg.sender === 'user' ? 'You' : 'Gemini',
+              contentItem = {
                 type: 'recipe',
                 recipe: recipeObj,
                 expanded: false
-              });
+              };
             }
           } else {
-            this.messages.push({
-              sender: msg.sender === 'user' ? 'You' : 'Gemini',
+            contentItem = {
               type: 'chat',
-              content: msg.content
-            });
+              text: msg.content
+            };
+          }
+
+          if (contentItem) {
+            if (currentMessage && currentMessage.sender === sender) {
+              currentMessage.contents.push(contentItem);
+            } else {
+              currentMessage = {
+                sender,
+                contents: [contentItem]
+              };
+              this.messages.push(currentMessage);
+            }
           }
         });
       }
+
+      setTimeout(() => this.scrollToBottom(), 100);
     });
   }
 
@@ -127,9 +151,10 @@ export class GeminiChatComponent implements OnInit {
     }
 
     const prompt = this.newMessage;
-    this.messages.push({ sender: 'You', type: 'chat', content: this.newMessage });
+    this.messages.push({ sender: 'You', contents: [{ type: 'chat', text: this.newMessage }] });
     this.newMessage = '';
     this.isLoading = true;
+    setTimeout(() => this.scrollToBottom(), 100);
 
     // We no longer need to construct history manually for the API, 
     // we just pass sessionId and let backend handle it.
@@ -147,23 +172,22 @@ export class GeminiChatComponent implements OnInit {
       }
 
       const data = response.data;
+      const geminiContents: ChatContentItem[] = [];
 
       // Check for the new list structure
       if (data.items && Array.isArray(data.items)) {
         data.items.forEach((item: any) => {
           if (item.type === 'recipe' && item.recipe) {
-            this.messages.push({
-              sender: 'Gemini',
+            geminiContents.push({
               type: 'recipe',
               recipe: item.recipe,
               expanded: false
             });
           } else {
             // Chat item
-            this.messages.push({
-              sender: 'Gemini',
+            geminiContents.push({
               type: 'chat',
-              content: item.content || JSON.stringify(item)
+              text: item.content || JSON.stringify(item)
             });
           }
         });
@@ -172,8 +196,7 @@ export class GeminiChatComponent implements OnInit {
         const isRecipe = (data.type && data.type.toLowerCase() === 'recipe') || (data.recipe && typeof data.recipe === 'object');
 
         if (isRecipe && data.recipe) {
-          this.messages.push({
-            sender: 'Gemini',
+          geminiContents.push({
             type: 'recipe',
             recipe: data.recipe,
             expanded: false
@@ -186,23 +209,30 @@ export class GeminiChatComponent implements OnInit {
             content = JSON.stringify(data, null, 2);
           }
 
-          this.messages.push({
-            sender: 'Gemini',
+          geminiContents.push({
             type: 'chat',
-            content: content
+            text: content
           });
         }
+      }
+
+      if (geminiContents.length > 0) {
+        this.messages.push({
+          sender: 'Gemini',
+          contents: geminiContents
+        });
       }
 
       if (response.warning) {
         this.snackBar.open(response.warning, 'Close', { duration: 5000 });
       }
+      setTimeout(() => this.scrollToBottom(), 100);
     });
   }
 
-  toggleRecipe(message: ChatMessage) {
-    if (message.type === 'recipe') {
-      message.expanded = !message.expanded;
+  toggleRecipe(item: ChatContentItem) {
+    if (item.type === 'recipe') {
+      item.expanded = !item.expanded;
     }
   }
 
@@ -212,6 +242,13 @@ export class GeminiChatComponent implements OnInit {
     if (this.isMobile) {
       this.showSidebar = false;
     }
+    setTimeout(() => this.scrollToBottom(), 100);
+  }
+
+  scrollToBottom(): void {
+    try {
+      this.scrollContainer.nativeElement.scrollTop = this.scrollContainer.nativeElement.scrollHeight;
+    } catch (err) { }
   }
 
   backToSessions() {
