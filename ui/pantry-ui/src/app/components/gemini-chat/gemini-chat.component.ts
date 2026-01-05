@@ -35,6 +35,9 @@ export interface ChatMessage {
   standalone: true,
 })
 export class GeminiChatComponent implements OnInit {
+  showSidebar: boolean = true;
+  isMobile: boolean = window.innerWidth <= 768; // Simple initial check
+
   messages: ChatMessage[] = [];
   newMessage: string = '';
   isLoading: boolean = false;
@@ -42,7 +45,17 @@ export class GeminiChatComponent implements OnInit {
   sessions: any[] = [];
   currentSessionId: number | null = null;
 
-  constructor(private geminiService: GeminiService, private snackBar: MatSnackBar) { }
+  constructor(private geminiService: GeminiService, private snackBar: MatSnackBar) {
+    this.checkScreenSize();
+    window.addEventListener('resize', () => this.checkScreenSize());
+  }
+
+  checkScreenSize() {
+    this.isMobile = window.innerWidth <= 768;
+    if (!this.isMobile) {
+      this.showSidebar = true;
+    }
+  }
 
   ngOnInit() {
     this.loadSessions();
@@ -57,6 +70,11 @@ export class GeminiChatComponent implements OnInit {
   loadSession(sessionId: number) {
     this.currentSessionId = sessionId;
     this.isLoading = true;
+
+    if (this.isMobile) {
+      this.showSidebar = false;
+    }
+
     this.geminiService.getSession(sessionId).subscribe(response => {
       this.isLoading = false;
       const session = response.data;
@@ -191,5 +209,12 @@ export class GeminiChatComponent implements OnInit {
   newChat() {
     this.messages = [];
     this.currentSessionId = null;
+    if (this.isMobile) {
+      this.showSidebar = false;
+    }
+  }
+
+  backToSessions() {
+    this.showSidebar = true;
   }
 }

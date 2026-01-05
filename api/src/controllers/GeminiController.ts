@@ -345,6 +345,42 @@ export const post = async (req: Request, res: Response) => {
       }
     }
 
+    // Attempt to generate/update title if this is a new session or it looks like a default/simple title
+    // We do this after the model has responded to have full context of the first turn.
+    try {
+      const currentSession = await prisma.chatSession.findUnique({ where: { id: sessionId } });
+      // Update if it was just created (we assume prompt based title is temporary if we want gemini to do it)
+      // or if it is "New Chat"
+      if (currentSession) {
+        const messageCount = await prisma.chatMessage.count({ where: { sessionId } });
+        // Only auto-update on the first exchange (2 messages: user + model) to avoid constantly changing titles,
+        // or if the user explicitly wants us to (maybe later).
+        // Let's stick to first turn logic.
+        if (messageCount <= 2 || currentSession.title === 'New Chat') {
+          const titlePrompt = `Based on the following conversation, generate a short, concise, and descriptive title (max 6 words). Return ONLY the title text, no quotes or "Title:".\n\nUser: ${prompt}\nInternal Model Response: ${JSON.stringify(data).substring(0, 500)}...`; // Truncate response to save tokens
+
+          const { result: titleResult } = await executeWithFallback(
+            "gemini_chat_model",
+            async (model) => await model.generateContent(titlePrompt)
+          );
+
+          let newTitle = titleResult.response.text().trim();
+          // Clean up quotes if present
+          newTitle = newTitle.replace(/^"|"$/g, '').trim();
+
+          if (newTitle) {
+            await prisma.chatSession.update({
+              where: { id: sessionId },
+              data: { title: newTitle }
+            });
+          }
+        }
+      }
+    } catch (titleError) {
+      console.warn("Failed to generate chat title:", titleError);
+      // Provide non-blocking failure
+    }
+
     res.json({
       message: "success",
       data: data,
