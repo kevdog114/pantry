@@ -1,1 +1,50 @@
-<p>settings works!</p>
+<div class="settings-container">
+    <h2>Gemini Model Settings</h2>
+
+    <div *ngIf="loading">Loading...</div>
+
+    <div *ngIf="!loading" class="settings-form">
+        <div class="setting-item">
+            <h3>Gemini Chat</h3>
+            <p>Select the AI model for general chat.</p>
+            <mat-form-field appearance="fill">
+                <mat-label>Model</mat-label>
+                <mat-select [(ngModel)]="selectedChatModel">
+                    <mat-option *ngFor="let model of models" [value]="model.name">
+                        {{model.displayName}} ({{model.name}})
+                    </mat-option>
+                </mat-select>
+            </mat-form-field>
+        </div>
+
+        <div class="setting-item">
+            <h3>Product Image Recognition</h3>
+            <p>Select the AI model for creating products from images.</p>
+            <mat-form-field appearance="fill">
+                <mat-label>Model</mat-label>
+                <mat-select [(ngModel)]="selectedVisionModel">
+                    <mat-option *ngFor="let model of models" [value]="model.name">
+                        {{model.displayName}} ({{model.name}})
+                    </mat-option>
+                </mat-select>
+            </mat-form-field>
+        </div>
+
+        <div class="setting-item">
+            <h3>Expiration Date Estimation</h3>
+            <p>Select the AI model for estimating expiration dates.</p>
+            <mat-form-field appearance="fill">
+                <mat-label>Model</mat-label>
+                <mat-select [(ngModel)]="selectedExpirationModel">
+                    <mat-option *ngFor="let model of models" [value]="model.name">
+                        {{model.displayName}} ({{model.name}})
+                    </mat-option>
+                </mat-select>
+            </mat-form-field>
+        </div>
+
+        <div class="actions">
+            <button mat-raised-button color="primary" (click)="saveSettings()">Save Settings</button>
+        </div>
+    </div>
+</div>

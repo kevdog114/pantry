@@ -14,6 +14,7 @@ import { environment } from '../../environments/environment';
 import { MatTabsModule } from '@angular/material/tabs';
 import { GeminiService } from '../services/gemini.service';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 
 @Component({
   selector: 'app-product-edit',
@@ -26,7 +27,8 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
     MatCardModule,
     MatTabsModule,
     TagsComponent,
-    MatProgressSpinnerModule
+    MatProgressSpinnerModule,
+    MatSnackBarModule
   ],
   templateUrl: './product-edit.component.html',
   styleUrl: './product-edit.component.css'
@@ -80,7 +82,7 @@ export class ProductEditComponent implements AfterViewInit {
     }
   }
 
-  constructor(private svc: ProductListService, private router: Router, private geminiService: GeminiService) {
+  constructor(private svc: ProductListService, private router: Router, private geminiService: GeminiService, private snackBar: MatSnackBar) {
   }
 
   public askGeminiExpiration() {
@@ -96,6 +98,9 @@ export class ProductEditComponent implements AfterViewInit {
                 if (data.freezerLifespanDays) this.product.freezerLifespanDays = data.freezerLifespanDays;
                 if (data.refrigeratorLifespanDays) this.product.refrigeratorLifespanDays = data.refrigeratorLifespanDays;
                 if (data.openedLifespanDays) this.product.openedLifespanDays = data.openedLifespanDays;
+              }
+              if (response.warning) {
+                this.snackBar.open(response.warning, 'Close', { duration: 5000 });
               }
             }
           },

@@ -9,11 +9,12 @@ import { Product } from '../../../types/product';
 import { environment } from '../../../environments/environment';
 import { Router } from '@angular/router';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 
 @Component({
   selector: 'app-photo-upload',
   standalone: true,
-  imports: [CommonModule, MatButtonModule, HttpClientModule, MatProgressSpinnerModule, MatSelectModule, MatFormFieldModule, FormsModule],
+  imports: [CommonModule, MatButtonModule, HttpClientModule, MatProgressSpinnerModule, MatSelectModule, MatFormFieldModule, FormsModule, MatSnackBarModule],
   templateUrl: './photo-upload.component.html',
   styleUrl: './photo-upload.component.css'
 })
@@ -31,7 +32,7 @@ export class PhotoUploadComponent implements OnInit {
   cameras: MediaDeviceInfo[] = [];
   selectedDeviceId: string = '';
 
-  constructor(private http: HttpClient, private router: Router) { }
+  constructor(private http: HttpClient, private router: Router, private snackBar: MatSnackBar) { }
 
   ngOnInit(): void {
     const savedDeviceId = localStorage.getItem('pantry_camera_device_id');
@@ -141,11 +142,14 @@ export class PhotoUploadComponent implements OnInit {
       const formData = new FormData();
       formData.append('file', blob, 'product-image.jpg');
 
-      this.http.post<Product>(`${environment.apiUrl}/gemini/image`, formData)
-        .subscribe(product => {
+      this.http.post<Product & { warning?: string }>(`${environment.apiUrl}/gemini/image`, formData)
+        .subscribe(response => {
           this.isLoading = false;
-          this.uploadComplete.emit(product);
-          this.router.navigate(['/product', product.id]);
+          if (response.warning) {
+            this.snackBar.open(response.warning, 'Close', { duration: 5000 });
+          }
+          this.uploadComplete.emit(response);
+          this.router.navigate(['/product', response.id]);
         });
     }
   }

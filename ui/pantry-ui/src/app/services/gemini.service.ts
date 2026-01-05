@@ -19,4 +19,8 @@ export class GeminiService {
   getExpirationSuggestion(productTitle: string): Observable<any> {
     return this.http.post<any>(`${environment.apiUrl}/gemini/expiration`, { productTitle });
   }
+
+  getAvailableModels(): Observable<any> {
+    return this.http.get<any>(`${environment.apiUrl}/gemini/models`);
+  }
 }

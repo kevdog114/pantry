@@ -8,6 +8,7 @@ import * as TagsController from "./controllers/TagsController";
 import * as GeminiController from "./controllers/GeminiController";
 import * as AuthController from "./controllers/AuthController";
 import { PersonalAccessTokenController } from "./controllers/PersonalAccessTokenController";
+import * as SettingsController from "./controllers/SettingsController";
 import { isAuthenticated } from "./middleware/auth";
 import * as LabelPrinterController from "./controllers/labelPrinterController";
 import cors from "cors";
@@ -24,11 +25,11 @@ var corsOptions = {
     origin: process.env.ALLOW_ORIGIN || 'http://localhost:4200',
     credentials: true,
     //optionsSuccessStatus: 200 // some legacy browsers (IE11, various SmartTVs) choke on 204
-  }
+}
 
 app.use(cors(corsOptions))
 app.use(fileUpload({
-  useTempFiles: true
+    useTempFiles: true
 }));
 app.use(express.json());
 app.use((req, res, next) => {
@@ -127,6 +128,10 @@ app.get("/product-search-all", ProductSearchController.getall);
 app.post("/gemini/chat", GeminiController.post);
 app.post("/gemini/image", GeminiController.postImage);
 app.post("/gemini/expiration", GeminiController.postExpiration);
+app.get("/gemini/models", GeminiController.getAvailableModels);
+
+app.get("/settings", SettingsController.getSettings);
+app.put("/settings", SettingsController.updateSettings);
 
 app.post("/labels/quick-print", LabelPrinterController.printQuickLabel);
 

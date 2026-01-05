@@ -1,4 +1,9 @@
 *.sqlite
+*.sqlite-journal
+*.sqlite-*
+*.wal
+*.shm
+*.backup
 upload
 
 /src/generated/prisma

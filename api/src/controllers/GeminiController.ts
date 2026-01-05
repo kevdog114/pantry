@@ -8,11 +8,15 @@ import { storeFile } from "../lib/FileStorage";
 
 dotenv.config();
 
+
 const gemini_api_key = process.env.GEMINI_API_KEY;
 if (!gemini_api_key) {
   throw new Error("GEMINI_API_KEY is not set");
 }
 const googleAI = new GoogleGenerativeAI(gemini_api_key);
+
+const DEFAULT_FALLBACK_MODEL = "gemini-flash-latest";
+
 const geminiConfig = {
   temperature: 0.9,
   topP: 1,
@@ -20,15 +24,107 @@ const geminiConfig = {
   maxOutputTokens: 4096,
 };
 
-const geminiModel = googleAI.getGenerativeModel({
-  model: process.env.GEMINI_TEXT_MODEL || "gemini-2.5-flash",
-  ...geminiConfig,
-});
+// Helper to get the model based on feature setting or fallback
+async function getGeminiModel(featureKey: string, fallbackModelName: string = DEFAULT_FALLBACK_MODEL) {
+  let modelName = fallbackModelName;
+  try {
+    const setting = await prisma.systemSetting.findUnique({
+      where: { key: featureKey }
+    });
+    if (setting && setting.value) {
+      modelName = setting.value;
+    }
+  } catch (err) {
+    console.warn(`Failed to fetch setting for ${featureKey}, using default: ${modelName}`, err);
+  }
 
-const geminiVisionModel = googleAI.getGenerativeModel({
-  model: process.env.GEMINI_VISION_MODEL || "gemini-pro-vision",
-  ...geminiConfig,
-})
+  return {
+    model: googleAI.getGenerativeModel({
+      model: modelName,
+      ...geminiConfig,
+    }),
+    modelName
+  };
+}
+
+// Reuseable execution wrapper with fallback
+async function executeWithFallback<T>(
+  featureKey: string,
+  operation: (model: any) => Promise<T>,
+  fallbackModelName: string = DEFAULT_FALLBACK_MODEL
+): Promise<{ result: T; warning?: string }> {
+  const { model, modelName } = await getGeminiModel(featureKey, fallbackModelName);
+
+  try {
+    const result = await operation(model);
+    return { result };
+  } catch (error: any) {
+    // Check for 404 or other errors indicating model unavailability
+    // The SDK might throw different errors, but typically 404 or specific status codes indicating model not found.
+    // We'll catch generic errors for now and check if it seems related to model availability or try fallback anyway.
+    console.warn(`Error using model ${modelName}:`, error);
+
+    if (modelName !== fallbackModelName) {
+      console.warn(`Attempting fallback to ${fallbackModelName}`);
+      const fallbackModel = googleAI.getGenerativeModel({
+        model: fallbackModelName,
+        ...geminiConfig,
+      });
+      try {
+        const result = await operation(fallbackModel);
+        return {
+          result,
+          warning: `Preferred model '${modelName}' was unavailable. Fell back to '${fallbackModelName}'.`
+        };
+      } catch (fallbackError) {
+        throw fallbackError; // Fallback also failed
+      }
+    }
+    throw error; // Initial model was already fallback or error is fatal
+  }
+}
+
+
+export const getAvailableModels = async (req: Request, res: Response) => {
+  try {
+    // The node SDK doesn't expose listModels directly easily on the GoogleGenerativeAI class in older versions, 
+    // but we can try to use the REST API or check if SDK supports it.
+    // Recent SDKs might not have a direct listModels helper for API key auth easily accessible without headers hacking.
+    // However, checking the user requirement: "fetch available models".
+    // We can just hit the REST endpoint with the API Key.
+
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${gemini_api_key}`);
+    if (!response.ok) {
+      throw new Error(`Failed to fetch models: ${response.statusText}`);
+    }
+    const data = await response.json();
+
+    // Filter or just return the list
+    // data.models containing name (models/gemini-pro), displayName, etc.
+    // We prefer just the simple names usually (gemini-pro) but the API returns "models/gemini-pro".
+    // We should strip "models/" prefix for usage in getGenerativeModel usually, although SDK accepts both.
+    // Let's normalize it.
+
+    const models = (data.models || []).map((m: any) => ({
+      name: m.name.replace('models/', ''),
+      displayName: m.displayName,
+      description: m.description,
+      supportedGenerationMethods: m.supportedGenerationMethods
+    }));
+
+    res.json({
+      message: "success",
+      data: models
+    });
+
+  } catch (error) {
+    console.error("Error listing models:", error);
+    res.status(500).json({
+      message: "error",
+      data: (error as Error).message
+    });
+  }
+}
 
 const getProductContext = async (): Promise<string> => {
   const products = await prisma.product.findMany({
@@ -85,11 +181,16 @@ export const post = async (req: Request, res: Response) => {
       },
     ];
 
-    const result = await geminiModel.generateContent({ contents });
+    const { result, warning } = await executeWithFallback(
+      "gemini_chat_model",
+      async (model) => await model.generateContent({ contents })
+    );
+
     const response = result.response;
     res.json({
       message: "success",
       data: response.text(),
+      warning // Send warning to frontend
     });
   } catch (error) {
     console.log("response error", error);
@@ -120,7 +221,11 @@ export const postImage = async (req: Request, res: Response) => {
 
     const prompt = "What is this product? Give me just the name of the product, with no other descriptive text. For example, if it is a can of Campbell's soup, just return 'Campbell's soup'. If you are not sure, just return 'Unknown'";
 
-    const result = await geminiVisionModel.generateContent([prompt, fileToGenerativePart(image.tempFilePath, image.mimetype)]);
+    const { result, warning } = await executeWithFallback(
+      "gemini_vision_model",
+      async (model) => await model.generateContent([prompt, fileToGenerativePart(image.tempFilePath, image.mimetype)])
+    );
+
     const response = result.response;
     const productName = response.text();
 
@@ -145,7 +250,17 @@ export const postImage = async (req: Request, res: Response) => {
 
     storeFile(image.tempFilePath, fileId.toString());
 
-    res.send(product);
+    // Append warning to response if exists (though we send the product object, we might wrap it or attach it)
+    // The current frontend expects just the product object likely. 
+    // We should probably check if we can modify the response structure or just log it.
+    // User requirement: "snackbar warning". Frontend needs to see it.
+    // Changing res.send(product) to res.json({ product, warning }) might break existing frontend.
+    // But since I'm editing frontend too, I can handle it.
+
+    res.json({
+      ...product,
+      warning
+    });
 
   } catch (error) {
     console.log("response error", error);
@@ -186,13 +301,16 @@ export const postExpiration = async (req: Request, res: Response) => {
       ],
     } as any;
 
-    const result = await geminiModel.generateContent({
-      contents: [{ role: "user", parts: [{ text: prompt }] }],
-      generationConfig: {
-        responseMimeType: "application/json",
-        responseSchema: schema,
-      },
-    });
+    const { result, warning } = await executeWithFallback(
+      "gemini_expiration_model",
+      async (model) => await model.generateContent({
+        contents: [{ role: "user", parts: [{ text: prompt }] }],
+        generationConfig: {
+          responseMimeType: "application/json",
+          responseSchema: schema,
+        },
+      })
+    );
 
     const response = result.response;
     const jsonString = response.text();
@@ -201,6 +319,7 @@ export const postExpiration = async (req: Request, res: Response) => {
     res.json({
       message: "success",
       data: data,
+      warning
     });
   } catch (error) {
     console.log("response error", error);
