@@ -76,33 +76,55 @@ export class GeminiChatComponent {
       this.isLoading = false;
       const data = response.data;
 
-      // Robustly check for recipe
-      // Sometimes Gemini might return the type as 'Recipe' (case sensitive) or just include the structure
-      const isRecipe = (data.type && data.type.toLowerCase() === 'recipe') || (data.recipe && typeof data.recipe === 'object');
-
-      if (isRecipe && data.recipe) {
-        this.messages.push({
-          sender: 'Gemini',
-          type: 'recipe',
-          recipe: data.recipe,
-          expanded: false
+      // Check for the new list structure
+      if (data.items && Array.isArray(data.items)) {
+        data.items.forEach((item: any) => {
+          if (item.type === 'recipe' && item.recipe) {
+            this.messages.push({
+              sender: 'Gemini',
+              type: 'recipe',
+              recipe: item.recipe,
+              expanded: false
+            });
+          } else {
+            // Chat item
+            this.messages.push({
+              sender: 'Gemini',
+              type: 'chat',
+              content: item.content || JSON.stringify(item)
+            });
+          }
         });
       } else {
-        // Default to chat
-        // Ensure content is a string. If it's an object, stringify it.
-        let content = data.content;
-        if (typeof content === 'object') {
-          content = JSON.stringify(content, null, 2);
-        } else if (!content) {
-          // Fallback if no content field, dump the whole data
-          content = JSON.stringify(data, null, 2);
-        }
+        // Fallback for backward compatibility or if structure is different
+        // Robustly check for recipe
+        // Sometimes Gemini might return the type as 'Recipe' (case sensitive) or just include the structure
+        const isRecipe = (data.type && data.type.toLowerCase() === 'recipe') || (data.recipe && typeof data.recipe === 'object');
 
-        this.messages.push({
-          sender: 'Gemini',
-          type: 'chat',
-          content: content
-        });
+        if (isRecipe && data.recipe) {
+          this.messages.push({
+            sender: 'Gemini',
+            type: 'recipe',
+            recipe: data.recipe,
+            expanded: false
+          });
+        } else {
+          // Default to chat
+          // Ensure content is a string. If it's an object, stringify it.
+          let content = data.content;
+          if (typeof content === 'object') {
+            content = JSON.stringify(content, null, 2);
+          } else if (!content) {
+            // Fallback if no content field, dump the whole data
+            content = JSON.stringify(data, null, 2);
+          }
+
+          this.messages.push({
+            sender: 'Gemini',
+            type: 'chat',
+            content: content
+          });
+        }
       }
 
       if (response.warning) {

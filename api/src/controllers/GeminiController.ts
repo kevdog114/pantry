@@ -157,27 +157,31 @@ export const post = async (req: Request, res: Response) => {
     const systemInstruction = `
       You are a helpful cooking assistant. You have access to the user's pantry inventory.
       
-      When the user asks for a recipe, you MUST return a JSON object with the following structure:
+      When the user asks for a recipe, or just wants to chat, you MUST return a JSON object with the following structure:
       {
-        "type": "recipe",
-        "recipe": {
-          "title": "Recipe Title",
-          "description": "Brief description",
-          "ingredients": ["Ingredient 1", "Ingredient 2"],
-          "instructions": ["Step 1", "Step 2"],
-          "time": {
-            "prep": "10 mins",
-            "cook": "20 mins",
-            "total": "30 mins"
+        "items": [
+          {
+            "type": "recipe",
+            "recipe": {
+              "title": "Recipe Title",
+              "description": "Brief description",
+              "ingredients": ["Ingredient 1", "Ingredient 2"],
+              "instructions": ["Step 1", "Step 2"],
+              "time": {
+                "prep": "10 mins",
+                "cook": "20 mins",
+                "total": "30 mins"
+              }
+            }
+          },
+          {
+             "type": "chat",
+             "content": "Your response here. You can use **Markdown** for formatting."
           }
-        }
+        ]
       }
-
-      For all other interactions (questions, chatting, etc.), return a JSON object with this structure:
-      {
-        "type": "chat",
-        "content": "Your response here. You can use **Markdown** for formatting."
-      }
+      
+      You can return multiple items in the list. For example, a chat message followed by a recipe, or just a single chat message.
 
       Here is the current inventory:
       ${productContext}
@@ -187,7 +191,7 @@ export const post = async (req: Request, res: Response) => {
       role: "model",
       parts: [
         {
-          text: "Understood. I will always return valid JSON with either 'type': 'recipe' or 'type': 'chat'.",
+          text: "Understood. I will always return valid JSON with a root 'items' array containing objects with 'type': 'recipe' or 'type': 'chat'.",
         },
       ],
     };
@@ -221,9 +225,14 @@ export const post = async (req: Request, res: Response) => {
       data = JSON.parse(response.text());
     } catch (e) {
       // Fallback if model fails to return JSON (unlikely with restriction but possible)
+      // Wrap it in the new structure
       data = {
-        type: 'chat',
-        content: response.text()
+        items: [
+          {
+            type: 'chat',
+            content: response.text()
+          }
+        ]
       };
     }
 
