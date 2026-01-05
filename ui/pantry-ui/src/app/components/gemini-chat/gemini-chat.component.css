@@ -8,7 +8,7 @@
   flex-grow: 1;
   overflow-y: auto;
   padding: 10px;
-  border: 1px solid #ccc;
+  border: 1px solid var(--bs-border-color);
   margin-bottom: 10px;
 }
 
@@ -27,6 +27,10 @@
 .input-area input {
   flex-grow: 1;
   padding: 5px;
+  background-color: var(--bs-body-bg);
+  color: var(--bs-body-color);
+  border: 1px solid var(--bs-border-color);
+  border-radius: 5px;
 }
 
 .input-area button {
@@ -40,17 +44,17 @@ markdown p {
 
 /* Recipe Card Styles */
 .recipe-card {
-  border: 1px solid #e0e0e0;
+  border: 1px solid var(--bs-border-color);
   border-radius: 8px;
   margin-top: 10px;
-  background-color: #f9f9f9;
+  background-color: var(--bs-tertiary-bg);
   overflow: hidden;
   width: 100%;
 }
 
 .recipe-header {
   padding: 15px;
-  background-color: #fff;
+  background-color: var(--bs-card-bg);
   cursor: pointer;
   display: flex;
   justify-content: space-between;
@@ -59,28 +63,29 @@ markdown p {
 }
 
 .recipe-header:hover {
-  background-color: #f0f0f0;
+  background-color: var(--bs-secondary-bg);
 }
 
 .recipe-header h3 {
   margin: 0;
   font-size: 1.1rem;
-  color: #2c3e50;
+  color: var(--bs-heading-color);
 }
 
 .toggle-icon {
   font-size: 0.8rem;
-  color: #888;
+  color: var(--bs-tertiary-color);
 }
 
 .recipe-details {
   padding: 15px;
-  border-top: 1px solid #e0e0e0;
+  border-top: 1px solid var(--bs-border-color);
+  color: var(--bs-body-color);
 }
 
 .recipe-desc {
   font-style: italic;
-  color: #555;
+  color: var(--bs-secondary-color);
   margin-bottom: 15px;
 }
 
@@ -89,7 +94,7 @@ markdown p {
   gap: 20px;
   margin-bottom: 15px;
   font-size: 0.9rem;
-  background: #eee;
+  background: var(--bs-secondary-bg);
   padding: 8px;
   border-radius: 4px;
 }
@@ -97,8 +102,8 @@ markdown p {
 .recipe-section h4 {
   margin-top: 10px;
   margin-bottom: 5px;
-  color: #444;
-  border-bottom: 2px solid #ddd;
+  color: var(--bs-heading-color);
+  border-bottom: 2px solid var(--bs-border-color);
   padding-bottom: 3px;
   display: inline-block;
 }
@@ -118,7 +123,7 @@ markdown p {
 .typing-indicator {
   display: inline-block;
   padding: 10px;
-  background-color: #f1f0f0;
+  background-color: var(--bs-secondary-bg);
   border-radius: 20px;
   margin-left: 5px;
 }
@@ -128,7 +133,7 @@ markdown p {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background-color: #999;
+  background-color: var(--bs-secondary-color);
   margin: 0 2px;
   animation: bounce 1.4s infinite ease-in-out both;
 }
