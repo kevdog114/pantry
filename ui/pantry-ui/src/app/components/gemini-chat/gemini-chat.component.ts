@@ -38,6 +38,8 @@ export class GeminiChatComponent {
   messages: ChatMessage[] = [];
   newMessage: string = '';
 
+  isLoading: boolean = false;
+
   constructor(private geminiService: GeminiService, private snackBar: MatSnackBar) { }
 
   sendMessage() {
@@ -48,6 +50,7 @@ export class GeminiChatComponent {
     const prompt = this.newMessage;
     this.messages.push({ sender: 'You', type: 'chat', content: this.newMessage });
     this.newMessage = '';
+    this.isLoading = true;
 
     const history = this.messages.slice(0, -1).map(message => {
       // For history, we need to serialize back to text for the model context if possible, 
@@ -70,6 +73,7 @@ export class GeminiChatComponent {
     });
 
     this.geminiService.sendMessage(prompt, history).subscribe(response => {
+      this.isLoading = false;
       const data = response.data; // This is now a generic object { type, content?, recipe? }
 
       if (data.type === 'recipe') {

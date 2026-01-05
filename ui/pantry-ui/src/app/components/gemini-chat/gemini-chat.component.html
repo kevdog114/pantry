@@ -41,9 +41,20 @@
       </div>
     </div>
   </div>
-  <div class="input-area">
-    <input [(ngModel)]="newMessage" (keyup.enter)="sendMessage()" placeholder="Type a message...">
-    <button (click)="sendMessage()">Send</button>
-    <button (click)="newChat()">New Chat</button>
+
+  <!-- Loading Indicator -->
+  <div *ngIf="isLoading" class="message">
+    <span class="sender">Gemini: </span>
+    <div class="typing-indicator">
+      <span class="dot"></span>
+      <span class="dot"></span>
+      <span class="dot"></span>
+    </div>
   </div>
+</div>
+<div class="input-area">
+  <input [(ngModel)]="newMessage" (keyup.enter)="sendMessage()" placeholder="Type a message...">
+  <button (click)="sendMessage()">Send</button>
+  <button (click)="newChat()">New Chat</button>
+</div>
 </div>
