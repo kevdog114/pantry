@@ -18,6 +18,7 @@ import passport from "passport";
 import { Strategy as LocalStrategy } from "passport-local";
 import * as bcrypt from 'bcryptjs';
 import prisma from './lib/prisma';
+import { PrismaSessionStore } from '@quixo3/prisma-session-store';
 
 const app = express();
 
@@ -41,9 +42,20 @@ app.use((req, res, next) => {
     next();
 });
 app.use(session({
+    cookie: {
+        maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+    },
     secret: process.env.SESSION_SECRET || "secret",
     resave: false,
     saveUninitialized: false,
+    store: new PrismaSessionStore(
+        prisma,
+        {
+            checkPeriod: 2 * 60 * 1000,  //ms
+            dbRecordIdIsSessionId: false,
+            dbRecordIdFunction: undefined,
+        }
+    )
 }));
 app.use(passport.initialize());
 app.use(passport.session());
