@@ -154,25 +154,49 @@ export const post = async (req: Request, res: Response) => {
     };
 
     const productContext = await getProductContext();
-    const systemMessage = {
-      role: "user",
-      parts: [
-        {
-          text: `Here is the current inventory of my pantry. Please use this as context for my questions:\n${productContext}`,
-        },
-      ],
-    };
+    const systemInstruction = `
+      You are a helpful cooking assistant. You have access to the user's pantry inventory.
+      
+      When the user asks for a recipe, you MUST return a JSON object with the following structure:
+      {
+        "type": "recipe",
+        "recipe": {
+          "title": "Recipe Title",
+          "description": "Brief description",
+          "ingredients": ["Ingredient 1", "Ingredient 2"],
+          "instructions": ["Step 1", "Step 2"],
+          "time": {
+            "prep": "10 mins",
+            "cook": "20 mins",
+            "total": "30 mins"
+          }
+        }
+      }
+
+      For all other interactions (questions, chatting, etc.), return a JSON object with this structure:
+      {
+        "type": "chat",
+        "content": "Your response here. You can use **Markdown** for formatting."
+      }
+
+      Here is the current inventory:
+      ${productContext}
+    `;
+
     const modelAck = {
       role: "model",
       parts: [
         {
-          text: "Okay, I have the pantry inventory. What would you like to know or do?",
+          text: "Understood. I will always return valid JSON with either 'type': 'recipe' or 'type': 'chat'.",
         },
       ],
     };
 
     const contents: Content[] = [
-      systemMessage,
+      {
+        role: "user",
+        parts: [{ text: systemInstruction }]
+      },
       modelAck,
       ...history,
       {
@@ -183,13 +207,29 @@ export const post = async (req: Request, res: Response) => {
 
     const { result, warning } = await executeWithFallback(
       "gemini_chat_model",
-      async (model) => await model.generateContent({ contents })
+      async (model) => await model.generateContent({
+        contents,
+        generationConfig: {
+          responseMimeType: "application/json"
+        }
+      })
     );
 
     const response = result.response;
+    let data;
+    try {
+      data = JSON.parse(response.text());
+    } catch (e) {
+      // Fallback if model fails to return JSON (unlikely with restriction but possible)
+      data = {
+        type: 'chat',
+        content: response.text()
+      };
+    }
+
     res.json({
       message: "success",
-      data: response.text(),
+      data: data,
       warning // Send warning to frontend
     });
   } catch (error) {

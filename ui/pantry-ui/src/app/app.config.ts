@@ -7,12 +7,15 @@ import { provideHttpClient, withInterceptorsFromDi } from '@angular/common/http'
 import { provideNativeDateAdapter } from '@angular/material/core';
 import { MAT_FORM_FIELD_DEFAULT_OPTIONS } from '@angular/material/form-field';
 
+import { provideMarkdown } from 'ngx-markdown';
+
 export const appConfig: ApplicationConfig = {
   providers: [
     provideZoneChangeDetection({ eventCoalescing: true }),
     provideRouter(routes, withComponentInputBinding()), provideAnimationsAsync(),
     provideHttpClient(withInterceptorsFromDi()),
     provideNativeDateAdapter(),
+    provideMarkdown(),
     {
       provide: MAT_FORM_FIELD_DEFAULT_OPTIONS,
       useValue: { appearance: 'outline' }

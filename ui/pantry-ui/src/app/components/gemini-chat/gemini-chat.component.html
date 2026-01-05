@@ -2,7 +2,43 @@
   <div class="messages">
     <div *ngFor="let message of messages" class="message">
       <span class="sender">{{ message.sender }}: </span>
-      <span>{{ message.text }}</span>
+
+      <!-- Text/Chat Message -->
+      <div *ngIf="message.type === 'chat'" class="content">
+        <markdown [data]="message.content"></markdown>
+      </div>
+
+      <!-- Recipe Message -->
+      <div *ngIf="message.type === 'recipe' && message.recipe" class="recipe-card">
+        <div class="recipe-header" (click)="toggleRecipe(message)">
+          <h3>🍽️ {{ message.recipe.title }}</h3>
+          <span class="toggle-icon">{{ message.expanded ? '▲' : '▼' }}</span>
+        </div>
+
+        <div class="recipe-details" *ngIf="message.expanded">
+          <p class="recipe-desc">{{ message.recipe.description }}</p>
+
+          <div class="recipe-time">
+            <span><strong>Prep:</strong> {{ message.recipe.time.prep }}</span>
+            <span><strong>Cook:</strong> {{ message.recipe.time.cook }}</span>
+            <span><strong>Total:</strong> {{ message.recipe.time.total }}</span>
+          </div>
+
+          <div class="recipe-section">
+            <h4>Ingredients</h4>
+            <ul>
+              <li *ngFor="let ingredient of message.recipe.ingredients">{{ ingredient }}</li>
+            </ul>
+          </div>
+
+          <div class="recipe-section">
+            <h4>Instructions</h4>
+            <ol>
+              <li *ngFor="let step of message.recipe.instructions">{{ step }}</li>
+            </ol>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
   <div class="input-area">
