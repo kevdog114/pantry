@@ -148,10 +148,64 @@ const getProductContext = async (): Promise<string> => {
 
 export const post = async (req: Request, res: Response) => {
   try {
-    const { prompt, history = [] } = req.body as {
+    let { prompt, history = [], sessionId } = req.body as {
       prompt: string;
       history: Content[];
+      sessionId?: number;
     };
+
+    // If no sessionId, create a new session
+    if (!sessionId) {
+      const session = await prisma.chatSession.create({
+        data: {
+          title: prompt.substring(0, 50) + (prompt.length > 50 ? '...' : ''),
+        }
+      });
+      sessionId = session.id;
+    } else {
+      // Load history from DB
+      const messages = await prisma.chatMessage.findMany({
+        where: { sessionId },
+        orderBy: { createdAt: 'asc' }
+      });
+
+      // Convert messages to history Content[]
+      // Note: We need to ensure we map 'user' and 'model' correctly.
+      // In DB, sender is 'user' or 'model'.
+      history = messages.map(msg => {
+        let text = msg.content || '';
+        // If it was a recipe, we construct a JSON representation to simulate what the model outputted
+        if (msg.type === 'recipe' && msg.recipeData) {
+          // We wrap it in the structure the model uses
+          text = JSON.stringify({
+            items: [{
+              type: 'recipe',
+              recipe: JSON.parse(msg.recipeData)
+            }]
+          });
+        }
+        return {
+          role: msg.sender,
+          parts: [{ text }]
+        } as Content;
+      });
+    }
+
+    // Save User Message to DB
+    await prisma.chatMessage.create({
+      data: {
+        sessionId: sessionId!,
+        sender: 'user',
+        type: 'chat',
+        content: prompt
+      }
+    });
+
+    // Update session timestamp
+    await prisma.chatSession.update({
+      where: { id: sessionId },
+      data: { updatedAt: new Date() }
+    });
 
     const productContext = await getProductContext();
     const systemInstruction = `
@@ -201,7 +255,7 @@ export const post = async (req: Request, res: Response) => {
         role: "user",
         parts: [{ text: systemInstruction }]
       },
-      modelAck,
+      modelAck, // Artificial Ack to reinforce JSON behavior
       ...history,
       {
         role: "user",
@@ -224,8 +278,7 @@ export const post = async (req: Request, res: Response) => {
     try {
       data = JSON.parse(response.text());
     } catch (e) {
-      // Fallback if model fails to return JSON (unlikely with restriction but possible)
-      // Wrap it in the new structure
+      // Fallback if model fails to return JSON
       data = {
         items: [
           {
@@ -236,10 +289,67 @@ export const post = async (req: Request, res: Response) => {
       };
     }
 
+    // Save Model Response to DB
+    // We need to handle multiple items in the response
+    if (data.items && Array.isArray(data.items)) {
+      for (const item of data.items) {
+        if (item.type === 'recipe' && item.recipe) {
+          await prisma.chatMessage.create({
+            data: {
+              sessionId: sessionId!,
+              sender: 'model',
+              type: 'recipe',
+              recipeData: JSON.stringify(item.recipe)
+            }
+          });
+        } else {
+          await prisma.chatMessage.create({
+            data: {
+              sessionId: sessionId!,
+              sender: 'model',
+              type: 'chat',
+              content: item.content || JSON.stringify(item)
+            }
+          });
+        }
+      }
+    } else {
+      // Fallback for single item or malformed structure
+      // ... existing logic adaptation ...
+      // If it looks like a recipe
+      const isRecipe = (data.type && data.type.toLowerCase() === 'recipe') || (data.recipe && typeof data.recipe === 'object');
+      if (isRecipe && data.recipe) {
+        await prisma.chatMessage.create({
+          data: {
+            sessionId: sessionId!,
+            sender: 'model',
+            type: 'recipe',
+            recipeData: JSON.stringify(data.recipe)
+          }
+        });
+      } else {
+        let content = data.content;
+        if (typeof content === 'object') {
+          content = JSON.stringify(content, null, 2);
+        } else if (!content) {
+          content = JSON.stringify(data, null, 2);
+        }
+        await prisma.chatMessage.create({
+          data: {
+            sessionId: sessionId!,
+            sender: 'model',
+            type: 'chat',
+            content: content
+          }
+        });
+      }
+    }
+
     res.json({
       message: "success",
       data: data,
-      warning // Send warning to frontend
+      sessionId, // Return sessionId so client can update URL/state
+      warning
     });
   } catch (error) {
     console.log("response error", error);

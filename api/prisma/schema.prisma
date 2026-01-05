@@ -136,3 +136,22 @@ model SystemSetting {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
+
+model ChatSession {
+  id        Int           @id @default(autoincrement())
+  title     String        @default("New Chat")
+  messages  ChatMessage[]
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+}
+
+model ChatMessage {
+  id            Int         @id @default(autoincrement())
+  sessionId     Int
+  session       ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  sender        String      // "user" or "model"
+  type          String      // "chat" or "recipe"
+  content       String?     // For text
+  recipeData    String?     // JSON string for recipe data
+  createdAt     DateTime    @default(now())
+}

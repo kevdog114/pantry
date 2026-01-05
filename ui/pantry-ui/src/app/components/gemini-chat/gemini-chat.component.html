@@ -1,59 +1,82 @@
-<div class="chat-container">
-  <div class="messages">
-    <div *ngFor="let message of messages" class="message">
-      <span class="sender">{{ message.sender }}: </span>
+<div class="gemini-layout">
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <button class="new-chat-btn" (click)="newChat()">
+      <span class="icon">+</span> New Chat
+    </button>
+    <div class="session-list">
+      <div *ngFor="let session of sessions" class="session-item" [class.active]="session.id === currentSessionId"
+        (click)="loadSession(session.id)">
+        <span class="session-title">{{ session.title }}</span>
+        <button class="delete-btn" (click)="deleteSession(session.id, $event)" title="Delete Chat">🗑️</button>
+      </div>
+    </div>
+  </aside>
 
-      <!-- Text/Chat Message -->
-      <div *ngIf="message.type === 'chat'" class="content">
-        <markdown [data]="message.content"></markdown>
+  <!-- Main Chat -->
+  <main class="main-chat">
+    <div class="messages">
+      <div *ngIf="messages.length === 0" class="welcome-message">
+        <h2 class="gradient-text">Hello, Chef</h2>
+        <p>How can I help you cook today?</p>
       </div>
 
-      <!-- Recipe Message -->
-      <div *ngIf="message.type === 'recipe' && message.recipe" class="recipe-card">
-        <div class="recipe-header" (click)="toggleRecipe(message)">
-          <h3>🍽️ {{ message.recipe.title }}</h3>
-          <span class="toggle-icon">{{ message.expanded ? '▲' : '▼' }}</span>
+      <div *ngFor="let message of messages" class="message">
+        <span class="sender">{{ message.sender }}: </span>
+
+        <!-- Text/Chat Message -->
+        <div *ngIf="message.type === 'chat'" class="content">
+          <markdown [data]="message.content"></markdown>
         </div>
 
-        <div class="recipe-details" *ngIf="message.expanded">
-          <p class="recipe-desc">{{ message.recipe.description }}</p>
-
-          <div class="recipe-time">
-            <span><strong>Prep:</strong> {{ message.recipe.time.prep }}</span>
-            <span><strong>Cook:</strong> {{ message.recipe.time.cook }}</span>
-            <span><strong>Total:</strong> {{ message.recipe.time.total }}</span>
+        <!-- Recipe Message -->
+        <div *ngIf="message.type === 'recipe' && message.recipe" class="recipe-card">
+          <div class="recipe-header" (click)="toggleRecipe(message)">
+            <h3>🍽️ {{ message.recipe.title }}</h3>
+            <span class="toggle-icon">{{ message.expanded ? '▲' : '▼' }}</span>
           </div>
 
-          <div class="recipe-section">
-            <h4>Ingredients</h4>
-            <ul>
-              <li *ngFor="let ingredient of message.recipe.ingredients">{{ ingredient }}</li>
-            </ul>
-          </div>
+          <div class="recipe-details" *ngIf="message.expanded">
+            <p class="recipe-desc">{{ message.recipe.description }}</p>
 
-          <div class="recipe-section">
-            <h4>Instructions</h4>
-            <ol>
-              <li *ngFor="let step of message.recipe.instructions">{{ step }}</li>
-            </ol>
+            <div class="recipe-time">
+              <span><strong>Prep:</strong> {{ message.recipe.time.prep }}</span>
+              <span><strong>Cook:</strong> {{ message.recipe.time.cook }}</span>
+              <span><strong>Total:</strong> {{ message.recipe.time.total }}</span>
+            </div>
+
+            <div class="recipe-section">
+              <h4>Ingredients</h4>
+              <ul>
+                <li *ngFor="let ingredient of message.recipe.ingredients">{{ ingredient }}</li>
+              </ul>
+            </div>
+
+            <div class="recipe-section">
+              <h4>Instructions</h4>
+              <ol>
+                <li *ngFor="let step of message.recipe.instructions">{{ step }}</li>
+              </ol>
+            </div>
           </div>
+        </div>
+      </div>
+
+      <!-- Loading Indicator -->
+      <div *ngIf="isLoading" class="message">
+        <span class="sender">Gemini: </span>
+        <div class="typing-indicator">
+          <span class="dot"></span>
+          <span class="dot"></span>
+          <span class="dot"></span>
         </div>
       </div>
     </div>
-  </div>
 
-  <!-- Loading Indicator -->
-  <div *ngIf="isLoading" class="message">
-    <span class="sender">Gemini: </span>
-    <div class="typing-indicator">
-      <span class="dot"></span>
-      <span class="dot"></span>
-      <span class="dot"></span>
+    <div class="input-area">
+      <app-photo-upload *ngIf="false"></app-photo-upload> <!-- Placeholder if needed -->
+      <input [(ngModel)]="newMessage" (keyup.enter)="sendMessage()" placeholder="Type a message...">
+      <button (click)="sendMessage()">Send</button>
     </div>
-  </div>
-</div>
-<div class="input-area">
-  <input [(ngModel)]="newMessage" (keyup.enter)="sendMessage()" placeholder="Type a message...">
-  <button (click)="sendMessage()">Send</button>
-  <button (click)="newChat()">New Chat</button>
+  </main>
 </div>

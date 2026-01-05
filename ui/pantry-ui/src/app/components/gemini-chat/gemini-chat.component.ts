@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
 import { GeminiService } from '../../services/gemini.service';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -34,13 +34,74 @@ export interface ChatMessage {
   imports: [CommonModule, FormsModule, PhotoUploadComponent, MatSnackBarModule, MarkdownModule],
   standalone: true,
 })
-export class GeminiChatComponent {
+export class GeminiChatComponent implements OnInit {
   messages: ChatMessage[] = [];
   newMessage: string = '';
-
   isLoading: boolean = false;
 
+  sessions: any[] = [];
+  currentSessionId: number | null = null;
+
   constructor(private geminiService: GeminiService, private snackBar: MatSnackBar) { }
+
+  ngOnInit() {
+    this.loadSessions();
+  }
+
+  loadSessions() {
+    this.geminiService.getSessions().subscribe(response => {
+      this.sessions = response.data;
+    });
+  }
+
+  loadSession(sessionId: number) {
+    this.currentSessionId = sessionId;
+    this.isLoading = true;
+    this.geminiService.getSession(sessionId).subscribe(response => {
+      this.isLoading = false;
+      const session = response.data;
+      this.messages = []; // Clear existing
+
+      // Reconstruct messages from DB history
+      if (session.messages) {
+        session.messages.forEach((msg: any) => {
+          if (msg.type === 'recipe' && msg.recipeData) {
+            let recipeObj;
+            try {
+              recipeObj = JSON.parse(msg.recipeData);
+            } catch (e) { console.error("Failed to parse recipe data", e); }
+
+            if (recipeObj) {
+              this.messages.push({
+                sender: msg.sender === 'user' ? 'You' : 'Gemini',
+                type: 'recipe',
+                recipe: recipeObj,
+                expanded: false
+              });
+            }
+          } else {
+            this.messages.push({
+              sender: msg.sender === 'user' ? 'You' : 'Gemini',
+              type: 'chat',
+              content: msg.content
+            });
+          }
+        });
+      }
+    });
+  }
+
+  deleteSession(sessionId: number, event: Event) {
+    event.stopPropagation();
+    if (confirm('Are you sure you want to delete this chat?')) {
+      this.geminiService.deleteSession(sessionId).subscribe(() => {
+        this.loadSessions();
+        if (this.currentSessionId === sessionId) {
+          this.newChat();
+        }
+      });
+    }
+  }
 
   sendMessage() {
     if (this.newMessage.trim() === '') {
@@ -52,28 +113,21 @@ export class GeminiChatComponent {
     this.newMessage = '';
     this.isLoading = true;
 
-    const history = this.messages.slice(0, -1).map(message => {
-      // For history, we need to serialize back to text for the model context if possible, 
-      // or just send the text content if it was a chat. 
-      // If it was a recipe, we might want to send a summary or just the title to save tokens,
-      // but for now let's just send the text content if available or a placeholder for recipe.
-      // Actually, standard practice is to send what the model outputted. 
-      // But the model outputted JSON. Ideally we send that back.
-      let partText = '';
-      if (message.type === 'chat') {
-        partText = message.content || '';
-      } else if (message.type === 'recipe' && message.recipe) {
-        partText = JSON.stringify({ type: 'recipe', recipe: message.recipe });
+    // We no longer need to construct history manually for the API, 
+    // we just pass sessionId and let backend handle it.
+    // However, if we are starting a new chat (no sessionId), we send empty history implicitely.
+
+    this.geminiService.sendMessage(prompt, [], this.currentSessionId || undefined).subscribe(response => {
+      this.isLoading = false;
+
+      // Update current session ID if this was a new chat
+      if (response.sessionId) {
+        if (this.currentSessionId !== response.sessionId) {
+          this.currentSessionId = response.sessionId;
+          this.loadSessions(); // Refresh list to show new chat
+        }
       }
 
-      return {
-        role: message.sender === 'You' ? 'user' : 'model',
-        parts: [{ text: partText }]
-      };
-    });
-
-    this.geminiService.sendMessage(prompt, history).subscribe(response => {
-      this.isLoading = false;
       const data = response.data;
 
       // Check for the new list structure
@@ -96,9 +150,7 @@ export class GeminiChatComponent {
           }
         });
       } else {
-        // Fallback for backward compatibility or if structure is different
-        // Robustly check for recipe
-        // Sometimes Gemini might return the type as 'Recipe' (case sensitive) or just include the structure
+        // Fallback logic
         const isRecipe = (data.type && data.type.toLowerCase() === 'recipe') || (data.recipe && typeof data.recipe === 'object');
 
         if (isRecipe && data.recipe) {
@@ -109,13 +161,10 @@ export class GeminiChatComponent {
             expanded: false
           });
         } else {
-          // Default to chat
-          // Ensure content is a string. If it's an object, stringify it.
           let content = data.content;
           if (typeof content === 'object') {
             content = JSON.stringify(content, null, 2);
           } else if (!content) {
-            // Fallback if no content field, dump the whole data
             content = JSON.stringify(data, null, 2);
           }
 
@@ -141,5 +190,6 @@ export class GeminiChatComponent {
 
   newChat() {
     this.messages = [];
+    this.currentSessionId = null;
   }
 }

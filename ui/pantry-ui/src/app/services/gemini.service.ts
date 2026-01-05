@@ -12,8 +12,20 @@ export class GeminiService {
 
   constructor(private http: HttpClient) { }
 
-  sendMessage(prompt: string, history: any[]): Observable<any> {
-    return this.http.post<any>(this.apiUrl, { prompt, history });
+  sendMessage(prompt: string, history: any[], sessionId?: number): Observable<any> {
+    return this.http.post<any>(this.apiUrl, { prompt, history, sessionId });
+  }
+
+  getSessions(): Observable<any> {
+    return this.http.get<any>(`${this.apiUrl}/sessions`);
+  }
+
+  getSession(id: number): Observable<any> {
+    return this.http.get<any>(`${this.apiUrl}/sessions/${id}`);
+  }
+
+  deleteSession(id: number): Observable<any> {
+    return this.http.delete<any>(`${this.apiUrl}/sessions/${id}`);
   }
 
   getExpirationSuggestion(productTitle: string): Observable<any> {

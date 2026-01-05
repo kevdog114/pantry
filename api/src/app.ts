@@ -9,6 +9,7 @@ import * as GeminiController from "./controllers/GeminiController";
 import * as AuthController from "./controllers/AuthController";
 import { PersonalAccessTokenController } from "./controllers/PersonalAccessTokenController";
 import * as SettingsController from "./controllers/SettingsController";
+import * as ChatController from "./controllers/ChatController"; // Import ChatController
 import { isAuthenticated } from "./middleware/auth";
 import * as LabelPrinterController from "./controllers/labelPrinterController";
 import cors from "cors";
@@ -124,6 +125,10 @@ app.get("/tag-groups/:group", TagsController.getAllForGroup);
 
 app.get("/product-search", ProductSearchController.search);
 app.get("/product-search-all", ProductSearchController.getall);
+
+app.get("/gemini/chat/sessions", ChatController.getSessions);
+app.get("/gemini/chat/sessions/:id", ChatController.getSession);
+app.delete("/gemini/chat/sessions/:id", ChatController.deleteSession);
 
 app.post("/gemini/chat", GeminiController.post);
 app.post("/gemini/image", GeminiController.postImage);
