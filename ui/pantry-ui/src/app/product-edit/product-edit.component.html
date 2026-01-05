@@ -7,8 +7,12 @@
     </div>
     <div class="row mb-2">
         <div class="col-12">
-            <button mat-stroked-button color="primary" (click)="askGeminiExpiration()" [disabled]="!product.title">
-                <mat-icon>auto_awesome</mat-icon> Ask AI for Expiration Settings
+            <button mat-stroked-button color="primary" (click)="askGeminiExpiration()"
+                [disabled]="!product.title || isAskingAi">
+                <mat-icon *ngIf="!isAskingAi">auto_awesome</mat-icon>
+                <mat-spinner *ngIf="isAskingAi" [diameter]="20"
+                    style="display:inline-block; vertical-align: middle;"></mat-spinner>
+                Ask AI for Expiration Settings
             </button>
         </div>
     </div>
@@ -46,39 +50,41 @@
                     </mat-card-title>
                 </mat-card-header>
                 <mat-card-content>
-                    
-            @for(barcode of product.barcodes; track barcode.barcode) {
-                <div class="row">
-                    <div class="col-sm-2">
-                        <mat-form-field>
-                            <mat-label>Barcode</mat-label>
-                            <input [name]="'barcode-' + $index" class="barcode-input" matInput [(ngModel)]="barcode.barcode">
-                        </mat-form-field>
+
+                    @for(barcode of product.barcodes; track barcode.barcode) {
+                    <div class="row">
+                        <div class="col-sm-2">
+                            <mat-form-field>
+                                <mat-label>Barcode</mat-label>
+                                <input [name]="'barcode-' + $index" class="barcode-input" matInput
+                                    [(ngModel)]="barcode.barcode">
+                            </mat-form-field>
+                        </div>
+                        <div class="col-sm-2">
+                            <mat-form-field>
+                                <mat-label>Brand</mat-label>
+                                <input [name]="'brand-' + $index" matInput [(ngModel)]="barcode.brand">
+                            </mat-form-field>
+                        </div>
+                        <div class="col-sm-3">
+                            <mat-form-field>
+                                <mat-label>Description</mat-label>
+                                <input [name]="'description-' + $index" matInput [(ngModel)]="barcode.description">
+                            </mat-form-field>
+                        </div>
+                        <div class="col-sm-4">
+                            <app-tags category="Category" [selectedTags]="barcode.tags"
+                                (selectionChange)="barcode.tags = $event"></app-tags>
+                        </div>
+                        <div class="col-sm-1">
+                            <button mat-icon-button matSuffix (click)="removeBarcode(barcode)">
+                                <mat-icon>delete</mat-icon>
+                            </button>
+                        </div>
                     </div>
-                    <div class="col-sm-2">
-                        <mat-form-field>
-                            <mat-label>Brand</mat-label>
-                            <input [name]="'brand-' + $index" matInput [(ngModel)]="barcode.brand">
-                        </mat-form-field>
-                    </div>
-                    <div class="col-sm-3">
-                        <mat-form-field>
-                            <mat-label>Description</mat-label>
-                            <input [name]="'description-' + $index" matInput [(ngModel)]="barcode.description">
-                        </mat-form-field>
-                    </div>
-                    <div class="col-sm-4">
-                        <app-tags category="Category" [selectedTags]="barcode.tags" (selectionChange)="barcode.tags = $event"></app-tags>
-                    </div>
-                    <div class="col-sm-1">
-                        <button mat-icon-button matSuffix (click)="removeBarcode(barcode)">
-                            <mat-icon>delete</mat-icon>
-                        </button>
-                    </div>
-                </div>
-                }
+                    }
                 </mat-card-content>
-        
+
             </mat-card>
 
         </mat-tab>
@@ -88,7 +94,8 @@
                     <mat-card-header class="text-truncate">
                         <mat-card-title>{{file.filename}}</mat-card-title>
                     </mat-card-header>
-                    <img mat-card-image class="object-fit-contain" style="height: 200px;" [src]="GetFileDownloadUrl(file.id)">
+                    <img mat-card-image class="object-fit-contain" style="height: 200px;"
+                        [src]="GetFileDownloadUrl(file.id)">
                     <mat-card-actions>
                         <button mat-icon-button (click)="removeImage(file)"><mat-icon>delete</mat-icon></button>
                         <a href="GetFileDownloadUrl(file.id)" mat-icon-button><mat-icon>download</mat-icon></a>

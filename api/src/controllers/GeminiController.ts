@@ -170,14 +170,14 @@ export const postExpiration = async (req: Request, res: Response) => {
       2. Refrigerator lifespan: How many days it is good in the refrigerator (after thawing if frozen).
       3. Opened lifespan: How many days it is good after being opened.
 
-      Return the result as a JSON object with keys: freezerLifespanDays, refrigeratorLifespanDays, openedLifespanDays. Use integer values. If unknown, use reasonable estimates or defaults (e.g., 365 for freezer, 5 for fridge).`;
+      Return the result as a JSON object with keys: freezerLifespanDays, refrigeratorLifespanDays, openedLifespanDays. Use integer values. If unknown or if you are not sure, return null for that field.`;
 
     const schema = {
       type: FunctionDeclarationSchemaType.OBJECT,
       properties: {
-        freezerLifespanDays: { type: FunctionDeclarationSchemaType.INTEGER },
-        refrigeratorLifespanDays: { type: FunctionDeclarationSchemaType.INTEGER },
-        openedLifespanDays: { type: FunctionDeclarationSchemaType.INTEGER },
+        freezerLifespanDays: { type: FunctionDeclarationSchemaType.INTEGER, nullable: true },
+        refrigeratorLifespanDays: { type: FunctionDeclarationSchemaType.INTEGER, nullable: true },
+        openedLifespanDays: { type: FunctionDeclarationSchemaType.INTEGER, nullable: true },
       },
       required: [
         "freezerLifespanDays",

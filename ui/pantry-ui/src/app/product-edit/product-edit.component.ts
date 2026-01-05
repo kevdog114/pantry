@@ -13,6 +13,7 @@ import { Router } from '@angular/router';
 import { environment } from '../../environments/environment';
 import { MatTabsModule } from '@angular/material/tabs';
 import { GeminiService } from '../services/gemini.service';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 
 @Component({
   selector: 'app-product-edit',
@@ -24,7 +25,8 @@ import { GeminiService } from '../services/gemini.service';
     MatIconModule,
     MatCardModule,
     MatTabsModule,
-    TagsComponent
+    TagsComponent,
+    MatProgressSpinnerModule
   ],
   templateUrl: './product-edit.component.html',
   styleUrl: './product-edit.component.css'
@@ -33,6 +35,7 @@ export class ProductEditComponent implements AfterViewInit {
 
   private isCreate: boolean = false;
   public product: Product | undefined = undefined;
+  public isAskingAi: boolean = false;
 
   private queryData = {
     productTitle: <string | undefined>"",
@@ -48,18 +51,17 @@ export class ProductEditComponent implements AfterViewInit {
   @Input("barcodes")
   set barcodeQuery(newBarcodes: string[] | string | undefined) {
     console.log("Barcodes", newBarcodes);
-    if(newBarcodes !== undefined) {
-      if((newBarcodes as string[]).forEach)
+    if (newBarcodes !== undefined) {
+      if ((newBarcodes as string[]).forEach)
         this.queryData.barcodes = newBarcodes as string[];
       else
-        this.queryData.barcodes = [ newBarcodes as string ];
+        this.queryData.barcodes = [newBarcodes as string];
     }
   }
 
   @Input()
   set id(productId: number) {
-    if(productId !== undefined)
-    {
+    if (productId !== undefined) {
       this.svc.Get(productId).subscribe(p => {
         this.product = p;
       });
@@ -83,29 +85,33 @@ export class ProductEditComponent implements AfterViewInit {
 
   public askGeminiExpiration() {
     if (this.product && this.product.title) {
-      this.geminiService.getExpirationSuggestion(this.product.title).subscribe({
-        next: (response) => {
-          if (response.message === 'success' && response.data) {
-            const data = response.data;
-            if (this.product) {
-              if (data.freezerLifespanDays) this.product.freezerLifespanDays = data.freezerLifespanDays;
-              if (data.refrigeratorLifespanDays) this.product.refrigeratorLifespanDays = data.refrigeratorLifespanDays;
-              if (data.openedLifespanDays) this.product.openedLifespanDays = data.openedLifespanDays;
+      this.isAskingAi = true;
+      this.geminiService.getExpirationSuggestion(this.product.title)
+        .subscribe({
+          next: (response) => {
+            this.isAskingAi = false;
+            if (response.message === 'success' && response.data) {
+              const data = response.data;
+              if (this.product) {
+                if (data.freezerLifespanDays) this.product.freezerLifespanDays = data.freezerLifespanDays;
+                if (data.refrigeratorLifespanDays) this.product.refrigeratorLifespanDays = data.refrigeratorLifespanDays;
+                if (data.openedLifespanDays) this.product.openedLifespanDays = data.openedLifespanDays;
+              }
             }
+          },
+          error: (err) => {
+            console.error('Error fetching expiration suggestion:', err);
+            this.isAskingAi = false;
           }
-        },
-        error: (err) => console.error('Error fetching expiration suggestion:', err)
-      });
+        });
     }
   }
 
   ngAfterViewInit(): void {
-    if(this.isCreate)
-    {
-      if(this.queryData.productTitle)
+    if (this.isCreate) {
+      if (this.queryData.productTitle)
         this.product!.title = this.queryData.productTitle;
-      if(this.queryData.barcodes)
-      {
+      if (this.queryData.barcodes) {
         this.queryData.barcodes.forEach(barcode => {
           this.product?.barcodes.push({
             barcode: barcode,
@@ -130,7 +136,7 @@ export class ProductEditComponent implements AfterViewInit {
   }
 
   public delete = () => {
-    if(this.product && this.product.id)
+    if (this.product && this.product.id)
       this.svc.Delete(this.product.id).subscribe(() => {
         this.router.navigate(["/"]);
       })
@@ -151,22 +157,21 @@ export class ProductEditComponent implements AfterViewInit {
   public removeImage = (file: FileMeta) => {
     var index = this.product!.files.findIndex(a => a.id == file.id);
 
-    if(index >= 0)
+    if (index >= 0)
       this.product!.files.splice(index, 1);
 
     console.log(this.product!.files);
   }
 
   public save = () => {
-    if(this.product === undefined)
+    if (this.product === undefined)
       return;
 
     console.log(this.product);
 
     this.product.fileIds = this.product.files.map(a => a.id);
 
-    if(this.isCreate)
-    {
+    if (this.isCreate) {
       this.svc.Create(this.product).subscribe(p => {
         this.product = p;
         this.router.navigate(["products", p.id]);
@@ -178,28 +183,27 @@ export class ProductEditComponent implements AfterViewInit {
         this.router.navigate(["products", p.id]);
       });
     }
- 
+
   }
 
   browsedFiles = (evt: Event) => {
     const fileList: FileList | null = (evt.target as HTMLInputElement).files;
-    if(fileList !== null)
-        this.addFiles(fileList);
-}
+    if (fileList !== null)
+      this.addFiles(fileList);
+  }
 
-public inputValue: any;
-addFiles = (fileList: FileList) => {
-  if(this.product === undefined)
-    return;
+  public inputValue: any;
+  addFiles = (fileList: FileList) => {
+    if (this.product === undefined)
+      return;
 
-    for(let i = 0; i < fileList.length; i++)
-    {
-        const file: File = fileList[i];
+    for (let i = 0; i < fileList.length; i++) {
+      const file: File = fileList[i];
 
-        this.svc.UploadFile(file).subscribe(result => {
-          console.log("file upload result", result);
-          this.product!.files.push(result);
-        });
+      this.svc.UploadFile(file).subscribe(result => {
+        console.log("file upload result", result);
+        this.product!.files.push(result);
+      });
     }
 
     this.inputValue = undefined;
