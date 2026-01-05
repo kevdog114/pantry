@@ -21,8 +21,10 @@ import passport from "passport";
 import { Strategy as LocalStrategy } from "passport-local";
 import * as bcrypt from 'bcryptjs';
 import prisma from './lib/prisma';
+import connectSqlite3 from "connect-sqlite3";
 
 const app = express();
+const SQLiteStore = connectSqlite3(session);
 
 var corsOptions = {
     origin: process.env.ALLOW_ORIGIN || 'http://localhost:4200',
@@ -44,6 +46,10 @@ app.use((req, res, next) => {
     next();
 });
 app.use(session({
+    store: new SQLiteStore({
+        db: 'sessions.sqlite',
+        dir: 'data'
+    }),
     secret: process.env.SESSION_SECRET || "secret",
     resave: false,
     saveUninitialized: false,
