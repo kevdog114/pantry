@@ -37,7 +37,7 @@ export const update = async (req: Request, res: Response, next: NextFunction): P
 export const create = async (req: Request, res: Response, next: NextFunction): Promise<any> => {
     const stockItem = await prisma.stockItem.create({
         data: {
-            productId: req.body.ProductId,
+            productId: req.body.productId,
             expirationDate: req.body.expiration ? new Date(req.body.expiration) : undefined,
             quantity: req.body.quantity,
             frozen: req.body.isFrozen,
