@@ -1,1 +1,68 @@
-<p>barcode-scanner works!</p>
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8 col-lg-6">
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white text-center">
+                    <h4 class="mb-0">Barcode Scanner</h4>
+                </div>
+                <div class="card-body">
+
+                    <!-- Mode Selection -->
+                    <div class="btn-group w-100 mb-4" role="group">
+                        <button type="button" class="btn" [class.btn-primary]="scanMethod === 'camera'"
+                            [class.btn-outline-primary]="scanMethod !== 'camera'" (click)="onMethodChange('camera')">
+                            <i class="bi bi-camera-fill me-2"></i>Camera
+                        </button>
+                        <button type="button" class="btn" [class.btn-primary]="scanMethod === 'manual'"
+                            [class.btn-outline-primary]="scanMethod !== 'manual'" (click)="onMethodChange('manual')">
+                            <i class="bi bi-keyboard-fill me-2"></i>Manual Input
+                        </button>
+                    </div>
+
+                    <!-- Camera Mode -->
+                    <div *ngIf="scanMethod === 'camera'">
+                        <div class="input-group mb-3" *ngIf="cameras.length > 1">
+                            <span class="input-group-text"><i class="bi bi-camera-video"></i></span>
+                            <select class="form-select" [ngModel]="selectedCameraId"
+                                (ngModelChange)="onCameraSelect($event)">
+                                <option *ngFor="let cam of cameras" [value]="cam.id">
+                                    {{ cam.label || 'Camera ' + (cameras.indexOf(cam) + 1) }}
+                                </option>
+                            </select>
+                        </div>
+
+                        <div *ngIf="cameraError" class="alert alert-danger" role="alert">
+                            {{ cameraError }}
+                        </div>
+
+                        <div id="reader" class="border rounded bg-light" style="min-height: 300px;"></div>
+                        <p class="text-muted text-center mt-2 small">
+                            Point your camera at a barcode or QR code.
+                        </p>
+                    </div>
+
+                    <!-- Manual Mode -->
+                    <div *ngIf="scanMethod === 'manual'">
+                        <form (ngSubmit)="onManualSubmit()">
+                            <div class="mb-3">
+                                <label for="manualInput" class="form-label">Enter Barcode / UPC</label>
+                                <div class="input-group">
+                                    <input type="text" class="form-control form-control-lg" id="manualInput"
+                                        [(ngModel)]="manualBarcodeInput" name="barcode" placeholder="e.g. 123456789012"
+                                        autofocus>
+                                    <button class="btn btn-primary" type="submit" [disabled]="!manualBarcodeInput">
+                                        <i class="bi bi-search"></i>
+                                    </button>
+                                </div>
+                                <div class="form-text">
+                                    Type the code found under the barcode bars.
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
