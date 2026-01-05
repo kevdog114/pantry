@@ -10,7 +10,9 @@ import * as AuthController from "./controllers/AuthController";
 import { PersonalAccessTokenController } from "./controllers/PersonalAccessTokenController";
 import * as SettingsController from "./controllers/SettingsController";
 import * as ChatController from "./controllers/ChatController"; // Import ChatController
+import * as FamilyController from "./controllers/FamilyController";
 import { isAuthenticated } from "./middleware/auth";
+
 import * as LabelPrinterController from "./controllers/labelPrinterController";
 import cors from "cors";
 import fileUpload from "express-fileupload";
@@ -138,6 +140,14 @@ app.get("/gemini/models", GeminiController.getAvailableModels);
 
 app.get("/settings", SettingsController.getSettings);
 app.put("/settings", SettingsController.updateSettings);
+
+app.get("/family/members", FamilyController.getMembers);
+app.post("/family/members", FamilyController.createMember);
+app.put("/family/members/:id", FamilyController.updateMember);
+app.delete("/family/members/:id", FamilyController.deleteMember);
+app.get("/family/preferences", FamilyController.getGeneralPreferences);
+app.post("/family/preferences", FamilyController.saveGeneralPreferences);
+
 
 app.post("/labels/quick-print", LabelPrinterController.printQuickLabel);
 

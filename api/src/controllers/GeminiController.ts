@@ -146,6 +146,32 @@ const getProductContext = async (): Promise<string> => {
   return context;
 };
 
+const getFamilyContext = async (): Promise<string> => {
+  const members = await prisma.familyMember.findMany();
+  const setting = await prisma.systemSetting.findUnique({
+    where: { key: 'family_general_preferences' }
+  });
+
+  let context = "Family Information & Preferences:\n";
+  if (setting?.value) {
+    context += `\nGeneral Family Preferences (Apply to everyone unless specified): ${setting.value}\n`;
+  }
+
+  if (members.length > 0) {
+    context += "\nIndividual Family Members:\n";
+    for (const member of members) {
+      context += `- Name: ${member.name}\n`;
+      if (member.dateOfBirth) {
+        context += `  Birthday: ${member.dateOfBirth.toISOString().split('T')[0]}\n`;
+      }
+      if (member.preferences) {
+        context += `  Preferences/Dietary Restrictions: ${member.preferences}\n`;
+      }
+    }
+  }
+  return context;
+};
+
 export const post = async (req: Request, res: Response) => {
   try {
     let { prompt, history = [], sessionId } = req.body as {
@@ -239,7 +265,11 @@ export const post = async (req: Request, res: Response) => {
 
       Here is the current inventory:
       ${productContext}
+
+      Here are the family preferences and details. Please consider these when suggesting recipes or answering food questions:
+      ${await getFamilyContext()}
     `;
+
 
     const modelAck = {
       role: "model",

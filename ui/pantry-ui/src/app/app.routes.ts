@@ -16,6 +16,8 @@ import { AuthGuard } from './services/auth-guard';
 import { QuickLabelComponent } from './quick-label/quick-label.component';
 import { RecipeListComponent } from './components/recipe-list/recipe-list.component';
 import { RecipeEditComponent } from './recipe-edit/recipe-edit.component';
+import { FamilyPreferencesComponent } from './family-preferences/family-preferences.component';
+
 
 export const routes: Routes = [
     {
@@ -92,6 +94,12 @@ export const routes: Routes = [
         component: TagsComponent,
         canActivate: [AuthGuard]
     },
+    {
+        path: "settings/family",
+        component: FamilyPreferencesComponent,
+        canActivate: [AuthGuard]
+    },
+
     {
         path: "search",
         component: SearchComponent,

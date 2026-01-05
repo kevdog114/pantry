@@ -1,0 +1,126 @@
+<div class="container mx-auto p-4 max-w-4xl space-y-8 animate-fade-in pb-24">
+    <div class="flex items-center justify-between mb-6">
+        <h1 class="text-3xl font-bold text-gray-800 dark:text-gray-100">Family Preferences</h1>
+    </div>
+
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 transition-all hover:shadow-xl">
+        <h2 class="text-xl font-semibold mb-4 text-gray-700 dark:text-gray-200">General Preferences</h2>
+        <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">
+            Common likes, dislikes, or dietary rules for the whole family (e.g., "No Cilantro", "We love Spicy food").
+        </p>
+        <div class="space-y-4">
+            <textarea [(ngModel)]="generalPreferences"
+                class="w-full p-3 h-32 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+                placeholder="Enter family-wide preferences here..."></textarea>
+            <div class="flex justify-end">
+                <button (click)="saveGeneralPreferences()"
+                    class="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-full transition-colors flex items-center gap-2"
+                    [disabled]="savingGeneral">
+                    <span *ngIf="savingGeneral">Saving...</span>
+                    <span *ngIf="!savingGeneral">Save Preferences</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="space-y-6">
+        <div class="flex items-center justify-between">
+            <h2 class="text-xl font-semibold text-gray-700 dark:text-gray-200">Family Members</h2>
+            <button *ngIf="!showForm" (click)="startAddMember()"
+                class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white font-medium rounded-full transition-colors flex items-center gap-2 shadow-md">
+                <span>+ Add Member</span>
+            </button>
+        </div>
+
+        <!-- Member Form -->
+        <div *ngIf="showForm"
+            class="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border-l-4 border-green-500 animate-slide-in">
+            <h3 class="text-lg font-medium mb-4 dark:text-white">
+                {{ editingMemberId ? 'Edit Member' : 'Add New Member' }}
+            </h3>
+            <form [formGroup]="memberForm" (ngSubmit)="saveMember()" class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Name</label>
+                    <input formControlName="name" type="text"
+                        class="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500 dark:bg-gray-700 dark:text-white"
+                        placeholder="Name">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Birthday
+                        (Optional)</label>
+                    <input formControlName="dateOfBirth" type="date"
+                        class="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500 dark:bg-gray-700 dark:text-white">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Preferences / Dietary
+                        Restrictions</label>
+                    <textarea formControlName="preferences" rows="3"
+                        class="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500 dark:bg-gray-700 dark:text-white"
+                        placeholder="e.g. Vegetarian, Allergies, Loves Pasta..."></textarea>
+                </div>
+                <div class="flex justify-end gap-3 pt-2">
+                    <button type="button" (click)="cancelEdit()"
+                        class="px-4 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition-colors">
+                        Cancel
+                    </button>
+                    <button type="submit" [disabled]="memberForm.invalid"
+                        class="px-6 py-2 bg-green-600 hover:bg-green-700 text-white font-medium rounded-lg shadow-sm disabled:opacity-50 disabled:cursor-not-allowed">
+                        Save Member
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Members List -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div *ngFor="let member of members"
+                class="bg-white dark:bg-gray-800 rounded-xl shadow p-5 hover:shadow-lg transition-all relative group">
+                <div class="absolute top-4 right-4 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button (click)="editMember(member)" class="text-blue-500 hover:text-blue-700 p-1">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24"
+                            stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                        </svg>
+                    </button>
+                    <button (click)="deleteMember(member.id)" class="text-red-500 hover:text-red-700 p-1">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24"
+                            stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                    </button>
+                </div>
+
+                <div class="flex items-center gap-4 mb-3">
+                    <div
+                        class="w-12 h-12 rounded-full bg-gradient-to-br from-indigo-400 to-purple-500 flex items-center justify-center text-white text-xl font-bold border-2 border-white dark:border-gray-700 shadow-sm">
+                        {{ member.name.charAt(0).toUpperCase() }}
+                    </div>
+                    <div>
+                        <h3 class="text-lg font-bold text-gray-800 dark:text-white leading-tight">{{ member.name }}</h3>
+                        <p *ngIf="member.dateOfBirth" class="text-xs text-gray-500 dark:text-gray-400">
+                            🎂 {{ member.dateOfBirth | date:'mediumDate' }}
+                        </p>
+                    </div>
+                </div>
+
+                <div *ngIf="member.preferences"
+                    class="mt-2 text-sm text-gray-600 dark:text-gray-300 bg-gray-50 dark:bg-gray-700/50 p-3 rounded-lg border border-gray-100 dark:border-gray-600">
+                    {{ member.preferences }}
+                </div>
+                <div *ngIf="!member.preferences" class="mt-2 text-sm text-gray-400 italic">
+                    No specific preferences listed.
+                </div>
+            </div>
+
+            <!-- Empty State -->
+            <div *ngIf="members.length === 0 && !showForm"
+                class="col-span-full py-12 text-center text-gray-500 bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-dashed border-gray-300 dark:border-gray-700">
+                <p class="mb-2">No family members added yet.</p>
+                <button (click)="startAddMember()" class="text-blue-500 hover:underline">Add someone</button> to get
+                personalized suggestions!
+            </div>
+        </div>
+    </div>
+</div>
