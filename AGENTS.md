@@ -148,3 +148,22 @@ npm test
 ```
 
 **Note:** The unit tests run using Karma and Chrome. You must have Google Chrome installed on your system for the tests to run. If you have Chrome installed in a non-standard location, you may need to set the `CHROME_BIN` environment variable to the path of the Chrome executable.
+
+## Automated Login / Hardcoded Auth
+
+For automated testing or agentic interactions where performing a full login flow is difficult, the API supports a hardcoded authentication mechanism.
+
+**Configuration:**
+
+To enable this, set the following environment variables for the API process (e.g., in `.env` or your run configuration):
+
+*   `HARDCODED_AUTH_USERNAME`: The desired username (e.g., `agent_user`).
+*   `HARDCODED_AUTH_PASSWORD`: The desired password (e.g., `agent_pass`).
+
+**Usage:**
+
+When these variables are set, you can log in using these credentials via the standard login form or API endpoint (`/auth/login`). The system will bypass the database lookup and bcrypt check for these specific credentials and grant access with a dummy user account.
+
+**Security Warning:**
+
+**NEVER** use this in a production environment. This bypasses security checks and should only be used for local development or controlled testing environments.

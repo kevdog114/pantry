@@ -2,33 +2,57 @@
 //@import "bootstrap/scss/bootstrap";
 @use "bootstrap/scss/bootstrap";
 
-html, body { height: 100%; }
-body { margin: 0; font-family: Roboto, "Helvetica Neue", sans-serif; }
+@include mat.core();
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: Roboto, "Helvetica Neue", sans-serif;
+}
+
+// Define the light theme
+$light-theme: mat.define-theme((color: (theme-type: light,
+        primary: mat.$cyan-palette,
+        tertiary: mat.$blue-palette,
+      ),
+    ));
+
+// Define the dark theme
+$dark-theme: mat.define-theme((color: (theme-type: dark,
+        primary: mat.$cyan-palette,
+        tertiary: mat.$blue-palette,
+      ),
+    ));
 
 html {
   color-scheme: light dark;
-  @include mat.theme((
-    color: mat.$cyan-palette,
-    typography: Roboto,
-    density: 0
-  ));
+
+  // Apply the light theme by default
+  @include mat.all-component-themes($light-theme);
+
+  // Apply the dark theme when the user prefers dark mode
+  @media (prefers-color-scheme: dark) {
+    @include mat.all-component-colors($dark-theme);
+  }
 }
 
 
 body {
-    display: flex;
+  display: flex;
 
 }
 
 app-root {
-    display: flex;
-    flex-grow: 1;
-    flex-direction: column;
+  display: flex;
+  flex-grow: 1;
+  flex-direction: column;
 
 }
 
 :root {
-    @include mat.sidenav-overrides((
-        content-background-color: var(--bs-body-bg)
-    ))
+  @include mat.sidenav-overrides((content-background-color: var(--bs-body-bg)))
 }

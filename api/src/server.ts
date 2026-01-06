@@ -1,3 +1,6 @@
+import * as dotenv from "dotenv";
+dotenv.config();
+
 import app from "./app";
 import prisma from './lib/prisma';
 import * as crypto from "crypto";
@@ -9,7 +12,7 @@ const createDefaultAdmin = async () => {
         const password = process.env.DEFAULT_ADMIN_PASSWORD || crypto.randomBytes(16).toString('hex');
         const salt = bcrypt.genSaltSync(10);
         const hashedPassword = bcrypt.hashSync(password, salt);
-        
+
         await prisma.user.create({
             data: {
                 username: 'admin',

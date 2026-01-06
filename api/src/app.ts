@@ -59,6 +59,31 @@ app.use(passport.initialize());
 app.use(passport.session());
 
 passport.use(new LocalStrategy(async (username, password, done) => {
+    // Check for hardcoded credentials (dev/testing only)
+    if (process.env.HARDCODED_AUTH_USERNAME && process.env.HARDCODED_AUTH_PASSWORD) {
+        if (username === process.env.HARDCODED_AUTH_USERNAME && password === process.env.HARDCODED_AUTH_PASSWORD) {
+            console.log('Using hardcoded auth mechanism');
+
+            // Find or create the user in the database to ensure we have a valid ID for FKs
+            let user = await prisma.user.findUnique({ where: { username: process.env.HARDCODED_AUTH_USERNAME } });
+
+            if (!user) {
+                console.log('Creating new user for hardcoded auth');
+                const salt = bcrypt.genSaltSync(10);
+                const hashedPassword = bcrypt.hashSync(process.env.HARDCODED_AUTH_PASSWORD, salt);
+
+                user = await prisma.user.create({
+                    data: {
+                        username: process.env.HARDCODED_AUTH_USERNAME,
+                        password: hashedPassword
+                    }
+                });
+            }
+
+            return done(null, user);
+        }
+    }
+
     try {
         const user = await prisma.user.findUnique({ where: { username } });
         if (!user) {
@@ -72,6 +97,7 @@ passport.use(new LocalStrategy(async (username, password, done) => {
         return done(err);
     }
 }));
+
 
 passport.serializeUser((user, done) => {
     done(null, (user as any).id);
