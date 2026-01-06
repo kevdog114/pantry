@@ -21,7 +21,7 @@
 }
 
 .meal-item {
-    background-color: var(--bs-light);
+    background-color: var(--bs-tertiary-bg);
     /* Assuming bs variables exist, similar to other components */
     border-radius: 8px;
     padding: 10px;

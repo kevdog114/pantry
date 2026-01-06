@@ -38,6 +38,11 @@ html {
   @media (prefers-color-scheme: dark) {
     @include mat.all-component-colors($dark-theme);
   }
+
+  // Force dark theme if Bootstrap is in dark mode
+  &[data-bs-theme="dark"] {
+    @include mat.all-component-colors($dark-theme);
+  }
 }
 
 
