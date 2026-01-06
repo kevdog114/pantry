@@ -628,3 +628,74 @@ export const postQuickSuggest = async (req: Request, res: Response) => {
     });
   }
 };
+
+export const postThawAdvice = async (req: Request, res: Response) => {
+  try {
+    const { items } = req.body as { items: string[] };
+
+    if (!items || !Array.isArray(items) || items.length === 0) {
+      res.status(400).json({ message: "Items list is required and must be a non-empty array" });
+      return;
+    }
+
+    const uniqueItems = Array.from(new Set(items));
+
+    const prompt = `You are a kitchen assistant. Provide thawing advice for the following frozen items: ${uniqueItems.join(', ')}.
+    
+    For each item, estimate the time required to thaw it in the refrigerator (assuming standard refrigerator temperature).
+    
+    Return a JSON object with a key 'items' which is an array of objects. Each object should have:
+    - name: string (the exact name of the item from the input list or closest match)
+    - hoursToThaw: number (estimated hours required to thaw in the fridge)
+    - advice: string (brief advice on how to thaw, e.g. "move to fridge 24h before")
+    
+    If an item does not typically need specific thawing (like small frozen veggies), you can set hoursToThaw to 0.
+    `;
+
+    const schema = {
+      type: FunctionDeclarationSchemaType.OBJECT,
+      properties: {
+        items: {
+          type: FunctionDeclarationSchemaType.ARRAY,
+          items: {
+            type: FunctionDeclarationSchemaType.OBJECT,
+            properties: {
+              name: { type: FunctionDeclarationSchemaType.STRING },
+              hoursToThaw: { type: FunctionDeclarationSchemaType.NUMBER },
+              advice: { type: FunctionDeclarationSchemaType.STRING }
+            },
+            required: ["name", "hoursToThaw", "advice"]
+          }
+        }
+      },
+      required: ["items"]
+    } as any;
+
+    const { result, warning } = await executeWithFallback(
+      "gemini_thaw_model",
+      async (model) => await model.generateContent({
+        contents: [{ role: "user", parts: [{ text: prompt }] }],
+        generationConfig: {
+          responseMimeType: "application/json",
+          responseSchema: schema,
+        },
+      })
+    );
+
+    const response = result.response;
+    const jsonString = response.text();
+    const data = JSON.parse(jsonString);
+
+    res.json({
+      message: "success",
+      data: data.items,
+      warning
+    });
+  } catch (error) {
+    console.log("response error", error);
+    res.status(500).json({
+      message: "error",
+      data: (error as Error).message,
+    });
+  }
+};

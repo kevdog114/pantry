@@ -141,6 +141,7 @@ app.delete("/gemini/chat/sessions/:id", ChatController.deleteSession);
 
 app.post("/gemini/chat", GeminiController.post);
 app.post("/gemini/image", GeminiController.postImage);
+app.post("/gemini/thaw-advice", GeminiController.postThawAdvice);
 app.post("/gemini/quick-suggest", GeminiController.postQuickSuggest);
 app.post("/gemini/expiration", GeminiController.postExpiration);
 app.get("/gemini/models", GeminiController.getAvailableModels);

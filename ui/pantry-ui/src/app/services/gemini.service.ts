@@ -36,6 +36,10 @@ export class GeminiService {
     return this.http.post<any>(`${environment.apiUrl}/gemini/quick-suggest`, { tags });
   }
 
+  getThawAdvice(items: string[]): Observable<any> {
+    return this.http.post<any>(`${environment.apiUrl}/gemini/thaw-advice`, { items });
+  }
+
   getAvailableModels(): Observable<any> {
     return this.http.get<any>(`${environment.apiUrl}/gemini/models`);
   }

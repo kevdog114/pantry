@@ -3,6 +3,7 @@ import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MealPlanService, MealPlan } from '../../services/meal-plan.service';
+import { GeminiService } from '../../services/gemini.service';
 import { RecipeService } from '../../services/recipe.service';
 import { Recipe } from '../../types/recipe';
 import { MatCardModule } from '@angular/material/card';
@@ -38,10 +39,14 @@ export class MealPlanComponent implements OnInit {
     mealPlans: { [key: string]: MealPlan[] } = {};
     recipes: Recipe[] = [];
     selectedDate: Date = new Date();
+    thawAdviceMap: { [product: string]: { hoursToThaw: number, advice: string } } = {};
+    loadingThawAdvice = false;
 
     constructor(
         private mealPlanService: MealPlanService,
         private recipeService: RecipeService,
+
+        private geminiService: GeminiService,
         private snackBar: MatSnackBar
     ) {
         this.generateDays();
@@ -80,6 +85,7 @@ export class MealPlanComponent implements OnInit {
                 }
                 this.mealPlans[dateKey].push(plan);
             });
+            this.checkThawTimes();
         });
     }
 
@@ -104,6 +110,45 @@ export class MealPlanComponent implements OnInit {
         return this.mealPlans[date.toDateString()] || [];
     }
 
+    checkThawTimes() {
+        const productsToThaw = new Set<string>();
+
+        Object.values(this.mealPlans).flat().forEach(plan => {
+            const recipe = plan.recipe as any;
+            if (recipe.ingredients) {
+                recipe.ingredients.forEach((ing: any) => {
+                    const product = ing.product;
+                    if (product && product.stockItems && product.stockItems.length > 0) {
+                        const hasFresh = product.stockItems.some((item: any) => !item.frozen || item.opened);
+                        if (!hasFresh) {
+                            // Needs thawing
+                            productsToThaw.add(product.title);
+                        }
+                    }
+                });
+            }
+        });
+
+        if (productsToThaw.size > 0 && !this.loadingThawAdvice) {
+            this.loadingThawAdvice = true;
+            this.geminiService.getThawAdvice(Array.from(productsToThaw)).subscribe({
+                next: (items: any[]) => {
+                    items.forEach(item => {
+                        this.thawAdviceMap[item.name] = {
+                            hoursToThaw: item.hoursToThaw,
+                            advice: item.advice
+                        };
+                    });
+                    this.loadingThawAdvice = false;
+                },
+                error: (err) => {
+                    console.error("Failed to get thaw advice", err);
+                    this.loadingThawAdvice = false;
+                }
+            });
+        }
+    }
+
     // Thawing Logic
     getThawingAdvice(plan: MealPlan): string | null {
         // Logic: Check if any ingredient is solely frozen
@@ -123,14 +168,34 @@ export class MealPlanComponent implements OnInit {
 
                     if (!hasFresh) {
                         // Only frozen stock available
-                        // Assuming 24h thaw time
                         const cookDate = new Date(plan.date);
-                        const thawDate = new Date(cookDate);
-                        thawDate.setDate(cookDate.getDate() - 1);
-                        advice.push(`Thaw ${product.title} starting ${thawDate.toLocaleDateString()}`);
+                        let thawDate = new Date(cookDate);
+
+                        const thawInfo = this.thawAdviceMap[product.title];
+
+                        if (thawInfo && thawInfo.hoursToThaw > 0) {
+                            // Use Gemini's advice
+                            const hours = thawInfo.hoursToThaw;
+                            // set thawDate back by 'hours'
+                            thawDate = new Date(cookDate.getTime() - (hours * 60 * 60 * 1000));
+
+                            // Format: Thaw starting MM/DD (Previous day if needed)
+                            const dateStr = thawDate.toLocaleDateString();
+                            const timeStr = thawDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                            advice.push(`Thaw ${product.title} starting ${dateStr} ${timeStr} (${thawInfo.advice})`);
+                        } else if (!this.loadingThawAdvice) {
+                            // Default fallback if gemini failed or not loaded yet, OR gemini said 0 hours (which we skip)
+                            // If gemini specifically said 0 hours (no thaw needed), we shouldn't show default advice.
+                            // But if we don't have info yet, maybe show generic? 
+                            // Let's assume generic 24h until we know better IF we haven't loaded yet.
+                            // But wait, if thawInfo is missing, maybe we shouldn't show anything?
+                            // or show "Calculating..."?
+                            if (!thawInfo) {
+                                thawDate.setDate(cookDate.getDate() - 1);
+                                advice.push(`Thaw ${product.title} (Calculating time...)`);
+                            }
+                        }
                     }
-                } else {
-                    // No stock at all? maybe warn? But user asked for thaw logic.
                 }
             });
         }
