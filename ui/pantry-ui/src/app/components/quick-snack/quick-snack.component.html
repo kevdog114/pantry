@@ -3,6 +3,16 @@
         <h2>Quick Snack</h2>
         <p>What are you in the mood for?</p>
 
+        <div class="chip-section" *ngIf="familyMembers.length > 0">
+            <h4>Personalize for</h4>
+            <mat-chip-listbox multiple>
+                <mat-chip-option *ngFor="let member of familyMembers" (click)="toggleMember(member.id)"
+                    [selected]="isMemberSelected(member.id)">
+                    {{member.name}}
+                </mat-chip-option>
+            </mat-chip-listbox>
+        </div>
+
         <div class="chip-section">
             <h4>Effort</h4>
             <mat-chip-listbox multiple>

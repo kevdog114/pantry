@@ -1,5 +1,4 @@
-
-import { Component, ChangeDetectorRef } from '@angular/core';
+import { Component, ChangeDetectorRef, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatButtonModule } from '@angular/material/button';
 import { MatChipsModule } from '@angular/material/chips';
@@ -8,6 +7,7 @@ import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatBottomSheetRef } from '@angular/material/bottom-sheet';
 import { MatCardModule } from '@angular/material/card';
 import { GeminiService } from '../../services/gemini.service';
+import { FamilyService, FamilyMember } from '../../services/family.service';
 
 @Component({
     selector: 'app-quick-snack',
@@ -16,13 +16,16 @@ import { GeminiService } from '../../services/gemini.service';
     templateUrl: './quick-snack.component.html',
     styleUrls: ['./quick-snack.component.css']
 })
-export class QuickSnackComponent {
+export class QuickSnackComponent implements OnInit {
 
     effortChips = ['Grab & Go', 'Quick Prep (<5m)', 'Mini Meal'];
     vibeChips = ['Healthy', 'Sweet', 'Salty', 'Protein'];
 
     selectedEffort: string[] = [];
     selectedVibe: string[] = [];
+
+    familyMembers: FamilyMember[] = [];
+    selectedMemberIds: number[] = [];
 
     suggestions: any[] = [];
     currentIndex = 0;
@@ -32,8 +35,15 @@ export class QuickSnackComponent {
     constructor(
         private bottomSheetRef: MatBottomSheetRef<QuickSnackComponent>,
         private geminiService: GeminiService,
+        private familyService: FamilyService,
         private cdr: ChangeDetectorRef
     ) { }
+
+    ngOnInit(): void {
+        this.familyService.getMembers().subscribe(members => {
+            this.familyMembers = members;
+        });
+    }
 
     toggleEffort(chip: string) {
         if (this.selectedEffort.includes(chip)) {
@@ -51,18 +61,29 @@ export class QuickSnackComponent {
         }
     }
 
+    toggleMember(id: number) {
+        if (this.selectedMemberIds.includes(id)) {
+            this.selectedMemberIds = this.selectedMemberIds.filter(mId => mId !== id);
+        } else {
+            this.selectedMemberIds.push(id);
+        }
+    }
+
     isEffortSelected(chip: string): boolean {
         return this.selectedEffort.includes(chip);
     }
     isVibeSelected(chip: string): boolean {
         return this.selectedVibe.includes(chip);
     }
+    isMemberSelected(id: number): boolean {
+        return this.selectedMemberIds.includes(id);
+    }
 
     suggestSnack() {
         this.loading = true;
         const tags = [...this.selectedEffort, ...this.selectedVibe];
 
-        this.geminiService.quickSuggest(tags).subscribe({
+        this.geminiService.quickSuggest(tags, this.selectedMemberIds).subscribe({
             next: (res) => {
                 if (res.data && res.data.length > 0) {
                     this.suggestions = res.data;

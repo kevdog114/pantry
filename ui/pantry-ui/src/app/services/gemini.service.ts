@@ -32,8 +32,8 @@ export class GeminiService {
     return this.http.post<any>(`${environment.apiUrl}/gemini/expiration`, { productTitle });
   }
 
-  quickSuggest(tags: string[]): Observable<any> {
-    return this.http.post<any>(`${environment.apiUrl}/gemini/quick-suggest`, { tags });
+  quickSuggest(tags: string[], selectedMemberIds?: number[]): Observable<any> {
+    return this.http.post<any>(`${environment.apiUrl}/gemini/quick-suggest`, { tags, selectedMemberIds });
   }
 
   getThawAdvice(items: string[]): Observable<any> {

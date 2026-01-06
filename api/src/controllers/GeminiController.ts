@@ -147,8 +147,12 @@ const getProductContext = async (): Promise<string> => {
   return context;
 };
 
-const getFamilyContext = async (): Promise<string> => {
-  const members = await prisma.familyMember.findMany();
+const getFamilyContext = async (filterMemberIds?: number[]): Promise<string> => {
+  let whereClause = {};
+  if (filterMemberIds && filterMemberIds.length > 0) {
+    whereClause = { id: { in: filterMemberIds } };
+  }
+  const members = await prisma.familyMember.findMany({ where: whereClause });
   const setting = await prisma.systemSetting.findUnique({
     where: { key: 'family_general_preferences' }
   });
@@ -558,7 +562,7 @@ export const postExpiration = async (req: Request, res: Response) => {
 
 export const postQuickSuggest = async (req: Request, res: Response) => {
   try {
-    const { tags } = req.body as { tags: string[] };
+    const { tags, selectedMemberIds } = req.body as { tags: string[], selectedMemberIds?: number[] };
 
     if (!tags || !Array.isArray(tags)) {
       res.status(400).json({ message: "Tags are required and must be an array" });
@@ -566,12 +570,16 @@ export const postQuickSuggest = async (req: Request, res: Response) => {
     }
 
     const productContext = await getProductContext();
+    const familyContext = await getFamilyContext(selectedMemberIds);
 
     const prompt = `You are a kitchen assistant. Suggest 3 distinct snacks based on these tags: ${tags.join(', ')}. 
     Only suggest items that require ingredients currently in the user's inventory.
     
     Here is the inventory:
     ${productContext}
+
+    Here are the family preferences. Please ensure suggestions align with these preferences for the selected family members:
+    ${familyContext}
 
     Return a JSON object with a key 'suggestions' which is an array of objects. Each object should have:
     - name: string
