@@ -12,6 +12,7 @@ import * as SettingsController from "./controllers/SettingsController";
 import * as ChatController from "./controllers/ChatController"; // Import ChatController
 import * as FamilyController from "./controllers/FamilyController";
 import * as MealPlanController from "./controllers/MealPlanController";
+import * as KioskController from "./controllers/KioskController";
 import { isAuthenticated } from "./middleware/auth";
 
 import * as LabelPrinterController from "./controllers/labelPrinterController";
@@ -116,8 +117,13 @@ app.use(express.static('../ui/pantry-ui/dist/pantry-ui'));
 
 app.set("port", process.env.PORT || "4300");
 
+
+app.post("/kiosk/token", KioskController.generateToken);
+app.post("/auth/kiosk-login", KioskController.kioskLogin);
+
 app.post("/auth/login", passport.authenticate('local'), AuthController.login);
 app.get("/auth/user", AuthController.getCurrentUser);
+
 // All routes below this are protected
 app.use(isAuthenticated);
 
@@ -185,6 +191,10 @@ app.post("/family/preferences", FamilyController.saveGeneralPreferences);
 app.get("/meal-plan", MealPlanController.getMealPlan);
 app.post("/meal-plan", MealPlanController.addMealToPlan);
 app.delete("/meal-plan/:id", MealPlanController.removeMealFromPlan);
+
+app.post("/kiosk/link", KioskController.linkKiosk);
+app.get("/kiosk", KioskController.getKiosks);
+app.delete("/kiosk/:id", KioskController.deleteKiosk);
 
 
 app.post("/labels/quick-print", LabelPrinterController.printQuickLabel);

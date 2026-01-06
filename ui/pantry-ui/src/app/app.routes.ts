@@ -18,6 +18,8 @@ import { RecipeListComponent } from './components/recipe-list/recipe-list.compon
 import { RecipeEditComponent } from './recipe-edit/recipe-edit.component';
 import { FamilyPreferencesComponent } from './family-preferences/family-preferences.component';
 import { MealPlanComponent } from './components/meal-plan/meal-plan.component';
+import { KioskLoginComponent } from './components/kiosk/kiosk-login/kiosk-login.component';
+import { KioskLinkComponent } from './components/kiosk/kiosk-link/kiosk-link.component';
 
 
 
@@ -125,6 +127,15 @@ export const routes: Routes = [
     {
         path: "quick-label",
         component: QuickLabelComponent
+    },
+    {
+        path: "kiosk-login",
+        component: KioskLoginComponent
+    },
+    {
+        path: "kiosk/link",
+        component: KioskLinkComponent,
+        canActivate: [AuthGuard]
     },
     {
         path: "**",

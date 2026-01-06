@@ -8,12 +8,14 @@ import { MatInputModule } from '@angular/material/input';
 import { MatButtonModule } from '@angular/material/button';
 import { CommonModule } from '@angular/common';
 
+import { RouterModule } from '@angular/router';
+
 @Component({
   selector: 'app-login',
   templateUrl: './login.html',
   styleUrls: ['./login.css'],
   standalone: true,
-  imports: [ FormsModule, CommonModule, MatCardModule, MatFormFieldModule, MatInputModule, MatButtonModule ]
+  imports: [FormsModule, CommonModule, MatCardModule, MatFormFieldModule, MatInputModule, MatButtonModule, RouterModule]
 })
 export class LoginComponent {
   credentials = {

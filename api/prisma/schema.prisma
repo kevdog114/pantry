@@ -17,6 +17,7 @@ model User {
   tokens   PersonalAccessToken[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  kiosks    Kiosk[]
 }
 
 model Product {
@@ -177,5 +178,25 @@ model FamilyMember {
   preferences   String
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
+
 }
+
+model KioskToken {
+  id        Int      @id @default(autoincrement())
+  token     String   @unique
+  socketId  String?
+  createdAt DateTime @default(now())
+  expiresAt DateTime
+}
+
+model Kiosk {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id])
+  name      String
+  lastActive DateTime @default(now())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
 

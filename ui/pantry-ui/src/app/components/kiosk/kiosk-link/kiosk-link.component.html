@@ -1,0 +1,28 @@
+<div class="kiosk-link-container">
+    <h1>Link Kiosk</h1>
+
+    <div *ngIf="!success && token" class="link-form">
+        <p>Do you want to link this device as a kiosk to your account?</p>
+
+        <mat-form-field appearance="fill">
+            <mat-label>Kiosk Name</mat-label>
+            <input matInput [(ngModel)]="kioskName" placeholder="e.g. Kitchen Tablet">
+        </mat-form-field>
+
+        <div class="actions">
+            <button mat-raised-button color="primary" (click)="confirmLink()" [disabled]="loading">
+                {{ loading ? 'Linking...' : 'Confirm' }}
+            </button>
+        </div>
+        <p class="error" *ngIf="status && !success">{{ status }}</p>
+    </div>
+
+    <div *ngIf="!token" class="error">
+        <p>Invalid Link</p>
+    </div>
+
+    <div *ngIf="success" class="success-message">
+        <p>✅ Kiosk Linked Successfully!</p>
+        <button mat-button (click)="goToProfile()">View Linked Kiosks</button>
+    </div>
+</div>

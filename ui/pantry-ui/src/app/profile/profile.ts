@@ -1,5 +1,6 @@
 import { Component, OnInit } from '@angular/core';
 import { AuthService } from '../services/auth';
+import { KioskService, Kiosk } from '../services/kiosk.service';
 import { FormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
 
@@ -8,7 +9,7 @@ import { CommonModule } from '@angular/common';
   templateUrl: './profile.html',
   styleUrls: ['./profile.css'],
   standalone: true,
-  imports: [ FormsModule, CommonModule ]
+  imports: [FormsModule, CommonModule]
 })
 export class ProfileComponent implements OnInit {
   passwords = {
@@ -21,12 +22,27 @@ export class ProfileComponent implements OnInit {
   tokens: any[] = [];
   newTokenName: string = '';
   generatedToken: string = '';
+  kiosks: Kiosk[] = [];
 
-  constructor(private authService: AuthService) { }
+  constructor(private authService: AuthService, private kioskService: KioskService) { }
 
   ngOnInit() {
     this.loadTokens();
+    this.loadKiosks();
   }
+
+  loadKiosks() {
+    this.kioskService.getKiosks().subscribe((data) => this.kiosks = data);
+  }
+
+  removeKiosk(id: number) {
+    if (confirm('Are you sure you want to remove this kiosk? It will be logged out.')) {
+      this.kioskService.deleteKiosk(id).subscribe(() => {
+        this.loadKiosks();
+      });
+    }
+  }
+
 
   loadTokens() {
     this.authService.getPersonalAccessTokens().subscribe((tokens) => {
@@ -52,7 +68,7 @@ export class ProfileComponent implements OnInit {
     this.authService.changePassword(this.passwords).subscribe(() => {
       this.message = 'Password changed successfully';
     }, (err) => {
-        this.message = err.error.message;
+      this.message = err.error.message;
     });
   }
 }

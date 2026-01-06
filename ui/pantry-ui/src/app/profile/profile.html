@@ -54,5 +54,25 @@
         </tbody>
       </table>
     </div>
+    <hr>
+    <div>
+      <h2>Linked Kiosks</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Added At</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let kiosk of kiosks">
+            <td>{{ kiosk.name }}</td>
+            <td>{{ kiosk.createdAt | date }}</td>
+            <td><button (click)="removeKiosk(kiosk.id)">Remove</button></td>
+          </tr>
+        </tbody>
+      </table>
+      <p *ngIf="kiosks.length === 0">No kiosks linked.</p>
+    </div>
   </div>
 </div>

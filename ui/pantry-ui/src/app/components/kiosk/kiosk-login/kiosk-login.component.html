@@ -1,0 +1,12 @@
+<div class="kiosk-login-container">
+    <h1>Kiosk Login</h1>
+    <div class="qr-container" *ngIf="qrCodeDataUrl">
+        <img [src]="qrCodeDataUrl" alt="Scan QR Code to Login">
+    </div>
+    <p class="status">{{ status }}</p>
+    <div class="instructions">
+        <p>1. Open the camera on your mobile device.</p>
+        <p>2. Scan the QR code above.</p>
+        <p>3. Follow the link to authorize this kiosk.</p>
+    </div>
+</div>
