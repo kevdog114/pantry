@@ -19,6 +19,8 @@ export const create = async (req: Request, res: Response, next: NextFunction): P
         data: {
             name: req.body.title,
             description: req.body.description,
+            source: req.body.source || 'user',
+            ingredientText: req.body.ingredients ? JSON.stringify(req.body.ingredients) : null,
             steps: {
                 create: req.body.steps?.map((step: any, index: number) => ({
                     stepNumber: index + 1,
@@ -64,7 +66,7 @@ export const getById = async (req: Request, res: Response, next: NextFunction): 
             }
         }
     });
-    
+
     if (!recipe) {
         res.sendStatus(404);
         return;

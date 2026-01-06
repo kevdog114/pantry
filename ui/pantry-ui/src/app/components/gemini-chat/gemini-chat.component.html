@@ -41,7 +41,11 @@
             <div *ngIf="item.type === 'recipe' && item.recipe" class="recipe-card">
               <div class="recipe-header" (click)="toggleRecipe(item)">
                 <h3>🍽️ {{ item.recipe.title }}</h3>
-                <span class="toggle-icon">{{ item.expanded ? '▲' : '▼' }}</span>
+                <div class="header-actions">
+                  <button class="save-btn" (click)="$event.stopPropagation(); saveRecipe(item.recipe)"
+                    title="Save to Cookbook">💾</button>
+                  <span class="toggle-icon">{{ item.expanded ? '▲' : '▼' }}</span>
+                </div>
               </div>
 
               <div class="recipe-details" *ngIf="item.expanded">

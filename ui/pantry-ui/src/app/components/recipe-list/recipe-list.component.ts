@@ -1,5 +1,5 @@
 import { AfterViewInit, Component } from "@angular/core";
-import { RecipeListService } from "./recipe-list.service";
+import { RecipeService } from "../../services/recipe.service";
 import { Recipe } from "../../types/recipe";
 import { CommonModule } from "@angular/common";
 import { FormsModule } from "@angular/forms";
@@ -35,11 +35,10 @@ import { MatInputModule } from "@angular/material/input";
         MatInputModule,
     ]
 })
-export class RecipeListComponent implements AfterViewInit
-{
+export class RecipeListComponent implements AfterViewInit {
     public recipes: Recipe[] = [];
 
-    constructor(private svc: RecipeListService, private localStorage: LocalStorageService) {
+    constructor(private svc: RecipeService, private localStorage: LocalStorageService) {
     }
 
     ngAfterViewInit(): void {

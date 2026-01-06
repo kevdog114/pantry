@@ -1,0 +1,41 @@
+<div class="meal-plan-container">
+    <div class="header">
+        <h1>Weekly Meal Plan</h1>
+    </div>
+
+    <div class="calendar-grid">
+        <mat-card *ngFor="let day of days" class="day-card">
+            <mat-card-header>
+                <mat-card-title>{{ day | date:'EEEE' }}</mat-card-title>
+                <mat-card-subtitle>{{ day | date:'mediumDate' }}</mat-card-subtitle>
+            </mat-card-header>
+            <mat-card-content>
+                <div class="meals-list">
+                    <div *ngFor="let plan of getPlansForDate(day)" class="meal-item">
+                        <div class="meal-title">
+                            🍽️ {{ plan.recipe.title }}
+                            <button mat-icon-button color="warn" (click)="removeMeal(plan.id)">
+                                <mat-icon>delete</mat-icon>
+                            </button>
+                        </div>
+
+                        <div *ngIf="getThawingAdvice(plan)" class="thawing-advice">
+                            ❄️ {{ getThawingAdvice(plan) }}
+                        </div>
+                    </div>
+                </div>
+
+                <div class="add-meal-form">
+                    <mat-form-field appearance="outline" class="w-100">
+                        <mat-label>Add Recipe</mat-label>
+                        <mat-select (selectionChange)="addMeal(day, $event.value)" placeholder="Select Recipe">
+                            <mat-option *ngFor="let recipe of recipes" [value]="recipe.id">
+                                {{ recipe.title }}
+                            </mat-option>
+                        </mat-select>
+                    </mat-form-field>
+                </div>
+            </mat-card-content>
+        </mat-card>
+    </div>
+</div>

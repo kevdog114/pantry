@@ -94,8 +94,22 @@ model Recipe {
   description String?
   steps       RecipeStep[]
   ingredients RecipeProduct[] @relation("RecipeIngredients")
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  source         String       @default("user")
+  ingredientText String?
+  mealPlans      MealPlan[]
+}
+
+
+
+model MealPlan {
+  id        Int      @id @default(autoincrement())
+  date      DateTime
+  recipeId  Int
+  recipe    Recipe   @relation(fields: [recipeId], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model RecipeStep {

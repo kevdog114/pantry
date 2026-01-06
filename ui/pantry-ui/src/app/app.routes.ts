@@ -17,12 +17,19 @@ import { QuickLabelComponent } from './quick-label/quick-label.component';
 import { RecipeListComponent } from './components/recipe-list/recipe-list.component';
 import { RecipeEditComponent } from './recipe-edit/recipe-edit.component';
 import { FamilyPreferencesComponent } from './family-preferences/family-preferences.component';
+import { MealPlanComponent } from './components/meal-plan/meal-plan.component';
+
 
 
 export const routes: Routes = [
     {
         path: "recipes",
         component: RecipeListComponent,
+        canActivate: [AuthGuard]
+    },
+    {
+        path: "meal-plan",
+        component: MealPlanComponent,
         canActivate: [AuthGuard]
     },
     {

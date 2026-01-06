@@ -6,6 +6,7 @@ import { PhotoUploadComponent } from '../photo-upload/photo-upload.component';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 
 import { MarkdownModule } from 'ngx-markdown';
+import { RecipeService } from '../../services/recipe.service';
 
 export interface Recipe {
   title: string;
@@ -51,7 +52,11 @@ export class GeminiChatComponent implements OnInit {
   sessions: any[] = [];
   currentSessionId: number | null = null;
 
-  constructor(private geminiService: GeminiService, private snackBar: MatSnackBar) {
+  constructor(
+    private geminiService: GeminiService,
+    private snackBar: MatSnackBar,
+    private recipeService: RecipeService
+  ) {
     this.checkScreenSize();
     window.addEventListener('resize', () => this.checkScreenSize());
   }
@@ -236,6 +241,26 @@ export class GeminiChatComponent implements OnInit {
     }
   }
 
+  saveRecipe(recipe: any) {
+    const newRecipe = {
+      title: recipe.title,
+      description: recipe.description,
+      source: 'gemini-pro-latest',
+      ingredients: recipe.ingredients,
+      steps: recipe.instructions.map((inst: string) => ({ description: inst }))
+    };
+
+    this.recipeService.create(newRecipe).subscribe({
+      next: (res) => {
+        this.snackBar.open('Recipe saved successfully!', 'Close', { duration: 3000 });
+      },
+      error: (err) => {
+        this.snackBar.open('Failed to save recipe.', 'Close', { duration: 3000 });
+        console.error(err);
+      }
+    });
+  }
+
   newChat() {
     this.messages = [];
     this.currentSessionId = null;
@@ -255,3 +280,4 @@ export class GeminiChatComponent implements OnInit {
     this.showSidebar = true;
   }
 }
+

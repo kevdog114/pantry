@@ -1,0 +1,55 @@
+.meal-plan-container {
+    padding: 20px;
+}
+
+.calendar-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 20px;
+    margin-top: 20px;
+}
+
+.day-card {
+    min-height: 200px;
+    display: flex;
+    flex-direction: column;
+}
+
+.meals-list {
+    flex-grow: 1;
+    margin-bottom: 15px;
+}
+
+.meal-item {
+    background-color: var(--bs-light);
+    /* Assuming bs variables exist, similar to other components */
+    border-radius: 8px;
+    padding: 10px;
+    margin-bottom: 8px;
+    border-left: 4px solid var(--bs-primary);
+}
+
+.meal-title {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-weight: 500;
+}
+
+.thawing-advice {
+    font-size: 0.85rem;
+    color: #d63384;
+    /* Pinkish warning color */
+    margin-top: 5px;
+    padding: 4px;
+    background-color: rgba(214, 51, 132, 0.1);
+    border-radius: 4px;
+}
+
+.add-meal-form {
+    margin-top: auto;
+}
+
+.w-100 {
+    width: 100%;
+}

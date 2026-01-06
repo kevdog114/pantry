@@ -9,4 +9,8 @@ export interface Recipe {
     totalTime?: number | null;
     yield?: string | null;
     steps: RecipeStep[];
+    source?: string;
+    createdAt?: Date;
+    ingredientText?: string;
 }
+

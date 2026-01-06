@@ -4,7 +4,8 @@
 </div>
 
 <div class="list-group">
-    <a [routerLink]="['/recipes', recipe.id, 'edit']" class="list-group-item list-group-item-action" aria-current="true" *ngFor="let recipe of recipes; track recipe">
+    <a [routerLink]="['/recipes', recipe.id, 'edit']" class="list-group-item list-group-item-action" aria-current="true"
+        *ngFor="let recipe of recipes; track recipe">
         <div class="d-flex w-100 justify-content-between">
             <div class="w-100">
                 <div class="d-flex w-100 justify-content-between">
@@ -12,6 +13,9 @@
                 </div>
                 <div class="w-100">
                     <span matListItemLine>{{recipe.description}}</span>
+                    <small *ngIf="recipe.source" class="d-block text-muted">Source: {{recipe.source}}</small>
+                    <small *ngIf="recipe.createdAt" class="d-block text-muted">Added: {{recipe.createdAt |
+                        date:'shortDate'}}</small>
                 </div>
             </div>
         </div>

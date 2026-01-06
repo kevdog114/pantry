@@ -11,6 +11,7 @@ import { PersonalAccessTokenController } from "./controllers/PersonalAccessToken
 import * as SettingsController from "./controllers/SettingsController";
 import * as ChatController from "./controllers/ChatController"; // Import ChatController
 import * as FamilyController from "./controllers/FamilyController";
+import * as MealPlanController from "./controllers/MealPlanController";
 import { isAuthenticated } from "./middleware/auth";
 
 import * as LabelPrinterController from "./controllers/labelPrinterController";
@@ -153,6 +154,10 @@ app.put("/family/members/:id", FamilyController.updateMember);
 app.delete("/family/members/:id", FamilyController.deleteMember);
 app.get("/family/preferences", FamilyController.getGeneralPreferences);
 app.post("/family/preferences", FamilyController.saveGeneralPreferences);
+
+app.get("/meal-plan", MealPlanController.getMealPlan);
+app.post("/meal-plan", MealPlanController.addMealToPlan);
+app.delete("/meal-plan/:id", MealPlanController.removeMealFromPlan);
 
 
 app.post("/labels/quick-print", LabelPrinterController.printQuickLabel);

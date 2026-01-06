@@ -140,6 +140,7 @@ const getProductContext = async (): Promise<string> => {
       for (const stockItem of product.stockItems) {
         context += `  - Quantity: ${stockItem.quantity}\n`;
         context += `  - Expiration Date: ${stockItem.expirationDate}\n`;
+        context += `  - Status: ${stockItem.frozen ? 'Frozen' : 'Fresh'}, ${stockItem.opened ? 'Opened' : 'Unopened'}\n`;
       }
     }
   }
