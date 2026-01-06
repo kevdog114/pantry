@@ -36,12 +36,21 @@ html {
 
   // Apply the dark theme when the user prefers dark mode
   @media (prefers-color-scheme: dark) {
-    @include mat.all-component-colors($dark-theme);
+    @include mat.all-component-themes($dark-theme);
   }
 
   // Force dark theme if Bootstrap is in dark mode
   &[data-bs-theme="dark"] {
-    @include mat.all-component-colors($dark-theme);
+    @include mat.all-component-themes($dark-theme);
+  }
+}
+
+body {
+  transition: background-color 0.3s ease, color 0.3s ease;
+
+  &[data-bs-theme="dark"] {
+    background-color: var(--mat-sys-background);
+    color: var(--mat-sys-on-background);
   }
 }
 

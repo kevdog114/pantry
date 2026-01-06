@@ -1,12 +1,134 @@
-:host {
-    display: block;
+.page-container {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 24px;
+    box-sizing: border-box;
 }
 
-/* Custom fade in/slide in animations */
-@keyframes fadeIn {
+h1 {
+    margin-bottom: 24px;
+    font-weight: 300;
+    font-size: 2.5rem;
+}
+
+h2 {
+    margin: 0;
+    font-weight: 400;
+}
+
+.preferences-card {
+    margin-bottom: 32px;
+}
+
+.full-width {
+    width: 100%;
+}
+
+.members-section {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.member-form-card {
+    margin-bottom: 24px;
+    animation: slideDown 0.3s ease-out;
+}
+
+.member-form {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.form-row {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+
+.form-row mat-form-field {
+    flex: 1;
+    min-width: 200px;
+}
+
+.form-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+}
+
+.members-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 16px;
+}
+
+.member-card {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.member-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.member-avatar {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    font-size: 1.2rem;
+    /* mat-card-avatar sets styling, we just add colors and flex centering */
+}
+
+.member-prefs {
+    white-space: pre-wrap;
+    line-height: 1.5;
+}
+
+.no-prefs {
+    font-style: italic;
+    opacity: 0.7;
+}
+
+.empty-state {
+    grid-column: 1 / -1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 48px;
+    background: rgba(0, 0, 0, 0.02);
+    border-radius: 8px;
+    border: 2px dashed rgba(0, 0, 0, 0.1);
+    color: inherit;
+    opacity: 0.7;
+}
+
+.empty-icon {
+    font-size: 48px;
+    height: 48px;
+    width: 48px;
+    margin-bottom: 16px;
+}
+
+@keyframes slideDown {
     from {
         opacity: 0;
-        transform: translateY(10px);
+        transform: translateY(-20px);
     }
 
     to {
@@ -15,22 +137,9 @@
     }
 }
 
-@keyframes slideIn {
-    from {
-        opacity: 0;
-        transform: translateY(-10px);
-    }
-
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
-
-.animate-fade-in {
-    animation: fadeIn 0.5s ease-out forwards;
-}
-
-.animate-slide-in {
-    animation: slideIn 0.3s ease-out forwards;
+/* Dark mode adjustments if needed, though Material should handle most */
+/* Ensure input date matches theme somewhat if browser allows, though difficult to style perfectly */
+input[type="date"] {
+    color: inherit;
+    /* inherit from mat-input */
 }
