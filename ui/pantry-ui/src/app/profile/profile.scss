@@ -1,0 +1,100 @@
+.profile-container {
+  display: flex;
+  justify-content: center;
+  padding: 20px;
+  background-color: var(--mat-sys-background); // Ensure it blends with the theme
+}
+
+.profile-content {
+  width: 100%;
+  max-width: 800px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+
+
+.password-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.full-width {
+  width: 100%;
+}
+
+.create-token-form {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin: 16px 0;
+
+  .token-input {
+    flex-grow: 1;
+    margin-bottom: -1.25em; // Offset material default margin for line-height
+  }
+}
+
+.generated-token-box {
+  background-color: var(--mat-sys-tertiary-container);
+  color: var(--mat-sys-on-tertiary-container);
+  padding: 16px;
+  border-radius: 8px;
+  margin-bottom: 24px;
+
+  h3 {
+    margin-top: 0;
+  }
+
+  .token-code {
+    background-color: rgba(0, 0, 0, 0.1);
+    padding: 12px;
+    border-radius: 4px;
+    font-family: monospace;
+    font-size: 1.1em;
+    word-break: break-all;
+  }
+}
+
+.width-100 {
+  width: 100%;
+}
+
+.action-cell {
+  text-align: right;
+  white-space: nowrap;
+}
+
+.subsection-title {
+  margin-top: 24px;
+  margin-bottom: 8px;
+  font-size: 1.1em;
+  font-weight: 500;
+}
+
+.empty-state {
+  text-align: center;
+  color: var(--mat-sys-outline);
+  padding: 24px 0;
+  font-style: italic;
+}
+
+/* Table styles overrides if needed */
+tr.mat-mdc-row {
+  height: 56px;
+}
+
+/* Responsive adjustments */
+@media (max-width: 600px) {
+  .create-token-form {
+    flex-direction: column;
+    align-items: stretch;
+
+    .token-input {
+      margin-bottom: 0;
+    }
+  }
+}

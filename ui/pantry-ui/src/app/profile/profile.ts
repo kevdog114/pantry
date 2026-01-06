@@ -3,13 +3,30 @@ import { AuthService } from '../services/auth';
 import { KioskService, Kiosk } from '../services/kiosk.service';
 import { FormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
+import { MatCardModule } from '@angular/material/card';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInputModule } from '@angular/material/input';
+import { MatButtonModule } from '@angular/material/button';
+import { MatTableModule } from '@angular/material/table';
+import { MatIconModule } from '@angular/material/icon';
+import { MatDividerModule } from '@angular/material/divider';
 
 @Component({
   selector: 'app-profile',
   templateUrl: './profile.html',
-  styleUrls: ['./profile.css'],
+  styleUrls: ['./profile.scss'],
   standalone: true,
-  imports: [FormsModule, CommonModule]
+  imports: [
+    FormsModule,
+    CommonModule,
+    MatCardModule,
+    MatFormFieldModule,
+    MatInputModule,
+    MatButtonModule,
+    MatTableModule,
+    MatIconModule,
+    MatDividerModule
+  ]
 })
 export class ProfileComponent implements OnInit {
   passwords = {
