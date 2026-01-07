@@ -12,7 +12,16 @@ export class GeminiService {
 
   constructor(private http: HttpClient) { }
 
-  sendMessage(prompt: string, history: any[], sessionId?: number): Observable<any> {
+  sendMessage(prompt: string, history: any[], sessionId?: number, image?: File): Observable<any> {
+    if (image) {
+      const formData = new FormData();
+      formData.append('prompt', prompt);
+      if (sessionId) {
+        formData.append('sessionId', sessionId.toString());
+      }
+      formData.append('image', image);
+      return this.http.post<any>(this.apiUrl, formData);
+    }
     return this.http.post<any>(this.apiUrl, { prompt, history, sessionId });
   }
 

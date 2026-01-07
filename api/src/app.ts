@@ -1,4 +1,6 @@
 import express, { Request, Response } from "express";
+import * as path from 'path';
+import * as fs from 'fs';
 import * as ProductsController from "./controllers/ProductsController";
 import * as RecipeController from "./controllers/RecipeController";
 import * as ProductSearchController from "./controllers/ProductSearchController";
@@ -177,6 +179,20 @@ app.post("/gemini/thaw-advice", GeminiController.postThawAdvice);
 app.post("/gemini/quick-suggest", GeminiController.postQuickSuggest);
 app.post("/gemini/expiration", GeminiController.postExpiration);
 app.get("/gemini/models", GeminiController.getAvailableModels);
+
+app.get("/uploads/:filename", (req: Request, res: Response) => {
+    const filename = req.params.filename;
+    if (filename.includes('..') || filename.includes('/') || filename.includes('\\')) {
+        res.status(400).send('Invalid filename');
+        return;
+    }
+    const filepath = path.join(process.cwd(), 'data', 'upload', filename);
+    if (fs.existsSync(filepath)) {
+        res.sendFile(filepath);
+    } else {
+        res.sendStatus(404);
+    }
+});
 
 app.get("/settings", SettingsController.getSettings);
 app.put("/settings", SettingsController.updateSettings);

@@ -37,6 +37,11 @@
               <markdown [data]="item.text"></markdown>
             </div>
 
+            <div *ngIf="item.type === 'image'" class="message-image">
+              <img [src]="item.imageUrl" alt="Attached Image"
+                style="max-width: 200px; border-radius: 8px; margin-bottom: 8px;">
+            </div>
+
             <!-- Recipe Message -->
             <div *ngIf="item.type === 'recipe' && item.recipe" class="recipe-card">
               <div class="recipe-header" (click)="toggleRecipe(item)">
@@ -87,10 +92,18 @@
       </div>
     </div>
 
-    <div class="input-area">
-      <app-photo-upload *ngIf="false"></app-photo-upload> <!-- Placeholder if needed -->
-      <input [(ngModel)]="newMessage" (keyup.enter)="sendMessage()" placeholder="Type a message...">
-      <button (click)="sendMessage()">Send</button>
+    <div class="input-area" style="flex-direction: column; gap: 8px;">
+      <div *ngIf="selectedImage" class="image-preview"
+        style="display: flex; align-items: center; gap: 8px; padding: 4px;">
+        <img [src]="selectedImagePreview" alt="Preview" style="height: 50px; border-radius: 4px;">
+        <button (click)="clearImage()" style="background: none; border: none; cursor: pointer; color: red;">✖</button>
+      </div>
+      <div style="display: flex; width: 100%; gap: 8px; align-items: center;">
+        <button class="attach-btn" (click)="fileInput.click()" style="padding: 8px; cursor: pointer;">📷</button>
+        <input #fileInput type="file" accept="image/*" (change)="onImageSelected($event)" style="display: none">
+        <input [(ngModel)]="newMessage" (keyup.enter)="sendMessage()" placeholder="Type a message..." style="flex: 1;">
+        <button (click)="sendMessage()">Send</button>
+      </div>
     </div>
   </main>
 </div>

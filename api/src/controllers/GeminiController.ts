@@ -4,7 +4,8 @@ import { Request, Response } from "express";
 import prisma from '../lib/prisma';
 import { UploadedFile } from "express-fileupload";
 import * as fs from "fs";
-import { storeFile } from "../lib/FileStorage";
+import * as path from "path";
+import { storeFile, UPLOAD_DIR } from "../lib/FileStorage";
 
 dotenv.config();
 
@@ -182,8 +183,29 @@ export const post = async (req: Request, res: Response) => {
     let { prompt, history = [], sessionId } = req.body as {
       prompt: string;
       history: Content[];
-      sessionId?: number;
+      sessionId?: number | string;
     };
+
+    if (sessionId) {
+      sessionId = parseInt(sessionId as string, 10);
+    }
+
+    // Handle Image Upload
+    let imageFilename: string | null = null;
+    let imageMimeType: string | null = null;
+    let imagePart: any = null;
+
+    if (req.files && req.files.image) {
+      const image = req.files.image as UploadedFile;
+      const ext = path.extname(image.name);
+      imageFilename = `chat_${Date.now()}_${Math.floor(Math.random() * 1000)}${ext}`;
+      imageMimeType = image.mimetype;
+
+      storeFile(image.tempFilePath, imageFilename);
+
+      // Prepare for Gemini
+      imagePart = fileToGenerativePart(path.join(UPLOAD_DIR, imageFilename), imageMimeType);
+    }
 
     // If no sessionId, create a new session
     if (!sessionId) {
@@ -196,18 +218,15 @@ export const post = async (req: Request, res: Response) => {
     } else {
       // Load history from DB
       const messages = await prisma.chatMessage.findMany({
-        where: { sessionId },
+        where: { sessionId: sessionId as number },
         orderBy: { createdAt: 'asc' }
       });
 
       // Convert messages to history Content[]
-      // Note: We need to ensure we map 'user' and 'model' correctly.
-      // In DB, sender is 'user' or 'model'.
       history = messages.map(msg => {
         let text = msg.content || '';
         // If it was a recipe, we construct a JSON representation to simulate what the model outputted
         if (msg.type === 'recipe' && msg.recipeData) {
-          // We wrap it in the structure the model uses
           text = JSON.stringify({
             items: [{
               type: 'recipe',
@@ -215,9 +234,33 @@ export const post = async (req: Request, res: Response) => {
             }]
           });
         }
+
+        const parts: any[] = [];
+        if (text) {
+          parts.push({ text });
+        }
+
+        if (msg.imageUrl) {
+          const ext = path.extname(msg.imageUrl).toLowerCase();
+          let mime = 'image/jpeg';
+          if (ext === '.png') mime = 'image/png';
+          if (ext === '.webp') mime = 'image/webp';
+          if (ext === '.heic') mime = 'image/heic';
+          if (ext === '.heif') mime = 'image/heif';
+
+          try {
+            const fullPath = path.join(UPLOAD_DIR, msg.imageUrl);
+            if (fs.existsSync(fullPath)) {
+              parts.push(fileToGenerativePart(fullPath, mime));
+            }
+          } catch (e) {
+            console.error("Failed to load image for history", e);
+          }
+        }
+
         return {
           role: msg.sender,
-          parts: [{ text }]
+          parts: parts
         } as Content;
       });
     }
@@ -225,16 +268,17 @@ export const post = async (req: Request, res: Response) => {
     // Save User Message to DB
     await prisma.chatMessage.create({
       data: {
-        sessionId: sessionId!,
+        sessionId: sessionId as number,
         sender: 'user',
         type: 'chat',
-        content: prompt
+        content: prompt,
+        imageUrl: imageFilename
       }
     });
 
     // Update session timestamp
     await prisma.chatSession.update({
-      where: { id: sessionId },
+      where: { id: sessionId as number },
       data: { updatedAt: new Date() }
     });
 
@@ -285,6 +329,11 @@ export const post = async (req: Request, res: Response) => {
       ],
     };
 
+    const userParts: any[] = [{ text: prompt }];
+    if (imagePart) {
+      userParts.push(imagePart);
+    }
+
     const contents: Content[] = [
       {
         role: "user",
@@ -294,7 +343,7 @@ export const post = async (req: Request, res: Response) => {
       ...history,
       {
         role: "user",
-        parts: [{ text: prompt }],
+        parts: userParts,
       },
     ];
 
@@ -331,7 +380,7 @@ export const post = async (req: Request, res: Response) => {
         if (item.type === 'recipe' && item.recipe) {
           await prisma.chatMessage.create({
             data: {
-              sessionId: sessionId!,
+              sessionId: sessionId as number,
               sender: 'model',
               type: 'recipe',
               recipeData: JSON.stringify(item.recipe)
@@ -340,7 +389,7 @@ export const post = async (req: Request, res: Response) => {
         } else {
           await prisma.chatMessage.create({
             data: {
-              sessionId: sessionId!,
+              sessionId: sessionId as number,
               sender: 'model',
               type: 'chat',
               content: item.content || JSON.stringify(item)
@@ -356,7 +405,7 @@ export const post = async (req: Request, res: Response) => {
       if (isRecipe && data.recipe) {
         await prisma.chatMessage.create({
           data: {
-            sessionId: sessionId!,
+            sessionId: sessionId as number,
             sender: 'model',
             type: 'recipe',
             recipeData: JSON.stringify(data.recipe)
@@ -371,7 +420,7 @@ export const post = async (req: Request, res: Response) => {
         }
         await prisma.chatMessage.create({
           data: {
-            sessionId: sessionId!,
+            sessionId: sessionId as number,
             sender: 'model',
             type: 'chat',
             content: content
@@ -383,11 +432,11 @@ export const post = async (req: Request, res: Response) => {
     // Attempt to generate/update title if this is a new session or it looks like a default/simple title
     // We do this after the model has responded to have full context of the first turn.
     try {
-      const currentSession = await prisma.chatSession.findUnique({ where: { id: sessionId } });
+      const currentSession = await prisma.chatSession.findUnique({ where: { id: sessionId as number } });
       // Update if it was just created (we assume prompt based title is temporary if we want gemini to do it)
       // or if it is "New Chat"
       if (currentSession) {
-        const messageCount = await prisma.chatMessage.count({ where: { sessionId } });
+        const messageCount = await prisma.chatMessage.count({ where: { sessionId: sessionId as number } });
         // Only auto-update on the first exchange (2 messages: user + model) to avoid constantly changing titles,
         // or if the user explicitly wants us to (maybe later).
         // Let's stick to first turn logic.
@@ -405,7 +454,7 @@ export const post = async (req: Request, res: Response) => {
 
           if (newTitle) {
             await prisma.chatSession.update({
-              where: { id: sessionId },
+              where: { id: sessionId as number },
               data: { title: newTitle }
             });
           }

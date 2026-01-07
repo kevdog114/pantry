@@ -168,6 +168,7 @@ model ChatMessage {
   type          String      // "chat" or "recipe"
   content       String?     // For text
   recipeData    String?     // JSON string for recipe data
+  imageUrl      String?     // URL/Path to image if present
   createdAt     DateTime    @default(now())
 }
 

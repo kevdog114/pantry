@@ -21,10 +21,11 @@ export interface Recipe {
 }
 
 export interface ChatContentItem {
-  type: 'chat' | 'recipe';
+  type: 'chat' | 'recipe' | 'image';
   text?: string;
   recipe?: Recipe;
   expanded?: boolean;
+  imageUrl?: string;
 }
 
 export interface ChatMessage {
@@ -48,6 +49,8 @@ export class GeminiChatComponent implements OnInit {
   messages: ChatMessage[] = [];
   newMessage: string = '';
   isLoading: boolean = false;
+  selectedImage: File | null = null;
+  selectedImagePreview: string | ArrayBuffer | null = null;
 
   sessions: any[] = [];
   currentSessionId: number | null = null;
@@ -70,6 +73,21 @@ export class GeminiChatComponent implements OnInit {
 
   ngOnInit() {
     this.loadSessions();
+  }
+
+  onImageSelected(event: any) {
+    const file = event.target.files[0];
+    if (file) {
+      this.selectedImage = file;
+      const reader = new FileReader();
+      reader.onload = e => this.selectedImagePreview = e.target?.result || null;
+      reader.readAsDataURL(file);
+    }
+  }
+
+  clearImage() {
+    this.selectedImage = null;
+    this.selectedImagePreview = null;
   }
 
   loadSessions() {
@@ -96,7 +114,21 @@ export class GeminiChatComponent implements OnInit {
       if (session.messages) {
         session.messages.forEach((msg: any) => {
           const sender = msg.sender === 'user' ? 'You' : 'Gemini';
-          let contentItem: ChatContentItem | null = null;
+          const contents: ChatContentItem[] = [];
+
+          if (msg.content) {
+            contents.push({
+              type: 'chat',
+              text: msg.content
+            });
+          }
+
+          if (msg.imageUrl) {
+            contents.push({
+              type: 'image',
+              imageUrl: '/uploads/' + msg.imageUrl
+            });
+          }
 
           if (msg.type === 'recipe' && msg.recipeData) {
             let recipeObj;
@@ -107,26 +139,21 @@ export class GeminiChatComponent implements OnInit {
             }
 
             if (recipeObj) {
-              contentItem = {
+              contents.push({
                 type: 'recipe',
                 recipe: recipeObj,
                 expanded: false
-              };
+              });
             }
-          } else {
-            contentItem = {
-              type: 'chat',
-              text: msg.content
-            };
           }
 
-          if (contentItem) {
+          if (contents.length > 0) {
             if (currentMessage && currentMessage.sender === sender) {
-              currentMessage.contents.push(contentItem);
+              currentMessage.contents.push(...contents);
             } else {
               currentMessage = {
                 sender,
-                contents: [contentItem]
+                contents: contents
               };
               this.messages.push(currentMessage);
             }
@@ -151,13 +178,26 @@ export class GeminiChatComponent implements OnInit {
   }
 
   sendMessage() {
-    if (this.newMessage.trim() === '') {
+    if (this.newMessage.trim() === '' && !this.selectedImage) {
       return;
     }
 
     const prompt = this.newMessage;
-    this.messages.push({ sender: 'You', contents: [{ type: 'chat', text: this.newMessage }] });
+
+    const userContents: ChatContentItem[] = [];
+    if (this.selectedImagePreview) {
+      userContents.push({ type: 'image', imageUrl: this.selectedImagePreview as string });
+    }
+    if (prompt) {
+      userContents.push({ type: 'chat', text: prompt });
+    }
+
+    this.messages.push({ sender: 'You', contents: userContents });
+
     this.newMessage = '';
+    const imageToSend = this.selectedImage ? this.selectedImage : undefined;
+    this.clearImage();
+
     this.isLoading = true;
     setTimeout(() => this.scrollToBottom(), 100);
 
@@ -165,7 +205,7 @@ export class GeminiChatComponent implements OnInit {
     // we just pass sessionId and let backend handle it.
     // However, if we are starting a new chat (no sessionId), we send empty history implicitely.
 
-    this.geminiService.sendMessage(prompt, [], this.currentSessionId || undefined).subscribe(response => {
+    this.geminiService.sendMessage(prompt, [], this.currentSessionId || undefined, imageToSend).subscribe(response => {
       this.isLoading = false;
 
       // Update current session ID if this was a new chat
