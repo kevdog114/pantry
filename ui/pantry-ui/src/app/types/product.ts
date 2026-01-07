@@ -1,11 +1,9 @@
-export interface FileMeta
-{
+export interface FileMeta {
     id: number
     filename: string
 }
 
-export interface StockItem
-{
+export interface StockItem {
     id?: number,
     productId: number,
     quantity: number,
@@ -17,8 +15,7 @@ export interface StockItem
     expirationExtensionAfterThaw: number
 }
 
-export interface ProductBarcode
-{
+export interface ProductBarcode {
     id: number,
     barcode: string,
     ProductId: number
@@ -27,17 +24,16 @@ export interface ProductBarcode
     quantity: number
     description: string
     tags: Array<ProductTags>
+    tareWeight?: number
 }
 
-export interface ProductTags
-{
+export interface ProductTags {
     id: number
     tagname: string
     taggroup: string
 }
 
-export interface Product
-{
+export interface Product {
     id: number
     title: string
     files: Array<FileMeta>
@@ -48,8 +44,9 @@ export interface Product
     minExpiration?: Date
     quantityExpiringSoon?: number
     totalQuantity?: number
-    
+
     freezerLifespanDays?: number | null,
     refrigeratorLifespanDays?: number | null,
-    openedLifespanDays?: number | null
+    openedLifespanDays?: number | null,
+    trackCountBy?: string
 }

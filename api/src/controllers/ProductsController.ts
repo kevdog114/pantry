@@ -27,9 +27,11 @@ export const create = async (req: Request, res: Response, next: NextFunction): P
             freezerLifespanDays: req.body.freezerLifespanDays,
             openedLifespanDays: req.body.openedLifespanDays,
             refrigeratorLifespanDays: req.body.refrigeratorLifespanDays,
+            trackCountBy: req.body.trackCountBy,
             barcodes: {
                 create: (req.body.barcodes || []).map((barcode: any) => ({
                     barcode: barcode.barcode,
+                    tareWeight: barcode.tareWeight,
                     ...(barcode.tags && barcode.tags.length > 0 && {
                         tags: {
                             connect: barcode.tags.filter((t: any) => t.id > 0).map((t: any) => ({ id: t.id }))
@@ -97,6 +99,7 @@ export const updateById = async (req: Request, res: Response, next: NextFunction
             freezerLifespanDays: req.body.freezerLifespanDays,
             openedLifespanDays: req.body.openedLifespanDays,
             refrigeratorLifespanDays: req.body.refrigeratorLifespanDays,
+            trackCountBy: req.body.trackCountBy,
             ...(req.body.fileIds && {
                 files: {
                     set: req.body.fileIds.map((id: number) => ({ id }))
@@ -112,7 +115,8 @@ export const updateById = async (req: Request, res: Response, next: NextFunction
                     deleteMany: {},
                     create: req.body.barcodes.map((barcode: any) => ({
                         barcode: barcode.barcode,
-                        ...(barcode.Tags && barcode.tags.length > 0 && {
+                        tareWeight: barcode.tareWeight,
+                        ...(barcode.tags && barcode.tags.length > 0 && {
                             tags: {
                                 connect: barcode.tags.filter((t: any) => t.id > 0).map((t: any) => ({ id: t.id }))
                             }

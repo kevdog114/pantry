@@ -4,15 +4,23 @@
             <mat-label>Product Title</mat-label>
             <input name="title" matInput [(ngModel)]="product.title" />
         </mat-form-field>
+
+        <mat-form-field class="ml-2">
+            <mat-label>Track amount by</mat-label>
+            <mat-select [(ngModel)]="product.trackCountBy" name="trackCountBy">
+                <mat-option value="quantity">Quantity</mat-option>
+                <mat-option value="weight">Weight</mat-option>
+            </mat-select>
+        </mat-form-field>
     </div>
     <div class="row mb-2">
         <div class="col-12">
-            <button mat-stroked-button color="primary" (click)="askGeminiExpiration()"
+            <button mat-stroked-button color="primary" (click)="askGeminiProductDetails()"
                 [disabled]="!product.title || isAskingAi">
                 <mat-icon *ngIf="!isAskingAi">auto_awesome</mat-icon>
                 <mat-spinner *ngIf="isAskingAi" [diameter]="20"
                     style="display:inline-block; vertical-align: middle;"></mat-spinner>
-                Ask AI for Expiration Settings
+                Ask AI for product details
             </button>
         </div>
     </div>
@@ -60,6 +68,13 @@
                                     [(ngModel)]="barcode.barcode">
                             </mat-form-field>
                         </div>
+                        <div class="col-sm-2" *ngIf="product.trackCountBy === 'weight'">
+                            <mat-form-field>
+                                <mat-label>Tare Weight (g)</mat-label>
+                                <input [name]="'tareWeight-' + $index" matInput type="number"
+                                    [(ngModel)]="barcode.tareWeight">
+                            </mat-form-field>
+                        </div>
                         <div class="col-sm-2">
                             <mat-form-field>
                                 <mat-label>Brand</mat-label>
@@ -72,7 +87,7 @@
                                 <input [name]="'description-' + $index" matInput [(ngModel)]="barcode.description">
                             </mat-form-field>
                         </div>
-                        <div class="col-sm-4">
+                        <div class="col-sm-3">
                             <app-tags category="Category" [selectedTags]="barcode.tags"
                                 (selectionChange)="barcode.tags = $event"></app-tags>
                         </div>

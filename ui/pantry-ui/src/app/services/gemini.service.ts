@@ -37,8 +37,8 @@ export class GeminiService {
     return this.http.delete<any>(`${this.apiUrl}/sessions/${id}`);
   }
 
-  getExpirationSuggestion(productTitle: string): Observable<any> {
-    return this.http.post<any>(`${environment.apiUrl}/gemini/expiration`, { productTitle });
+  getProductDetailsSuggestion(productTitle: string): Observable<any> {
+    return this.http.post<any>(`${environment.apiUrl}/gemini/product-details`, { productTitle });
   }
 
   quickSuggest(tags: string[], selectedMemberIds?: number[]): Observable<any> {

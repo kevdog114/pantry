@@ -550,7 +550,7 @@ export const postImage = async (req: Request, res: Response) => {
   }
 }
 
-export const postExpiration = async (req: Request, res: Response) => {
+export const postProductDetails = async (req: Request, res: Response) => {
   try {
     const { productTitle } = req.body as { productTitle: string };
 
@@ -563,8 +563,16 @@ export const postExpiration = async (req: Request, res: Response) => {
       1. Freezer lifespan: How many days it is good in the freezer.
       2. Refrigerator lifespan: How many days it is good in the refrigerator (after thawing if frozen).
       3. Opened lifespan: How many days it is good after being opened.
+      
+      Also, recommend the best way to track the remaining amount of this product: 'quantity' (e.g., cans, boxes) or 'weight' (e.g., flour, sugar, pasta).
 
-      Return the result as a JSON object with keys: freezerLifespanDays, refrigeratorLifespanDays, openedLifespanDays. Use integer values. If unknown or if you are not sure, return null for that field.`;
+      Return the result as a JSON object with keys: 
+      - freezerLifespanDays
+      - refrigeratorLifespanDays
+      - openedLifespanDays
+      - trackCountBy ('quantity' or 'weight')
+      
+      Use integer values for days. If unknown or if you are not sure for days, return null for that field. default trackCountBy to 'quantity' if unsure.`;
 
     const schema = {
       type: FunctionDeclarationSchemaType.OBJECT,
@@ -572,11 +580,13 @@ export const postExpiration = async (req: Request, res: Response) => {
         freezerLifespanDays: { type: FunctionDeclarationSchemaType.INTEGER, nullable: true },
         refrigeratorLifespanDays: { type: FunctionDeclarationSchemaType.INTEGER, nullable: true },
         openedLifespanDays: { type: FunctionDeclarationSchemaType.INTEGER, nullable: true },
+        trackCountBy: { type: FunctionDeclarationSchemaType.STRING, enum: ["quantity", "weight"] }
       },
       required: [
         "freezerLifespanDays",
         "refrigeratorLifespanDays",
         "openedLifespanDays",
+        "trackCountBy"
       ],
     } as any;
 

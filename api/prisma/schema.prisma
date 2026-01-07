@@ -31,6 +31,7 @@ model Product {
   tags                    Tag[]      @relation("ProductToTag")
   barcodes               ProductBarcode[]
   recipeProducts         RecipeProduct[] @relation("ProductIngredients")
+  trackCountBy           String     @default("quantity") // "quantity" or "weight"
   createdAt              DateTime   @default(now())
   updatedAt              DateTime   @updatedAt
 }
@@ -60,6 +61,7 @@ model ProductBarcode {
   productId Int
   product   Product   @relation(fields: [productId], references: [id])
   tags      Tag[]     @relation("BarcodeToTag")
+  tareWeight Float?
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
 }
