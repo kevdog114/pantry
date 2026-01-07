@@ -1,9 +1,11 @@
-name: Publish Docker Images
+name: Publish Kiosk Docker Image
 
 on:
   push:
     branches:
       - main
+    paths:
+      - 'rpi-kiosk/**'
 
 jobs:
   build_and_publish:
@@ -24,20 +26,11 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Build and push API image
+      - name: Build and push Kiosk image
         uses: docker/build-push-action@v2
         with:
-          context: api
-          file: api/Dockerfile
+          context: rpi-kiosk
+          file: rpi-kiosk/Dockerfile
           platforms: linux/amd64,linux/arm64
           push: true
-          tags: ${{ secrets.DOCKERHUB_USERNAME }}/pantry-api:latest
-
-      - name: Build and push UI image
-        uses: docker/build-push-action@v2
-        with:
-          context: ui/pantry-ui
-          file: ui/pantry-ui/Dockerfile
-          platforms: linux/amd64,linux/arm64
-          push: true
-          tags: ${{ secrets.DOCKERHUB_USERNAME }}/pantry-ui:latest
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/pantry-kiosk:latest
