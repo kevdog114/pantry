@@ -126,7 +126,7 @@ export class GeminiChatComponent implements OnInit {
           if (msg.imageUrl) {
             contents.push({
               type: 'image',
-              imageUrl: '/uploads/' + msg.imageUrl
+              imageUrl: '/api/uploads/' + msg.imageUrl
             });
           }
 
