@@ -1,12 +1,11 @@
 <mat-nav-list>
-    <a mat-list-item [routerLink]="['/']">Home</a>
-    <a mat-list-item [routerLink]="['/recipes']">Recipes</a>
-    <a mat-list-item [routerLink]="['/settings/tags']">Tag Editor</a>
-    <a mat-list-item [routerLink]="['/barcode/scanner']">Barcode Scanner</a>
-    <a mat-list-item [routerLink]="['/search']">Search</a>
-    <a mat-list-item [routerLink]="['/gemini-chat']">Gemini Chat</a>
-    <a mat-list-item [routerLink]="['/quick-label']">Quick Label</a>
-    <a mat-list-item [routerLink]="['/settings/family']">Family Preferences</a>
-    <a mat-list-item [routerLink]="['/settings']">Settings</a>
-
+    <a mat-list-item [routerLink]="['/']" (click)="onLinkClick()">Home</a>
+    <a mat-list-item [routerLink]="['/recipes']" (click)="onLinkClick()">Recipes</a>
+    <a mat-list-item [routerLink]="['/settings/tags']" (click)="onLinkClick()">Tag Editor</a>
+    <a mat-list-item [routerLink]="['/barcode/scanner']" (click)="onLinkClick()">Barcode Scanner</a>
+    <a mat-list-item [routerLink]="['/search']" (click)="onLinkClick()">Search</a>
+    <a mat-list-item [routerLink]="['/gemini-chat']" (click)="onLinkClick()">Gemini Chat</a>
+    <a mat-list-item [routerLink]="['/quick-label']" (click)="onLinkClick()">Quick Label</a>
+    <a mat-list-item [routerLink]="['/settings/family']" (click)="onLinkClick()">Family Preferences</a>
+    <a mat-list-item [routerLink]="['/settings']" (click)="onLinkClick()">Settings</a>
 </mat-nav-list>

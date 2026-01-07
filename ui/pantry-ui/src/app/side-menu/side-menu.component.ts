@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { Component, EventEmitter, Output } from '@angular/core';
 import { MatListModule } from '@angular/material/list';
 import { RouterModule } from '@angular/router';
 
@@ -12,5 +12,9 @@ import { RouterModule } from '@angular/router';
   styleUrl: './side-menu.component.css'
 })
 export class SideMenuComponent {
+  @Output() linkClicked = new EventEmitter<void>();
 
+  onLinkClick() {
+    this.linkClicked.emit();
+  }
 }

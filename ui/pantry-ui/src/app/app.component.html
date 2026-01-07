@@ -24,7 +24,7 @@
 
 <mat-sidenav-container style="flex-grow: 1;">
   <mat-sidenav #sidenav>
-    <app-side-menu></app-side-menu>
+    <app-side-menu (linkClicked)="sidenav.close()"></app-side-menu>
   </mat-sidenav>
   <mat-sidenav-content>
     <div [class.container]="!isFullWidth" [class.container-fluid]="isFullWidth"
