@@ -101,6 +101,10 @@ model Recipe {
   updatedAt      DateTime     @updatedAt
   source         String       @default("user")
   ingredientText String?
+  prepTime       Int?
+  cookTime       Int?
+  totalTime      Int?
+  yield          String?
   mealPlans      MealPlan[]
 }
 

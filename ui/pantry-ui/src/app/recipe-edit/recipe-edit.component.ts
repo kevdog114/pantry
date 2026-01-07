@@ -34,11 +34,10 @@ export class RecipeEditComponent implements AfterViewInit {
 
   @Input()
   set id(recipeId: string) {
-    if(recipeId !== undefined)
-    {
+    if (recipeId !== undefined) {
       this.svc.get(parseInt(recipeId)).subscribe(p => {
         this.recipe = p;
-        if(!this.recipe.steps) {
+        if (!this.recipe.steps) {
           this.recipe.steps = [];
         }
       });
@@ -49,7 +48,9 @@ export class RecipeEditComponent implements AfterViewInit {
         id: 0,
         title: "",
         description: "",
-        steps: []
+        steps: [],
+        source: "",
+        ingredientText: ""
       }
     }
   }
@@ -94,18 +95,17 @@ export class RecipeEditComponent implements AfterViewInit {
   }
 
   public delete = () => {
-    if(this.recipe && this.recipe.id)
+    if (this.recipe && this.recipe.id)
       this.svc.delete(this.recipe.id).subscribe(() => {
         this.router.navigate(["/recipes"]);
       })
   }
 
   public save = () => {
-    if(this.recipe === undefined)
+    if (this.recipe === undefined)
       return;
 
-    if(this.isCreate)
-    {
+    if (this.isCreate) {
       this.svc.create(this.recipe).subscribe(p => {
         this.recipe = p;
         this.router.navigate(["recipes"]);

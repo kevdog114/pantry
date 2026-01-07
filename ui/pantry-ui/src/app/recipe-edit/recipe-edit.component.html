@@ -14,6 +14,12 @@
                 </mat-form-field>
             </div>
             <div class="row">
+                <mat-form-field>
+                    <mat-label>Source</mat-label>
+                    <input name="source" matInput [(ngModel)]="recipe.source" />
+                </mat-form-field>
+            </div>
+            <div class="row">
                 <div class="col-sm-4">
                     <mat-form-field class="w-100">
                         <mat-label>Prep Time</mat-label>
@@ -40,6 +46,14 @@
                 </div>
             </div>
         </mat-tab>
+        <mat-tab label="Ingredients">
+            <div class="row">
+                <mat-form-field class="w-100">
+                    <mat-label>Ingredients</mat-label>
+                    <textarea name="ingredientText" matInput [(ngModel)]="recipe.ingredientText" rows="10"></textarea>
+                </mat-form-field>
+            </div>
+        </mat-tab>
         <mat-tab label="Steps">
             <button mat-icon-button (click)="addStep()"><mat-icon>add</mat-icon></button>
             <div *ngFor="let step of recipe.steps; let i = index; trackBy: trackByFn">
@@ -48,8 +62,10 @@
                     <input matInput [(ngModel)]="step.description" [name]="'step-' + i">
                 </mat-form-field>
                 <button mat-icon-button (click)="removeStep(i)"><mat-icon>delete</mat-icon></button>
-                <button mat-icon-button (click)="moveStepUp(i)" [disabled]="i === 0"><mat-icon>arrow_upward</mat-icon></button>
-                <button mat-icon-button (click)="moveStepDown(i)" [disabled]="i === recipe.steps.length - 1"><mat-icon>arrow_downward</mat-icon></button>
+                <button mat-icon-button (click)="moveStepUp(i)"
+                    [disabled]="i === 0"><mat-icon>arrow_upward</mat-icon></button>
+                <button mat-icon-button (click)="moveStepDown(i)"
+                    [disabled]="i === recipe.steps.length - 1"><mat-icon>arrow_downward</mat-icon></button>
             </div>
         </mat-tab>
     </mat-tab-group>

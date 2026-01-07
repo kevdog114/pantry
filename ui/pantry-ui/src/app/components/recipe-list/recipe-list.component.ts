@@ -14,6 +14,7 @@ import { MatIconModule } from "@angular/material/icon";
 import { LocalStorageService } from "../../local-storage.service";
 import { MatListModule } from "@angular/material/list";
 import { MatInputModule } from "@angular/material/input";
+import { MatRippleModule } from "@angular/material/core";
 
 @Component({
     selector: 'recipe-list',
@@ -33,6 +34,7 @@ import { MatInputModule } from "@angular/material/input";
         MatIconModule,
         MatListModule,
         MatInputModule,
+        MatRippleModule
     ]
 })
 export class RecipeListComponent implements AfterViewInit {

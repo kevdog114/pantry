@@ -11,7 +11,7 @@ export const getAll = async (req: Request, res: Response, next: NextFunction): P
             }
         }
     });
-    res.send(recipes);
+    res.send(recipes.map(mapToResponse));
 }
 
 export const create = async (req: Request, res: Response, next: NextFunction): Promise<any> => {
@@ -20,7 +20,11 @@ export const create = async (req: Request, res: Response, next: NextFunction): P
             name: req.body.title,
             description: req.body.description,
             source: req.body.source || 'user',
-            ingredientText: req.body.ingredients ? JSON.stringify(req.body.ingredients) : null,
+            ingredientText: req.body.ingredientText,
+            prepTime: req.body.prepTime,
+            cookTime: req.body.cookTime,
+            totalTime: req.body.totalTime,
+            yield: req.body.yield,
             steps: {
                 create: req.body.steps?.map((step: any, index: number) => ({
                     stepNumber: index + 1,
@@ -37,7 +41,7 @@ export const create = async (req: Request, res: Response, next: NextFunction): P
         }
     });
 
-    res.send(recipe);
+    res.send(mapToResponse(recipe));
 }
 
 export const deleteById = async (req: Request, res: Response, next: NextFunction): Promise<any> => {
@@ -72,7 +76,7 @@ export const getById = async (req: Request, res: Response, next: NextFunction): 
         return;
     }
 
-    res.send(recipe);
+    res.send(mapToResponse(recipe));
 }
 
 export const update = async (req: Request, res: Response, next: NextFunction): Promise<any> => {
@@ -84,6 +88,12 @@ export const update = async (req: Request, res: Response, next: NextFunction): P
             data: {
                 name: req.body.title,
                 description: req.body.description,
+                source: req.body.source,
+                ingredientText: req.body.ingredientText,
+                prepTime: req.body.prepTime,
+                cookTime: req.body.cookTime,
+                totalTime: req.body.totalTime,
+                yield: req.body.yield,
                 steps: {
                     deleteMany: {},
                     create: req.body.steps?.map((step: any, index: number) => ({
@@ -101,8 +111,19 @@ export const update = async (req: Request, res: Response, next: NextFunction): P
             }
         });
 
-        res.send(recipe);
+        res.send(mapToResponse(recipe));
     } catch (error) {
         res.sendStatus(404);
     }
+}
+
+const mapToResponse = (recipe: any) => {
+    return {
+        ...recipe,
+        title: recipe.name,
+        steps: recipe.steps?.map((step: any) => ({
+            ...step,
+            description: step.instruction
+        })) || []
+    };
 }

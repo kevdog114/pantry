@@ -1,0 +1,5 @@
+-- AlterTable
+ALTER TABLE "Recipe" ADD COLUMN "cookTime" INTEGER;
+ALTER TABLE "Recipe" ADD COLUMN "prepTime" INTEGER;
+ALTER TABLE "Recipe" ADD COLUMN "totalTime" INTEGER;
+ALTER TABLE "Recipe" ADD COLUMN "yield" TEXT;

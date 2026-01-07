@@ -1,23 +1,28 @@
-<div>
+<div class="header-container">
     <h1>Recipes</h1>
-    <a mat-raised-button [routerLink]="['/recipes', 'create']">Create Recipe</a>
+    <a mat-raised-button color="primary" [routerLink]="['/recipes', 'create']">
+        <mat-icon>add</mat-icon> Create Recipe
+    </a>
 </div>
 
-<div class="list-group">
-    <a [routerLink]="['/recipes', recipe.id, 'edit']" class="list-group-item list-group-item-action" aria-current="true"
-        *ngFor="let recipe of recipes; track recipe">
-        <div class="d-flex w-100 justify-content-between">
-            <div class="w-100">
-                <div class="d-flex w-100 justify-content-between">
-                    <h5 class="mb-1">{{recipe.title}}</h5>
-                </div>
-                <div class="w-100">
-                    <span matListItemLine>{{recipe.description}}</span>
-                    <small *ngIf="recipe.source" class="d-block text-muted">Source: {{recipe.source}}</small>
-                    <small *ngIf="recipe.createdAt" class="d-block text-muted">Added: {{recipe.createdAt |
-                        date:'shortDate'}}</small>
-                </div>
+<div class="recipe-grid">
+    <mat-card *ngFor="let recipe of recipes" class="recipe-card" [routerLink]="['/recipes', recipe.id, 'edit']"
+        matRipple>
+        <mat-card-header>
+            <mat-card-title>{{recipe.title}}</mat-card-title>
+            <mat-card-subtitle *ngIf="recipe.source">{{recipe.source}}</mat-card-subtitle>
+        </mat-card-header>
+        <mat-card-content>
+            <p class="description">{{recipe.description}}</p>
+            <div class="meta-info">
+                <span *ngIf="recipe.totalTime || recipe.cookTime || recipe.prepTime">
+                    <mat-icon inline>schedule</mat-icon> {{recipe.totalTime || (recipe.cookTime || 0) + (recipe.prepTime
+                    || 0)}} mins
+                </span>
             </div>
-        </div>
-    </a>
+        </mat-card-content>
+        <mat-card-actions align="end">
+            <small class="text-muted" *ngIf="recipe.createdAt">Added: {{recipe.createdAt | date:'mediumDate'}}</small>
+        </mat-card-actions>
+    </mat-card>
 </div>
