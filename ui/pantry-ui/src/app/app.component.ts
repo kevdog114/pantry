@@ -1,5 +1,5 @@
 import { Component, OnInit } from '@angular/core';
-import { RouterModule, Router, RouterOutlet } from '@angular/router';
+import { RouterModule, Router, RouterOutlet, NavigationEnd } from '@angular/router';
 import { MatIconModule, MatIconRegistry } from '@angular/material/icon';
 import { MatToolbarModule } from '@angular/material/toolbar';
 import { MatButtonModule } from '@angular/material/button';
@@ -12,7 +12,7 @@ import { SideMenuComponent } from './side-menu/side-menu.component';
 import { HardwareBarcodeScannerService } from './hardware-barcode-scanner.service';
 import { AuthService } from './services/auth';
 import { Observable, of } from 'rxjs';
-import { catchError, map } from 'rxjs/operators';
+import { catchError, map, filter } from 'rxjs/operators';
 import { CommonModule } from '@angular/common';
 
 @Component({
@@ -32,6 +32,7 @@ import { CommonModule } from '@angular/common';
 export class AppComponent implements OnInit {
   title = "Pantry"
   isAuthenticated: Observable<boolean> = of(false);
+  isFullWidth = false;
 
   /**
    *
@@ -45,19 +46,25 @@ export class AppComponent implements OnInit {
     hardwareScanner.ListenForScanner();
 
     iconRegistry.setDefaultFontSetClass("material-symbols-outlined");
+
+    this.router.events.pipe(
+      filter(event => event instanceof NavigationEnd)
+    ).subscribe((event: NavigationEnd) => {
+      this.isFullWidth = event.urlAfterRedirects.includes('/gemini-chat');
+    });
   }
 
   ngOnInit() {
     this.isAuthenticated = this.authService.getUser().pipe(
-        map(response => !!response.user),
-        catchError(() => of(false))
+      map(response => !!response.user),
+      catchError(() => of(false))
     );
   }
 
   logout() {
     this.authService.logout().subscribe(() => {
-        this.router.navigate(['/login']);
-        this.isAuthenticated = of(false);
+      this.router.navigate(['/login']);
+      this.isAuthenticated = of(false);
     });
   }
 }

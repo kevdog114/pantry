@@ -4,21 +4,12 @@
   </button>
   <a [routerLink]="['/']">{{title}}</a>
   <span class="example-spacer"></span>
-  <a mat-icon-button [routerLink]="['/roadmap']">
-    <mat-icon>lightbulb</mat-icon>
-  </a>
-  <a mat-icon-button [routerLink]="['/search']">
-    <mat-icon>search</mat-icon>
-  </a>
   <a mat-icon-button [routerLink]="['/barcode/scanner']">
     <mat-icon>qr_code_scanner</mat-icon>
   </a>
-  <a mat-icon-button [routerLink]="['/settings']">
-    <mat-icon>settings</mat-icon>
-  </a>
   <ng-container *ngIf="isAuthenticated | async; else loginButton">
     <a mat-icon-button [routerLink]="['/profile']">
-        <mat-icon>person</mat-icon>
+      <mat-icon>person</mat-icon>
     </a>
     <button mat-icon-button (click)="logout()">
       <mat-icon>logout</mat-icon>
@@ -36,7 +27,8 @@
     <app-side-menu></app-side-menu>
   </mat-sidenav>
   <mat-sidenav-content>
-    <div class="container">
+    <div [class.container]="!isFullWidth" [class.container-fluid]="isFullWidth"
+      [style.padding]="isFullWidth ? '0' : ''">
       <router-outlet />
     </div>
   </mat-sidenav-content>
