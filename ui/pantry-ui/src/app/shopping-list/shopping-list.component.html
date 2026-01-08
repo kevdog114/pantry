@@ -1,0 +1,33 @@
+<div class="container">
+    <h1>Shopping List</h1>
+
+    <div class="add-item-form">
+        <mat-form-field appearance="outline" class="w-full">
+            <mat-label>Add item</mat-label>
+            <input matInput [(ngModel)]="newItemName" (keyup.enter)="addItem()" placeholder="Milk, Bread, etc.">
+            <button mat-icon-button matSuffix (click)="addItem()">
+                <mat-icon>add</mat-icon>
+            </button>
+        </mat-form-field>
+    </div>
+
+    <mat-list *ngIf="shoppingList">
+        <mat-list-item *ngFor="let item of shoppingList.items">
+            <span matListItemTitle [class.checked]="item.checked">{{ item.name }}</span>
+            <span matListItemLine *ngIf="item.quantity > 1">Quantity: {{ item.quantity }}</span>
+
+            <button mat-icon-button matListItemMeta (click)="deleteItem(item)">
+                <mat-icon>delete</mat-icon>
+            </button>
+            <mat-checkbox matListItemMeta [checked]="item.checked" (change)="toggleCheck(item)"></mat-checkbox>
+        </mat-list-item>
+    </mat-list>
+
+    <div *ngIf="shoppingList?.items?.length === 0" class="empty-state">
+        <p>Your shopping list is empty.</p>
+    </div>
+
+    <div class="actions" *ngIf="shoppingList && shoppingList.items.length > 0">
+        <button mat-stroked-button color="warn" (click)="clearChecked()">Clear Checked</button>
+    </div>
+</div>

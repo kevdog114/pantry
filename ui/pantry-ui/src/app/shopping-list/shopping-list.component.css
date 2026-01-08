@@ -1,0 +1,31 @@
+.container {
+    padding: 20px;
+    max-width: 600px;
+    margin: 0 auto;
+}
+
+.add-item-form {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+}
+
+.w-full {
+    width: 100%;
+}
+
+.checked {
+    text-decoration: line-through;
+    color: #888;
+}
+
+.empty-state {
+    text-align: center;
+    color: #666;
+    margin-top: 20px;
+}
+
+.actions {
+    margin-top: 20px;
+    text-align: right;
+}

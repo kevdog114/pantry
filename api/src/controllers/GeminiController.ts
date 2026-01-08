@@ -408,6 +408,37 @@ export const post = async (req: Request, res: Response) => {
               },
               required: ["stockId"]
             }
+          },
+          {
+            name: "getShoppingList",
+            description: "Get the current shopping list items.",
+            parameters: {
+              type: FunctionDeclarationSchemaType.OBJECT,
+              properties: {},
+            }
+          },
+          {
+            name: "addToShoppingList",
+            description: "Add an item to the shopping list.",
+            parameters: {
+              type: FunctionDeclarationSchemaType.OBJECT,
+              properties: {
+                item: { type: FunctionDeclarationSchemaType.STRING, description: "Name of the item" },
+                quantity: { type: FunctionDeclarationSchemaType.NUMBER, description: "Quantity" }
+              },
+              required: ["item"]
+            }
+          },
+          {
+            name: "removeFromShoppingList",
+            description: "Remove an item from the shopping list by item name.",
+            parameters: {
+              type: FunctionDeclarationSchemaType.OBJECT,
+              properties: {
+                item: { type: FunctionDeclarationSchemaType.STRING, description: "Name of the item to remove" }
+              },
+              required: ["item"]
+            }
           }
         ]
       }
@@ -532,6 +563,46 @@ export const post = async (req: Request, res: Response) => {
           case "deleteStockEntry":
             await prisma.stockItem.delete({ where: { id: args.stockId } });
             return { message: "Deleted stock item " + args.stockId };
+
+          case "getShoppingList":
+            const list = await prisma.shoppingList.findFirst({
+              include: { items: true }
+            });
+            return list ? list.items : [];
+
+
+          case "addToShoppingList":
+            let shoppingList = await prisma.shoppingList.findFirst();
+            if (!shoppingList) {
+              shoppingList = await prisma.shoppingList.create({ data: { name: "My Shopping List" } });
+            }
+            const newShoppingItem = await prisma.shoppingListItem.create({
+              data: {
+                shoppingListId: shoppingList.id,
+                name: args.item,
+                quantity: args.quantity || 1
+              }
+            });
+            return { message: "Added to shopping list", item: newShoppingItem };
+
+          case "removeFromShoppingList":
+            const sl = await prisma.shoppingList.findFirst();
+            if (!sl) return { error: "No shopping list found" };
+
+            const itemToDelete = await prisma.shoppingListItem.findFirst({
+              where: {
+                shoppingListId: sl.id,
+                name: {
+                  contains: args.item
+                }
+              }
+            });
+
+            if (itemToDelete) {
+              await prisma.shoppingListItem.delete({ where: { id: itemToDelete.id } });
+              return { message: `Removed ${itemToDelete.name} from shopping list.` };
+            }
+            return { error: `Item ${args.item} not found in shopping list.` };
 
           default:
             return { error: "Unknown tool" };

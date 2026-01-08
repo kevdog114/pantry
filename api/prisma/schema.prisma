@@ -32,6 +32,7 @@ model Product {
   barcodes               ProductBarcode[]
   recipeProducts         RecipeProduct[] @relation("ProductIngredients")
   trackCountBy           String     @default("quantity") // "quantity" or "weight"
+  shoppingListItems    ShoppingListItem[]
   createdAt              DateTime   @default(now())
   updatedAt              DateTime   @updatedAt
 }
@@ -210,3 +211,24 @@ model Kiosk {
 }
 
 
+
+model ShoppingList {
+  id        Int                @id @default(autoincrement())
+  name      String             @default("My Shopping List")
+  items     ShoppingListItem[]
+  createdAt DateTime           @default(now())
+  updatedAt DateTime           @updatedAt
+}
+
+model ShoppingListItem {
+  id             Int          @id @default(autoincrement())
+  shoppingListId Int
+  shoppingList   ShoppingList @relation(fields: [shoppingListId], references: [id])
+  productId      Int?
+  product        Product?     @relation(fields: [productId], references: [id])
+  name           String
+  quantity       Int          @default(1)
+  checked        Boolean      @default(false)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+}

@@ -13,8 +13,10 @@ import { PersonalAccessTokenController } from "./controllers/PersonalAccessToken
 import * as SettingsController from "./controllers/SettingsController";
 import * as ChatController from "./controllers/ChatController"; // Import ChatController
 import * as FamilyController from "./controllers/FamilyController";
+
 import * as MealPlanController from "./controllers/MealPlanController";
 import * as KioskController from "./controllers/KioskController";
+import * as ShoppingListController from "./controllers/ShoppingListController";
 import { isAuthenticated } from "./middleware/auth";
 
 import * as LabelPrinterController from "./controllers/labelPrinterController";
@@ -212,9 +214,16 @@ app.get("/meal-plan", MealPlanController.getMealPlan);
 app.post("/meal-plan", MealPlanController.addMealToPlan);
 app.delete("/meal-plan/:id", MealPlanController.removeMealFromPlan);
 
+
 app.post("/kiosk/link", KioskController.linkKiosk);
 app.get("/kiosk", KioskController.getKiosks);
 app.delete("/kiosk/:id", KioskController.deleteKiosk);
+
+app.get("/shopping-list", ShoppingListController.getShoppingList);
+app.post("/shopping-list/:id/items", ShoppingListController.addItem);
+app.put("/shopping-list/items/:itemId", ShoppingListController.updateItem);
+app.delete("/shopping-list/items/:itemId", ShoppingListController.deleteItem);
+app.delete("/shopping-list/:id/checked", ShoppingListController.clearChecked);
 
 
 app.post("/labels/quick-print", LabelPrinterController.printQuickLabel);
