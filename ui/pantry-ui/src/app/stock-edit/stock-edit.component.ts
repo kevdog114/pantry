@@ -72,6 +72,8 @@ export class StockEditComponent implements AfterViewInit {
             expirationDate: new Date(),
             productId: this._productId!,
             quantity: 1,
+            frozen: false,
+            opened: false
           };
 
           this.stockItem = <StockItem>newStock;

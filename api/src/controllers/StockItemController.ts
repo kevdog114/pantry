@@ -27,8 +27,8 @@ export const update = async (req: Request, res: Response, next: NextFunction): P
         data: {
             expirationDate: req.body.expirationDate ? new Date(req.body.expirationDate) : undefined,
             quantity: req.body.quantity,
-            frozen: req.body.isFrozen,
-            opened: req.body.isOpened
+            frozen: req.body.frozen,
+            opened: req.body.opened
         }
     });
     res.send(stockItem);
@@ -40,8 +40,8 @@ export const create = async (req: Request, res: Response, next: NextFunction): P
             productId: req.body.productId,
             expirationDate: req.body.expirationDate ? new Date(req.body.expirationDate) : undefined,
             quantity: req.body.quantity,
-            frozen: req.body.isFrozen,
-            opened: req.body.isOpened
+            frozen: req.body.frozen,
+            opened: req.body.opened
         }
     });
     res.send(stockItem);

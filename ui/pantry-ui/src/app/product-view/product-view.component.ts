@@ -90,13 +90,13 @@ export class ProductViewComponent {
 
   setOpened = (stockItem: StockItem) => {
     if (this.product?.openedLifespanDays !== null) {
-      if (stockItem.isFrozen)
+      if (stockItem.frozen)
         stockItem.expirationExtensionAfterThaw = this.product?.openedLifespanDays!;
       else
         stockItem.expirationDate = this.addDays(new Date(), this.product?.openedLifespanDays!);
     }
 
-    stockItem.isOpened = true;
+    stockItem.opened = true;
     this.svc.UpdateStock(stockItem.id!, stockItem).subscribe(() => {
       this.snackbar.open("Updated stock item", "Okay", {
         duration: 5000
@@ -116,11 +116,10 @@ export class ProductViewComponent {
         stockItem.expirationDate = this.addDays(new Date(), stockItem.expirationExtensionAfterThaw);
     }
 
-    stockItem.isFrozen = isFrozen;
+    stockItem.frozen = isFrozen;
     this.svc.UpdateStock(stockItem.id!, stockItem).subscribe(() => {
       this.snackbar.open("Updated stock item", "Okay", {
         duration: 5000
       });
     });
   }
-}

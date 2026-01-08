@@ -10,8 +10,8 @@ export interface StockItem {
     expirationDate: Date
 
     productBarcodeId: number
-    isOpened: boolean
-    isFrozen: boolean
+    opened: boolean
+    frozen: boolean
     expirationExtensionAfterThaw: number
 }
 
