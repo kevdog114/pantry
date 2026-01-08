@@ -134,18 +134,22 @@ const getProductContext = async (): Promise<string> => {
     }
   });
 
-  let context = "Here is a list of products I have:\n";
+  const contextParts: string[] = ["Here is a list of products I have:"];
   for (const product of products) {
     if (product.stockItems.length > 0) {
-      context += `Product: ${product.title}\n`;
+      contextParts.push(`Product: ${product.title} (ID: ${product.id})`);
       for (const stockItem of product.stockItems) {
-        context += `  - Quantity: ${stockItem.quantity}\n`;
-        context += `  - Expiration Date: ${stockItem.expirationDate}\n`;
-        context += `  - Status: ${stockItem.frozen ? 'Frozen' : 'Fresh'}, ${stockItem.opened ? 'Opened' : 'Unopened'}\n`;
+        contextParts.push(`  - ID: ${stockItem.id}`);
+        contextParts.push(`  - Quantity: ${stockItem.quantity}`);
+        contextParts.push(`  - Expiration Date: ${stockItem.expirationDate}`);
+        contextParts.push(`  - Status: ${stockItem.frozen ? 'Frozen' : 'Fresh'}, ${stockItem.opened ? 'Opened' : 'Unopened'}`);
       }
+    } else {
+      // Also list products with no stock so we can add to them
+      contextParts.push(`Product: ${product.title} (ID: ${product.id}) [No Stock]`);
     }
   }
-  return context;
+  return contextParts.join('\n');
 };
 
 const getFamilyContext = async (filterMemberIds?: number[]): Promise<string> => {
@@ -285,6 +289,7 @@ export const post = async (req: Request, res: Response) => {
     const productContext = await getProductContext();
     const systemInstruction = `
       You are a helpful cooking assistant. You have access to the user's pantry inventory.
+      You can use the provided tools to managing stock entries (create, edit, delete, list).
       
       When the user asks for a recipe, or just wants to chat, you MUST return a JSON object with the following structure:
       {
@@ -347,27 +352,283 @@ export const post = async (req: Request, res: Response) => {
       },
     ];
 
+    const inventoryTools = [
+      {
+        functionDeclarations: [
+          {
+            name: "getStockEntries",
+            description: "Get a list of stock entries for a specific product. Returns details including ID.",
+            parameters: {
+              type: FunctionDeclarationSchemaType.OBJECT,
+              properties: {
+                productId: { type: FunctionDeclarationSchemaType.INTEGER, description: "ID of the product" }
+              },
+              required: ["productId"]
+            }
+          },
+          {
+            name: "createStockEntry",
+            description: "Add a new stock entry for a product.",
+            parameters: {
+              type: FunctionDeclarationSchemaType.OBJECT,
+              properties: {
+                productId: { type: FunctionDeclarationSchemaType.INTEGER, description: "ID of the product" },
+                quantity: { type: FunctionDeclarationSchemaType.NUMBER, description: "Quantity/Amount" },
+                expirationDate: { type: FunctionDeclarationSchemaType.STRING, description: "YYYY-MM-DD" },
+                frozen: { type: FunctionDeclarationSchemaType.BOOLEAN },
+                opened: { type: FunctionDeclarationSchemaType.BOOLEAN }
+              },
+              required: ["productId", "quantity"]
+            }
+          },
+          {
+            name: "editStockEntry",
+            description: "Update an existing stock entry.",
+            parameters: {
+              type: FunctionDeclarationSchemaType.OBJECT,
+              properties: {
+                stockId: { type: FunctionDeclarationSchemaType.INTEGER, description: "ID of the stock item" },
+                quantity: { type: FunctionDeclarationSchemaType.NUMBER, nullable: true },
+                expirationDate: { type: FunctionDeclarationSchemaType.STRING, nullable: true, description: "YYYY-MM-DD or null to clear" },
+                frozen: { type: FunctionDeclarationSchemaType.BOOLEAN, nullable: true },
+                opened: { type: FunctionDeclarationSchemaType.BOOLEAN, nullable: true }
+              },
+              required: ["stockId"]
+            }
+          },
+          {
+            name: "deleteStockEntry",
+            description: "Delete a stock entry.",
+            parameters: {
+              type: FunctionDeclarationSchemaType.OBJECT,
+              properties: {
+                stockId: { type: FunctionDeclarationSchemaType.INTEGER, description: "ID of the stock item" }
+              },
+              required: ["stockId"]
+            }
+          }
+        ]
+      }
+    ];
+
+    async function handleToolCall(name: string, args: any): Promise<any> {
+      console.log(`Executing tool ${name} with args:`, args);
+      try {
+        switch (name) {
+          case "getStockEntries":
+            const product = await prisma.product.findUnique({
+              where: { id: args.productId },
+              include: { stockItems: true }
+            });
+            if (!product) return { error: "Product not found" };
+            return { stockItems: product.stockItems };
+
+          case "createStockEntry":
+            // Validate product exists logic
+            const targetProduct = await prisma.product.findUnique({ where: { id: args.productId } });
+            if (!targetProduct) return { error: "Product not found." };
+
+            const newItem = await prisma.stockItem.create({
+              data: {
+                productId: args.productId,
+                quantity: args.quantity,
+                expirationDate: args.expirationDate ? new Date(args.expirationDate.includes('T') ? args.expirationDate : args.expirationDate + 'T12:00:00') : null,
+                frozen: args.frozen || false,
+                opened: args.opened || false
+              }
+            });
+            return { message: "Stock item created", item: newItem };
+
+          case "editStockEntry":
+            const currentItem = await prisma.stockItem.findUnique({
+              where: { id: args.stockId },
+              include: { product: true }
+            });
+            if (!currentItem) return { error: "Stock item not found" };
+
+            const formattedData: any = {};
+            if (args.quantity !== undefined && args.quantity !== null) formattedData.quantity = args.quantity;
+
+            // Handle explicit date set
+            if (args.expirationDate) {
+              formattedData.expirationDate = new Date(args.expirationDate.includes('T') ? args.expirationDate : args.expirationDate + 'T12:00:00');
+            }
+
+            // Helpers to match frontend logic
+            const addDays = (dt: Date, days: number): Date => {
+              const newDt = new Date(dt);
+              newDt.setDate(newDt.getDate() + days);
+              return newDt;
+            };
+
+            const daysBetween = (dt1: Date, dt2: Date): number => {
+              const one = new Date(dt1); one.setHours(0, 0, 0, 0);
+              const two = new Date(dt2); two.setHours(0, 0, 0, 0);
+              // Difference in milliseconds
+              const diff = (one.getTime() - two.getTime());
+              // Convert to days
+              return Math.ceil(diff / (1000 * 60 * 60 * 24));
+            };
+
+            const now = new Date();
+            // Determine effective current state for logic
+            const isFrozen = (args.frozen !== undefined && args.frozen !== null) ? args.frozen : currentItem.frozen;
+            const isOpened = (args.opened !== undefined && args.opened !== null) ? args.opened : currentItem.opened;
+
+            // --- OPENED Logic ---
+            if (args.opened !== undefined && args.opened !== null) {
+              formattedData.opened = args.opened;
+              // If transitioning to Opened
+              if (args.opened && !currentItem.opened) {
+                if (currentItem.product.openedLifespanDays !== null) {
+                  if (isFrozen) {
+                    // If frozen, we just store the reduced lifespan to apply after thaw
+                    formattedData.expirationExtensionAfterThaw = currentItem.product.openedLifespanDays;
+                  } else {
+                    // If not frozen, apply immediately
+                    formattedData.expirationDate = addDays(now, currentItem.product.openedLifespanDays);
+                  }
+                }
+              }
+            }
+
+            // --- FROZEN Logic ---
+            if (args.frozen !== undefined && args.frozen !== null) {
+              formattedData.frozen = args.frozen;
+
+              // Freezing
+              if (args.frozen && !currentItem.frozen) {
+                if (currentItem.product.freezerLifespanDays !== null) {
+                  // Calculate remaining fresh days to store for later thawing
+                  // Use the expiration date that is currently set (or being set)
+                  const currentExp = formattedData.expirationDate || currentItem.expirationDate;
+                  if (currentExp) {
+                    formattedData.expirationExtensionAfterThaw = daysBetween(currentExp, now);
+                  }
+                  // Set expiration to freezer lifespan
+                  formattedData.expirationDate = addDays(now, currentItem.product.freezerLifespanDays);
+                }
+              }
+              // Thawing
+              else if (!args.frozen && currentItem.frozen) {
+                // Restore remaining days if available
+                // We check currentItem.expirationExtensionAfterThaw mainly, or if we just set it in this same call (unlikely edge case but possible)
+                const extDays = (formattedData.expirationExtensionAfterThaw !== undefined) ? formattedData.expirationExtensionAfterThaw : currentItem.expirationExtensionAfterThaw;
+
+                if (extDays !== null && extDays !== undefined) {
+                  formattedData.expirationDate = addDays(now, extDays);
+                }
+              }
+            }
+
+            const updated = await prisma.stockItem.update({
+              where: { id: args.stockId },
+              data: formattedData
+            });
+            return { message: "Updated", item: updated };
+
+          case "deleteStockEntry":
+            await prisma.stockItem.delete({ where: { id: args.stockId } });
+            return { message: "Deleted stock item " + args.stockId };
+
+          default:
+            return { error: "Unknown tool" };
+        }
+      } catch (e: any) {
+        return { error: e.message };
+      }
+    }
+
     const { result, warning } = await executeWithFallback(
       "gemini_chat_model",
-      async (model) => await model.generateContent({
-        contents,
-        generationConfig: {
-          responseMimeType: "application/json"
+      async (model) => {
+        let currentContents = [...contents];
+        let currentLoop = 0;
+        const maxLoops = 5;
+
+        // Initial generation
+        let responseResult = await model.generateContent({
+          contents: currentContents,
+          tools: inventoryTools,
+          // We remove explicit JSON enforcement here to allow tool calls to happen naturally
+          // The system prompt still demands JSON for the final answer.
+        });
+
+        while (currentLoop < maxLoops) {
+          const response = responseResult.response;
+          const calls = response.functionCalls ? response.functionCalls() : [];
+
+          if (calls && calls.length > 0) {
+            // 1. Add model's tool call message to history
+            // Note: In some SDK versions, we need to construct the part carefully
+            currentContents.push({
+              role: "model",
+              parts: response.parts,
+            });
+
+            // 2. Execute tools
+            const parts: any[] = [];
+            for (const call of calls) {
+              const toolResult = await handleToolCall(call.name, call.args);
+              parts.push({
+                functionResponse: {
+                  name: call.name,
+                  response: { result: toolResult }
+                }
+              });
+            }
+
+            // 3. Add function responses
+            currentContents.push({
+              role: "function",
+              parts: parts
+            });
+
+            // 4. Generate again
+            responseResult = await model.generateContent({
+              contents: currentContents,
+              tools: inventoryTools
+            });
+
+            currentLoop++;
+          } else {
+            // No more calls, this is the final response
+            break;
+          }
         }
-      })
+        return responseResult;
+      }
     );
 
     const response = result.response;
     let data;
+    const responseText = response.text();
+
+    // Helper to strip markdown code blocks if present
+    const cleanJson = (text: string) => {
+      // Remove ```json ... ``` or just ``` ... ```
+      let cleaned = text.trim();
+      if (cleaned.startsWith('```json')) {
+        cleaned = cleaned.substring(7);
+      } else if (cleaned.startsWith('```')) {
+        cleaned = cleaned.substring(3);
+      }
+      if (cleaned.endsWith('```')) {
+        cleaned = cleaned.substring(0, cleaned.length - 3);
+      }
+      return cleaned.trim();
+    };
+
     try {
-      data = JSON.parse(response.text());
+      data = JSON.parse(cleanJson(responseText));
     } catch (e) {
       // Fallback if model fails to return JSON
+      console.warn("Failed to parse JSON response, using raw text", e);
       data = {
         items: [
           {
             type: 'chat',
-            content: response.text()
+            content: responseText
           }
         ]
       };

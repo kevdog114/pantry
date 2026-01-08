@@ -7,7 +7,7 @@ export interface StockItem {
     id?: number,
     productId: number,
     quantity: number,
-    expiration: Date
+    expirationDate: Date
 
     productBarcodeId: number
     isOpened: boolean

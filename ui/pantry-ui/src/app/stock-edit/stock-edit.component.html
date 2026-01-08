@@ -8,19 +8,20 @@
         <mat-form-field>
             <mat-label>Product Barcode</mat-label>
             <mat-select [(value)]="stockItem.productBarcodeId">
-                <mat-option *ngFor="let bc of product?.barcodes" [value]="bc.id">({{bc.barcode}}) {{bc.brand}} - {{bc.description}} - {{bc.quantity}}</mat-option>
+                <mat-option *ngFor="let bc of product?.barcodes" [value]="bc.id">({{bc.barcode}}) {{bc.brand}} -
+                    {{bc.description}} - {{bc.quantity}}</mat-option>
             </mat-select>
         </mat-form-field>
     </div>
     <div class="row">
         <div class="col-sm-4">
             <mat-checkbox name="isOpen" [(ngModel)]="stockItem.isOpened">
-              Is Opened
+                Is Opened
             </mat-checkbox>
         </div>
         <div class="col-sm-4">
             <mat-checkbox name="isFrozen" [(ngModel)]="stockItem.isFrozen">
-              Is Frozen
+                Is Frozen
             </mat-checkbox>
         </div>
     </div>
@@ -33,7 +34,7 @@
     <div class="row">
         <mat-form-field>
             <mat-label>Expiration</mat-label>
-            <input matInput name="expiration" [(ngModel)]="stockItem.expiration" [matDatepicker]="picker" />
+            <input matInput name="expiration" [(ngModel)]="stockItem.expirationDate" [matDatepicker]="picker" />
             <mat-datepicker-toggle matIconSuffix [for]="picker"></mat-datepicker-toggle>
             <mat-datepicker touchUi #picker></mat-datepicker>
         </mat-form-field>

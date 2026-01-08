@@ -61,13 +61,13 @@ export class ProductViewComponent {
    *
    */
   constructor(private svc: ProductListService, private snackbar: MatSnackBar) {
-    
+
   }
 
   UseStock = (stockItem: StockItem, amount: number) => {
     (<any>stockItem).loading_use = true;
     stockItem.quantity -= amount;
-    
+
     this.svc.UpdateStock(stockItem.id!, stockItem).subscribe(a => {
       (<any>stockItem).loading_use = false;
     });
@@ -89,12 +89,11 @@ export class ProductViewComponent {
   }
 
   setOpened = (stockItem: StockItem) => {
-    if(this.product?.openedLifespanDays !== null)
-    {
-      if(stockItem.isFrozen)
+    if (this.product?.openedLifespanDays !== null) {
+      if (stockItem.isFrozen)
         stockItem.expirationExtensionAfterThaw = this.product?.openedLifespanDays!;
       else
-        stockItem.expiration = this.addDays(new Date(), this.product?.openedLifespanDays!);
+        stockItem.expirationDate = this.addDays(new Date(), this.product?.openedLifespanDays!);
     }
 
     stockItem.isOpened = true;
@@ -106,18 +105,15 @@ export class ProductViewComponent {
   }
 
   setFrozen = (stockItem: StockItem, isFrozen: boolean) => {
-    if(isFrozen)
-    {
-      if(this.product?.freezerLifespanDays !== null)
-      {
-        stockItem.expirationExtensionAfterThaw = this.daysBetween(stockItem.expiration, new Date());
-        stockItem.expiration = this.addDays(new Date(), this.product?.freezerLifespanDays!);
+    if (isFrozen) {
+      if (this.product?.freezerLifespanDays !== null) {
+        stockItem.expirationExtensionAfterThaw = this.daysBetween(stockItem.expirationDate, new Date());
+        stockItem.expirationDate = this.addDays(new Date(), this.product?.freezerLifespanDays!);
       }
     }
-    else
-    {
-      if(stockItem.expirationExtensionAfterThaw !== null)
-        stockItem.expiration = this.addDays(new Date(), stockItem.expirationExtensionAfterThaw);
+    else {
+      if (stockItem.expirationExtensionAfterThaw !== null)
+        stockItem.expirationDate = this.addDays(new Date(), stockItem.expirationExtensionAfterThaw);
     }
 
     stockItem.isFrozen = isFrozen;

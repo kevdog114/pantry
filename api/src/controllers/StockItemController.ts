@@ -25,7 +25,7 @@ export const update = async (req: Request, res: Response, next: NextFunction): P
             id: parseInt(req.params.id)
         },
         data: {
-            expirationDate: req.body.expiration ? new Date(req.body.expiration) : undefined,
+            expirationDate: req.body.expirationDate ? new Date(req.body.expirationDate) : undefined,
             quantity: req.body.quantity,
             frozen: req.body.isFrozen,
             opened: req.body.isOpened
@@ -38,7 +38,7 @@ export const create = async (req: Request, res: Response, next: NextFunction): P
     const stockItem = await prisma.stockItem.create({
         data: {
             productId: req.body.productId,
-            expirationDate: req.body.expiration ? new Date(req.body.expiration) : undefined,
+            expirationDate: req.body.expirationDate ? new Date(req.body.expirationDate) : undefined,
             quantity: req.body.quantity,
             frozen: req.body.isFrozen,
             opened: req.body.isOpened

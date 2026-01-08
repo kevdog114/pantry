@@ -56,21 +56,20 @@ export class StockEditComponent implements AfterViewInit {
   }
 
   ngAfterViewInit(): void {
-    if(this._productId !== undefined)
-    {
+    if (this._productId !== undefined) {
 
       this.svc.Get(this._productId).subscribe(product => {
         console.log(product);
         this.product = product;
         var matchingStock: StockItem | undefined = undefined;
-        if(this._stockId !== undefined) {
+        if (this._stockId !== undefined) {
           matchingStock = product.stockItems.find(a => a.id == this._stockId);
         }
-        if(matchingStock !== undefined)
+        if (matchingStock !== undefined)
           this.stockItem = matchingStock;
         else {
           var newStock: Partial<StockItem> = {
-            expiration: new Date(),
+            expirationDate: new Date(),
             productId: this._productId!,
             quantity: 1,
           };
@@ -82,14 +81,14 @@ export class StockEditComponent implements AfterViewInit {
   }
 
   public delete = () => {
-    if(this.stockItem && this.stockItem.id)
+    if (this.stockItem && this.stockItem.id)
       this.svc.DeleteStock(this.stockItem.id).subscribe(() => {
         this.router.navigate(["/products", this._productId]);
       })
   }
 
   public Save = () => {
-    if(this.stockItem === undefined)
+    if (this.stockItem === undefined)
       return;
 
     let navToProduct = () => {
@@ -97,7 +96,7 @@ export class StockEditComponent implements AfterViewInit {
 
     }
 
-    if(this._stockId === undefined) {
+    if (this._stockId === undefined) {
       // create
       this.svc.CreateStock(this.stockItem).subscribe(() => {
         navToProduct();

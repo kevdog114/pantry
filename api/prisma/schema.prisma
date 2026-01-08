@@ -78,6 +78,7 @@ model StockItem {
   purchaseDate     DateTime?
   openedDate       DateTime?
   expirationDate   DateTime?
+  expirationExtensionAfterThaw Int?
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
 }
