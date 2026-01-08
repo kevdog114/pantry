@@ -20,6 +20,9 @@ interface IndexedBarcode {
   barcode: string
 }
 
+import { MatDialog, MatDialogModule } from '@angular/material/dialog';
+import { AudioChatDialogComponent } from '../components/audio-chat-dialog/audio-chat-dialog.component';
+
 @Component({
   selector: 'app-product-view',
   imports: [
@@ -32,7 +35,8 @@ interface IndexedBarcode {
     MatProgressSpinnerModule,
     MatMenuModule,
     MatIconModule,
-    MatDividerModule
+    MatDividerModule,
+    MatDialogModule
   ],
   templateUrl: './product-view.component.html',
   styleUrl: './product-view.component.scss'
@@ -60,8 +64,20 @@ export class ProductViewComponent {
   /**
    *
    */
-  constructor(private svc: ProductListService, private snackbar: MatSnackBar) {
+  constructor(private svc: ProductListService, private snackbar: MatSnackBar, private dialog: MatDialog) {
 
+  }
+
+  openAudioChat() {
+    if (this.product) {
+      this.dialog.open(AudioChatDialogComponent, {
+        data: { product: this.product },
+        width: '350px',
+        position: { bottom: '100px', right: '30px' },
+        hasBackdrop: false,
+        panelClass: 'audio-chat-popup-panel'
+      });
+    }
   }
 
   UseStock = (stockItem: StockItem, amount: number) => {

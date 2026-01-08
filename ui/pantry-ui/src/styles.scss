@@ -70,3 +70,13 @@ app-root {
 :root {
   @include mat.sidenav-overrides((content-background-color: var(--bs-body-bg)))
 }
+
+.audio-chat-popup-panel {
+
+  /* Ensure the panel itself has rounded corners matching card style since we are making it look like a popup */
+  .mat-mdc-dialog-container {
+    border-radius: 12px;
+    /* Box shadow to lift it up since we removed backdrop */
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.15);
+  }
+}

@@ -1,0 +1,58 @@
+<div class="chat-interface-container">
+    <div class="messages-area" #scrollContainer>
+        <div *ngIf="messages.length === 0 && showWelcomeMessage" class="welcome-message">
+            <h2 class="gradient-text">Hello, Chef</h2>
+            <p>How can I help you cook today?</p>
+        </div>
+
+        <div *ngFor="let message of messages" class="message" [class.user-message]="message.sender === 'You'"
+            [class.bot-message]="message.sender !== 'You'">
+
+            <span class="sender-label" *ngIf="message.sender !== 'You'">Gemini</span>
+
+            <div class="message-content-group">
+                <div *ngFor="let item of message.contents" class="message-item">
+
+                    <!-- Text/Chat Message -->
+                    <div *ngIf="item.type === 'chat'" class="content-bubble"
+                        [class.user-bubble]="message.sender === 'You'" [class.bot-bubble]="message.sender !== 'You'">
+                        <markdown [data]="item.text"></markdown>
+
+                        <!-- Speak button for AI responses -->
+                        <button *ngIf="message.sender !== 'You' && item.text" mat-icon-button class="speak-btn"
+                            (click)="onSpeak(item.text!)" title="Read Aloud">
+                            <mat-icon style="font-size: 18px; width: 18px; height: 18px;">volume_up</mat-icon>
+                        </button>
+                    </div>
+
+                    <!-- Image Message -->
+                    <div *ngIf="item.type === 'image'" class="message-image">
+                        <img [src]="item.imageUrl" alt="Attached Image">
+                    </div>
+
+                    <!-- Recipe Message -->
+                    <div *ngIf="item.type === 'recipe' && item.recipe">
+                        <app-recipe-card [recipe]="item.recipe"></app-recipe-card>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Loading Indicator -->
+        <div *ngIf="isLoading" class="message bot-message">
+            <span class="sender-label">Gemini</span>
+            <div class="typing-indicator">
+                <span class="dot"></span>
+                <span class="dot"></span>
+                <span class="dot"></span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Input Area -->
+    <div class="input-area">
+        <app-smart-chat-input [placeholder]="placeholder" [disabled]="isLoading" [enableAudio]="enableAudio"
+            [autoSendAudio]="autoSendAudio" (send)="handleSend($event)">
+        </app-smart-chat-input>
+    </div>
+</div>

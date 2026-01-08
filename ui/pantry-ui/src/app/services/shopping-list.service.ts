@@ -1,7 +1,7 @@
-
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
+import { environment } from '../../environments/environment';
 
 export interface ShoppingListItem {
     id: number;
@@ -27,7 +27,7 @@ export interface ShoppingList {
     providedIn: 'root'
 })
 export class ShoppingListService {
-    private apiUrl = '/api/shopping-list';
+    private apiUrl = `${environment.apiUrl}/shopping-list`;
 
     constructor(private http: HttpClient) { }
 

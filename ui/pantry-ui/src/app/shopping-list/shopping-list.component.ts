@@ -30,6 +30,9 @@ export class ShoppingListComponent implements OnInit {
     shoppingList: ShoppingList | null = null;
     newItemName: string = '';
 
+    isLoading: boolean = true;
+    error: string | null = null;
+
     constructor(private shoppingListService: ShoppingListService) { }
 
     ngOnInit(): void {
@@ -37,8 +40,18 @@ export class ShoppingListComponent implements OnInit {
     }
 
     loadList() {
-        this.shoppingListService.getShoppingList().subscribe(list => {
-            this.shoppingList = list;
+        this.isLoading = true;
+        this.error = null;
+        this.shoppingListService.getShoppingList().subscribe({
+            next: (list) => {
+                this.shoppingList = list;
+                this.isLoading = false;
+            },
+            error: (err) => {
+                console.error('Failed to load shopping list', err);
+                this.error = 'Failed to load shopping list. Please try again later.';
+                this.isLoading = false;
+            }
         });
     }
 

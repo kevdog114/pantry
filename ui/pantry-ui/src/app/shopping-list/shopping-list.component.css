@@ -29,3 +29,15 @@
     margin-top: 20px;
     text-align: right;
 }
+
+.state-message {
+    text-align: center;
+    padding: 20px;
+    color: #666;
+}
+
+.error-message {
+    text-align: center;
+    padding: 20px;
+    color: var(--mat-sys-error, #d32f2f);
+}

@@ -186,10 +186,11 @@ const getFamilyContext = async (filterMemberIds?: number[]): Promise<string> => 
 
 export const post = async (req: Request, res: Response) => {
   try {
-    let { prompt, history = [], sessionId } = req.body as {
+    let { prompt, history = [], sessionId, additionalContext } = req.body as {
       prompt: string;
       history: Content[];
       sessionId?: number | string;
+      additionalContext?: string;
     };
 
     if (sessionId) {
@@ -324,6 +325,8 @@ export const post = async (req: Request, res: Response) => {
 
       Here are the family preferences and details. Please consider these when suggesting recipes or answering food questions:
       ${await getFamilyContext()}
+
+      ${additionalContext ? `\nCONTEXT FROM USER'S CURRENT VIEW:\n${additionalContext}\n` : ''}
     `;
 
 
@@ -679,6 +682,22 @@ export const post = async (req: Request, res: Response) => {
 
     // Helper to strip markdown code blocks if present
     const cleanJson = (text: string) => {
+      // 1. Try to locate the JSON block specifically.
+      // We look for the outer-most braces structure that looks like our schema.
+      const jsonStart = text.indexOf('{');
+      const jsonEnd = text.lastIndexOf('}');
+
+      if (jsonStart !== -1 && jsonEnd !== -1 && jsonEnd > jsonStart) {
+        const potentialJson = text.substring(jsonStart, jsonEnd + 1);
+        try {
+          // Verify it parses
+          JSON.parse(potentialJson);
+          return potentialJson;
+        } catch (e) {
+          // If the substring fails, fall back to loose cleaning
+        }
+      }
+
       // Remove ```json ... ``` or just ``` ... ```
       let cleaned = text.trim();
       if (cleaned.startsWith('```json')) {

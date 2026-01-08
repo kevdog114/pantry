@@ -1,56 +1,28 @@
-import { Component, OnInit, ViewChild, ElementRef } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
 import { GeminiService } from '../../services/gemini.service';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { PhotoUploadComponent } from '../photo-upload/photo-upload.component';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 
-import { MarkdownModule } from 'ngx-markdown';
 import { RecipeService } from '../../services/recipe.service';
+import { ChatInterfaceComponent, ChatMessage, ChatContentItem } from '../chat-interface/chat-interface.component';
 
-export interface Recipe {
-  title: string;
-  description: string;
-  ingredients: string[];
-  instructions: string[];
-  time: {
-    prep: string;
-    cook: string;
-    total: string;
-  };
-}
-
-export interface ChatContentItem {
-  type: 'chat' | 'recipe' | 'image';
-  text?: string;
-  recipe?: Recipe;
-  expanded?: boolean;
-  imageUrl?: string;
-}
-
-export interface ChatMessage {
-  sender: string;
-  contents: ChatContentItem[];
-}
+// Re-export types for backward compatibility if needed, or update consumers
+export type { ChatMessage, ChatContentItem };
 
 @Component({
   selector: 'app-gemini-chat',
   templateUrl: './gemini-chat.component.html',
   styleUrls: ['./gemini-chat.component.css'],
-  imports: [CommonModule, FormsModule, PhotoUploadComponent, MatSnackBarModule, MarkdownModule],
+  imports: [CommonModule, FormsModule, MatSnackBarModule, ChatInterfaceComponent],
   standalone: true,
 })
 export class GeminiChatComponent implements OnInit {
-  @ViewChild('scrollContainer') private scrollContainer!: ElementRef;
-
   showSidebar: boolean = true;
-  isMobile: boolean = window.innerWidth <= 768; // Simple initial check
+  isMobile: boolean = window.innerWidth <= 768;
 
   messages: ChatMessage[] = [];
-  newMessage: string = '';
   isLoading: boolean = false;
-  selectedImage: File | null = null;
-  selectedImagePreview: string | ArrayBuffer | null = null;
 
   sessions: any[] = [];
   currentSessionId: number | null = null;
@@ -75,21 +47,6 @@ export class GeminiChatComponent implements OnInit {
     this.loadSessions();
   }
 
-  onImageSelected(event: any) {
-    const file = event.target.files[0];
-    if (file) {
-      this.selectedImage = file;
-      const reader = new FileReader();
-      reader.onload = e => this.selectedImagePreview = e.target?.result || null;
-      reader.readAsDataURL(file);
-    }
-  }
-
-  clearImage() {
-    this.selectedImage = null;
-    this.selectedImagePreview = null;
-  }
-
   loadSessions() {
     this.geminiService.getSessions().subscribe(response => {
       this.sessions = response.data;
@@ -107,7 +64,7 @@ export class GeminiChatComponent implements OnInit {
     this.geminiService.getSession(sessionId).subscribe(response => {
       this.isLoading = false;
       const session = response.data;
-      this.messages = []; // Clear existing
+      this.messages = [];
 
       let currentMessage: ChatMessage | null = null;
       // Reconstruct messages from DB history
@@ -160,8 +117,6 @@ export class GeminiChatComponent implements OnInit {
           }
         });
       }
-
-      setTimeout(() => this.scrollToBottom(), 100);
     });
   }
 
@@ -177,42 +132,49 @@ export class GeminiChatComponent implements OnInit {
     }
   }
 
-  sendMessage() {
-    if (this.newMessage.trim() === '' && !this.selectedImage) {
+  handleSend(event: { text: string, image?: File }) {
+    this.sendMessage(event.text, event.image);
+  }
+
+  sendMessage(prompt: string, image?: File) {
+    if (prompt.trim() === '' && !image) {
       return;
     }
 
-    const prompt = this.newMessage;
-
     const userContents: ChatContentItem[] = [];
-    if (this.selectedImagePreview) {
-      userContents.push({ type: 'image', imageUrl: this.selectedImagePreview as string });
+    if (image) {
+      const reader = new FileReader();
+      reader.onload = (e: any) => {
+        this.messages.push({
+          sender: 'You',
+          contents: [
+            { type: 'image', imageUrl: e.target.result },
+            { type: 'chat', text: prompt }
+          ]
+        });
+        this.executeSend(prompt, image);
+      };
+      reader.readAsDataURL(image);
+    } else {
+      if (prompt) {
+        userContents.push({ type: 'chat', text: prompt });
+      }
+      this.messages.push({ sender: 'You', contents: userContents });
+      this.executeSend(prompt, undefined);
     }
-    if (prompt) {
-      userContents.push({ type: 'chat', text: prompt });
-    }
+  }
 
-    this.messages.push({ sender: 'You', contents: userContents });
-
-    this.newMessage = '';
-    const imageToSend = this.selectedImage ? this.selectedImage : undefined;
-    this.clearImage();
-
+  executeSend(prompt: string, image?: File) {
     this.isLoading = true;
-    setTimeout(() => this.scrollToBottom(), 100);
 
-    // We no longer need to construct history manually for the API, 
-    // we just pass sessionId and let backend handle it.
-    // However, if we are starting a new chat (no sessionId), we send empty history implicitely.
-
-    this.geminiService.sendMessage(prompt, [], this.currentSessionId || undefined, imageToSend).subscribe(response => {
+    this.geminiService.sendMessage(prompt, [], this.currentSessionId || undefined, image).subscribe(response => {
       this.isLoading = false;
 
       // Update current session ID if this was a new chat
       if (response.sessionId) {
         if (this.currentSessionId !== response.sessionId) {
           this.currentSessionId = response.sessionId;
-          this.loadSessions(); // Refresh list to show new chat
+          this.loadSessions();
         }
       }
 
@@ -271,33 +233,6 @@ export class GeminiChatComponent implements OnInit {
       if (response.warning) {
         this.snackBar.open(response.warning, 'Close', { duration: 5000 });
       }
-      setTimeout(() => this.scrollToBottom(), 100);
-    });
-  }
-
-  toggleRecipe(item: ChatContentItem) {
-    if (item.type === 'recipe') {
-      item.expanded = !item.expanded;
-    }
-  }
-
-  saveRecipe(recipe: any) {
-    const newRecipe = {
-      title: recipe.title,
-      description: recipe.description,
-      source: 'gemini-pro-latest',
-      ingredients: recipe.ingredients,
-      steps: recipe.instructions.map((inst: string) => ({ description: inst }))
-    };
-
-    this.recipeService.create(newRecipe).subscribe({
-      next: (res) => {
-        this.snackBar.open('Recipe saved successfully!', 'Close', { duration: 3000 });
-      },
-      error: (err) => {
-        this.snackBar.open('Failed to save recipe.', 'Close', { duration: 3000 });
-        console.error(err);
-      }
     });
   }
 
@@ -307,17 +242,11 @@ export class GeminiChatComponent implements OnInit {
     if (this.isMobile) {
       this.showSidebar = false;
     }
-    setTimeout(() => this.scrollToBottom(), 100);
-  }
-
-  scrollToBottom(): void {
-    try {
-      this.scrollContainer.nativeElement.scrollTop = this.scrollContainer.nativeElement.scrollHeight;
-    } catch (err) { }
   }
 
   backToSessions() {
     this.showSidebar = true;
   }
 }
+
 

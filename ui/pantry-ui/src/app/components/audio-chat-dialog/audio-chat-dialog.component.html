@@ -1,0 +1,17 @@
+<mat-dialog-content
+    class="d-flex flex-column align-items-center justify-content-center text-center p-0 pt-3 position-relative">
+    <button mat-icon-button class="close-button" mat-dialog-close>
+        <mat-icon>close</mat-icon>
+    </button>
+
+    <div class="chat-wrapper flex-grow-1 w-100 overflow-hidden d-flex flex-column" style="height: 60vh;">
+        <div class="settings px-3 py-1 text-end">
+            <mat-checkbox [(ngModel)]="autoPlayAudio" class="small-checkbox">Auto-read</mat-checkbox>
+        </div>
+
+        <app-chat-interface [messages]="messages" [isLoading]="isThinking"
+            [placeholder]="'Ask about ' + data.product.title + '...'" [enableAudio]="true" [autoSendAudio]="true"
+            (send)="handleSend($event)" (textToSpeech)="speak($event)">
+        </app-chat-interface>
+    </div>
+</mat-dialog-content>

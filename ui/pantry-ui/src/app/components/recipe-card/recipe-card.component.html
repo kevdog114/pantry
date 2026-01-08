@@ -1,0 +1,33 @@
+<div class="recipe-card text-start">
+    <div class="recipe-header p-3 d-flex justify-content-between align-items-center rounded" (click)="toggle()">
+        <div class="d-flex align-items-center gap-2">
+            <span class="icon">🍽️</span>
+            <span class="fw-bold title">{{ recipe.title }}</span>
+        </div>
+        <div class="actions">
+            <button mat-icon-button (click)="save($event)" title="Save to Cookbook" class="save-btn">
+                <mat-icon>save</mat-icon>
+            </button>
+            <mat-icon class="toggle-icon">{{ expanded ? 'expand_less' : 'expand_more' }}</mat-icon>
+        </div>
+    </div>
+
+    <div class="recipe-details p-3 mt-1 border rounded" *ngIf="expanded">
+        <p class="small text-muted mb-3">{{ recipe.description }}</p>
+        <div class="d-flex gap-3 text-small mb-3 time-info">
+            <span><strong>Prep:</strong> {{ recipe.time.prep }}</span>
+            <span><strong>Cook:</strong> {{ recipe.time.cook }}</span>
+            <span><strong>Total:</strong> {{ recipe.time.total }}</span>
+        </div>
+
+        <strong class="d-block mb-1 section-title">Ingredients</strong>
+        <ul class="ps-3 mb-3 small ingredient-list">
+            <li *ngFor="let ing of recipe.ingredients">{{ ing }}</li>
+        </ul>
+
+        <strong class="d-block mb-1 section-title">Instructions</strong>
+        <ol class="ps-3 mb-0 small instruction-list">
+            <li *ngFor="let step of recipe.instructions">{{ step }}</li>
+        </ol>
+    </div>
+</div>

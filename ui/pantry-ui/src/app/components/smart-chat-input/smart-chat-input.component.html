@@ -1,0 +1,40 @@
+<div class="smart-input-container">
+    <!-- Image Preview -->
+    <div *ngIf="selectedImage" class="image-preview-area mb-2">
+        <div class="preview-card">
+            <img [src]="selectedImagePreview" alt="Preview">
+            <button mat-icon-button (click)="clearImage()" class="remove-btn">
+                <mat-icon>close</mat-icon>
+            </button>
+        </div>
+    </div>
+
+    <div class="input-row d-flex align-items-center gap-2">
+
+        <!-- Image Upload Button -->
+        <button mat-icon-button (click)="triggerImageUpload()" *ngIf="enableImageUpload" [disabled]="disabled"
+            color="primary">
+            <mat-icon>add_photo_alternate</mat-icon>
+        </button>
+        <input #fileInput type="file" accept="image/*" (change)="onImageSelected($event)" style="display: none">
+
+        <!-- Main Input Field -->
+        <mat-form-field appearance="outline" class="flex-grow-1 no-bottom-space">
+            <mat-label *ngIf="isListening">Listening...</mat-label>
+            <input matInput #inputField [(ngModel)]="text" [placeholder]="isListening ? '' : placeholder"
+                [disabled]="disabled" (keyup.enter)="sendMessage()">
+
+            <!-- Microphone Button (Inside Input) -->
+            <button mat-icon-button matSuffix *ngIf="enableAudio" (click)="toggleListening()"
+                [color]="isListening ? 'warn' : ''" [class.pulse]="isListening">
+                <mat-icon>{{ isListening ? 'mic_off' : 'mic' }}</mat-icon>
+            </button>
+        </mat-form-field>
+
+        <!-- Send Button -->
+        <button mat-fab color="primary" class="send-fab" (click)="sendMessage()"
+            [disabled]="disabled || (!text.trim() && !selectedImage)">
+            <mat-icon>send</mat-icon>
+        </button>
+    </div>
+</div>

@@ -12,7 +12,7 @@ export class GeminiService {
 
   constructor(private http: HttpClient) { }
 
-  sendMessage(prompt: string, history: any[], sessionId?: number, image?: File): Observable<any> {
+  sendMessage(prompt: string, history: any[], sessionId?: number, image?: File, additionalContext?: string): Observable<any> {
     if (image) {
       const formData = new FormData();
       formData.append('prompt', prompt);
@@ -20,9 +20,12 @@ export class GeminiService {
         formData.append('sessionId', sessionId.toString());
       }
       formData.append('image', image);
+      if (additionalContext) {
+        formData.append('additionalContext', additionalContext);
+      }
       return this.http.post<any>(this.apiUrl, formData);
     }
-    return this.http.post<any>(this.apiUrl, { prompt, history, sessionId });
+    return this.http.post<any>(this.apiUrl, { prompt, history, sessionId, additionalContext });
   }
 
   getSessions(): Observable<any> {
