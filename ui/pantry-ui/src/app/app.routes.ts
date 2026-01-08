@@ -15,6 +15,7 @@ import { ProfileComponent } from './profile/profile';
 import { AuthGuard } from './services/auth-guard';
 import { QuickLabelComponent } from './quick-label/quick-label.component';
 import { RecipeListComponent } from './components/recipe-list/recipe-list.component';
+import { RecipeViewComponent } from './recipe-view/recipe-view.component';
 import { RecipeEditComponent } from './recipe-edit/recipe-edit.component';
 import { FamilyPreferencesComponent } from './family-preferences/family-preferences.component';
 import { MealPlanComponent } from './components/meal-plan/meal-plan.component';
@@ -45,6 +46,11 @@ export const routes: Routes = [
     {
         path: "recipes/:id/edit",
         component: RecipeEditComponent,
+        canActivate: [AuthGuard]
+    },
+    {
+        path: "recipes/:id",
+        component: RecipeViewComponent,
         canActivate: [AuthGuard]
     },
     {

@@ -6,8 +6,7 @@
 </div>
 
 <div class="recipe-grid">
-    <mat-card *ngFor="let recipe of recipes" class="recipe-card" [routerLink]="['/recipes', recipe.id, 'edit']"
-        matRipple>
+    <mat-card *ngFor="let recipe of recipes" class="recipe-card" [routerLink]="['/recipes', recipe.id]" matRipple>
         <mat-card-header>
             <mat-card-title>{{recipe.title}}</mat-card-title>
             <mat-card-subtitle *ngIf="recipe.source">{{recipe.source}}</mat-card-subtitle>

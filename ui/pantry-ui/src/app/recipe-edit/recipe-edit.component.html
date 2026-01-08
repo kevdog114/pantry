@@ -57,9 +57,9 @@
         <mat-tab label="Steps">
             <button mat-icon-button (click)="addStep()"><mat-icon>add</mat-icon></button>
             <div *ngFor="let step of recipe.steps; let i = index; trackBy: trackByFn">
-                <mat-form-field>
+                <mat-form-field class="w-100">
                     <mat-label>Step {{i + 1}}</mat-label>
-                    <input matInput [(ngModel)]="step.description" [name]="'step-' + i">
+                    <textarea matInput [(ngModel)]="step.description" [name]="'step-' + i" rows="3"></textarea>
                 </mat-form-field>
                 <button mat-icon-button (click)="removeStep(i)"><mat-icon>delete</mat-icon></button>
                 <button mat-icon-button (click)="moveStepUp(i)"

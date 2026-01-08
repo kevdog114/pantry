@@ -1,0 +1,91 @@
+<div class="recipe-container" *ngIf="recipe">
+    <!-- Header Section -->
+    <div class="header">
+        <div class="title-section">
+            <h1>{{ recipe.title }}</h1>
+            <p class="source" *ngIf="recipe.source">
+                Source: <a *ngIf="recipe.source.startsWith('http'); else textSource" [href]="recipe.source"
+                    target="_blank" rel="noopener noreferrer">{{ recipe.source }}</a>
+                <ng-template #textSource>{{ recipe.source }}</ng-template>
+            </p>
+        </div>
+        <div class="actions">
+            <button mat-flat-button color="primary" [routerLink]="['/recipes', recipe.id, 'edit']">
+                <mat-icon>edit</mat-icon> Edit
+            </button>
+            <button mat-icon-button color="warn" (click)="deleteRecipe()">
+                <mat-icon>delete</mat-icon>
+            </button>
+        </div>
+    </div>
+
+    <p class="description" *ngIf="recipe.description">{{ recipe.description }}</p>
+
+    <!-- Meta Data Cards -->
+    <div class="meta-grid">
+        <div class="meta-item">
+            <mat-icon>schedule</mat-icon>
+            <div class="meta-text">
+                <span class="label">Prep Time</span>
+                <span class="value">{{ recipe.prepTime || 0 }} min</span>
+            </div>
+        </div>
+        <div class="meta-item">
+            <mat-icon>whatshot</mat-icon>
+            <div class="meta-text">
+                <span class="label">Cook Time</span>
+                <span class="value">{{ recipe.cookTime || 0 }} min</span>
+            </div>
+        </div>
+        <div class="meta-item">
+            <mat-icon>timer</mat-icon>
+            <div class="meta-text">
+                <span class="label">Total Time</span>
+                <span class="value">{{ recipe.totalTime || ( (recipe.prepTime||0) + (recipe.cookTime||0) ) }} min</span>
+            </div>
+        </div>
+        <div class="meta-item">
+            <mat-icon>restaurant</mat-icon>
+            <div class="meta-text">
+                <span class="label">Yield</span>
+                <span class="value">{{ recipe.yield || '-' }}</span>
+            </div>
+        </div>
+    </div>
+
+    <mat-divider class="my-4"></mat-divider>
+
+    <div class="content-grid">
+        <!-- Ingredients -->
+        <div class="ingredients-section">
+            <h2>Ingredients</h2>
+            <mat-card class="ingredients-card">
+                <mat-card-content>
+                    <ul class="ingredients-list">
+                        <li *ngFor="let ingredient of parsedIngredients">
+                            <mat-icon class="check-icon">check_circle_outline</mat-icon>
+                            <span>{{ ingredient }}</span>
+                        </li>
+                        <li *ngIf="parsedIngredients.length === 0" class="empty-state">No ingredients listed.</li>
+                    </ul>
+                </mat-card-content>
+            </mat-card>
+        </div>
+
+        <!-- Steps -->
+        <div class="steps-section">
+            <h2>Instructions</h2>
+            <div class="steps-list">
+                <div class="step-item" *ngFor="let step of recipe.steps; let i = index">
+                    <div class="step-number">{{ i + 1 }}</div>
+                    <div class="step-content">
+                        {{ step.description }}
+                    </div>
+                </div>
+                <div *ngIf="!recipe.steps || recipe.steps.length === 0" class="empty-state">
+                    No instructions added.
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
