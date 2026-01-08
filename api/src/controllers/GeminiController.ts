@@ -1027,3 +1027,111 @@ export const postThawAdvice = async (req: Request, res: Response) => {
     });
   }
 };
+
+export const postProductMatch = async (req: Request, res: Response) => {
+  try {
+    const { productName, brand } = req.body;
+
+    if (!productName) {
+      res.status(400).json({ message: "Product name is required" });
+      return;
+    }
+
+    const allProducts = await prisma.product.findMany({
+      select: {
+        id: true,
+        title: true
+      }
+    });
+
+    const prompt = `I have a scanned product with Name: "${productName}"${brand ? ` and Brand: "${brand}"` : ''}.
+    Here is a list of existing products in my database:
+    ${JSON.stringify(allProducts)}
+    
+    Is the scanned product a variation of any of the existing products? (e.g. Scanned "Target Pumpkin" vs Existing "Libby's Pumpkin").
+    If it is a match or a close variation, return the ID of the existing product.
+    If it is a completely new unique product, return null.
+    
+    Return the result as a JSON object with keys:
+    - matchId (integer or null)
+    `;
+
+    const schema = {
+      type: FunctionDeclarationSchemaType.OBJECT,
+      properties: {
+        matchId: { type: FunctionDeclarationSchemaType.INTEGER, nullable: true }
+      },
+      required: ["matchId"]
+    } as any;
+
+    const { result, warning } = await executeWithFallback(
+      "gemini_product_match",
+      async (model) => await model.generateContent({
+        contents: [{ role: "user", parts: [{ text: prompt }] }],
+        generationConfig: {
+          responseMimeType: "application/json",
+          responseSchema: schema,
+        },
+      })
+    );
+
+    const response = result.response;
+    const jsonString = response.text();
+    const data = JSON.parse(jsonString);
+
+    if (data.matchId) {
+      const match = allProducts.find(p => p.id === data.matchId);
+      res.json({ matchId: data.matchId, matchTitle: match?.title, warning });
+    } else {
+      res.json({ matchId: null, warning });
+    }
+
+  } catch (error) {
+    console.log("postProductMatch error", error);
+    res.status(500).json({ message: "error", data: (error as Error).message });
+  }
+};
+
+export const postBarcodeDetails = async (req: Request, res: Response) => {
+  try {
+    const { productName, brand, existingProductTitle } = req.body;
+
+    const prompt = `I am adding a barcode for "${productName}"${brand ? ` (${brand})` : ''} to an existing product "${existingProductTitle}".
+        Suggest a short description for this specific barcode variant (e.g. "15oz Can", "Family Size", "Spicy variety") and a list of tags that apply to this product.
+        
+        Return the result as a JSON object with keys:
+        - description (string)
+        - tags (array of strings)
+        `;
+
+    const schema = {
+      type: FunctionDeclarationSchemaType.OBJECT,
+      properties: {
+        description: { type: FunctionDeclarationSchemaType.STRING },
+        tags: { type: FunctionDeclarationSchemaType.ARRAY, items: { type: FunctionDeclarationSchemaType.STRING } }
+      },
+      required: ["description", "tags"]
+    } as any;
+
+    const { result, warning } = await executeWithFallback(
+      "gemini_barcode_details",
+      async (model) => await model.generateContent({
+        contents: [{ role: "user", parts: [{ text: prompt }] }],
+        generationConfig: {
+          responseMimeType: "application/json",
+          responseSchema: schema,
+        },
+      })
+    );
+
+    const response = result.response;
+    const jsonString = response.text();
+    const data = JSON.parse(jsonString);
+
+    res.json({ data, warning });
+
+  } catch (error) {
+    console.log("postBarcodeDetails error", error);
+    res.status(500).json({ message: "error", data: (error as Error).message });
+  }
+};

@@ -181,6 +181,9 @@ app.post("/gemini/quick-suggest", GeminiController.postQuickSuggest);
 app.post("/gemini/product-details", GeminiController.postProductDetails);
 app.get("/gemini/models", GeminiController.getAvailableModels);
 
+app.post("/gemini/product-match", GeminiController.postProductMatch);
+app.post("/gemini/barcode-details", GeminiController.postBarcodeDetails);
+
 app.get("/uploads/:filename", (req: Request, res: Response) => {
     const filename = req.params.filename;
     if (filename.includes('..') || filename.includes('/') || filename.includes('\\')) {

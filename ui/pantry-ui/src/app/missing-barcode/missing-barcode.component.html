@@ -1,20 +1,57 @@
-
-<ng-container *ngIf="searchingProducts">
-    <h1>Searching...</h1>
-    <p>Please wait.</p>
-</ng-container>
-<ng-container *ngIf="!searchingProducts">
-    <ng-container *ngIf="!foundProduct">
-        <h1>Unknown barcode</h1>
-        <p>No product could be found with that barcode.</p>
-        <button mat-raised-button (click)="createProduct()">Create product from scratch</button>
-    </ng-container>
-    <ng-container *ngIf="foundProduct">
-        <h1>Add product from OpenFoodFacts?</h1>
-        <div>
-            <strong>Product name:</strong>
-            {{ProductName}}
+<div class="container">
+    <ng-container *ngIf="searchingProducts">
+        <div class="loading">
+            <mat-spinner diameter="40"></mat-spinner>
+            <h1>Searching...</h1>
+            <p>Please wait.</p>
         </div>
-        <button mat-raised-button (click)="createProduct()">Create product</button>
     </ng-container>
-</ng-container>
+
+    <ng-container *ngIf="!searchingProducts">
+        <ng-container *ngIf="!foundProduct">
+            <h1>Unknown barcode</h1>
+            <p>No product could be found with that barcode.</p>
+            <button mat-raised-button color="primary" (click)="createProduct()">Create product from scratch</button>
+        </ng-container>
+
+        <ng-container *ngIf="foundProduct">
+            <h1>Product Found</h1>
+            <div class="product-info">
+                <div>
+                    <strong>Product Name:</strong> {{ProductName}}
+                </div>
+                <div *ngIf="ProductBrand">
+                    <strong>Brand:</strong> {{ProductBrand}}
+                </div>
+            </div>
+
+            <!-- Gemini Match Section -->
+            <div *ngIf="checkingMatch" class="status-message">
+                <mat-spinner diameter="20"></mat-spinner>
+                <span>Checking for existing variations...</span>
+            </div>
+
+            <div *ngIf="matchFound" class="match-box">
+                <h3>Already have this?</h3>
+                <p>We found a similar product in your pantry: <strong>{{matchedProductTitle}}</strong></p>
+
+                <div *ngIf="addingToExisting" class="status-message">
+                    <mat-spinner diameter="20"></mat-spinner>
+                    <span>Adding barcode and generating tags...</span>
+                </div>
+
+                <div *ngIf="!addingToExisting" class="actions">
+                    <button mat-raised-button color="primary" (click)="addToExisting()">
+                        Add to Existing Product
+                    </button>
+                </div>
+            </div>
+
+            <div class="new-product-section">
+                <h3>Or create new</h3>
+                <button mat-stroked-button color="accent" (click)="createProduct()">Create New Product</button>
+            </div>
+
+        </ng-container>
+    </ng-container>
+</div>

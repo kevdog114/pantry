@@ -43,7 +43,8 @@ export class ProductEditComponent implements AfterViewInit {
 
   private queryData = {
     productTitle: <string | undefined>"",
-    barcodes: <string[] | undefined>[]
+    barcodes: <string[] | undefined>[],
+    brand: <string | undefined>""
   };
 
   @Input("productName")
@@ -61,6 +62,11 @@ export class ProductEditComponent implements AfterViewInit {
       else
         this.queryData.barcodes = [newBarcodes as string];
     }
+  }
+
+  @Input("brand")
+  set brandQuery(newBrand: string | undefined) {
+    this.queryData.brand = newBrand;
   }
 
   @Input()
@@ -124,7 +130,7 @@ export class ProductEditComponent implements AfterViewInit {
           this.product?.barcodes.push({
             barcode: barcode,
             ProductId: this.product!.id,
-            brand: "",
+            brand: this.queryData.brand || "",
             description: "",
             id: 0,
             quantity: 0,
