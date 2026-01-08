@@ -2,23 +2,20 @@
   <mat-label>{{ category }} Tags</mat-label>
   <mat-chip-grid #chipGrid aria-label="Tag selection">
     @for (tag of selectedTags; track tag) {
-      <mat-chip-row (removed)="remove(tag)">
-        {{tag.tagname}}
-        <button matChipRemove [attr.aria-label]="'remove ' + tag.tagname">
-          <mat-icon>cancel</mat-icon>
-        </button>
-      </mat-chip-row>
+    <mat-chip-row (removed)="remove(tag)">
+      {{tag.name}}
+      <button matChipRemove [attr.aria-label]="'remove ' + tag.name">
+        <mat-icon>cancel</mat-icon>
+      </button>
+    </mat-chip-row>
     }
   </mat-chip-grid>
-  <input placeholder="New Tag..."
-         #tagInput
-         [formControl]="tagCtrl"
-         [matAutocomplete]="auto"
-         [matChipInputFor]="chipGrid"
-         />
+  <input placeholder="New Tag..." #tagInput [formControl]="tagCtrl" [matAutocomplete]="auto"
+    [matChipInputFor]="chipGrid" [matChipInputSeparatorKeyCodes]="separatorKeysCodes"
+    (matChipInputTokenEnd)="addTag($event)" />
   <mat-autocomplete #auto="matAutocomplete" (optionSelected)="add($event)">
     @for (tag of filteredTags | async; track tag) {
-      <mat-option [value]="tag">{{tag.tagname}}</mat-option>
+    <mat-option [value]="tag">{{tag.name}}</mat-option>
     }
   </mat-autocomplete>
 </mat-form-field>

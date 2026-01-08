@@ -31,6 +31,8 @@ export const create = async (req: Request, res: Response, next: NextFunction): P
             barcodes: {
                 create: (req.body.barcodes || []).map((barcode: any) => ({
                     barcode: barcode.barcode,
+                    brand: barcode.brand,
+                    description: barcode.description,
                     tareWeight: barcode.tareWeight,
                     ...(barcode.tags && barcode.tags.length > 0 && {
                         tags: {
@@ -113,8 +115,10 @@ export const updateById = async (req: Request, res: Response, next: NextFunction
             ...(req.body.barcodes && {
                 barcodes: {
                     deleteMany: {},
-                    create: req.body.barcodes.map((barcode: any) => ({
+                    create: (req.body.barcodes || []).map((barcode: any) => ({
                         barcode: barcode.barcode,
+                        brand: barcode.brand,
+                        description: barcode.description,
                         tareWeight: barcode.tareWeight,
                         ...(barcode.tags && barcode.tags.length > 0 && {
                             tags: {
@@ -122,7 +126,7 @@ export const updateById = async (req: Request, res: Response, next: NextFunction
                             }
                         })
                     }))
-                }
+                },
             })
         },
         include: {

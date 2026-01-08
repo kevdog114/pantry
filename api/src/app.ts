@@ -163,6 +163,7 @@ app.get("/tags", TagsController.getAll);
 app.get("/tags/:id", TagsController.getById);
 app.post("/tags", TagsController.create);
 app.put("/tags/:id", TagsController.updateById);
+app.delete("/tags/:id", TagsController.deleteById);
 app.get("/tag-groups", TagsController.getGroups);
 app.get("/tag-groups/:group", TagsController.getAllForGroup);
 

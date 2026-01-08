@@ -62,6 +62,8 @@ model ProductBarcode {
   product   Product   @relation(fields: [productId], references: [id])
   tags      Tag[]     @relation("BarcodeToTag")
   tareWeight Float?
+  brand       String?
+  description String?
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
 }

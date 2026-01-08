@@ -3,15 +3,16 @@ import { Injectable } from '@angular/core';
 import { environment } from '../environments/environment';
 import { Observable } from 'rxjs';
 
-export interface Tag
-{
+export interface Tag {
   id: number
-  tagname: string
-  taggroup: string
+  name: string
+  group: string
+  _count?: {
+    barcodes: number
+  }
 }
 
-export interface TagGroup
-{
+export interface TagGroup {
   display: string
   code: string
 }
@@ -41,6 +42,10 @@ export class TagsService {
 
   public UpdateById = (id: number, tag: Tag): Observable<Tag> => {
     return this.http.put<Tag>(this.url(`/tags/${id}`), tag);
+  }
+
+  public Delete = (id: number): Observable<any> => {
+    return this.http.delete(this.url(`/tags/${id}`));
   }
 
   public GetGroups = (): Observable<TagGroup[]> => {

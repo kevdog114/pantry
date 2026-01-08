@@ -20,6 +20,7 @@ import { FamilyPreferencesComponent } from './family-preferences/family-preferen
 import { MealPlanComponent } from './components/meal-plan/meal-plan.component';
 import { KioskLoginComponent } from './components/kiosk/kiosk-login/kiosk-login.component';
 import { KioskLinkComponent } from './components/kiosk/kiosk-link/kiosk-link.component';
+import { TagManagerComponent } from './settings/tag-manager/tag-manager.component';
 
 
 
@@ -100,7 +101,7 @@ export const routes: Routes = [
     },
     {
         path: "settings/tags",
-        component: TagsComponent,
+        component: TagManagerComponent,
         canActivate: [AuthGuard]
     },
     {

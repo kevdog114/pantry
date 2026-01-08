@@ -62,27 +62,27 @@
                     @for(barcode of product.barcodes; track barcode.barcode) {
                     <div class="row">
                         <div class="col-sm-2">
-                            <mat-form-field>
+                            <mat-form-field class="w-100">
                                 <mat-label>Barcode</mat-label>
                                 <input [name]="'barcode-' + $index" class="barcode-input" matInput
                                     [(ngModel)]="barcode.barcode">
                             </mat-form-field>
                         </div>
                         <div class="col-sm-2" *ngIf="product.trackCountBy === 'weight'">
-                            <mat-form-field>
+                            <mat-form-field class="w-100">
                                 <mat-label>Tare Weight (g)</mat-label>
                                 <input [name]="'tareWeight-' + $index" matInput type="number"
                                     [(ngModel)]="barcode.tareWeight">
                             </mat-form-field>
                         </div>
                         <div class="col-sm-2">
-                            <mat-form-field>
+                            <mat-form-field class="w-100">
                                 <mat-label>Brand</mat-label>
                                 <input [name]="'brand-' + $index" matInput [(ngModel)]="barcode.brand">
                             </mat-form-field>
                         </div>
-                        <div class="col-sm-3">
-                            <mat-form-field>
+                        <div [class]="product.trackCountBy === 'weight' ? 'col-sm-2' : 'col-sm-4'">
+                            <mat-form-field class="w-100">
                                 <mat-label>Description</mat-label>
                                 <input [name]="'description-' + $index" matInput [(ngModel)]="barcode.description">
                             </mat-form-field>
@@ -91,7 +91,7 @@
                             <app-tags category="Category" [selectedTags]="barcode.tags"
                                 (selectionChange)="barcode.tags = $event"></app-tags>
                         </div>
-                        <div class="col-sm-1">
+                        <div class="col-sm-1 d-flex align-items-center justify-content-center">
                             <button mat-icon-button matSuffix (click)="removeBarcode(barcode)">
                                 <mat-icon>delete</mat-icon>
                             </button>

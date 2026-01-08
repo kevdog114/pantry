@@ -29,8 +29,8 @@ export interface ProductBarcode {
 
 export interface ProductTags {
     id: number
-    tagname: string
-    taggroup: string
+    name: string
+    group: string
 }
 
 export interface Product {
