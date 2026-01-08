@@ -51,14 +51,31 @@ export class KioskLoginComponent implements OnInit, OnDestroy {
     }
 
     connectSocket(token: string) {
-        let socketUrl = environment.apiUrl.replace('/api', '');
-        if (socketUrl.endsWith('/')) {
-            socketUrl = socketUrl.slice(0, -1);
+        // Parse the API URL to determine the correct socket connection details.
+        // This ensures WebSockets work even when deployed under a subpath (e.g. /api)
+        // just like REST calls.
+        let origin = '';
+        let pathname = '';
+
+        try {
+            const url = new URL(environment.apiUrl);
+            origin = url.origin;
+            pathname = url.pathname;
+        } catch (e) {
+            // Fallback for relative URLs: use current origin
+            origin = window.location.origin;
+            pathname = environment.apiUrl;
         }
 
-        // Pass withCredentials if needed for cookies, though handshake relies on token mostly? 
-        // Actually the kiosk is unauthenticated initially.
-        this.socket = io(socketUrl, {
+        // Ensure pathname ends with / before appending socket.io
+        if (!pathname.endsWith('/')) {
+            pathname += '/';
+        }
+
+        const socketPath = `${pathname}socket.io`;
+
+        this.socket = io(origin, {
+            path: socketPath,
             withCredentials: true
         });
 
