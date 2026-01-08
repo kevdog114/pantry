@@ -134,19 +134,21 @@ const getProductContext = async (): Promise<string> => {
     }
   });
 
-  const contextParts: string[] = ["Here is a list of products I have:"];
+  const contextParts: string[] = ["Here is a list of ALL products available in the system, along with their current stock levels:"];
   for (const product of products) {
+    const totalQuantity = product.stockItems.reduce((sum, item) => sum + item.quantity, 0);
+
     if (product.stockItems.length > 0) {
-      contextParts.push(`Product: ${product.title} (ID: ${product.id})`);
+      contextParts.push(`Product: ${product.title} (ID: ${product.id}) - Total Quantity: ${totalQuantity}`);
       for (const stockItem of product.stockItems) {
-        contextParts.push(`  - ID: ${stockItem.id}`);
-        contextParts.push(`  - Quantity: ${stockItem.quantity}`);
-        contextParts.push(`  - Expiration Date: ${stockItem.expirationDate}`);
-        contextParts.push(`  - Status: ${stockItem.frozen ? 'Frozen' : 'Fresh'}, ${stockItem.opened ? 'Opened' : 'Unopened'}`);
+        contextParts.push(`  - Stock ID: ${stockItem.id}`);
+        contextParts.push(`    Quantity: ${stockItem.quantity}`);
+        contextParts.push(`    Expiration Date: ${stockItem.expirationDate ? stockItem.expirationDate.toISOString().split('T')[0] : 'N/A'}`);
+        contextParts.push(`    Status: ${stockItem.frozen ? 'Frozen' : 'Fresh'}, ${stockItem.opened ? 'Opened' : 'Unopened'}`);
       }
     } else {
-      // Also list products with no stock so we can add to them
-      contextParts.push(`Product: ${product.title} (ID: ${product.id}) [No Stock]`);
+      // List products with no stock so we can add to them
+      contextParts.push(`Product: ${product.title} (ID: ${product.id}) - Total Quantity: 0`);
     }
   }
   return contextParts.join('\n');
