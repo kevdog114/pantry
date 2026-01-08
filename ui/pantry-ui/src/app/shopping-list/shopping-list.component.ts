@@ -8,7 +8,9 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatListModule } from '@angular/material/list';
+import { MatMenuModule } from '@angular/material/menu';
 import { ShoppingListService, ShoppingList, ShoppingListItem } from '../services/shopping-list.service';
+import { GeminiService } from '../services/gemini.service';
 
 @Component({
     selector: 'app-shopping-list',
@@ -21,7 +23,9 @@ import { ShoppingListService, ShoppingList, ShoppingListItem } from '../services
         MatButtonModule,
         MatIconModule,
         MatCheckboxModule,
-        MatListModule
+        MatCheckboxModule,
+        MatListModule,
+        MatMenuModule
     ],
     templateUrl: './shopping-list.component.html',
     styleUrl: './shopping-list.component.css'
@@ -31,9 +35,13 @@ export class ShoppingListComponent implements OnInit {
     newItemName: string = '';
 
     isLoading: boolean = true;
+    isSorting: boolean = false;
     error: string | null = null;
 
-    constructor(private shoppingListService: ShoppingListService) { }
+    constructor(
+        private shoppingListService: ShoppingListService,
+        private geminiService: GeminiService
+    ) { }
 
     ngOnInit(): void {
         this.loadList();
@@ -85,6 +93,40 @@ export class ShoppingListComponent implements OnInit {
         this.shoppingListService.clearChecked(this.shoppingList.id).subscribe(() => {
             if (this.shoppingList) {
                 this.shoppingList.items = this.shoppingList.items.filter(i => !i.checked);
+            }
+        });
+    }
+
+    sortAlphabetical() {
+        if (!this.shoppingList) return;
+        this.shoppingList.items.sort((a, b) => a.name.localeCompare(b.name));
+    }
+
+    sortSmart() {
+        if (!this.shoppingList || this.shoppingList.items.length === 0) return;
+
+        this.isSorting = true;
+        const names = this.shoppingList.items.map(item => item.name);
+
+        this.geminiService.sortShoppingList(names).subscribe({
+            next: (response) => {
+                if (response.sortedItems && this.shoppingList) {
+                    const sortedNames = response.sortedItems;
+                    this.shoppingList.items.sort((a, b) => {
+                        const indexA = sortedNames.indexOf(a.name);
+                        const indexB = sortedNames.indexOf(b.name);
+
+                        if (indexA === -1 && indexB === -1) return 0;
+                        if (indexA === -1) return 1;
+                        if (indexB === -1) return -1;
+                        return indexA - indexB;
+                    });
+                }
+                this.isSorting = false;
+            },
+            error: (err) => {
+                console.error("Smart sort failed", err);
+                this.isSorting = false;
             }
         });
     }

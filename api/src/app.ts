@@ -185,6 +185,7 @@ app.get("/gemini/models", GeminiController.getAvailableModels);
 
 app.post("/gemini/product-match", GeminiController.postProductMatch);
 app.post("/gemini/barcode-details", GeminiController.postBarcodeDetails);
+app.post("/gemini/shopping-list-sort", GeminiController.postShoppingListSort);
 
 app.get("/uploads/:filename", (req: Request, res: Response) => {
     const filename = req.params.filename;

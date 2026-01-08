@@ -55,4 +55,8 @@ export class GeminiService {
   getAvailableModels(): Observable<any> {
     return this.http.get<any>(`${environment.apiUrl}/gemini/models`);
   }
+
+  sortShoppingList(items: string[]): Observable<{ sortedItems: string[] }> {
+    return this.http.post<any>(`${this.apiUrl.replace('/chat', '')}/shopping-list-sort`, { items });
+  }
 }

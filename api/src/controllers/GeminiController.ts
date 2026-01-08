@@ -1227,3 +1227,71 @@ export const postBarcodeDetails = async (req: Request, res: Response) => {
     res.status(500).json({ message: "error", data: (error as Error).message });
   }
 };
+
+const cleanJson = (text: string) => {
+  // 1. Try to locate the JSON block specifically.
+  // We look for the outer-most braces structure that looks like our schema.
+  const jsonStart = text.indexOf('{');
+  const jsonEnd = text.lastIndexOf('}');
+
+  if (jsonStart !== -1 && jsonEnd !== -1 && jsonEnd > jsonStart) {
+    const potentialJson = text.substring(jsonStart, jsonEnd + 1);
+    try {
+      // Verify it parses
+      JSON.parse(potentialJson);
+      return potentialJson;
+    } catch (e) {
+      // If the substring fails, fall back to loose cleaning
+    }
+  }
+
+  // Remove ```json ... ``` or just ``` ... ```
+  let cleaned = text.trim();
+  if (cleaned.startsWith('```json')) {
+    cleaned = cleaned.substring(7);
+  } else if (cleaned.startsWith('```')) {
+    cleaned = cleaned.substring(3);
+  }
+  if (cleaned.endsWith('```')) {
+    cleaned = cleaned.substring(0, cleaned.length - 3);
+  }
+  return cleaned.trim();
+};
+
+export const postShoppingListSort = async (req: Request, res: Response) => {
+  try {
+    const { items } = req.body as { items: string[] };
+    if (!items || !Array.isArray(items) || items.length === 0) {
+      res.status(400).json({ error: "No items provided" });
+      return;
+    }
+
+    const { result } = await executeWithFallback(
+      "gemini_sort_model",
+      async (model) => {
+        const prompt = `
+          You are a helpful shopping assistant.
+          Sort the following shopping list items in the order they would typically be found in a grocery store traversal (e.g., Produce -> Bakery -> Deli -> Meat -> Dairy -> Aisle items -> Frozen).
+          Return ONLY a valid JSON object with a single key "sortedItems" containing the list of strings.
+          Do not include any other text or markdown formatting.
+          
+          Items:
+          ${JSON.stringify(items)}
+        `;
+
+        const result = await model.generateContent(prompt);
+        return result.response;
+      }
+    );
+
+    const text = result.text();
+    const cleaned = cleanJson(text);
+    const data = JSON.parse(cleaned);
+
+    res.json(data);
+
+  } catch (e: any) {
+    console.error("Sort error", e);
+    res.status(500).json({ error: e.message });
+  }
+}

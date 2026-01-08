@@ -1,5 +1,23 @@
 <div class="container">
-    <h1>Shopping List</h1>
+    <div class="header-actions" style="display: flex; justify-content: space-between; align-items: center;">
+        <h1>Shopping List</h1>
+        <div>
+            <span *ngIf="isSorting" style="font-size: 0.8em; margin-right: 8px; color: #666;">Sorting...</span>
+            <button mat-icon-button [matMenuTriggerFor]="sortMenu" [disabled]="isSorting" aria-label="Sort options">
+                <mat-icon>sort</mat-icon>
+            </button>
+            <mat-menu #sortMenu="matMenu">
+                <button mat-menu-item (click)="sortAlphabetical()">
+                    <mat-icon>sort_by_alpha</mat-icon>
+                    <span>Alphabetical</span>
+                </button>
+                <button mat-menu-item (click)="sortSmart()">
+                    <mat-icon>auto_awesome</mat-icon>
+                    <span>Smart Sort (Gemini)</span>
+                </button>
+            </mat-menu>
+        </div>
+    </div>
 
     <div class="add-item-form">
         <mat-form-field appearance="outline" class="w-full">
