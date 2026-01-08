@@ -8,8 +8,7 @@ import { environment } from "../../../environments/environment";
 @Injectable({
     providedIn: 'root'
 })
-export class RecipeListService
-{
+export class RecipeListService {
     constructor(private http: HttpClient) {
 
     }
@@ -30,7 +29,7 @@ export class RecipeListService
         return this.http.put<Recipe>(this.buildApiUrl(`/recipes/${recipe.id}`), recipe);
     }
 
-    public create = (recipe: Recipe): Observable<Recipe> => {
+    public create = (recipe: Partial<Recipe> | any): Observable<Recipe> => {
         return this.http.post<Recipe>(this.buildApiUrl(`/recipes/`), recipe);
     }
 

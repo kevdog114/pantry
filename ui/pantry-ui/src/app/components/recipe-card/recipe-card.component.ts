@@ -4,7 +4,7 @@ import { CommonModule } from '@angular/common';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
-import { RecipeService } from '../../services/recipe.service';
+import { RecipeListService } from '../recipe-list/recipe-list.service';
 
 export interface ChatRecipe {
     title: string;
@@ -30,7 +30,7 @@ export class RecipeCardComponent {
     @Input() expanded: boolean = false;
 
     constructor(
-        private recipeService: RecipeService,
+        private recipeService: RecipeListService,
         private snackBar: MatSnackBar
     ) { }
 
@@ -41,11 +41,26 @@ export class RecipeCardComponent {
     save(event: Event) {
         event.stopPropagation();
 
+        // Parse time strings like "10 minutes" or "1 hour" to numbers
+        const parseTime = (timeStr: string): number | undefined => {
+            if (!timeStr) return undefined;
+            const match = timeStr.match(/(\d+)/);
+            if (!match) return undefined;
+            let minutes = parseInt(match[1]);
+            if (timeStr.toLowerCase().includes('hour')) {
+                minutes *= 60;
+            }
+            return minutes;
+        };
+
         const newRecipe = {
             title: this.recipe.title,
             description: this.recipe.description,
             source: 'gemini-pro-latest',
-            ingredients: this.recipe.ingredients,
+            ingredientText: this.recipe.ingredients.join('\n'), // Convert array to text
+            prepTime: parseTime(this.recipe.time.prep),
+            cookTime: parseTime(this.recipe.time.cook),
+            totalTime: parseTime(this.recipe.time.total),
             steps: this.recipe.instructions.map((inst: string) => ({ description: inst }))
         };
 
