@@ -10,8 +10,8 @@
         </div>
 
         <app-chat-interface [messages]="messages" [isLoading]="isThinking"
-            [placeholder]="'Ask about ' + data.product.title + '...'" [enableAudio]="true" [autoSendAudio]="true"
-            (send)="handleSend($event)" (textToSpeech)="speak($event)">
+            [placeholder]="'Ask about ' + (data.product?.title || data.recipe?.title) + '...'" [enableAudio]="true"
+            [autoSendAudio]="true" (send)="handleSend($event)" (textToSpeech)="speak($event)">
         </app-chat-interface>
     </div>
 </mat-dialog-content>

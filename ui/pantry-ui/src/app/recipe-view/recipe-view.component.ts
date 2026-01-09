@@ -7,6 +7,8 @@ import { MatCardModule } from '@angular/material/card';
 import { MatDividerModule } from '@angular/material/divider';
 import { Recipe } from '../types/recipe';
 import { RecipeListService } from '../components/recipe-list/recipe-list.service';
+import { MatDialog, MatDialogModule } from '@angular/material/dialog';
+import { AudioChatDialogComponent } from '../components/audio-chat-dialog/audio-chat-dialog.component';
 
 @Component({
     selector: 'app-recipe-view',
@@ -17,7 +19,8 @@ import { RecipeListService } from '../components/recipe-list/recipe-list.service
         MatButtonModule,
         MatIconModule,
         MatCardModule,
-        MatDividerModule
+        MatDividerModule,
+        MatDialogModule
     ],
     templateUrl: './recipe-view.component.html',
     styleUrl: './recipe-view.component.scss'
@@ -29,7 +32,8 @@ export class RecipeViewComponent implements OnInit {
     constructor(
         private route: ActivatedRoute,
         private router: Router,
-        private recipeService: RecipeListService
+        private recipeService: RecipeListService,
+        private dialog: MatDialog
     ) { }
 
     ngOnInit(): void {
@@ -66,6 +70,18 @@ export class RecipeViewComponent implements OnInit {
         } catch (e) {
             // Not JSON, split by newlines as fallback
             this.parsedIngredients = this.recipe.ingredientText.split('\n').filter(line => line.trim().length > 0);
+        }
+    }
+
+    openAudioChat() {
+        if (this.recipe) {
+            this.dialog.open(AudioChatDialogComponent, {
+                data: { recipe: this.recipe },
+                width: '350px',
+                position: { bottom: '100px', right: '30px' },
+                hasBackdrop: false,
+                panelClass: 'audio-chat-popup-panel'
+            });
         }
     }
 

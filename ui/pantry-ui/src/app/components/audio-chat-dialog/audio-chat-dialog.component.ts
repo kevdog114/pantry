@@ -11,6 +11,8 @@ import { SmartChatInputComponent } from '../smart-chat-input/smart-chat-input.co
 import { FormsModule } from '@angular/forms';
 import { ChatInterfaceComponent, ChatMessage, ChatContentItem } from '../chat-interface/chat-interface.component';
 
+import { Recipe } from '../../types/recipe';
+
 @Component({
     selector: 'app-audio-chat-dialog',
     templateUrl: './audio-chat-dialog.component.html',
@@ -29,7 +31,7 @@ export class AudioChatDialogComponent implements OnDestroy {
 
     constructor(
         public dialogRef: MatDialogRef<AudioChatDialogComponent>,
-        @Inject(MAT_DIALOG_DATA) public data: { product: Product },
+        @Inject(MAT_DIALOG_DATA) public data: { product?: Product, recipe?: Recipe },
         private geminiService: GeminiService,
         private cd: ChangeDetectorRef,
         private ngZone: NgZone
@@ -63,10 +65,19 @@ export class AudioChatDialogComponent implements OnDestroy {
         this.isThinking = true;
         // this.responseItems = []; // Removed
 
-        const context = `User is viewing product: ${this.data.product.title}. 
+        let context = '';
+        if (this.data.product) {
+            context = `User is viewing product: ${this.data.product.title}. 
     ID: ${this.data.product.id}. 
     Current Stock Count: ${this.data.product.stockItems?.length || 0}. 
     Barcodes: ${this.data.product.barcodes?.map(b => b.barcode).join(', ')}.`;
+        } else if (this.data.recipe) {
+            context = `User is viewing recipe: ${this.data.recipe.title}.
+    ID: ${this.data.recipe.id}.
+    Description: ${this.data.recipe.description || 'None'}.
+    Ingredients: ${this.data.recipe.ingredientText || 'None'}.
+    Steps: ${this.data.recipe.steps?.map((s, i) => `${i + 1}. ${s.description}`).join('\n') || 'None'}.`;
+        }
 
         this.geminiService.sendMessage(text, [], this.sessionId, image, context).subscribe({
             next: (res) => {

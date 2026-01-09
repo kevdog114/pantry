@@ -197,3 +197,10 @@
     opacity: 0.5;
     font-style: italic;
 }
+
+.audio-chat-fab {
+    position: fixed;
+    bottom: 2rem;
+    right: 2rem;
+    z-index: 1000;
+}
