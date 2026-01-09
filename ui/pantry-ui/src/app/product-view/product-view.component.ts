@@ -22,6 +22,7 @@ interface IndexedBarcode {
 
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { AudioChatDialogComponent } from '../components/audio-chat-dialog/audio-chat-dialog.component';
+import { LabelService } from '../services/label.service';
 
 @Component({
   selector: 'app-product-view',
@@ -64,7 +65,7 @@ export class ProductViewComponent {
   /**
    *
    */
-  constructor(private svc: ProductListService, private snackbar: MatSnackBar, private dialog: MatDialog) {
+  constructor(private svc: ProductListService, private snackbar: MatSnackBar, private dialog: MatDialog, private labelService: LabelService) {
 
   }
 
@@ -137,6 +138,18 @@ export class ProductViewComponent {
       this.snackbar.open("Updated stock item", "Okay", {
         duration: 5000
       });
+    });
+  }
+
+  printStockLabel(stockItem: StockItem) {
+    this.labelService.printStockLabel(stockItem.id!).subscribe({
+      next: (res) => {
+        this.snackbar.open(res.message || "Label Sent", "Okay", { duration: 3000 });
+      },
+      error: (err) => {
+        this.snackbar.open("Failed to print label", "Dismiss", { duration: 5000 });
+        console.error(err);
+      }
     });
   }
 }

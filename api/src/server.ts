@@ -40,12 +40,77 @@ const io = new Server(httpServer, {
 // Store io instance in app to use in controllers if needed, or export it
 app.set("io", io);
 
+io.use(async (socket, next) => {
+    const token = socket.handshake.auth.token;
+    if (token) {
+        try {
+            const pat = await prisma.personalAccessToken.findUnique({
+                where: { token },
+                include: { user: true }
+            });
+            if (pat) {
+                (socket as any).pat = pat;
+            }
+        } catch (e) {
+            console.error("Socket auth error", e);
+        }
+    }
+    next();
+});
+
 io.on("connection", (socket) => {
     console.log("New socket connection:", socket.id);
+    const pat = (socket as any).pat;
 
     socket.on("join_kiosk", (token) => {
         console.log(`Socket ${socket.id} joining kiosk room ${token}`);
         socket.join(`kiosk_${token}`);
+    });
+
+    socket.on("device_register", async (data: any) => {
+        if (!pat) return;
+
+        try {
+            const desc = pat.description || '';
+            if (desc.startsWith('Kiosk Login - ')) {
+                const kioskName = desc.substring('Kiosk Login - '.length);
+                const kiosk = await prisma.kiosk.findFirst({
+                    where: {
+                        userId: pat.userId,
+                        name: kioskName
+                    }
+                });
+
+                if (kiosk) {
+                    const existing = await prisma.hardwareDevice.findFirst({
+                        where: { kioskId: kiosk.id, name: data.name }
+                    });
+
+                    if (existing) {
+                        await prisma.hardwareDevice.update({
+                            where: { id: existing.id },
+                            data: {
+                                status: data.status,
+                                details: data.details,
+                                lastSeen: new Date()
+                            }
+                        });
+                    } else {
+                        await prisma.hardwareDevice.create({
+                            data: {
+                                kioskId: kiosk.id,
+                                name: data.name,
+                                type: data.type,
+                                status: data.status,
+                                details: data.details
+                            }
+                        });
+                    }
+                }
+            }
+        } catch (e) {
+            console.error("Error registering device", e);
+        }
     });
 
     socket.on("disconnect", () => {

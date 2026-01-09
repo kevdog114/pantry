@@ -15,6 +15,23 @@ export interface Kiosk {
     createdAt: string;
 }
 
+export interface HardwareDevice {
+    id: number;
+    name: string;
+    type: string;
+    status: string;
+    details?: string;
+    lastSeen: string;
+}
+
+export interface Kiosk {
+    id: number;
+    name: string;
+    lastActive: string;
+    createdAt: string;
+    devices?: HardwareDevice[];
+}
+
 @Injectable({
     providedIn: 'root'
 })

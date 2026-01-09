@@ -208,6 +208,20 @@ model Kiosk {
   lastActive DateTime @default(now())
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  devices   HardwareDevice[]
+}
+
+model HardwareDevice {
+  id        Int      @id @default(autoincrement())
+  kioskId   Int
+  kiosk     Kiosk    @relation(fields: [kioskId], references: [id], onDelete: Cascade)
+  name      String
+  type      String
+  status    String
+  details   String?
+  lastSeen  DateTime @default(now())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 

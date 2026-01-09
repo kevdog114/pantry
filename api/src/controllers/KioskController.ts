@@ -85,6 +85,7 @@ export const getKiosks = async (req: Request, res: Response) => {
         const userId = (req.user as any).id;
         const kiosks = await prisma.kiosk.findMany({
             where: { userId },
+            include: { devices: true },
             orderBy: { createdAt: 'desc' }
         });
         res.json(kiosks);

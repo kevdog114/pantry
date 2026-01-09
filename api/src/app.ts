@@ -228,6 +228,7 @@ app.delete("/shopping-list/:id/checked", ShoppingListController.clearChecked);
 
 
 app.post("/labels/quick-print", LabelPrinterController.printQuickLabel);
+app.post("/labels/stock/:id", LabelPrinterController.printStockLabel);
 
 app.get('/*', (req: Request, res: Response) => {
     res.sendFile('index.html', { root: '../ui/pantry-ui/dist/pantry-ui' });

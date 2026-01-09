@@ -24,6 +24,7 @@ import { KioskLoginComponent } from './components/kiosk/kiosk-login/kiosk-login.
 import { KioskLinkComponent } from './components/kiosk/kiosk-link/kiosk-link.component';
 import { TagManagerComponent } from './settings/tag-manager/tag-manager.component';
 import { ShoppingListComponent } from './shopping-list/shopping-list.component';
+import { HardwareListComponent } from './components/hardware/hardware-list/hardware-list.component';
 
 
 
@@ -150,6 +151,11 @@ export const routes: Routes = [
     {
         path: "shopping-list",
         component: ShoppingListComponent,
+        canActivate: [AuthGuard]
+    },
+    {
+        path: "hardware",
+        component: HardwareListComponent,
         canActivate: [AuthGuard]
     },
     {

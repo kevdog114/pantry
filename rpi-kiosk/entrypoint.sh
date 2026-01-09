@@ -1,5 +1,10 @@
 #!/bin/bash
 
+# Start Hardware Bridge
+echo "Starting Hardware Bridge..."
+cd /bridge
+node server.js > /var/log/bridge.log 2>&1 &
+
 # Default URL if not provided
 TARGET_URL="${URL:-https://google.com}"
 

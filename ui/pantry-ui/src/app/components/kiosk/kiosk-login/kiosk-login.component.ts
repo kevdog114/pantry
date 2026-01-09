@@ -5,6 +5,7 @@ import { Router } from '@angular/router';
 import * as QRCode from 'qrcode';
 import { io, Socket } from 'socket.io-client';
 import { environment } from '../../../../environments/environment';
+import { HardwareService } from '../../../services/hardware.service';
 
 @Component({
     selector: 'app-kiosk-login',
@@ -21,7 +22,8 @@ export class KioskLoginComponent implements OnInit, OnDestroy {
 
     constructor(
         private kioskService: KioskService,
-        private router: Router
+        private router: Router,
+        private hardwareService: HardwareService
     ) { }
 
     ngOnInit() {
@@ -91,6 +93,11 @@ export class KioskLoginComponent implements OnInit, OnDestroy {
                 this.kioskService.kioskLogin(data.authToken, data.kioskId).subscribe({
                     next: (res) => {
                         // Successfully logged in (cookie set)
+                        console.log('Login success, attempting to connect hardware bridge...');
+                        this.hardwareService.connectBridge(data.authToken).subscribe({
+                            next: (bridgeRes) => console.log('Hardware bridge connected', bridgeRes),
+                            error: (err) => console.warn('Hardware bridge connection failed (ignore if not on Kiosk Device)', err)
+                        });
                         this.router.navigate(['/']);
                     },
                     error: (err) => {

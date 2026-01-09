@@ -1,0 +1,51 @@
+<div class="container mx-auto p-4 max-w-4xl">
+    <h1 class="text-3xl font-bold mb-6 text-gray-800 dark:text-gray-100">Hardware Devices</h1>
+
+    <div class="grid grid-cols-1 gap-6">
+        <mat-card *ngFor="let kiosk of kiosks" class="mb-4 overflow-hidden rounded-xl shadow-lg dark:bg-zinc-800">
+            <mat-card-header class="bg-gray-50 dark:bg-zinc-700/50 p-4 border-b border-gray-100 dark:border-zinc-700">
+                <div mat-card-avatar
+                    class="bg-blue-100 p-2 rounded-full text-blue-600 flex items-center justify-center">
+                    <mat-icon>desktop_windows</mat-icon>
+                </div>
+                <mat-card-title class="text-xl">{{ kiosk.name }}</mat-card-title>
+                <mat-card-subtitle class="text-gray-500">Last Active: {{ kiosk.lastActive | date:'short'
+                    }}</mat-card-subtitle>
+            </mat-card-header>
+            <mat-card-content class="p-0">
+                <mat-list role="list" class="divide-y divide-gray-100 dark:divide-zinc-700">
+                    <div *ngIf="kiosk.devices && kiosk.devices.length > 0; else noDevices">
+                        <mat-list-item role="listitem" *ngFor="let device of kiosk.devices"
+                            class="hover:bg-gray-50 dark:hover:bg-zinc-700/30 transition-colors">
+                            <mat-icon matListItemIcon class="text-gray-400">
+                                {{ device.type === 'PRINTER' ? 'print' : 'usb' }}
+                            </mat-icon>
+                            <div matListItemTitle class="font-medium">{{ device.name }}</div>
+                            <div matListItemLine class="flex items-center gap-2">
+                                <span>Status:</span>
+                                <span [class.text-green-600]="device.status === 'ONLINE'"
+                                    [class.text-red-500]="device.status !== 'ONLINE'"
+                                    class="font-bold text-xs uppercase tracking-wide bg-opacity-10 px-2 py-0.5 rounded-full"
+                                    [ngClass]="device.status === 'ONLINE' ? 'bg-green-100' : 'bg-red-100'">
+                                    {{ device.status }}
+                                </span>
+                            </div>
+                            <div matListItemLine class="text-xs text-gray-400">Last Seen: {{ device.lastSeen |
+                                date:'short' }}</div>
+                        </mat-list-item>
+                    </div>
+                    <ng-template #noDevices>
+                        <div class="p-8 text-center text-gray-400 italic">
+                            No devices detected for this kiosk.
+                        </div>
+                    </ng-template>
+                </mat-list>
+            </mat-card-content>
+        </mat-card>
+
+        <div *ngIf="kiosks.length === 0"
+            class="p-8 text-center text-gray-500 bg-gray-50 rounded-xl border border-dashed border-gray-300">
+            No Kiosks linked to your account.
+        </div>
+    </div>
+</div>
