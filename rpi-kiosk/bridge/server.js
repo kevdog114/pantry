@@ -44,10 +44,35 @@ function connectSocket() {
         socket = null;
     }
 
-    console.log(`Connecting to ${state.backendUrl}...`);
-    socket = io(state.backendUrl, {
+    // Extract the origin and path for socket.io
+    // Update logic to match frontend app KioskLoginComponent approach
+
+    let origin = '';
+    let socketPath = '/socket.io'; // default
+
+    try {
+        const url = new URL(state.backendUrl);
+        origin = url.origin;
+
+        let pathname = url.pathname;
+        if (!pathname.endsWith('/')) {
+            pathname += '/';
+        }
+        // If the URL has a path (like /api), we assume socket.io is served under that path (e.g. /api/socket.io)
+        if (pathname !== '/' && pathname.length > 1) {
+            socketPath = `${pathname}socket.io`;
+        }
+    } catch (e) {
+        console.error("Invalid URL format", state.backendUrl);
+        origin = state.backendUrl;
+    }
+
+    console.log(`Socket connecting to origin: ${origin} with path: ${socketPath}`);
+
+    socket = io(origin, {
+        path: socketPath,
         auth: { token: state.token },
-        transports: ['websocket'],
+        transports: ['websocket', 'polling'],
         reconnection: true,
         reconnectionDelay: 5000
     });
@@ -123,12 +148,15 @@ function checkDevices() {
         console.log('Device Check:', { isConnected, stdout });
 
         if (socket && socket.connected) {
+            console.log('Emitting device_register...');
             socket.emit('device_register', {
                 name: 'Brother QL-600',
                 type: 'PRINTER',
                 status: isConnected ? 'ONLINE' : 'OFFLINE',
                 details: JSON.stringify({ raw: stdout })
             });
+        } else {
+            console.log('Skipping device_register: Socket not connected');
         }
     });
 }
