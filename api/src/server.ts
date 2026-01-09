@@ -68,10 +68,16 @@ io.on("connection", (socket) => {
     });
 
     socket.on("device_register", async (data: any) => {
-        if (!pat) return;
+        console.log(`Received device_register from socket ${socket.id}`, data);
+        if (!pat) {
+            console.warn(`Socket ${socket.id} has no PAT attached. Ignoring device_register.`);
+            return;
+        }
 
         try {
             const desc = pat.description || '';
+            console.log(`Processing device_register for PAT: ${desc}`);
+
             if (desc.startsWith('Kiosk Login - ')) {
                 const kioskName = desc.substring('Kiosk Login - '.length);
                 const kiosk = await prisma.kiosk.findFirst({
@@ -82,11 +88,13 @@ io.on("connection", (socket) => {
                 });
 
                 if (kiosk) {
+                    console.log(`Found Kiosk: ${kiosk.name} (ID: ${kiosk.id})`);
                     const existing = await prisma.hardwareDevice.findFirst({
                         where: { kioskId: kiosk.id, name: data.name }
                     });
 
                     if (existing) {
+                        console.log(`Updating existing device ${existing.id}`);
                         await prisma.hardwareDevice.update({
                             where: { id: existing.id },
                             data: {
@@ -96,6 +104,7 @@ io.on("connection", (socket) => {
                             }
                         });
                     } else {
+                        console.log(`Registering new device`);
                         await prisma.hardwareDevice.create({
                             data: {
                                 kioskId: kiosk.id,
@@ -106,7 +115,11 @@ io.on("connection", (socket) => {
                             }
                         });
                     }
+                } else {
+                    console.warn(`Could not find kiosk with name '${kioskName}' for user ${pat.userId}`);
                 }
+            } else {
+                console.warn(`PAT description '${desc}' does not match expected Kiosk format.`);
             }
         } catch (e) {
             console.error("Error registering device", e);
