@@ -18,12 +18,16 @@ xset s noblank # Don't blank the video device.
 # Clear any previous session data (optional, ensures clean state)
 rm -rf /root/.config/chromium/Singleton*
 
+# Start Window Manager
+matchbox-window-manager -use_titlebar no &
+
 # Start Chromium in Kiosk mode
 # --no-sandbox: Required for Docker usually
 # --kiosk: Full screen, no address bar
 # --check-for-update-interval=31536000: Disable update checks
 # --incognito: Don't save history
 # --disable-infobars: Remove "Chrome is being controlled..."
+# --touch-events=enabled: Force touch support
 chromium \
   --no-sandbox \
   --kiosk \
@@ -35,6 +39,9 @@ chromium \
   --disable-restore-session-state \
   --check-for-update-interval=31536000 \
   --simulator-trace-events \
+  --touch-events=enabled \
+  --enable-features=OverlayScrollbar \
+  --start-maximized \
   --window-position=0,0 \
   --user-data-dir="/tmp/chromium" \
   "$TARGET_URL"

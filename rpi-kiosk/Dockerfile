@@ -30,6 +30,7 @@ RUN apt-get update && apt-get install -y \
     fonts-noto-color-emoji \
     fonts-roboto \
     usbutils \
+    matchbox-window-manager \
     python3 \
     libopenjp2-7 \
     --no-install-recommends \
