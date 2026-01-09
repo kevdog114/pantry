@@ -3,8 +3,14 @@
 This directory contains the Docker configuration for a lightweight, Kiosk-mode web browser designed to run on a Raspberry Pi. It is intended to display the Pantry App on a connected HDMI screen.
 
 ## Recommended Hardware & OS
+## Recommended Hardware & OS
 *   **Hardware**: Raspberry Pi 4 or 5 is recommended for smooth modern web browsing.
 *   **OS**: Raspberry Pi OS Lite (64-bit). The "Lite" version is preferred as we will install a minimal display environment, avoiding the overhead of a full desktop.
+
+## Features
+*   **Optimized Image**: Builds using a multi-stage Dockerfile to minimize image size (~1GB -> reduced) by excluding build tools and using Python virtual environments.
+*   **Native Label Printing**: Includes `brother_ql` python library to print to Brother QL-600 series printers directly via USB without heavy CUPS drivers.
+*   **Hardware Bridge**: Runs a local websocket bridge to communicate between the Web App and USB Hardware.
 
 ## Installation Guide
 
@@ -71,9 +77,13 @@ xhost +local:root
 # Run the Kiosk Docker Container
 # --ipc=host: Recommended for Chrome in Docker to avoid shared memory crashes
 # -v /tmp/.X11-unix:/tmp/.X11-unix: Share the display socket
+# --privileged: Required for direct access to USB devices (Label Printer)
+# -v /dev/bus/usb:/dev/bus/usb: Share USB devices
 docker run --rm \
   --name pantry-kiosk \
   -v /tmp/.X11-unix:/tmp/.X11-unix \
+  -v /dev/bus/usb:/dev/bus/usb \
+  --privileged \
   -e DISPLAY=:0 \
   -e URL="https://pantry.yourdomain.com" \
   --ipc=host \
