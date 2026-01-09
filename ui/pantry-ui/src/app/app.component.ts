@@ -64,11 +64,16 @@ export class AppComponent implements OnInit {
 
     // Initialize Pull-to-Refresh
     PullToRefresh.init({
-      mainElement: 'body',
+      mainElement: 'mat-sidenav-content',
       onRefresh() {
         window.location.reload();
       },
-      distIgnore: 50 // Optional: Ignore if scrolled down more than 50px
+      distIgnore: 50, // Optional: Ignore if scrolled down more than 50px
+      iconArrow: '<span class="material-symbols-outlined">arrow_downward</span>',
+      iconRefreshing: '<span class="material-symbols-outlined">refresh</span>',
+      instructionsPullToRefresh: 'Pull down to refresh',
+      instructionsReleaseToRefresh: 'Release to refresh',
+      instructionsRefreshing: 'Refreshing...'
     });
   }
 
