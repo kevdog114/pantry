@@ -1,0 +1,13 @@
+-- CreateTable
+CREATE TABLE "HardwareDevice" (
+    "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    "kioskId" INTEGER NOT NULL,
+    "name" TEXT NOT NULL,
+    "type" TEXT NOT NULL,
+    "status" TEXT NOT NULL,
+    "details" TEXT,
+    "lastSeen" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "createdAt" DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" DATETIME NOT NULL,
+    CONSTRAINT "HardwareDevice_kioskId_fkey" FOREIGN KEY ("kioskId") REFERENCES "Kiosk" ("id") ON DELETE CASCADE ON UPDATE CASCADE
+);

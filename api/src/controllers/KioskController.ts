@@ -88,6 +88,7 @@ export const getKiosks = async (req: Request, res: Response) => {
             include: { devices: true },
             orderBy: { createdAt: 'desc' }
         });
+        console.log(`getKiosks for user ${userId} found ${kiosks.length} results`);
         res.json(kiosks);
     } catch (error) {
         res.status(500).json({ message: "Failed to fetch kiosks" });
