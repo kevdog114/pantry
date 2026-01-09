@@ -62,6 +62,43 @@ function connectSocket() {
         if (pathname !== '/' && pathname.length > 1) {
             socketPath = `${pathname}socket.io`;
         }
+
+        // Ensure socketPath has leading slash (it should from pathname)
+        if (!socketPath.startsWith('/')) socketPath = '/' + socketPath;
+
+        // User request: ensure it ends with slash? Not standard, but let's try or just ensure robustness.
+        // Actually, if user says "endpoint has to end with a /", maybe they found that out.
+        // Let's try appending slash if not present?
+        // socket.io usually strips it or adds it. 
+        // Let's NOT force it unless I'm sure.
+        // BUT, if I am following the user's lead...
+        // Let's assume they mean config. 
+
+        // Actually, looking at logs: `Connection error: timeout`.
+        // This means it can't reach the handshake. 
+        // If I change nothing, it won't work.
+
+        // Let's try forcing the path to be `/api/socket.io/` 
+        // if that helps?
+
+        // Actually, let's just use what the Frontend does? 
+        // Frontend does NOT add trailing slash to `socketPath`.
+
+        // Maybe the user meant `state.backendUrl` needs a slash? 
+        // `https://pantry.klschaefer.com/api/`? 
+
+        // Let's just update the code to handle trailing slash on socketPath appropriately just in case.
+        // But I will stick to the plan: Maybe I should use `io(state.backendUrl)` ?
+
+        // Let's just try adding the slash to socketPath as requested.
+        // socketPath = `${pathname}socket.io/` ?
+
+        // Re-reading user request: "it looks like the socket.io endpoint has to end with a / ?"
+        // I will implement that.
+
+        if (!socketPath.endsWith('/')) {
+            socketPath += '/';
+        }
     } catch (e) {
         console.error("Invalid URL format", state.backendUrl);
         origin = state.backendUrl;
