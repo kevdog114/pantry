@@ -70,7 +70,7 @@ def create_label_image(data):
     
     return img
 
-def print_label(data, model='QL-600', backend_identifier='pyusb', printer_identifier='usb://0x04f9:0x204b'):
+def print_label(data, model='QL-600', backend_identifier='linux_kernel', printer_identifier='/dev/usb/lp0'):
     img = create_label_image(data)
     
     # Convert image to brother_ql instructions
