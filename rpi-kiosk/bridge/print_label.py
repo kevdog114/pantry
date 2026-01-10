@@ -100,11 +100,12 @@ def print_label(data, model='QL-600', backend_identifier='pyusb', printer_identi
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Print Label')
-    parser.add_argument('json_data', help='JSON string of label data')
+    parser.add_argument('input_file', help='Path to JSON data file')
     args = parser.parse_args()
     
     try:
-        data = json.loads(args.json_data)
+        with open(args.input_file, 'r') as f:
+            data = json.load(f)
         print(f"Printing label for: {data.get('title')}")
         print_label(data)
         print("Print successful")
