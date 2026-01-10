@@ -83,6 +83,7 @@ docker run --rm \
   --name pantry-kiosk \
   -v /tmp/.X11-unix:/tmp/.X11-unix \
   -v /dev/bus/usb:/dev/bus/usb \
+  -v pantry_data:/data \
   --privileged \
   -e DISPLAY=:0 \
   -e URL="https://pantry.yourdomain.com" \
