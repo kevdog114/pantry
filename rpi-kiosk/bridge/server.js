@@ -235,6 +235,8 @@ function checkDevices() {
                                 details: JSON.stringify({
                                     identifier: device.identifier,
                                     media: statusInfo.media,
+                                    detected_label: statusInfo.detected_label,
+                                    config: statusInfo.config,
                                     errors: statusInfo.errors
                                 })
                             });

@@ -44,4 +44,22 @@ export class HardwareListComponent implements OnInit {
             });
         }
     }
+
+    getDeviceDetails(device: any): any {
+        if (!device || !device.details) return {};
+        try {
+            return typeof device.details === 'string' ? JSON.parse(device.details) : device.details;
+        } catch (e) {
+            return {};
+        }
+    }
+
+    configureDevice(device: any) {
+        const details = this.getDeviceDetails(device);
+        const config = details.config ?
+            Object.entries(details.config).map(([k, v]) => `${k}: ${v}`).join(', ') :
+            'No configuration detected.';
+
+        this.snackBar.open(`Configuration: ${config}`, 'Close', { duration: 5000 });
+    }
 }

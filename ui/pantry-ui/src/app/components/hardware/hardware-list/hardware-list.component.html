@@ -32,11 +32,27 @@
                             </div>
                             <div matListItemLine class="text-xs text-gray-400">Last Seen: {{ device.lastSeen |
                                 date:'short' }}</div>
+                            <div matListItemLine class="mt-1 flex flex-wrap gap-2"
+                                *ngIf="device.type === 'PRINTER' && getDeviceDetails(device) as details">
+                                <span
+                                    class="bg-blue-50 dark:bg-zinc-700/50 text-blue-700 dark:text-blue-300 text-xs px-2 py-0.5 rounded border border-blue-100 dark:border-blue-900"
+                                    *ngIf="details.media">
+                                    {{ details.media }}
+                                </span>
+                                <span
+                                    class="bg-gray-50 dark:bg-zinc-700 text-gray-600 dark:text-gray-400 text-xs px-2 py-0.5 rounded border border-gray-200 dark:border-gray-600"
+                                    *ngIf="details.config?.model">
+                                    {{ details.config.model }}
+                                </span>
+                            </div>
                             <div matListItemMeta
                                 *ngIf="device.type === 'PRINTER' && (device.status === 'ONLINE' || device.status === 'READY')">
                                 <button mat-icon-button color="primary" (click)="printTestLabel(device)"
                                     matTooltip="Print Test Label">
                                     <mat-icon>print</mat-icon>
+                                </button>
+                                <button mat-icon-button (click)="configureDevice(device)" matTooltip="Configuration">
+                                    <mat-icon>settings</mat-icon>
                                 </button>
                             </div>
                         </mat-list-item>

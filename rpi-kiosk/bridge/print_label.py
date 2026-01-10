@@ -262,14 +262,28 @@ def status_cmd(args):
                     resp = dev.read(ep_in.bEndpointAddress, 32, timeout=1000)
                     if len(resp) >= 32:
                         # Parse
-                        # https://download.brother.com/welcome/docp000678/cv_ql800_jpeng_raster_100.pdf (See Status info)
-                        
                         # Byte 18: Media Type
                         media_type_byte = resp[18] # 0x0A (die-cut), 0x0B (continuous)
                         media_width_byte = resp[17] # mm
+                        media_len_byte = resp[19] # mm (0 if continuous)
                         
                         media_type = 'Die-Cut' if media_type_byte == 0x0A else 'Continuous'
-                        status_data['media'] = f"{media_width_byte}mm {media_type}"
+                        
+                        label_size = f"{media_width_byte}mm"
+                        if media_len_byte > 0:
+                            label_size += f" x {media_len_byte}mm"
+                        
+                        status_data['media'] = f"{label_size} {media_type}"
+                        status_data['detected_label'] = {
+                            'width': media_width_byte,
+                            'length': media_len_byte,
+                            'type': 'die-cut' if media_type_byte == 0x0A else 'continuous'
+                        }
+                        
+                        # Configuration / Current State
+                        # We can report if "High Speed" or "High Quality" is set?
+                        # Byte 10: Status Type (0x00 Reply to status request, 0x01 Printing completed, 0x02 Error)
+                        # Byte 4: Phase type
                         
                         # Errors: Byte 8 (Error Info 1), Byte 9 (Error Info 2)
                         err1 = resp[8]
@@ -281,6 +295,13 @@ def status_cmd(args):
                         else:
                             status_data['status'] = 'READY'
                             
+                        # Config: Report current model setting
+                        status_data['config'] = {
+                            'model': 'QL-600', # Hardcoded for now, or match arg
+                            'auto_cut': True, # Default assumption for QL-600 driver
+                            'resolution': 'Standard' 
+                        }
+
             except Exception as e:
                 status_data['status'] = 'ERROR'
                 status_data['errors'].append(str(e))
