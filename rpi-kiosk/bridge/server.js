@@ -155,8 +155,7 @@ function connectSocket() {
                 fs.writeFileSync(tmpFile, data);
                 console.log('Executing python print script...');
                 // Use the venv python
-                const pythonCmd = '/opt/venv/bin/python3 print_label.py /tmp/label_data.json';
-
+                const pythonCmd = '/opt/venv/bin/python3 print_label.py print /tmp/label_data.json';
                 exec(pythonCmd, (err, stdout, stderr) => {
                     if (err) {
                         console.error('Print Error:', err);
@@ -176,31 +175,53 @@ function connectSocket() {
 
 // Check devices
 function checkDevices() {
-    // Check for Brother QL-600
-    // We use lsusb to detect it. 
-    // Vendor ID 0x04f9 (Brother Industries, Ltd)
-    // Product ID for QL-600 is likely around 0x20xx
-    exec('lsusb', (err, stdout) => {
+    const pythonCmd = '/opt/venv/bin/python3 print_label.py';
+
+    exec(`${pythonCmd} discover`, (err, stdout) => {
         if (err) {
-            console.error('lsusb error:', err);
+            console.error('Discover error:', err);
             return;
         }
 
-        // Simple string check for now
-        const isConnected = stdout.includes('Brother') || stdout.toLowerCase().includes('ql-600');
+        try {
+            const devices = JSON.parse(stdout);
+            console.log("Discovered devices:", devices);
 
-        console.log('Device Check:', { isConnected, stdout });
+            if (devices.length > 0) {
+                // Check status for each found device
+                devices.forEach(device => {
+                    exec(`${pythonCmd} status --printer "${device.identifier}"`, (err, stdout) => {
+                        let statusInfo = { status: 'ONLINE', media: 'Unknown', errors: [] };
 
-        if (socket && socket.connected) {
-            console.log('Emitting device_register...');
-            socket.emit('device_register', {
-                name: 'Brother QL-600',
-                type: 'PRINTER',
-                status: isConnected ? 'ONLINE' : 'OFFLINE',
-                details: JSON.stringify({ raw: stdout })
-            });
-        } else {
-            console.log('Skipping device_register: Socket not connected');
+                        if (!err) {
+                            try {
+                                statusInfo = JSON.parse(stdout);
+                            } catch (e) {
+                                console.error("Error parsing status output", e);
+                            }
+                        }
+
+                        if (socket && socket.connected) {
+                            console.log('Emitting device_register for', device.identifier);
+                            socket.emit('device_register', {
+                                name: 'Brother QL-600', // Hardcode name as requested or derived
+                                type: 'PRINTER',
+                                status: statusInfo.status,
+                                details: JSON.stringify({
+                                    identifier: device.identifier,
+                                    media: statusInfo.media,
+                                    errors: statusInfo.errors
+                                })
+                            });
+                        }
+                    });
+                });
+            } else {
+                // No devices found
+                console.log("No devices found via discovery.");
+            }
+        } catch (e) {
+            console.error("Error parsing discover output:", e, stdout);
         }
     });
 }

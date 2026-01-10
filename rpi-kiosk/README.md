@@ -9,8 +9,8 @@ This directory contains the Docker configuration for a lightweight, Kiosk-mode w
 
 ## Features
 *   **Optimized Image**: Builds using a multi-stage Dockerfile to minimize image size (~1GB -> reduced) by excluding build tools and using Python virtual environments.
-*   **Native Label Printing**: Includes `brother_ql` python library to print to Brother QL-600 series printers directly via USB without heavy CUPS drivers.
-*   **Hardware Bridge**: Runs a local websocket bridge to communicate between the Web App and USB Hardware.
+*   **Native Label Printing**: Uses `brother_ql_inventree` python library to print to Brother QL-600 series printers directly via USB. Supports automatic printer discovery and status monitoring (online/offline, media type).
+*   **Hardware Bridge**: Runs a local websocket bridge to communicate between the Web App and USB Hardware, facilitating printer discovery and real-time status updates.
 
 ## Installation Guide
 
