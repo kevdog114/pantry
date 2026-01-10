@@ -1,47 +1,79 @@
 import { NextFunction, Response, Request } from "express";
 import prisma from '../lib/prisma';
-import { Server } from 'socket.io'; // Import for type definition if needed, though we use `any` casting often for app.get
+import { Server } from 'socket.io';
+import { randomUUID } from 'crypto';
 
 export const printLabel = async (req: Request, res: Response, next: NextFunction): Promise<any> => {
-    // Legacy endpoint, maybe redirect or reimplement if used.
-    // For now, let's focus on the new requested functionality.
+    // Legacy endpoint
     res.status(501).json({ message: "Legacy endpoint not supported in new system yet." });
 }
 
-// This endpoint now supports a sample test print
+// Helper to send print command and wait for result
+const sendPrintCommandAndWait = async (targetSocket: any, payload: any): Promise<{ success: boolean, message: string }> => {
+    return new Promise((resolve, reject) => {
+        const requestId = randomUUID();
+        payload.requestId = requestId;
+
+        const timeout = setTimeout(() => {
+            cleanup();
+            resolve({ success: false, message: "Print command timed out (no response from device)." });
+        }, 15000); // 15 second timeout
+
+        const listener = (data: any) => {
+            if (data && data.requestId === requestId) {
+                cleanup();
+                resolve({
+                    success: data.success,
+                    message: data.message
+                });
+            }
+        };
+
+        const cleanup = () => {
+            clearTimeout(timeout);
+            targetSocket.off('print_complete', listener);
+        };
+
+        targetSocket.on('print_complete', listener);
+        targetSocket.emit('print_label', payload);
+    });
+};
+
+// Helper to find target socket
+const findTargetSocket = async (io: any): Promise<any> => {
+    const connectedSockets = await io.fetchSockets();
+
+    for (const socket of connectedSockets) {
+        const pat = (socket as any).pat;
+        if (!pat) continue;
+
+        if (pat.description && pat.description.startsWith('Kiosk Login - ')) {
+            const kioskName = pat.description.substring('Kiosk Login - '.length);
+            const kiosk = await prisma.kiosk.findFirst({
+                where: { userId: pat.userId, name: kioskName },
+                include: { devices: true }
+            });
+
+            if (kiosk) {
+                const printer = kiosk.devices.find(d => d.type === 'PRINTER' && d.status === 'ONLINE');
+                if (printer) {
+                    return socket;
+                }
+            }
+        }
+    }
+    return null;
+}
+
+
 export const printQuickLabel = async (req: Request, res: Response, next: NextFunction): Promise<any> => {
     try {
         const { text } = req.body;
         const io = req.app.get('io');
-        const connectedSockets = await io.fetchSockets();
-        let targetSocket: any = null;
 
-        // Naive selection: First kiosk with an Online Printer
-        // (Similar to printStockLabel logic)
-        for (const socket of connectedSockets) {
-            const pat = (socket as any).pat;
-            if (!pat) continue;
-
-            if (pat.description && pat.description.startsWith('Kiosk Login - ')) {
-                const kioskName = pat.description.substring('Kiosk Login - '.length);
-                const kiosk = await prisma.kiosk.findFirst({
-                    where: { userId: pat.userId, name: kioskName },
-                    include: { devices: true }
-                });
-
-                if (kiosk) {
-                    const printer = kiosk.devices.find(d => d.type === 'PRINTER' && d.status === 'ONLINE');
-                    if (printer) {
-                        targetSocket = socket;
-                        break;
-                    }
-                }
-            }
-        }
+        const targetSocket = await findTargetSocket(io);
 
         if (!targetSocket) {
-            // Fallback: If no Online printer found in DB, try sending to ANY kiosk socket just in case status lags?
-            // No, let's stick to status.
             res.status(503).json({ message: "No online label printers found." });
             return;
         }
@@ -53,9 +85,14 @@ export const printQuickLabel = async (req: Request, res: Response, next: NextFun
             }
         };
 
-        targetSocket.emit('print_label', payload);
+        const result = await sendPrintCommandAndWait(targetSocket, payload);
 
-        res.json({ success: true, message: "Test label command sent." });
+        if (result.success) {
+            res.json({ success: true, message: "Print successful." });
+        } else {
+            res.status(500).json({ success: false, message: "Print failed: " + result.message });
+        }
+
     } catch (e) {
         console.error('Error printing quick label', e);
         res.status(500).json({ message: "Failed to print test label" });
@@ -77,115 +114,13 @@ export const printStockLabel = async (req: Request, res: Response, next: NextFun
         }
 
         const io = req.app.get('io');
-
-        // Strategy: Find a target kiosk
-        // 1. If user is logged in via kiosk, try that one.
-        // 2. Else, find the first available kiosk with an ONLINE printer.
-
-        let targetKioskId: number | null = null;
-        if ((req.session as any).kioskId) {
-            targetKioskId = (req.session as any).kioskId;
-        }
-
-        let targetSocketRoom = '';
-
-        if (targetKioskId) {
-            // Validate this kiosk has a printer? Or just send it.
-            // We need the token to form the room name `kiosk_${token}`? 
-            // Actually, the KioskController logic linked PAT to Kiosk. 
-            // But the room is joined using the *Kiosk Token*?
-            // No, the bridge joins `kiosk_${token}` where token is the generated token used for linking.
-            // Wait, after linking, the token is deleted from KioskToken table.
-            // Let's re-read KioskController and Bridge.
-
-            // Bridge: `socket.emit('join_kiosk', token);` 
-            // The token used in bridge is the one generated by `generateToken`.
-            // But logic says: `await prisma.kioskToken.delete({ where: { id: kioskToken.id } });` after linking.
-            // So the bridge might be using a token that doesn't exist in DB anymore?
-            // No, the bridge stores the token in memory `state.token`.
-            // And `io.on('join_kiosk')` in server just joins the room. It does not validate existence in `KioskToken` table, 
-            // (unless I added check). The server.ts log says `Socket joining kiosk room ${token}`.
-
-            // The problem is: The backend doesn't know the "token" currently used by the Kiosk if it was deleted!
-            // The Kiosk object in DB doesn't store the ephemeral token.
-            // However, the PAT (Personal Access Token) for the kiosk exists.
-            // The bridge sends the PAT in `auth: { token: state.token }`.
-            // Wait, the `state.token` in bridge is the one from `generateToken` (which expires) OR the one from `kiosk_linked`?
-
-            // KioskLoginComponent:
-            // 1. `generateToken` -> returns ephemeral token. Bridge connects with this? No, KioskLoginComponent connects with this.
-            // 2. `linkKiosk` (backend) -> creates Kiosk, creates PAT, emits `kiosk_linked` with `authToken` (PAT).
-            // 3. `KioskLoginComponent` receives `kiosk_linked`.
-
-            // BUT, the Bridge (server.js) is separate.
-            // The User said: "The web app should generate an auth token... The docker image will then use that".
-            // My bridge implementation: `app.post('/connect', ...)` sets `state.token`.
-            // KioskLoginComponent calls `hardwareService.connectBridge(data.authToken)`.
-            // So the BRIDGE AUTH TOKEN is the PAT.
-
-            // So, the socket connection from Bridge to Backend uses the PAT.
-            // In `server.ts`:
-            // `io.use(async (socket, next) => { ... const pat = ... }`
-            // The bridge socket is authenticated with the PAT.
-
-            // Does the bridge join a room?
-            // `connectSocket` in bridge `server.js` -> `socket = io(...)`. 
-            // It does NOT emit `join_kiosk`.
-            // Wait, `KioskLoginComponent` emits `join_kiosk`.
-            // The Bridge code I wrote:
-            // `socket.on('connect', () => { console.log('Connected'); checkDevices(); });`
-            // It does NOT join a room explicitly.
-
-            // However, since the socket is authenticated with a User (the Kiosk User),
-            // I can find the socket by iterating connected sockets and checking `socket.pat.userId`.
-            // And since it's a kiosk, `pat.description` helps identify the kiosk.
-
-            // SO: To send a message to a specific Kiosk's bridge:
-            // 1. Find the Kiosk in DB.
-            // 2. Find the PATs for that Kiosk (UserId + Description match).
-            // 3. Find connected socket with that PAT.
-        }
-
-        // Logic to find the best socket to send to.
-        const connectedSockets = await io.fetchSockets();
-        let targetSocket: any = null;
-
-        // Find a socket that identifies as a kiosk with a printer
-        // We can iterate unconnected sockets, check their `pat`.
-
-        for (const socket of connectedSockets) {
-            const pat = (socket as any).pat;
-            if (!pat) continue;
-
-            // Check if this socket has registered a printer?
-            // We didn't store device info on the socket object, but we updated the DB.
-            // We can check if the PAT corresponds to a Kiosk that has an online printer.
-
-            if (pat.description && pat.description.startsWith('Kiosk Login - ')) {
-                const kioskName = pat.description.substring('Kiosk Login - '.length);
-                const kiosk = await prisma.kiosk.findFirst({
-                    where: { userId: pat.userId, name: kioskName },
-                    include: { devices: true }
-                });
-
-                if (kiosk) {
-                    const printer = kiosk.devices.find(d => d.type === 'PRINTER' && d.status === 'ONLINE');
-                    if (printer) {
-                        targetSocket = socket;
-                        break; // Found one!
-                    }
-                }
-            }
-        }
+        const targetSocket = await findTargetSocket(io);
 
         if (!targetSocket) {
             res.status(503).json({ message: "No online label printers found." });
             return;
         }
 
-        // Construct label data
-        // Label format depends on what the bridge/printer expects.
-        // I will send a generic object.
         const payload = {
             type: 'STOCK_LABEL',
             data: {
@@ -193,13 +128,17 @@ export const printStockLabel = async (req: Request, res: Response, next: NextFun
                 expirationDate: stockItem.expirationDate ? stockItem.expirationDate.toISOString().split('T')[0] : 'N/A',
                 quantity: stockItem.quantity,
                 stockId: stockItem.id,
-                qrData: `STOCK:${stockItem.id}` // Simple QR data
+                qrData: `STOCK:${stockItem.id}`
             }
         };
 
-        targetSocket.emit('print_label', payload);
+        const result = await sendPrintCommandAndWait(targetSocket, payload);
 
-        res.json({ success: true, message: "Label sent to printer." });
+        if (result.success) {
+            res.json({ success: true, message: "Label printed successfully." });
+        } else {
+            res.status(500).json({ success: false, message: "Print failed: " + result.message });
+        }
 
     } catch (e) {
         console.error('Error printing label', e);

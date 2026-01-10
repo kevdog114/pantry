@@ -147,27 +147,52 @@ function connectSocket() {
         // If we wanted to print:
         if (payload.type === 'STOCK_LABEL' || payload.type === 'SAMPLE_LABEL') {
             const data = JSON.stringify(payload.data);
+            const requestId = payload.requestId; // Extract request ID
 
             const fs = require('fs');
-            const tmpFile = '/tmp/label_data.json';
+            const tmpFile = `/tmp/label_data_${requestId || Date.now()}.json`;
 
             try {
                 fs.writeFileSync(tmpFile, data);
                 console.log('Executing python print script...');
                 // Use the venv python
-                const pythonCmd = '/opt/venv/bin/python3 print_label.py print /tmp/label_data.json';
+                const pythonCmd = '/opt/venv/bin/python3 print_label.py print ' + tmpFile;
+
                 exec(pythonCmd, (err, stdout, stderr) => {
+                    let success = true;
+                    let message = 'Print successful';
+
                     if (err) {
                         console.error('Print Error:', err);
                         console.error('Stderr:', stderr);
+                        success = false;
+                        message = stderr || err.message || 'Unknown print error';
                     } else {
                         console.log('Print Output:', stdout);
                     }
+
+                    // Send result back to backend
+                    if (requestId) {
+                        socket.emit('print_complete', {
+                            requestId: requestId,
+                            success: success,
+                            message: message
+                        });
+                    }
+
                     // Clean up
                     try { fs.unlinkSync(tmpFile); } catch (e) { }
                 });
             } catch (e) {
                 console.error("Error preparing label data file:", e);
+                // Report immediate failure
+                if (requestId) {
+                    socket.emit('print_complete', {
+                        requestId: requestId,
+                        success: false,
+                        message: "Failed to prepare print data file: " + e.message
+                    });
+                }
             }
         }
     });
