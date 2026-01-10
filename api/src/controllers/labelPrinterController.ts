@@ -55,7 +55,7 @@ const findTargetSocket = async (io: any): Promise<any> => {
             });
 
             if (kiosk) {
-                const printer = kiosk.devices.find(d => d.type === 'PRINTER' && d.status === 'ONLINE');
+                const printer = kiosk.devices.find(d => d.type === 'PRINTER' && (d.status === 'ONLINE' || d.status === 'READY'));
                 if (printer) {
                     return socket;
                 }

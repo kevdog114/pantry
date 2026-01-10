@@ -23,16 +23,17 @@
                             <div matListItemTitle class="font-medium">{{ device.name }}</div>
                             <div matListItemLine class="flex items-center gap-2">
                                 <span>Status:</span>
-                                <span [class.text-green-600]="device.status === 'ONLINE'"
-                                    [class.text-red-500]="device.status !== 'ONLINE'"
+                                <span [class.text-green-600]="device.status === 'ONLINE' || device.status === 'READY'"
+                                    [class.text-red-500]="device.status !== 'ONLINE' && device.status !== 'READY'"
                                     class="font-bold text-xs uppercase tracking-wide bg-opacity-10 px-2 py-0.5 rounded-full"
-                                    [ngClass]="device.status === 'ONLINE' ? 'bg-green-100' : 'bg-red-100'">
+                                    [ngClass]="(device.status === 'ONLINE' || device.status === 'READY') ? 'bg-green-100' : 'bg-red-100'">
                                     {{ device.status }}
                                 </span>
                             </div>
                             <div matListItemLine class="text-xs text-gray-400">Last Seen: {{ device.lastSeen |
                                 date:'short' }}</div>
-                            <div matListItemMeta *ngIf="device.type === 'PRINTER' && device.status === 'ONLINE'">
+                            <div matListItemMeta
+                                *ngIf="device.type === 'PRINTER' && (device.status === 'ONLINE' || device.status === 'READY')">
                                 <button mat-icon-button color="primary" (click)="printTestLabel(device)"
                                     matTooltip="Print Test Label">
                                     <mat-icon>print</mat-icon>
