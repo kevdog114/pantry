@@ -106,13 +106,19 @@ function connectSocket() {
 
     console.log(`Socket connecting to origin: ${origin} with path: ${socketPath}`);
 
-    socket = io(origin, {
-        path: socketPath,
-        auth: { token: state.token },
-        transports: ['websocket', 'polling'],
-        reconnection: true,
-        reconnectionDelay: 5000
-    });
+    console.log("Socket token", state.token);
+    try {
+        socket = io(origin, {
+            path: socketPath,
+            auth: { token: state.token },
+            transports: ['polling', 'websocket'], // Start with polling (curl verified this works)
+            reconnection: true,
+            reconnectionDelay: 5000
+        });
+    } catch (e) {
+        console.error("Socket connection error", e);
+        throw e;
+    }
 
     socket.on('connect', () => {
         console.log('Connected to backend');
