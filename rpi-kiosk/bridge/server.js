@@ -144,7 +144,8 @@ function connectSocket() {
 
         // For Proof of Concept: Log it explicitly.
         // If we wanted to print:
-        if (payload.type === 'STOCK_LABEL') {
+        // If we wanted to print:
+        if (payload.type === 'STOCK_LABEL' || payload.type === 'SAMPLE_LABEL') {
             const data = JSON.stringify(payload.data);
 
             const fs = require('fs');

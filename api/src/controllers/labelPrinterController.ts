@@ -8,9 +8,58 @@ export const printLabel = async (req: Request, res: Response, next: NextFunction
     res.status(501).json({ message: "Legacy endpoint not supported in new system yet." });
 }
 
+// This endpoint now supports a sample test print
 export const printQuickLabel = async (req: Request, res: Response, next: NextFunction): Promise<any> => {
-    // Implement quick label via websocket if needed later
-    res.status(501).json({ message: "Not implemented yet" });
+    try {
+        const { text } = req.body;
+        const io = req.app.get('io');
+        const connectedSockets = await io.fetchSockets();
+        let targetSocket: any = null;
+
+        // Naive selection: First kiosk with an Online Printer
+        // (Similar to printStockLabel logic)
+        for (const socket of connectedSockets) {
+            const pat = (socket as any).pat;
+            if (!pat) continue;
+
+            if (pat.description && pat.description.startsWith('Kiosk Login - ')) {
+                const kioskName = pat.description.substring('Kiosk Login - '.length);
+                const kiosk = await prisma.kiosk.findFirst({
+                    where: { userId: pat.userId, name: kioskName },
+                    include: { devices: true }
+                });
+
+                if (kiosk) {
+                    const printer = kiosk.devices.find(d => d.type === 'PRINTER' && d.status === 'ONLINE');
+                    if (printer) {
+                        targetSocket = socket;
+                        break;
+                    }
+                }
+            }
+        }
+
+        if (!targetSocket) {
+            // Fallback: If no Online printer found in DB, try sending to ANY kiosk socket just in case status lags?
+            // No, let's stick to status.
+            res.status(503).json({ message: "No online label printers found." });
+            return;
+        }
+
+        const payload = {
+            type: 'SAMPLE_LABEL',
+            data: {
+                text: text || "Test Label"
+            }
+        };
+
+        targetSocket.emit('print_label', payload);
+
+        res.json({ success: true, message: "Test label command sent." });
+    } catch (e) {
+        console.error('Error printing quick label', e);
+        res.status(500).json({ message: "Failed to print test label" });
+    }
 }
 
 export const printStockLabel = async (req: Request, res: Response, next: NextFunction): Promise<any> => {

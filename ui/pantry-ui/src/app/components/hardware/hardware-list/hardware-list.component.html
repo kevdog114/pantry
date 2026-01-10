@@ -32,6 +32,12 @@
                             </div>
                             <div matListItemLine class="text-xs text-gray-400">Last Seen: {{ device.lastSeen |
                                 date:'short' }}</div>
+                            <div matListItemMeta *ngIf="device.type === 'PRINTER' && device.status === 'ONLINE'">
+                                <button mat-icon-button color="primary" (click)="printTestLabel(device)"
+                                    matTooltip="Print Test Label">
+                                    <mat-icon>print</mat-icon>
+                                </button>
+                            </div>
                         </mat-list-item>
                     </div>
                     <ng-template #noDevices>

@@ -15,15 +15,11 @@ def create_label_image(data):
     # Height is variable for continuous tape.
     
     width = 696
-    height = 500 # Adjust based on content
+    height = 500 
     
-    # Create white image
     img = Image.new('RGB', (width, height), color='white')
     draw = ImageDraw.Draw(img)
     
-    # Load fonts (using default if custom not found)
-    # On Debian/Linux, fonts are often in /usr/share/fonts
-    # We'll use default PIL font or try to load a ttf
     try:
         font_large = ImageFont.truetype("/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf", 60)
         font_medium = ImageFont.truetype("/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf", 40)
@@ -33,38 +29,44 @@ def create_label_image(data):
         font_medium = ImageFont.load_default()
         font_small = ImageFont.load_default()
 
-    # Draw Title
-    title = data.get('title', 'Unknown Product')[:30] # Truncate if too long
-    draw.text((20, 20), title, font=font_large, fill='black')
-    
-    # Draw Qty and Expiration
-    qty = f"Qty: {data.get('quantity', 1)}"
-    expires = f"Expires: {data.get('expirationDate', 'N/A')}"
-    
-    draw.text((20, 100), qty, font=font_medium, fill='black')
-    draw.text((20, 150), expires, font=font_medium, fill='black')
-    
-    # Draw Code (Stock ID)
-    code_text = f"ID: {data.get('stockId', '')}"
-    draw.text((20, 220), code_text, font=font_small, fill='black')
+    # If simple text label (Quick Print / Sample)
+    if 'text' in data:
+        lines = data['text'].split('\n')
+        y = 100
+        for line in lines:
+            draw.text((50, y), line, font=font_large, fill='black')
+            y += 80
+            
+        # Optional Footer
+        draw.text((50, height - 50), "Pantry App Test", font=font_small, fill='black')
+        
+    else:
+        # Stock Label Format
+        title = data.get('title', 'Unknown Product')[:30] 
+        draw.text((20, 20), title, font=font_large, fill='black')
+        
+        qty = f"Qty: {data.get('quantity', 1)}"
+        expires = f"Expires: {data.get('expirationDate', 'N/A')}"
+        
+        draw.text((20, 100), qty, font=font_medium, fill='black')
+        draw.text((20, 150), expires, font=font_medium, fill='black')
+        
+        code_text = f"ID: {data.get('stockId', '')}"
+        draw.text((20, 220), code_text, font=font_small, fill='black')
 
-    # Generate QR Code
-    qr_data = data.get('qrData', f"STOCK:{data.get('stockId')}")
-    qr = qrcode.QRCode(
-        version=1,
-        error_correction=qrcode.constants.ERROR_CORRECT_L,
-        box_size=10,
-        border=2,
-    )
-    qr.add_data(qr_data)
-    qr.make(fit=True)
-    qr_img = qr.make_image(fill_color="black", back_color="white")
-    
-    # Resize QR if needed (e.g. max 200x200)
-    qr_img = qr_img.resize((200, 200))
-    
-    # Paste QR code on the right side
-    img.paste(qr_img, (width - 240, 50))
+        # Generate QR Code
+        qr_data = data.get('qrData', f"STOCK:{data.get('stockId')}")
+        qr = qrcode.QRCode(
+            version=1,
+            error_correction=qrcode.constants.ERROR_CORRECT_L,
+            box_size=10,
+            border=2,
+        )
+        qr.add_data(qr_data)
+        qr.make(fit=True)
+        qr_img = qr.make_image(fill_color="black", back_color="white")
+        qr_img = qr_img.resize((200, 200))
+        img.paste(qr_img, (width - 240, 50))
     
     return img
 
