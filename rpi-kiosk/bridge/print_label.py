@@ -32,20 +32,13 @@ logger = logging.getLogger(__name__)
 
 def create_label_image(data):
     # Label properties (Brother QL-600 with 62mm tape)
-    # 62mm tape is approx 696 pixels wide (printable area around 620-690 depending on margins)
-    # Let's target a width of 696 (standard for 62mm)
-    # Height is variable for continuous tape.
-    
+    # 62mm tape is approx 696 pixels wide
     width = 696
-    height = 500 
-    
-    img = Image.new('RGB', (width, height), color='white')
-    draw = ImageDraw.Draw(img)
     
     try:
-        font_large = ImageFont.truetype("/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf", 60)
+        font_large = ImageFont.truetype("/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf", 55)
         font_medium = ImageFont.truetype("/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf", 40)
-        font_small = ImageFont.truetype("/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf", 30)
+        font_small = ImageFont.truetype("/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf", 25)
     except:
         font_large = ImageFont.load_default()
         font_medium = ImageFont.load_default()
@@ -53,42 +46,69 @@ def create_label_image(data):
 
     # If simple text label (Quick Print / Sample)
     if 'text' in data:
+        height = 500
+        img = Image.new('RGB', (width, height), color='white')
+        draw = ImageDraw.Draw(img)
+        
         lines = data['text'].split('\n')
         y = 100
         for line in lines:
             draw.text((50, y), line, font=font_large, fill='black')
             y += 80
             
-        # Optional Footer
         draw.text((50, height - 50), "Pantry App Test", font=font_small, fill='black')
         
     else:
-        # Stock Label Format
-        title = data.get('title', 'Unknown Product')[:30] 
-        draw.text((20, 20), title, font=font_large, fill='black')
+        # Stock Label Format (Compact)
+        # "Half as long" -> ~250-300px
+        height = 300
+        img = Image.new('RGB', (width, height), color='white')
+        draw = ImageDraw.Draw(img)
         
-        qty = f"Qty: {data.get('quantity', 1)}"
-        expires = f"Expires: {data.get('expirationDate', 'N/A')}"
-        
-        draw.text((20, 100), qty, font=font_medium, fill='black')
-        draw.text((20, 150), expires, font=font_medium, fill='black')
-        
-        code_text = f"ID: {data.get('stockId', '')}"
-        draw.text((20, 220), code_text, font=font_small, fill='black')
-
-        # Generate QR Code
-        qr_data = data.get('qrData', f"STOCK:{data.get('stockId')}")
+        # QR Code Generation
+        qr_data = data.get('qrData', f"S2-{data.get('stockId')}")
         qr = qrcode.QRCode(
             version=1,
             error_correction=qrcode.constants.ERROR_CORRECT_L,
-            box_size=10,
-            border=2,
+            box_size=8,
+            border=1,
         )
         qr.add_data(qr_data)
         qr.make(fit=True)
+        
+        qr_target_size = 200
         qr_img = qr.make_image(fill_color="black", back_color="white")
-        qr_img = qr_img.resize((200, 200))
-        img.paste(qr_img, (width - 240, 50))
+        qr_img = qr_img.resize((qr_target_size, qr_target_size))
+        
+        # Layout:
+        # Left: QR Code
+        # Bottom Left: ID Text
+        # Right: Product Name + Expiration
+        
+        margin_left = 30
+        margin_top = 20
+        
+        # Paste QR
+        img.paste(qr_img, (margin_left, margin_top))
+        
+        # Text under QR
+        id_text = f"{qr_data}" # S2-ID
+        draw.text((margin_left + 10, margin_top + qr_target_size + 5), id_text, font=font_small, fill='black')
+        
+        # Right Side Content
+        text_x = margin_left + qr_target_size + 40
+        
+        # Title (Truncate to fit potentially)
+        title = data.get('title', 'Unknown Product')
+        # Simple wrap or truncate? Truncate for now to fit line
+        if len(title) > 20: 
+            title = title[:19] + "..."
+            
+        draw.text((text_x, 40), title, font=font_large, fill='black')
+        
+        # Expiration
+        expires = f"Exp: {data.get('expirationDate', 'N/A')}"
+        draw.text((text_x, 120), expires, font=font_medium, fill='black')
     
     return img
 

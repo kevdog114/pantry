@@ -128,7 +128,7 @@ export const printStockLabel = async (req: Request, res: Response, next: NextFun
                 expirationDate: stockItem.expirationDate ? stockItem.expirationDate.toISOString().split('T')[0] : 'N/A',
                 quantity: stockItem.quantity,
                 stockId: stockItem.id,
-                qrData: `STOCK:${stockItem.id}`
+                qrData: `S2-${stockItem.id}`
             }
         };
 
