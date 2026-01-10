@@ -33,6 +33,7 @@ RUN apt-get update && apt-get install -y \
     matchbox-window-manager \
     python3 \
     libopenjp2-7 \
+    curl \
     --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 

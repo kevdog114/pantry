@@ -44,16 +44,22 @@ io.use(async (socket, next) => {
     const token = socket.handshake.auth.token;
     if (token) {
         try {
+            console.log(`Socket ${socket.id} authenticating with token prefix ${token.substring(0, 6)}...`);
             const pat = await prisma.personalAccessToken.findUnique({
                 where: { token },
                 include: { user: true }
             });
             if (pat) {
+                console.log(`Socket ${socket.id} authenticated as user ${pat.user.username}`);
                 (socket as any).pat = pat;
+            } else {
+                console.warn(`Socket ${socket.id} failed auth: Token invalid or expired`);
             }
         } catch (e) {
             console.error("Socket auth error", e);
         }
+    } else {
+        console.log(`Socket ${socket.id} connecting without auth token`);
     }
     next();
 });
