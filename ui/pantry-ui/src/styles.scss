@@ -14,35 +14,45 @@ body {
   font-family: Roboto, "Helvetica Neue", sans-serif;
 }
 
-// Define the light theme
+// Define the light theme using M3-compatible palettes
 $light-theme: mat.define-theme((color: (theme-type: light,
         primary: mat.$cyan-palette,
         tertiary: mat.$blue-palette,
       ),
-    ));
+      typography: (use-system-variables: true,
+      ),
+      density: (scale: 0,
+      )));
 
-// Define the dark theme
+// Define the dark theme using M3-compatible palettes
 $dark-theme: mat.define-theme((color: (theme-type: dark,
         primary: mat.$cyan-palette,
         tertiary: mat.$blue-palette,
       ),
-    ));
+      typography: (use-system-variables: true,
+      ),
+      density: (scale: 0,
+      )));
 
 html {
   color-scheme: light dark;
 
   // Apply the light theme by default
   @include mat.all-component-themes($light-theme);
+  @include mat.system-level-colors($light-theme);
+  @include mat.system-level-typography($light-theme);
 
   // Apply the dark theme when the user prefers dark mode
   @media (prefers-color-scheme: dark) {
     @include mat.all-component-themes($dark-theme);
+    @include mat.system-level-colors($dark-theme);
   }
 
   // Force dark theme if Bootstrap is in dark mode
   &[data-bs-theme="dark"] {
     color-scheme: dark;
     @include mat.all-component-themes($dark-theme);
+    @include mat.system-level-colors($dark-theme);
   }
 }
 

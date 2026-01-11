@@ -55,7 +55,21 @@ def set_display(state):
         logger.error(f"Failed to set display: {e}")
         return False
 
+def check_display_state():
+    try:
+        # Check actual display state via xset q
+        result = subprocess.run(['xset', 'q'], capture_output=True, text=True)
+        output = result.stdout
+        if "Monitor is On" in output:
+            return "ON"
+        if "Monitor is Off" in output:
+            return "OFF"
+    except Exception as e:
+        logger.error(f"Error checking display state: {e}")
+    return None
+
 def run_mqtt(device_id, device_name):
+    global current_display_state
     mqtt_broker = os.getenv('MQTT_BROKER')
     mqtt_port = int(os.getenv('MQTT_PORT', 1883))
     mqtt_user = os.getenv('MQTT_USER')
@@ -147,6 +161,13 @@ def run_mqtt(device_id, device_name):
                     logger.info("Config file created. Restarting MQTT...")
                     break
             
+            # Check for external state changes
+            actual_state = check_display_state()
+            if actual_state and actual_state != current_display_state:
+                logger.info(f"Display state sync: {current_display_state} -> {actual_state}")
+                current_display_state = actual_state
+                client.publish(topic_state, current_display_state, retain=True)
+
             # Simple keepalive check? loop_start handles reconnects.
             
     except Exception as e:
