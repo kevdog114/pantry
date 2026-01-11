@@ -34,6 +34,7 @@ RUN apt-get update && apt-get install -y \
     python3 \
     libopenjp2-7 \
     curl \
+    x11-xserver-utils \
     --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
