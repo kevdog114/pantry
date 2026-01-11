@@ -43,5 +43,6 @@ chromium \
   --enable-features=OverlayScrollbar \
   --start-maximized \
   --window-position=0,0 \
+  --pull-to-refresh=1 \
   --user-data-dir="/data" \
   "$TARGET_URL"

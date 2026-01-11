@@ -52,7 +52,7 @@ export class AppComponent implements OnInit {
     this.router.events.pipe(
       filter(event => event instanceof NavigationEnd)
     ).subscribe((event: NavigationEnd) => {
-      this.isFullWidth = event.urlAfterRedirects.includes('/gemini-chat');
+      this.isFullWidth = event.urlAfterRedirects.includes('/gemini-chat') || event.urlAfterRedirects.includes('/home');
     });
   }
 
