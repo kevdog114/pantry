@@ -5,6 +5,11 @@ echo "Starting Hardware Bridge..."
 cd /bridge
 node server.js > /var/log/bridge.log 2>&1 &
 
+if [ -n "$MQTT_BROKER" ]; then
+    echo "Starting MQTT Bridge..."
+    /opt/venv/bin/python3 -u mqtt_bridge.py > /var/log/mqtt_bridge.log 2>&1 &
+fi
+
 # Default URL if not provided
 TARGET_URL="${URL:-https://google.com}"
 
@@ -40,6 +45,7 @@ chromium \
   --check-for-update-interval=31536000 \
   --simulator-trace-events \
   --touch-events=enabled \
+  --disable-features=BlockInsecurePrivateNetworkRequests \
   --enable-features=OverlayScrollbar \
   --start-maximized \
   --window-position=0,0 \

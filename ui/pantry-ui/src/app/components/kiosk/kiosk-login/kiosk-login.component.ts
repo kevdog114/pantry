@@ -94,7 +94,7 @@ export class KioskLoginComponent implements OnInit, OnDestroy {
                     next: (res) => {
                         // Successfully logged in (cookie set)
                         console.log('Login success, attempting to connect hardware bridge...');
-                        this.hardwareService.connectBridge(data.authToken).subscribe({
+                        this.hardwareService.connectBridge(data.authToken, data.kioskName).subscribe({
                             next: (bridgeRes) => console.log('Hardware bridge connected', bridgeRes),
                             error: (err) => console.warn('Hardware bridge connection failed (ignore if not on Kiosk Device)', err)
                         });

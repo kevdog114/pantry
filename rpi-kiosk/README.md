@@ -11,6 +11,7 @@ This directory contains the Docker configuration for a lightweight, Kiosk-mode w
 *   **Optimized Image**: Builds using a multi-stage Dockerfile to minimize image size (~1GB -> reduced) by excluding build tools and using Python virtual environments.
 *   **Native Label Printing**: Uses `brother_ql_inventree` python library to print to Brother QL-600 series printers directly via USB. Supports automatic printer discovery and status monitoring (online/offline, media type).
 *   **Hardware Bridge**: Runs a local websocket bridge to communicate between the Web App and USB Hardware, facilitating printer discovery and real-time status updates.
+*   **MQTT Integration**: Connects to an MQTT Broker to expose the display controls to Home Assistant. **Auto-Configures** using the Kiosk Name assigned during login.
 
 ## Installation Guide
 
@@ -87,6 +88,12 @@ docker run --rm \
   --privileged \
   -e DISPLAY=:0 \
   -e URL="https://pantry.yourdomain.com" \
+  # Optional: MQTT Integration (Home Assistant)
+  # -e MQTT_BROKER="192.168.1.10" \
+  # -e MQTT_PORT=1883 \
+  # -e MQTT_USER="homeassistant" \
+  # -e MQTT_PASSWORD="password" \
+  # -e KIOSK_ID="pantry_kiosk" \
   --ipc=host \
   --pull=always \
   klschaefer/pantry-kiosk:latest

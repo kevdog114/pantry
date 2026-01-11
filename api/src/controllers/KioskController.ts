@@ -66,6 +66,7 @@ export const linkKiosk = async (req: Request, res: Response) => {
             io.to(`kiosk_${token}`).emit("kiosk_linked", {
                 success: true,
                 kioskId: kiosk.id,
+                kioskName: kiosk.name,
                 authToken: pat.token
             });
         }

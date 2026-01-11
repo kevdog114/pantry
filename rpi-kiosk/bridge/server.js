@@ -24,11 +24,26 @@ app.get('/health', (req, res) => {
 });
 
 // API to connect to backend
+const fs = require('fs');
+
 app.post('/connect', (req, res) => {
-    const { token, apiUrl } = req.body;
+    const { token, apiUrl, kioskName } = req.body;
     if (!token) return res.status(400).json({ error: 'Token required' });
 
-    console.log('Received connect request', { apiUrl });
+    console.log('Received connect request', { apiUrl, kioskName });
+
+    if (kioskName) {
+        try {
+            const config = {
+                device_name: kioskName,
+                device_id: kioskName.toLowerCase().replace(/[^a-z0-9]/g, '_')
+            };
+            fs.writeFileSync('kiosk_config.json', JSON.stringify(config));
+            console.log("Updated kiosk config:", config);
+        } catch (e) {
+            console.error("Error writing kiosk config:", e);
+        }
+    }
 
     state.token = token;
     if (apiUrl) state.backendUrl = apiUrl;
