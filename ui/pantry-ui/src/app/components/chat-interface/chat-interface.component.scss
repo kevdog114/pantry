@@ -35,6 +35,7 @@
     font-size: 2.5rem;
     background: -webkit-linear-gradient(45deg, #FF6B6B, #556270);
     -webkit-background-clip: text;
+    background-clip: text;
     -webkit-text-fill-color: transparent;
     margin-bottom: 0.5rem;
 }
@@ -159,14 +160,4 @@
     /* Or a subtle gradient if desired */
 }
 
-/* Dark Mode Support */
-@media (prefers-color-scheme: dark) {
-    .bot-bubble {
-        background: #333;
-        color: #ddd;
-    }
-
-    .typing-indicator {
-        background: #333;
-    }
-}
+/* Dark Mode supported via global theme variables */

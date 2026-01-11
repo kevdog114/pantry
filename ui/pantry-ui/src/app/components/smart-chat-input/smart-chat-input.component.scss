@@ -73,15 +73,7 @@ mat-form-field {
     transform: scale(0.85);
 }
 
-/* Manual Dark Mode Fallback */
-@media (prefers-color-scheme: dark) {
-    .smart-input-container {
-        background: #2d2d2d;
-        background: var(--mat-sys-surface-container-high, #2d2d2d);
-        border-color: #444;
-        color: #e0e0e0;
-    }
-}
+/* Dark Mode handled by system variables */
 
 @keyframes pulse-red {
     0% {

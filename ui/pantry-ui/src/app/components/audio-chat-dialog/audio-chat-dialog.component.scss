@@ -111,18 +111,4 @@
     gap: 8px;
 }
 
-/* Dark mode specific manual overrides if css vars fail */
-@media (prefers-color-scheme: dark) {
-    .transcript {
-        background: #333;
-        color: #eee;
-        border-color: #444;
-    }
-
-    .response {
-        background: #2a2a2a;
-        /* Fallback */
-        background: var(--mat-sys-primary-container);
-        color: var(--mat-sys-on-primary-container);
-    }
-}
+/* Dark mode handled by system variables */

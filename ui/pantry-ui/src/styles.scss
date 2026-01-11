@@ -41,6 +41,7 @@ html {
 
   // Force dark theme if Bootstrap is in dark mode
   &[data-bs-theme="dark"] {
+    color-scheme: dark;
     @include mat.all-component-themes($dark-theme);
   }
 }
