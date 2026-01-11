@@ -57,7 +57,31 @@ def create_label_image(data):
             y += 80
             
         draw.text((50, height - 50), "Pantry App Test", font=font_small, fill='black')
+
+    elif 'action' in data:
+        # Modifier Label (Opened/Frozen) - Compact Single Line
+        height = 90
+        # Re-initialize fonts for modifier
+        try:
+            # Slightly smaller font to fit single line
+            font_mod = ImageFont.truetype("/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf", 30)
+        except:
+            font_mod = ImageFont.load_default()
+            
+        img = Image.new('RGB', (width, height), color='white')
+        draw = ImageDraw.Draw(img)
         
+        # Content: "{Action} {Date}   Exp: {Expiration}"
+        # Example: "Opened 2025-01-10   Exp: 2025-02-15"
+        
+        action_text = f"{data.get('action', 'Modified')} {data.get('date', '')}"
+        expiry_text = f"Exp: {data.get('expiration', 'N/A')}"
+        
+        full_text = f"{action_text}   {expiry_text}"
+        
+        # Center text vertically?
+        draw.text((30, 25), full_text, font=font_mod, fill='black')
+
     else:
         # Stock Label Format (Compact)
         # "About 200px height" as requested

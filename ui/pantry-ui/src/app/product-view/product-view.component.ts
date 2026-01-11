@@ -114,6 +114,7 @@ export class ProductViewComponent {
     }
 
     stockItem.opened = true;
+    stockItem.openedDate = new Date();
     this.svc.UpdateStock(stockItem.id!, stockItem).subscribe(() => {
       this.snackbar.open("Updated stock item", "Okay", {
         duration: 5000
@@ -145,6 +146,25 @@ export class ProductViewComponent {
     this.labelService.printStockLabel(stockItem.id!).subscribe({
       next: (res) => {
         this.snackbar.open(res.message || "Label Sent", "Okay", { duration: 3000 });
+      },
+      error: (err) => {
+        this.snackbar.open("Failed to print label", "Dismiss", { duration: 5000 });
+        console.error(err);
+      }
+    });
+  }
+
+  printModifier(stockItem: StockItem, action: string) {
+    let dateStr = new Date().toISOString().split('T')[0];
+
+    if (action === 'Opened' && stockItem.openedDate) {
+      dateStr = new Date(stockItem.openedDate).toISOString().split('T')[0];
+    }
+
+    const expiry = stockItem.expirationDate ? new Date(stockItem.expirationDate).toISOString().split('T')[0] : 'N/A';
+    this.labelService.printModifierLabel(action, dateStr, expiry).subscribe({
+      next: (res) => {
+        this.snackbar.open(res.message || "Modifier Label Sent", "Okay", { duration: 3000 });
       },
       error: (err) => {
         this.snackbar.open("Failed to print label", "Dismiss", { duration: 5000 });

@@ -145,3 +145,37 @@ export const printStockLabel = async (req: Request, res: Response, next: NextFun
         res.status(500).json({ message: "Failed to print label" });
     }
 }
+export const printModifierLabel = async (req: Request, res: Response, next: NextFunction): Promise<any> => {
+    try {
+        const { action, date, expiration } = req.body;
+        const io = req.app.get('io');
+
+        const targetSocket = await findTargetSocket(io);
+
+        if (!targetSocket) {
+            res.status(503).json({ message: "No online label printers found." });
+            return;
+        }
+
+        const payload = {
+            type: 'MODIFIER_LABEL',
+            data: {
+                action: action || "Modified",
+                date: date || new Date().toISOString().split('T')[0],
+                expiration: expiration || "N/A"
+            }
+        };
+
+        const result = await sendPrintCommandAndWait(targetSocket, payload);
+
+        if (result.success) {
+            res.json({ success: true, message: "Modifier label printed." });
+        } else {
+            res.status(500).json({ success: false, message: "Print failed: " + result.message });
+        }
+
+    } catch (e) {
+        console.error('Error printing modifier label', e);
+        res.status(500).json({ message: "Failed to print modifier label" });
+    }
+}

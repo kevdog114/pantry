@@ -28,7 +28,8 @@ export const update = async (req: Request, res: Response, next: NextFunction): P
             expirationDate: req.body.expirationDate ? new Date(req.body.expirationDate) : undefined,
             quantity: req.body.quantity,
             frozen: req.body.frozen,
-            opened: req.body.opened
+            opened: req.body.opened,
+            openedDate: req.body.openedDate ? new Date(req.body.openedDate) : undefined
         }
     });
     res.send(stockItem);

@@ -145,7 +145,7 @@ function connectSocket() {
         // For Proof of Concept: Log it explicitly.
         // If we wanted to print:
         // If we wanted to print:
-        if (payload.type === 'STOCK_LABEL' || payload.type === 'SAMPLE_LABEL') {
+        if (payload.type === 'STOCK_LABEL' || payload.type === 'SAMPLE_LABEL' || payload.type === 'MODIFIER_LABEL') {
             const data = JSON.stringify(payload.data);
             const requestId = payload.requestId; // Extract request ID
 

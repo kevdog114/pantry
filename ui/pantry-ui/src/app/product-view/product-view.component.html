@@ -78,6 +78,14 @@
                                 <mat-icon>print</mat-icon>
                                 Print Stock Label
                             </button>
+                            <button mat-menu-item *ngIf="row.opened" (click)="printModifier(row, 'Opened')">
+                                <mat-icon>print</mat-icon>
+                                Print 'Opened' Status
+                            </button>
+                            <button mat-menu-item *ngIf="row.frozen" (click)="printModifier(row, 'Frozen')">
+                                <mat-icon>print</mat-icon>
+                                Print 'Frozen' Status
+                            </button>
                         </mat-menu>
                     </td>
                 </ng-container>

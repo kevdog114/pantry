@@ -13,6 +13,7 @@ export interface StockItem {
     opened: boolean
     frozen: boolean
     expirationExtensionAfterThaw: number
+    openedDate?: Date
 }
 
 export interface ProductBarcode {
