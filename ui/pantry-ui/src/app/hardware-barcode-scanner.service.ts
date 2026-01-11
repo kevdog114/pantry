@@ -33,6 +33,26 @@ export class HardwareBarcodeScannerService {
         }
       })
     }
+    else if (barcode.toLowerCase().startsWith("s2-")) {
+      // new s2 stock item barcode
+      barcode = barcode.substring(3);
+      this.http.get<any>(environment.apiUrl + "/stock-items/" + barcode).subscribe(result => {
+        if (result) {
+          // Result likely contains ProductId (or product.id)
+          // Adjust based on expected return of /stock-items/:id
+          // Assuming it returns StockItem object which has productId or product: { id }
+          const productId = result.ProductId || result.productId || result.product?.id;
+
+          if (productId) {
+            this.router.navigate(["products", productId], {
+              queryParams: {
+                "stock-id": result.id
+              }
+            });
+          }
+        }
+      })
+    }
     else {
       // assume product barcode
       let missingBarcodeRedir = () => {

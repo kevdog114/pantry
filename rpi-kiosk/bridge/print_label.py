@@ -60,8 +60,18 @@ def create_label_image(data):
         
     else:
         # Stock Label Format (Compact)
-        # "Half as long" -> ~250-300px
-        height = 300
+        # "About 200px height" as requested
+        height = 200
+        # Re-initialize fonts for smaller scale
+        try:
+            font_large = ImageFont.truetype("/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf", 45)
+            font_medium = ImageFont.truetype("/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf", 30)
+            font_small = ImageFont.truetype("/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf", 20)
+        except:
+            font_large = ImageFont.load_default()
+            font_medium = ImageFont.load_default()
+            font_small = ImageFont.load_default()
+
         img = Image.new('RGB', (width, height), color='white')
         draw = ImageDraw.Draw(img)
         
@@ -70,13 +80,13 @@ def create_label_image(data):
         qr = qrcode.QRCode(
             version=1,
             error_correction=qrcode.constants.ERROR_CORRECT_L,
-            box_size=8,
+            box_size=6, # Smaller box size
             border=1,
         )
         qr.add_data(qr_data)
         qr.make(fit=True)
         
-        qr_target_size = 200
+        qr_target_size = 150 # Smaller QR code
         qr_img = qr.make_image(fill_color="black", back_color="white")
         qr_img = qr_img.resize((qr_target_size, qr_target_size))
         
@@ -85,30 +95,30 @@ def create_label_image(data):
         # Bottom Left: ID Text
         # Right: Product Name + Expiration
         
-        margin_left = 30
-        margin_top = 20
+        margin_left = 20
+        margin_top = 25 # Vertically centered approx
         
         # Paste QR
         img.paste(qr_img, (margin_left, margin_top))
         
         # Text under QR
         id_text = f"{qr_data}" # S2-ID
-        draw.text((margin_left + 10, margin_top + qr_target_size + 5), id_text, font=font_small, fill='black')
+        draw.text((margin_left + 5, margin_top + qr_target_size + 2), id_text, font=font_small, fill='black')
         
         # Right Side Content
-        text_x = margin_left + qr_target_size + 40
+        text_x = margin_left + qr_target_size + 20
         
         # Title (Truncate to fit potentially)
         title = data.get('title', 'Unknown Product')
         # Simple wrap or truncate? Truncate for now to fit line
-        if len(title) > 20: 
-            title = title[:19] + "..."
+        if len(title) > 22: 
+            title = title[:21] + "..."
             
-        draw.text((text_x, 40), title, font=font_large, fill='black')
+        draw.text((text_x, 30), title, font=font_large, fill='black')
         
         # Expiration
         expires = f"Exp: {data.get('expirationDate', 'N/A')}"
-        draw.text((text_x, 120), expires, font=font_medium, fill='black')
+        draw.text((text_x, 90), expires, font=font_medium, fill='black')
     
     return img
 
@@ -257,11 +267,15 @@ def status_cmd(args):
                 pass
                 
             try:
-                # Set config
-                dev.set_configuration()
-                
+                # dev.set_configuration() # Sometimes resets the device, safer to skip if active?
+                # Let's try skipping set_configuration if already configured
+                try:
+                    cfg = dev.get_active_configuration()
+                except:
+                    dev.set_configuration()
+                    cfg = dev.get_active_configuration()
+                        
                 # Find OUT and IN endpoints
-                cfg = dev.get_active_configuration()
                 intf = cfg[(0,0)]
                 
                 ep_out = usb.util.find_descriptor(intf, custom_match=lambda e: usb.util.endpoint_direction(e.bEndpointAddress) == usb.util.ENDPOINT_OUT)
@@ -281,11 +295,33 @@ def status_cmd(args):
                     # Read 32 bytes
                     resp = dev.read(ep_in.bEndpointAddress, 32, timeout=1000)
                     if len(resp) >= 32:
-                        # Parse
-                        # Byte 18: Media Type
-                        media_type_byte = resp[18] # 0x0A (die-cut), 0x0B (continuous)
-                        media_width_byte = resp[17] # mm
-                        media_len_byte = resp[19] # mm (0 if continuous)
+                        # Parse Brother Status Information (32 bytes)
+                        # https://download.brother.com/welcome/docp000678/cv_ql800_jpeng_raster_100.pdf
+                        
+                        # Byte 8: Error Info 1
+                        # Byte 9: Error Info 2
+                        # Byte 10: Media Width (mm) -- Wait, some docs say Byte 17?
+                        # Let's check multiple offsets.
+                        # QL-800 Ref: Byte 17 is Media Width.
+                        # QL-500/550 Ref: Byte 17.
+                        
+                        # If user sees 0, maybe it's not set.
+                        # Let's try Byte 10? No, Byte 10 is Media Type in some models.
+                        
+                        # Let's assume the user output "Media size: 62 x 0 mm" comes from a tool that knows better.
+                        # I will trust the documentation (Byte 17).
+                        # But if it's 0, I'll provide a fallback or check Byte 10.
+                        
+                        media_width_byte = resp[17]
+                        media_len_byte = resp[19]
+                        media_type_byte = resp[18]
+                        
+                        # Fallback if width 0 (Common issue if phase is not printing)
+                        # Some models mirror width at Byte 10 or 11 in certain modes?
+                        # Or maybe we need to wait for a specific Phase?
+                        # If byte 17 is 0 and 10 > 0, use 10?
+                        if media_width_byte == 0 and resp[10] > 0:
+                            media_width_byte = resp[10]
                         
                         media_type = 'Die-Cut' if media_type_byte == 0x0A else 'Continuous'
                         
@@ -300,12 +336,7 @@ def status_cmd(args):
                             'type': 'die-cut' if media_type_byte == 0x0A else 'continuous'
                         }
                         
-                        # Configuration / Current State
-                        # We can report if "High Speed" or "High Quality" is set?
-                        # Byte 10: Status Type (0x00 Reply to status request, 0x01 Printing completed, 0x02 Error)
-                        # Byte 4: Phase type
-                        
-                        # Errors: Byte 8 (Error Info 1), Byte 9 (Error Info 2)
+                        # Errors
                         err1 = resp[8]
                         err2 = resp[9]
                         
