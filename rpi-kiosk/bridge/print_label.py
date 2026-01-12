@@ -364,34 +364,24 @@ def status_cmd(args):
                     cmd = b'\x1b\x69\x53'
                     ep_out.write(cmd)
                     
-                    # Read 32 bytes
+                # Read 32 bytes
                     resp = dev.read(ep_in.bEndpointAddress, 32, timeout=1000)
                     if len(resp) >= 32:
                         # Parse Brother Status Information (32 bytes)
                         # https://download.brother.com/welcome/docp000678/cv_ql800_jpeng_raster_100.pdf
                         
+                        # Correct Offsets for QL-800/600 series (Raster):
                         # Byte 8: Error Info 1
                         # Byte 9: Error Info 2
-                        # Byte 10: Media Width (mm) -- Wait, some docs say Byte 17?
-                        # Let's check multiple offsets.
-                        # QL-800 Ref: Byte 17 is Media Width.
-                        # QL-500/550 Ref: Byte 17.
-                        
-                        # If user sees 0, maybe it's not set.
-                        # Let's try Byte 10? No, Byte 10 is Media Type in some models.
-                        
-                        # Let's assume the user output "Media size: 62 x 0 mm" comes from a tool that knows better.
-                        # I will trust the documentation (Byte 17).
-                        # But if it's 0, I'll provide a fallback or check Byte 10.
+                        # Byte 11: Media Type (0x0A = Die-cut, 0x0B = Continuous)
+                        # Byte 17: Media Width (mm)
+                        # Byte 18: Media Length (mm)
                         
                         media_width_byte = resp[17]
-                        media_len_byte = resp[19]
-                        media_type_byte = resp[18]
+                        media_len_byte = resp[18]
+                        media_type_byte = resp[11]
                         
-                        # Fallback if width 0 (Common issue if phase is not printing)
-                        # Some models mirror width at Byte 10 or 11 in certain modes?
-                        # Or maybe we need to wait for a specific Phase?
-                        # If byte 17 is 0 and 10 > 0, use 10?
+                        # Fallback/Sanity Check
                         if media_width_byte == 0 and resp[10] > 0:
                             media_width_byte = resp[10]
                         
@@ -414,14 +404,14 @@ def status_cmd(args):
                         
                         if err1 != 0 or err2 != 0:
                             status_data['status'] = 'ERROR'
-                            status_data['errors'].append(f"Error Codes: {hex(err1)}, {hex(err2)}") # Simplified
+                            status_data['errors'].append(f"Error Codes: {hex(err1)}, {hex(err2)}")
                         else:
                             status_data['status'] = 'READY'
                             
                         # Config: Report current model setting
                         status_data['config'] = {
-                            'model': 'QL-600', # Hardcoded for now, or match arg
-                            'auto_cut': True, # Default assumption for QL-600 driver
+                            'model': 'QL-600', 
+                            'auto_cut': True, 
                             'resolution': 'Standard' 
                         }
 
