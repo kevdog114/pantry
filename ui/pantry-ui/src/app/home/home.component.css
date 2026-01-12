@@ -192,3 +192,73 @@ mat-card-content {
 }
 
 /* Dark mode is now handled automatically by system variables */
+
+@media (max-width: 600px) {
+    .dashboard-container {
+        padding: 16px;
+        gap: 24px;
+    }
+
+    .dashboard-header h1 {
+        font-size: 2rem;
+    }
+
+    .stats-row {
+        gap: 12px;
+    }
+
+    .stat-value {
+        font-size: 2rem;
+    }
+
+    .stat-label {
+        font-size: 0.8rem;
+    }
+
+    .actions-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        /* Two columns on mobile */
+        gap: 12px;
+    }
+
+    .action-btn {
+        width: 100%;
+        padding: 0 16px;
+        height: 56px;
+        font-size: 0.9rem;
+    }
+
+    .action-btn mat-icon {
+        font-size: 20px;
+        width: 20px;
+        height: 20px;
+    }
+
+    .product-scroll-container {
+        gap: 12px;
+    }
+
+    .product-card {
+        min-width: 160px;
+        width: 160px;
+    }
+
+    .card-image-wrapper {
+        height: 100px;
+    }
+
+    .no-image-placeholder mat-icon {
+        font-size: 32px;
+        height: 32px;
+        width: 32px;
+    }
+
+    .text-truncate {
+        font-size: 0.9rem;
+    }
+
+    .empty-state {
+        padding: 24px;
+    }
+}
