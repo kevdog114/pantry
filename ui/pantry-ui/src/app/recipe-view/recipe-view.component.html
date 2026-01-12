@@ -68,7 +68,8 @@
                                 <strong>{{ ing.name }}</strong>
                                 <span *ngIf="ing.amount"> - {{ ing.amount }} {{ing.unit}}</span>
                                 <span *ngIf="ing.product" class="text-muted ms-2 small">
-                                    (Linked to stock: {{ing.product.title}})
+                                    (Linked to stock: <a
+                                        [routerLink]="['/products', ing.product.id]">{{ing.product.title}}</a>)
                                 </span>
                             </span>
                         </li>
