@@ -3,15 +3,16 @@
         <h1>Weekly Meal Plan</h1>
     </div>
 
-    <div class="calendar-grid">
+    <div class="calendar-grid" cdkDropListGroup>
         <mat-card *ngFor="let day of days" class="day-card">
             <mat-card-header>
                 <mat-card-title>{{ day | date:'EEEE' }}</mat-card-title>
                 <mat-card-subtitle>{{ day | date:'mediumDate' }}</mat-card-subtitle>
             </mat-card-header>
             <mat-card-content>
-                <div class="meals-list">
-                    <div *ngFor="let plan of getPlansForDate(day)" class="meal-item">
+                <div class="meals-list" cdkDropList [cdkDropListData]="getPlansForDate(day)" [id]="day.toISOString()"
+                    (cdkDropListDropped)="drop($event)">
+                    <div *ngFor="let plan of getPlansForDate(day)" class="meal-item" cdkDrag>
                         <div class="meal-title">
                             🍽️ {{ plan.recipe.title }}
                             <button mat-icon-button color="warn" (click)="removeMeal(plan.id)">

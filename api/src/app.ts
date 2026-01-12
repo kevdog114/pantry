@@ -216,6 +216,7 @@ app.post("/family/preferences", FamilyController.saveGeneralPreferences);
 
 app.get("/meal-plan", MealPlanController.getMealPlan);
 app.post("/meal-plan", MealPlanController.addMealToPlan);
+app.put("/meal-plan/:id", MealPlanController.updateMealPlan);
 app.delete("/meal-plan/:id", MealPlanController.removeMealFromPlan);
 
 

@@ -1,6 +1,13 @@
 import { NextFunction, Response, Request } from "express";
 import prisma from '../lib/prisma';
 
+const mapMealPlan = (meal: any) => {
+    if (meal.recipe) {
+        meal.recipe.title = meal.recipe.name;
+    }
+    return meal;
+};
+
 export const getMealPlan = async (req: Request, res: Response, next: NextFunction): Promise<any> => {
     const { startDate, endDate } = req.query;
 
@@ -35,7 +42,7 @@ export const getMealPlan = async (req: Request, res: Response, next: NextFunctio
             }
         }
     });
-    res.send(meals);
+    res.send(meals.map(mapMealPlan));
 }
 
 export const addMealToPlan = async (req: Request, res: Response, next: NextFunction): Promise<any> => {
@@ -50,10 +57,30 @@ export const addMealToPlan = async (req: Request, res: Response, next: NextFunct
                 recipe: true
             }
         });
-        res.send(meal);
+        res.send(mapMealPlan(meal));
     } catch (e) {
         console.error(e);
         res.status(500).send("Error adding meal to plan");
+    }
+}
+
+export const updateMealPlan = async (req: Request, res: Response, next: NextFunction): Promise<any> => {
+    const { id } = req.params;
+    const { date } = req.body;
+    try {
+        const meal = await prisma.mealPlan.update({
+            where: { id: parseInt(id) },
+            data: {
+                date: new Date(date)
+            },
+            include: {
+                recipe: true
+            }
+        });
+        res.send(mapMealPlan(meal));
+    } catch (e) {
+        console.error(e);
+        res.status(500).send("Error updating meal plan");
     }
 }
 

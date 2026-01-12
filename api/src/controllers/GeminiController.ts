@@ -442,6 +442,64 @@ export const post = async (req: Request, res: Response) => {
               },
               required: ["item"]
             }
+          },
+          {
+            name: "getRecipes",
+            description: "Search for recipes by name/keyword. Returns list of matches with IDs.",
+            parameters: {
+              type: FunctionDeclarationSchemaType.OBJECT,
+              properties: {
+                query: { type: FunctionDeclarationSchemaType.STRING, description: "Search term" }
+              },
+              required: ["query"]
+            }
+          },
+          {
+            name: "getMealPlan",
+            description: "Get the meal plan for a date range.",
+            parameters: {
+              type: FunctionDeclarationSchemaType.OBJECT,
+              properties: {
+                startDate: { type: FunctionDeclarationSchemaType.STRING, description: "StartDate (YYYY-MM-DD)" },
+                endDate: { type: FunctionDeclarationSchemaType.STRING, description: "EndDate (YYYY-MM-DD)" }
+              },
+              required: ["startDate", "endDate"]
+            }
+          },
+          {
+            name: "addToMealPlan",
+            description: "Add a recipe to the meal plan.",
+            parameters: {
+              type: FunctionDeclarationSchemaType.OBJECT,
+              properties: {
+                date: { type: FunctionDeclarationSchemaType.STRING, description: "Date (YYYY-MM-DD)" },
+                recipeId: { type: FunctionDeclarationSchemaType.INTEGER, description: "ID of the recipe" }
+              },
+              required: ["date", "recipeId"]
+            }
+          },
+          {
+            name: "removeFromMealPlan",
+            description: "Remove a meal from the plan using its unique plan ID.",
+            parameters: {
+              type: FunctionDeclarationSchemaType.OBJECT,
+              properties: {
+                mealPlanId: { type: FunctionDeclarationSchemaType.INTEGER, description: "ID of the meal plan entry" }
+              },
+              required: ["mealPlanId"]
+            }
+          },
+          {
+            name: "moveMealPlan",
+            description: "Move a meal plan entry to a new date.",
+            parameters: {
+              type: FunctionDeclarationSchemaType.OBJECT,
+              properties: {
+                mealPlanId: { type: FunctionDeclarationSchemaType.INTEGER },
+                newDate: { type: FunctionDeclarationSchemaType.STRING, description: "New Date (YYYY-MM-DD)" }
+              },
+              required: ["mealPlanId", "newDate"]
+            }
           }
         ]
       }
@@ -606,6 +664,55 @@ export const post = async (req: Request, res: Response) => {
               return { message: `Removed ${itemToDelete.name} from shopping list.` };
             }
             return { error: `Item ${args.item} not found in shopping list.` };
+
+          case "getRecipes":
+            const recipes = await prisma.recipe.findMany({
+              where: {
+                name: {
+                  contains: args.query
+                }
+              },
+              select: { id: true, name: true }
+            });
+            return recipes;
+
+          case "getMealPlan":
+            const start = new Date(args.startDate);
+            const end = new Date(args.endDate);
+            end.setHours(23, 59, 59);
+
+            const plans = await prisma.mealPlan.findMany({
+              where: {
+                date: { gte: start, lte: end }
+              },
+              include: { recipe: { select: { name: true } } }
+            });
+            return plans.map(p => ({
+              id: p.id,
+              date: p.date.toISOString().split('T')[0],
+              recipeName: p.recipe.name,
+              recipeId: p.recipeId
+            }));
+
+          case "addToMealPlan":
+            const newPlan = await prisma.mealPlan.create({
+              data: {
+                date: new Date(args.date),
+                recipeId: args.recipeId
+              }
+            });
+            return { message: "Added meal plan", planId: newPlan.id };
+
+          case "removeFromMealPlan":
+            await prisma.mealPlan.delete({ where: { id: args.mealPlanId } });
+            return { message: "Removed meal from plan" };
+
+          case "moveMealPlan":
+            await prisma.mealPlan.update({
+              where: { id: args.mealPlanId },
+              data: { date: new Date(args.newDate) }
+            });
+            return { message: "Moved meal plan" };
 
           default:
             return { error: "Unknown tool" };

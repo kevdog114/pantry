@@ -29,4 +29,8 @@ export class MealPlanService {
     removeMealFromPlan(id: number): Observable<void> {
         return this.http.delete<void>(`${this.apiUrl}/${id}`);
     }
+
+    updateMealPlan(id: number, date: Date): Observable<MealPlan> {
+        return this.http.put<MealPlan>(`${this.apiUrl}/${id}`, { date });
+    }
 }

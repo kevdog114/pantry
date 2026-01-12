@@ -15,6 +15,7 @@ import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatNativeDateModule } from '@angular/material/core';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatSnackBar } from '@angular/material/snack-bar';
+import { DragDropModule, CdkDragDrop, moveItemInArray, transferArrayItem } from '@angular/cdk/drag-drop';
 
 @Component({
     selector: 'app-meal-plan',
@@ -29,7 +30,8 @@ import { MatSnackBar } from '@angular/material/snack-bar';
         MatFormFieldModule,
         MatDatepickerModule,
         MatNativeDateModule,
-        MatDialogModule
+        MatDialogModule,
+        DragDropModule
     ],
     templateUrl: './meal-plan.component.html',
     styleUrls: ['./meal-plan.component.css']
@@ -77,13 +79,23 @@ export class MealPlanComponent implements OnInit {
         const end = this.days[this.days.length - 1].toISOString();
 
         this.mealPlanService.getMealPlan(start, end).subscribe(plans => {
+            // Initialize all days
             this.mealPlans = {};
+            this.days.forEach(d => this.mealPlans[d.toDateString()] = []);
+
             plans.forEach(plan => {
                 const dateKey = new Date(plan.date).toDateString();
-                if (!this.mealPlans[dateKey]) {
-                    this.mealPlans[dateKey] = [];
+                // We use toDateString() as key, but plan.date is ISO string or Date object from JSON?
+                // The service returns JSON, so plan.date is string. 
+                // However, new Date(plan.date) handles it.
+                // NOTE: Timezone issues might occur if backend returns UTC and we assume local in `toDateString`.
+                // But for now let's stick to existing logic.
+                if (this.mealPlans[dateKey]) {
+                    this.mealPlans[dateKey].push(plan);
+                } else {
+                    // Fallback if date mismatch (e.g. out of range or diff timezone day)
+                    this.mealPlans[dateKey] = [plan];
                 }
-                this.mealPlans[dateKey].push(plan);
             });
             this.checkThawTimes();
         });
@@ -201,5 +213,32 @@ export class MealPlanComponent implements OnInit {
         }
 
         return advice.length > 0 ? advice.join('. ') : null;
+    }
+
+    drop(event: CdkDragDrop<MealPlan[]>) {
+        if (event.previousContainer === event.container) {
+            moveItemInArray(event.container.data, event.previousIndex, event.currentIndex);
+        } else {
+            const item = event.previousContainer.data[event.previousIndex];
+            transferArrayItem(
+                event.previousContainer.data,
+                event.container.data,
+                event.previousIndex,
+                event.currentIndex,
+            );
+
+            // Update Backend
+            const newDateStr = event.container.id; // We will use date string as ID
+            const newDate = new Date(newDateStr);
+            this.mealPlanService.updateMealPlan(item.id, newDate).subscribe({
+                next: () => {
+                    this.snackBar.open('Meal moved!', 'Order', { duration: 2000 });
+                },
+                error: () => {
+                    this.snackBar.open('Failed to move meal.', 'Error', { duration: 2000 });
+                    // Revert? simpler to just reload or let it be for now (optimistic UI)
+                }
+            });
+        }
     }
 }
