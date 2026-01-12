@@ -283,6 +283,11 @@ model MealTask {
   recipeId          Int?
   recipe            Recipe?   @relation(fields: [recipeId], references: [id], onDelete: SetNull)
 
+  // Logistics Aggregation Columns
+  relatedMealPlanIds   String?
+  relatedMealDates     String?
+  relatedRecipeTitles  String?
+
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 }

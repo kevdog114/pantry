@@ -14,20 +14,23 @@
         </div>
 
         <div class="tasks-list" *ngIf="!loading && tasks.length > 0">
-            <div class="task-item" *ngFor="let task of tasks" [class.completed]="task.completed">
-                <div class="task-icon-container">
-                    <mat-icon [class]="getIconClass(task.type)">{{ getIcon(task.type) }}</mat-icon>
-                </div>
-                <div class="task-details">
-                    <div class="task-desc">{{ task.description }}</div>
-                    <div class="task-meta">
-                        <span class="task-date" [class.due-today]="task.isToday">{{ task.date | date:'MMM d' }}</span>
-                        <span *ngIf="task.recipeTitle" class="task-recipe"> • For {{ task.recipeTitle }}</span>
+            <div *ngFor="let group of groupedTasks" class="date-group mb-3">
+                <h4 class="date-header text-muted small uppercase mb-2">{{ group.date | date:'EEE, MMM d' }}</h4>
+
+                <div class="task-item" *ngFor="let task of group.tasks" [class.completed]="task.completed">
+                    <div class="task-icon-container">
+                        <mat-icon [class]="getIconClass(task.type)">{{ getIcon(task.type) }}</mat-icon>
                     </div>
-                </div>
-                <div class="task-actions">
-                    <mat-checkbox [checked]="task.completed" (change)="completeTask(task)"
-                        color="primary"></mat-checkbox>
+                    <div class="task-details">
+                        <div class="task-desc">{{ task.description }}</div>
+                        <div class="task-meta">
+                            <span *ngIf="task.recipeTitle" class="task-recipe">For {{ task.recipeTitle }}</span>
+                        </div>
+                    </div>
+                    <div class="task-actions">
+                        <mat-checkbox [checked]="task.completed" (change)="completeTask(task)"
+                            color="primary"></mat-checkbox>
+                    </div>
                 </div>
             </div>
         </div>

@@ -24,7 +24,7 @@
                     (cdkDropListDropped)="drop($event)">
 
                     <div *ngFor="let plan of getPlansForDate(day)" class="meal-item" cdkDrag
-                        [class.highlighted]="highlightedMealPlanId === plan.id">
+                        [class.highlighted]="isHighlighted(plan.id)">
                         <div class="meal-header">
                             <div>
                                 <span class="meal-title-text" [routerLink]="['/recipes', plan.recipeId]"
@@ -62,9 +62,8 @@
                                 Checklist</strong>
                         </div>
                         <div *ngFor="let task of getPrepTasksForDate(day)" class="prep-task-item"
-                            (click)="task.relatedMealPlanId ? toggleHighlight(task.relatedMealPlanId) : null"
-                            [class.highlighted]="task.relatedMealPlanId && highlightedMealPlanId === task.relatedMealPlanId"
-                            style="cursor: pointer;"
+                            (click)="toggleHighlight(task.relatedMealPlanIds || task.relatedMealPlanId)"
+                            [class.highlighted]="false" style="cursor: pointer;"
                             [title]="task.relatedRecipeTitle ? 'Click to highlight ' + task.relatedRecipeTitle : ''">
 
                             <!-- Dynamic Icon -->
@@ -77,8 +76,13 @@
                             <div class="task-details">
                                 <span class="task-desc">{{ task.description || task.task }}</span>
                                 <div class="task-meta text-muted small" *ngIf="task.relatedRecipeTitle">
-                                    For {{task.relatedRecipeTitle}}
-                                    <!-- Only show meal date if available and different? -->
+                                    <span
+                                        *ngIf="task.relatedMealDates && task.relatedMealDates.length > 0; else noDate">
+                                        For {{task.relatedRecipeTitle}} on {{ task.relatedMealDates.join(', ') }}
+                                    </span>
+                                    <ng-template #noDate>
+                                        For {{task.relatedRecipeTitle}}
+                                    </ng-template>
                                 </div>
                             </div>
                         </div>

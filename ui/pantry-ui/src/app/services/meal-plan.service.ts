@@ -35,12 +35,16 @@ export class MealPlanService {
         return this.http.put<MealPlan>(`${this.apiUrl}/${id}`, { date });
     }
 
-    saveLogisticsTasks(tasks: any[]): Observable<any> {
-        return this.http.post<any>(`${this.apiUrl}/tasks`, { tasks });
+    saveLogisticsTasks(tasks: any[], startDate?: string, endDate?: string): Observable<any> {
+        return this.http.post<any>(`${this.apiUrl}/tasks`, { tasks, startDate, endDate });
     }
 
-    getUpcomingTasks(): Observable<any[]> {
-        return this.http.get<any[]>(`${this.apiUrl}/tasks/upcoming`);
+    getUpcomingTasks(startDate?: string, endDate?: string): Observable<any[]> {
+        let url = `${this.apiUrl}/tasks/upcoming`;
+        if (startDate && endDate) {
+            url += `?startDate=${startDate}&endDate=${endDate}`;
+        }
+        return this.http.get<any[]>(url);
     }
 
     completeTask(id: number, completed: boolean): Observable<any> {

@@ -17,6 +17,7 @@ import { FormsModule } from '@angular/forms';
 })
 export class UpcomingTasksWidgetComponent implements OnInit {
     tasks: any[] = [];
+    groupedTasks: { date: string, tasks: any[] }[] = [];
     loading = true;
 
     constructor(private mealPlanService: MealPlanService) { }
@@ -30,6 +31,7 @@ export class UpcomingTasksWidgetComponent implements OnInit {
         this.mealPlanService.getUpcomingTasks().subscribe({
             next: (tasks) => {
                 this.tasks = tasks;
+                this.groupTasks();
                 this.loading = false;
             },
             error: (err) => {
@@ -37,6 +39,23 @@ export class UpcomingTasksWidgetComponent implements OnInit {
                 this.loading = false;
             }
         });
+    }
+
+    groupTasks() {
+        const groups: { [key: string]: any[] } = {};
+        this.tasks.forEach(task => {
+            const dateStr = new Date(task.date).toDateString();
+            if (!groups[dateStr]) {
+                groups[dateStr] = [];
+            }
+            groups[dateStr].push(task);
+        });
+
+        // Convert to array
+        this.groupedTasks = Object.keys(groups).map(date => ({
+            date: date,
+            tasks: groups[date]
+        })).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
     }
 
     completeTask(task: any) {

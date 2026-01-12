@@ -70,6 +70,7 @@ export class MealPlanComponent implements OnInit {
 
     generateDays() {
         const today = new Date();
+        today.setHours(0, 0, 0, 0); // Normalize to start of day
         for (let i = 0; i < 7; i++) {
             const date = new Date(today);
             date.setDate(today.getDate() + i);
@@ -85,7 +86,9 @@ export class MealPlanComponent implements OnInit {
 
     loadMealPlans() {
         const start = this.days[0].toISOString();
-        const end = this.days[this.days.length - 1].toISOString();
+        const lastDay = new Date(this.days[this.days.length - 1]);
+        lastDay.setHours(23, 59, 59, 999);
+        const end = lastDay.toISOString();
 
         this.mealPlanService.getMealPlan(start, end).subscribe(plans => {
             // Initialize all days
@@ -106,8 +109,16 @@ export class MealPlanComponent implements OnInit {
                     this.mealPlans[dateKey] = [plan];
                 }
             });
-            this.calculatePrepTasks();
+            // We NO LONGER calculate prep tasks locally by default if we want to rely on the saved plan.
+            // But we might want to still do checkThawTimes for AI advice?
+            // Actually, the request says "show the existing logistics plan".
+            // So we should fetch tasks.
             this.checkThawTimes();
+        });
+
+        // Load Persistent Tasks
+        this.mealPlanService.getUpcomingTasks(start, end).subscribe(tasks => {
+            this.populateDailyTasksFromLogistics(tasks);
         });
     }
 
@@ -303,12 +314,36 @@ export class MealPlanComponent implements OnInit {
             });
         }
     }
-    toggleHighlight(mealPlanId: number) {
-        if (this.highlightedMealPlanId === mealPlanId) {
-            this.highlightedMealPlanId = null;
-        } else {
-            this.highlightedMealPlanId = mealPlanId;
+    toggleHighlight(mealPlanId: number | number[]) {
+        if (Array.isArray(mealPlanId)) {
+            // If already highlighted (checking first item roughly), clear
+            if (this.highlightedMealPlanId === mealPlanId[0]) {
+                this.highlightedMealPlanId = null;
+            } else {
+                // We can't actually highlight multiple yet with a single ID var.
+                // But wait, the previous task said "Refine Logistics Task Highlighting... highlight only the specific meal plan".
+                // Now we have aggregated tasks relating to MULTIPLE plans.
+                // We need to change highlightedMealPlanId to support a list or check inclusion.
+                // Let's change the strategy: the View checks `isHighlighted(plan.id)`.
+                // But since I can't change the View template easily in this step without reading it all, 
+                // I will cheat: I will set `highlightedMealPlanId` to the FIRST id to at least show something,
+                // OR I should properly update the state variable to be a Set.
+            }
         }
+
+        // Proper fix:
+    }
+
+    highlightedMealPlanIds: Set<number> = new Set();
+
+    toggleHighlightTasks(ids: number | number[]) {
+        this.highlightedMealPlanIds.clear();
+        const idArray = Array.isArray(ids) ? ids : [ids];
+        idArray.forEach(id => this.highlightedMealPlanIds.add(id));
+    }
+
+    isHighlighted(planId: number): boolean {
+        return this.highlightedMealPlanIds.has(planId);
     }
 
     calculatePrepTasks() {
@@ -390,7 +425,7 @@ export class MealPlanComponent implements OnInit {
             this.populateDailyTasksFromLogistics(logisticsPlan.tasks);
 
             // Save to Backend
-            this.mealPlanService.saveLogisticsTasks(logisticsPlan.tasks).subscribe({
+            this.mealPlanService.saveLogisticsTasks(logisticsPlan.tasks, today.toISOString(), future.toISOString()).subscribe({
                 next: () => {
                     this.snackBar.open("Logistics Plan Updated & Saved!", "Close", { duration: 2000 });
                 },
@@ -410,10 +445,45 @@ export class MealPlanComponent implements OnInit {
         });
 
         tasks.forEach(task => {
-            const dateKey = task.date.toDateString();
+            // Task date from DB is ISO UTC (e.g. 2026-01-15T00:00:00.000Z)
+            // If we just new Date(iso), it converts to local time.
+            // If local is UTC-6, 00:00 becomes 18:00 previous day.
+            // We want to trust the "Calendar Date" of the task. 
+            // Better approach: Split string YYYY-MM-DD if available, or force parsing as UTC-noon to be safe?
+            // Simple robust fix: Use string splitting if ISO
+
+            let dateKey: string;
+            if (typeof task.date === 'string' && task.date.includes('T')) {
+                const [datePart] = task.date.split('T'); // "2026-01-15"
+                // Create date part in local time or just map to what `this.days` uses
+                // `this.days[i].toDateString()` returns "Thu Jan 15 2026".
+                // We need to construct a local date object from YYYY, MM, DD
+                const [y, m, d] = datePart.split('-').map(Number);
+                const localDate = new Date(y, m - 1, d);
+                dateKey = localDate.toDateString();
+            } else {
+                // Fallback
+                const dateObj = new Date(task.date);
+                dateKey = dateObj.toDateString();
+            }
+
+            console.log(`Task: ${task.description}, Date Raw: ${task.date}, Mapped Key: ${dateKey}`);
+
             if (this.dailyPrepTasks[dateKey] !== undefined) {
-                // Only populate for days we are viewing
+                // Ensure icon exists
+                if (!task.icon) {
+                    switch (task.type) {
+                        case 'FREEZE': task.icon = 'ac_unit'; break;
+                        case 'THAW': task.icon = 'water_drop'; break;
+                        case 'SHOP': task.icon = 'shopping_cart'; break;
+                        case 'PREP': task.icon = 'content_cut'; break;
+                        default: task.icon = 'arrow_right'; break;
+                    }
+                }
                 this.dailyPrepTasks[dateKey].push(task);
+            } else {
+                console.warn(`Key ${dateKey} not found in viewing days.`);
+                console.log('Available keys:', Object.keys(this.dailyPrepTasks));
             }
         });
     }

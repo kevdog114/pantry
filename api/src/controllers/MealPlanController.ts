@@ -106,37 +106,36 @@ export const removeMealFromPlan = async (req: Request, res: Response, next: Next
 }
 
 export const saveLogisticsTasks = async (req: Request, res: Response): Promise<any> => {
-    const { tasks } = req.body as { tasks: any[] }; // Expecting array of LogisticsTask-like objects
+    const { tasks, startDate, endDate } = req.body as { tasks: any[], startDate?: string, endDate?: string };
 
     if (!tasks || !Array.isArray(tasks)) {
         return res.status(400).send("Tasks array required");
     }
 
-    console.log(`[saveLogisticsTasks] Received ${tasks.length} tasks to save.`);
+    // Determine deletion range
+    let minDate: Date;
+    let maxDate: Date;
 
-    if (tasks.length === 0) return res.send({ message: "No tasks to save" });
+    if (startDate && endDate) {
+        minDate = new Date(startDate);
+        maxDate = new Date(endDate);
+    } else {
+        // Fallback to inferring from tasks (legacy behavior, risky for edge cases)
+        if (tasks.length === 0) return res.send({ message: "No tasks to save and no range provided" });
 
-    // Validate dates
-    const validTasks = tasks.filter((t: any) => {
-        const d = new Date(t.date);
-        return !isNaN(d.getTime());
-    });
+        const dates = tasks
+            .map((t: any) => new Date(t.date))
+            .filter(d => !isNaN(d.getTime()));
 
-    if (validTasks.length !== tasks.length) {
-        console.warn(`[saveLogisticsTasks] Filtered out ${tasks.length - validTasks.length} tasks with invalid dates.`);
+        if (dates.length === 0) return res.status(400).send("No valid dates in tasks");
+
+        minDate = new Date(Math.min(...dates.map(d => d.getTime())));
+        maxDate = new Date(Math.max(...dates.map(d => d.getTime())));
     }
 
-    if (validTasks.length === 0) {
-        return res.status(400).send("No valid tasks to save (check date format)");
-    }
-
-    const dates = validTasks.map((t: any) => new Date(t.date));
-    const minDate = new Date(Math.min(...dates.map(d => d.getTime())));
-    const maxDate = new Date(Math.max(...dates.map(d => d.getTime())));
-
-    // Set maxDate to end of day
-    maxDate.setHours(23, 59, 59, 999);
+    // Normalize range
     minDate.setHours(0, 0, 0, 0);
+    maxDate.setHours(23, 59, 59, 999);
 
     console.log(`[saveLogisticsTasks] Date range: ${minDate.toISOString()} - ${maxDate.toISOString()}`);
 
@@ -154,12 +153,20 @@ export const saveLogisticsTasks = async (req: Request, res: Response): Promise<a
         console.log(`[saveLogisticsTasks] Deleted ${deleteResult.count} existing non-completed tasks.`);
 
         // 3. Insert new tasks
+        const validTasks = tasks.filter((t: any) => !isNaN(new Date(t.date).getTime()));
         const createdTasks = [];
         for (const [index, t] of validTasks.entries()) {
             try {
                 const taskDate = new Date(t.date);
                 const mealPlanId = t.relatedMealPlanId ? parseInt(String(t.relatedMealPlanId)) : null;
                 const recipeId = t.relatedRecipeId ? parseInt(String(t.relatedRecipeId)) : null;
+
+                // Serialize list fields to CSV strings for standard columns
+                const relatedMealPlanIdsStr = t.relatedMealPlanIds ? t.relatedMealPlanIds.join(',') : null;
+                const relatedMealDatesStr = t.relatedMealDates ? t.relatedMealDates.join(',') : null;
+
+                // relatedRecipeTitle is already a joined string "A, B" from the frontend service
+                const relatedRecipeTitlesStr = t.relatedRecipeTitle || null;
 
                 const newTask = await prisma.mealTask.create({
                     data: {
@@ -168,7 +175,12 @@ export const saveLogisticsTasks = async (req: Request, res: Response): Promise<a
                         description: String(t.description || ''),
                         mealPlanId: mealPlanId,
                         recipeId: recipeId,
-                        completed: false
+                        completed: false,
+
+                        // New standard columns
+                        relatedMealPlanIds: relatedMealPlanIdsStr,
+                        relatedMealDates: relatedMealDatesStr,
+                        relatedRecipeTitles: relatedRecipeTitlesStr
                     }
                 });
                 createdTasks.push(newTask);
@@ -190,20 +202,31 @@ export const saveLogisticsTasks = async (req: Request, res: Response): Promise<a
 
 export const getUpcomingTasks = async (req: Request, res: Response): Promise<any> => {
     try {
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
+        const { startDate, endDate } = req.query;
+        let where: any = {
+            completed: false
+        };
+
+        if (startDate && endDate) {
+            where.date = {
+                gte: new Date(startDate as string),
+                lte: new Date(endDate as string)
+            };
+        } else {
+            // Default: Upcoming from today
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            where.date = {
+                gte: today
+            };
+        }
 
         const tasks = await prisma.mealTask.findMany({
-            where: {
-                date: {
-                    gte: today
-                },
-                completed: false
-            },
+            where: where,
             orderBy: {
                 date: 'asc'
             },
-            take: 10,
+            take: (startDate && endDate) ? undefined : 50, // Limit check if infinite scrolling not implemented, but allow full range if requested
             include: {
                 recipe: {
                     select: { name: true }
@@ -211,10 +234,21 @@ export const getUpcomingTasks = async (req: Request, res: Response): Promise<any
             }
         });
 
-        res.json(tasks.map(t => ({
-            ...t,
-            recipeTitle: t.recipe?.name
-        })));
+        res.json(tasks.map((t: any) => {
+            // Deserialize CSV columns
+            const relatedMealDates = t.relatedMealDates ? t.relatedMealDates.split(',') : [];
+            const relatedMealPlanIds = t.relatedMealPlanIds ? t.relatedMealPlanIds.split(',').map((id: string) => parseInt(id)) : [];
+
+
+            return {
+                ...t,
+                // New standard fields
+                relatedMealDates,
+                relatedMealPlanIds,
+                relatedRecipeTitle: t.relatedRecipeTitles || t.recipe?.name, // For frontend compatibility
+                recipeTitle: t.relatedRecipeTitles || t.recipe?.name
+            };
+        }));
     } catch (e: any) {
         res.status(500).json({ error: e.message });
     }

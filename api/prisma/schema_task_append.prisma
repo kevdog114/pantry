@@ -12,6 +12,9 @@ model MealTask {
   
   recipeId          Int?
   recipe            Recipe?   @relation(fields: [recipeId], references: [id], onDelete: SetNull)
+  
+  // Storing extra metadata as JSON string for flexibility
+  metadata          String?   
 
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
