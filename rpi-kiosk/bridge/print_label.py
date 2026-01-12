@@ -366,58 +366,98 @@ def status_cmd(args):
                 # Read 32 bytes
                     resp = dev.read(ep_in.bEndpointAddress, 32, timeout=1000)
                     if len(resp) >= 32:
-                        # Parse Brother Status Information (32 bytes)
-                        # https://download.brother.com/welcome/docp000678/cv_ql800_jpeng_raster_100.pdf
-                        
-                        # Correct Offsets for QL-800/600 series (Raster):
-                        # Byte 8: Error Info 1
-                        # Byte 9: Error Info 2
-                        # Byte 11: Media Type (0x0A = Die-cut, 0x0B = Continuous)
-                        # Byte 17: Media Width (mm)
-                        # Byte 18: Media Length (mm)
-                        
-                        media_width_byte = resp[17]
-                        media_len_byte = resp[18]
-                        media_type_byte = resp[11]
-                        
-                        # Fallback/Sanity Check
-                        if media_width_byte == 0 and resp[10] > 0:
-                            media_width_byte = resp[10]
-                        
-                        # Specific override for 23mm (DK-11221 Square)
-                        if media_width_byte == 23:
-                             media_len_byte = 23
-                             media_type_byte = 0x0A # Treat as die-cut
-                        
-                        media_type = 'Die-Cut' if media_type_byte == 0x0A else 'Continuous'
-                        
-                        label_size = f"{media_width_byte}mm"
-                        if media_len_byte > 0:
-                            label_size += f" x {media_len_byte}mm"
-                        
-                        status_data['media'] = f"{label_size} {media_type}"
-                        status_data['detected_label'] = {
-                            'width': media_width_byte,
-                            'length': media_len_byte,
-                            'type': 'die-cut' if media_type_byte == 0x0A else 'continuous'
-                        }
-                        
-                        # Errors
-                        err1 = resp[8]
-                        err2 = resp[9]
-                        
-                        if err1 != 0 or err2 != 0:
-                            status_data['status'] = 'ERROR'
-                            status_data['errors'].append(f"Error Codes: {hex(err1)}, {hex(err2)}")
-                        else:
-                            status_data['status'] = 'READY'
-                            
-                        # Config: Report current model setting
-                        status_data['config'] = {
-                            'model': 'QL-600', 
-                            'auto_cut': True, 
-                            'resolution': 'Standard' 
-                        }
+    # Try to import BrotherQLStatus for robust parsing
+    try:
+        from brother_ql.readers import BrotherQLStatus
+    except ImportError:
+        try:
+            from brother_ql_inventree.readers import BrotherQLStatus
+        except ImportError:
+            BrotherQLStatus = None
+
+    if BrotherQLStatus:
+         # Use library to parse
+         try:
+             status_obj = BrotherQLStatus(resp)
+             
+             # Map status_obj properties
+             # media_type is usually 'continuous_tape' or 'die_cut_labels'
+             is_die_cut = (status_obj.media_type_name == 'die_cut_labels') or (status_obj.media_type == 0x0A)
+             
+             status_data['media'] = f"{status_obj.media_width}mm"
+             if status_obj.media_length > 0:
+                 status_data['media'] += f" x {status_obj.media_length}mm"
+             status_data['media'] += f" {'Die-Cut' if is_die_cut else 'Continuous'}"
+             
+             status_data['detected_label'] = {
+                 'width': status_obj.media_width,
+                 'length': status_obj.media_length,
+                 'type': 'die-cut' if is_die_cut else 'continuous'
+             }
+             
+             # Errors
+             if status_obj.errors:
+                 status_data['status'] = 'ERROR'
+                 status_data['errors'].append(f"Printer Errors: {status_obj.errors}")
+             else:
+                 status_data['status'] = 'READY'
+                 
+         except Exception as e:
+             # Fallback to manual if parsing fails
+             logger.error(f"BrotherQLStatus parsing failed: {e}")
+             # ... manual logic below or just error ...
+             status_data['errors'].append(f"Status Parse Error: {e}")
+    else:
+
+        # Manual Parsing (Fallback)
+        # Byte 8: Error Info 1
+        # Byte 9: Error Info 2
+        # Byte 11: Media Type
+        # Byte 17: Media Width
+        # Byte 18: Media Length
+        
+        media_width_byte = resp[17]
+        media_len_byte = resp[18]
+        media_type_byte = resp[11]
+        
+        # Fallback/Sanity Check
+        if media_width_byte == 0 and resp[10] > 0:
+            media_width_byte = resp[10]
+        
+        # Specific override for 23mm (DK-11221 Square)
+        if media_width_byte == 23:
+                media_len_byte = 23
+                media_type_byte = 0x0A # Treat as die-cut
+        
+        media_type = 'Die-Cut' if media_type_byte == 0x0A else 'Continuous'
+        
+        label_size = f"{media_width_byte}mm"
+        if media_len_byte > 0:
+            label_size += f" x {media_len_byte}mm"
+        
+        status_data['media'] = f"{label_size} {media_type}"
+        status_data['detected_label'] = {
+            'width': media_width_byte,
+            'length': media_len_byte,
+            'type': 'die-cut' if media_type_byte == 0x0A else 'continuous'
+        }
+        
+        # Errors
+        err1 = resp[8]
+        err2 = resp[9]
+        
+        if err1 != 0 or err2 != 0:
+            status_data['status'] = 'ERROR'
+            status_data['errors'].append(f"Error Codes: {hex(err1)}, {hex(err2)}")
+        else:
+            status_data['status'] = 'READY'
+            
+    # Config: Report current model setting
+    status_data['config'] = {
+        'model': 'QL-600', 
+        'auto_cut': True, 
+        'resolution': 'Standard' 
+    }
 
             except Exception as e:
                 status_data['status'] = 'ERROR'
