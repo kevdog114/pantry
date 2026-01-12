@@ -27,7 +27,7 @@ import { AudioChatDialogComponent } from '../components/audio-chat-dialog/audio-
 })
 export class RecipeViewComponent implements OnInit {
     recipe: Recipe | undefined;
-    parsedIngredients: string[] = [];
+    parsedIngredients: any[] = [];
 
     constructor(
         private route: ActivatedRoute,
@@ -50,27 +50,7 @@ export class RecipeViewComponent implements OnInit {
     }
 
     private parseIngredients() {
-        if (!this.recipe?.ingredientText) {
-            this.parsedIngredients = [];
-            return;
-        }
-
-        try {
-            // Try parsing as JSON first
-            const parsed = JSON.parse(this.recipe.ingredientText);
-            if (Array.isArray(parsed)) {
-                this.parsedIngredients = parsed.map(i => typeof i === 'string' ? i : JSON.stringify(i));
-            } else if (typeof parsed === 'object') {
-                // If it's an object, maybe keys or values? 
-                // For now assume list of strings is what we want.
-                this.parsedIngredients = [JSON.stringify(parsed)];
-            } else {
-                this.parsedIngredients = [String(parsed)];
-            }
-        } catch (e) {
-            // Not JSON, split by newlines as fallback
-            this.parsedIngredients = this.recipe.ingredientText.split('\n').filter(line => line.trim().length > 0);
-        }
+        // No parsing needed for structured ingredients
     }
 
     openAudioChat() {

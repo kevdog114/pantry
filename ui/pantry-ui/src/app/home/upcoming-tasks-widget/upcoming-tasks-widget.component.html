@@ -1,0 +1,35 @@
+<mat-card class="tasks-card">
+    <mat-card-header>
+        <mat-icon mat-card-avatar>checklist</mat-icon>
+        <mat-card-title>Kitchen Tasks</mat-card-title>
+        <mat-card-subtitle>Upcoming prep & logistics</mat-card-subtitle>
+    </mat-card-header>
+    <mat-card-content>
+        <div *ngIf="loading" class="loading-state">
+            Loading tasks...
+        </div>
+
+        <div *ngIf="!loading && tasks.length === 0" class="empty-state">
+            No upcoming tasks. You're all set!
+        </div>
+
+        <div class="tasks-list" *ngIf="!loading && tasks.length > 0">
+            <div class="task-item" *ngFor="let task of tasks" [class.completed]="task.completed">
+                <div class="task-icon-container">
+                    <mat-icon [class]="getIconClass(task.type)">{{ getIcon(task.type) }}</mat-icon>
+                </div>
+                <div class="task-details">
+                    <div class="task-desc">{{ task.description }}</div>
+                    <div class="task-meta">
+                        <span class="task-date" [class.due-today]="task.isToday">{{ task.date | date:'MMM d' }}</span>
+                        <span *ngIf="task.recipeTitle" class="task-recipe"> • For {{ task.recipeTitle }}</span>
+                    </div>
+                </div>
+                <div class="task-actions">
+                    <mat-checkbox [checked]="task.completed" (change)="completeTask(task)"
+                        color="primary"></mat-checkbox>
+                </div>
+            </div>
+        </div>
+    </mat-card-content>
+</mat-card>

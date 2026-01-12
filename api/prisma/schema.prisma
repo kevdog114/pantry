@@ -109,7 +109,19 @@ model Recipe {
   cookTime       Int?
   totalTime      Int?
   yield          String?
+  thawInstructions String?      // AI-generated thaw advice
+  customPrepInstructions String? // Deprecated in favor of prepTasks, but keeping for data safety for now
+  prepTasks      RecipePrepTask[]
   mealPlans      MealPlan[]
+  tasks          MealTask[]
+}
+
+model RecipePrepTask {
+  id            Int     @id @default(autoincrement())
+  recipeId      Int
+  recipe        Recipe  @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  description   String
+  daysInAdvance Int     @default(0)
 }
 
 
@@ -121,6 +133,7 @@ model MealPlan {
   recipe    Recipe   @relation(fields: [recipeId], references: [id])
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  tasks     MealTask[]
 }
 
 model RecipeStep {
@@ -144,12 +157,21 @@ model UnitOfMeasure {
 model RecipeProduct {
   id              Int           @id @default(autoincrement())
   recipeId        Int
-  recipe          Recipe        @relation("RecipeIngredients", fields: [recipeId], references: [id])
-  productId       Int
-  product         Product       @relation("ProductIngredients", fields: [productId], references: [id])
-  unitOfMeasureId Int
-  unitOfMeasure   UnitOfMeasure @relation("UnitOfMeasureForIngredients", fields: [unitOfMeasureId], references: [id])
-  amount          Float
+  recipe          Recipe        @relation("RecipeIngredients", fields: [recipeId], references: [id], onDelete: Cascade)
+  
+  // Flexible Ingredient Data
+  name            String        // Display name (e.g. "Chopped Onions")
+  amount          Float?
+  unit            String?       // Free text unit (e.g. "cup", "bunch")
+  
+  // Optional Link to Inventory Product
+  productId       Int?
+  product         Product?      @relation("ProductIngredients", fields: [productId], references: [id])
+  
+  // Optional Strict Unit Link (Legacy/Advanced)
+  unitOfMeasureId Int?
+  unitOfMeasure   UnitOfMeasure? @relation("UnitOfMeasureForIngredients", fields: [unitOfMeasureId], references: [id])
+  
   notes           String?
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
@@ -245,4 +267,22 @@ model ShoppingListItem {
   checked        Boolean      @default(false)
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
+}
+
+model MealTask {
+  id                Int      @id @default(autoincrement())
+  date              DateTime
+  type              String   // 'SHOP', 'PREP', 'THAW', 'FREEZE'
+  description       String
+  completed         Boolean  @default(false)
+  
+  // Optional relations
+  mealPlanId        Int?
+  mealPlan          MealPlan? @relation(fields: [mealPlanId], references: [id], onDelete: SetNull)
+  
+  recipeId          Int?
+  recipe            Recipe?   @relation(fields: [recipeId], references: [id], onDelete: SetNull)
+
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 }

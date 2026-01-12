@@ -4,11 +4,8 @@ import prisma from '../lib/prisma';
 export const getAll = async (req: Request, res: Response, next: NextFunction): Promise<any> => {
     const recipes = await prisma.recipe.findMany({
         include: {
-            steps: {
-                orderBy: {
-                    stepNumber: 'asc'
-                }
-            }
+            steps: { orderBy: { stepNumber: 'asc' } },
+            ingredients: { include: { product: true } }
         }
     });
     res.send(recipes.map(mapToResponse));
@@ -30,14 +27,26 @@ export const create = async (req: Request, res: Response, next: NextFunction): P
                     stepNumber: index + 1,
                     instruction: step.description
                 })) || []
+            },
+            ingredients: {
+                create: req.body.ingredients?.map((ing: any) => ({
+                    name: ing.name,
+                    amount: ing.amount,
+                    unit: ing.unit,
+                    productId: ing.productId || null
+                })) || []
+            },
+            prepTasks: {
+                create: req.body.prepTasks?.map((task: any) => ({
+                    description: task.description,
+                    daysInAdvance: task.daysInAdvance || 0
+                })) || []
             }
         },
         include: {
-            steps: {
-                orderBy: {
-                    stepNumber: 'asc'
-                }
-            }
+            steps: { orderBy: { stepNumber: 'asc' } },
+            ingredients: { include: { product: true } },
+            prepTasks: true
         }
     });
 
@@ -63,11 +72,9 @@ export const getById = async (req: Request, res: Response, next: NextFunction): 
             id: parseInt(req.params.id)
         },
         include: {
-            steps: {
-                orderBy: {
-                    stepNumber: 'asc'
-                }
-            }
+            steps: { orderBy: { stepNumber: 'asc' } },
+            ingredients: { include: { product: true } },
+            prepTasks: true
         }
     });
 
@@ -100,19 +107,36 @@ export const update = async (req: Request, res: Response, next: NextFunction): P
                         stepNumber: index + 1,
                         instruction: step.description
                     })) || []
-                }
+                },
+                ingredients: {
+                    deleteMany: {},
+                    create: req.body.ingredients?.map((ing: any) => ({
+                        name: ing.name,
+                        amount: ing.amount,
+                        unit: ing.unit,
+                        productId: ing.productId || null
+                    })) || []
+                },
+                prepTasks: {
+                    deleteMany: {},
+                    create: req.body.prepTasks?.map((task: any) => ({
+                        description: task.description,
+                        daysInAdvance: task.daysInAdvance || 0
+                    })) || []
+                },
+                customPrepInstructions: req.body.customPrepInstructions, // Keeping for backward compat if needed
+                thawInstructions: req.body.thawInstructions
             },
             include: {
-                steps: {
-                    orderBy: {
-                        stepNumber: 'asc'
-                    }
-                }
+                steps: { orderBy: { stepNumber: 'asc' } },
+                ingredients: { include: { product: true } },
+                prepTasks: true
             }
         });
 
         res.send(mapToResponse(recipe));
     } catch (error) {
+        console.error(error);
         res.sendStatus(404);
     }
 }
@@ -124,6 +148,17 @@ const mapToResponse = (recipe: any) => {
         steps: recipe.steps?.map((step: any) => ({
             ...step,
             description: step.instruction
-        })) || []
+        })) || [],
+        ingredients: recipe.ingredients?.map((ing: any) => ({
+            id: ing.id,
+            name: ing.name,
+            amount: ing.amount,
+            unit: ing.unit,
+            productId: ing.productId,
+            product: ing.product // Pass full product if needed (title, etc)
+        })) || [],
+        prepTasks: recipe.prepTasks || [],
+        thawInstructions: recipe.thawInstructions,
+        customPrepInstructions: recipe.customPrepInstructions
     };
 }

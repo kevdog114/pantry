@@ -1,0 +1,80 @@
+.tasks-card {
+    height: 100%;
+}
+
+.tasks-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-top: 10px;
+}
+
+.task-item {
+    display: flex;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.task-item:last-child {
+    border-bottom: none;
+}
+
+.task-icon-container {
+    margin-right: 12px;
+    display: flex;
+    align-items: center;
+}
+
+.task-details {
+    flex: 1;
+}
+
+.task-desc {
+    font-size: 0.95rem;
+    font-weight: 500;
+}
+
+.task-meta {
+    font-size: 0.8rem;
+    color: rgba(255, 255, 255, 0.6);
+}
+
+.task-recipe {
+    font-style: italic;
+}
+
+.task-actions {
+    margin-left: 8px;
+}
+
+.completed {
+    opacity: 0.5;
+    text-decoration: line-through;
+}
+
+.empty-state {
+    padding: 20px;
+    text-align: center;
+    color: rgba(255, 255, 255, 0.5);
+    font-style: italic;
+}
+
+.text-primary {
+    color: #82b1ff;
+}
+
+/* Light blue for freeze */
+.text-info {
+    color: #4fc3f7;
+}
+
+/* Light cyan for thaw */
+.text-success {
+    color: #81c784;
+}
+
+/* Green for shop */
+.text-muted {
+    color: #bdbdbd;
+}

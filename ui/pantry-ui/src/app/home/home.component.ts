@@ -9,6 +9,7 @@ import { Product } from '../types/product';
 import { MatBottomSheet, MatBottomSheetModule } from '@angular/material/bottom-sheet';
 import { QuickSnackComponent } from '../components/quick-snack/quick-snack.component';
 import { environment } from '../../environments/environment';
+import { UpcomingTasksWidgetComponent } from './upcoming-tasks-widget/upcoming-tasks-widget.component';
 
 @Component({
     selector: 'app-home',
@@ -19,7 +20,8 @@ import { environment } from '../../environments/environment';
         MatCardModule,
         MatButtonModule,
         MatIconModule,
-        MatBottomSheetModule
+        MatBottomSheetModule,
+        UpcomingTasksWidgetComponent
     ],
     templateUrl: './home.component.html',
     styleUrls: ['./home.component.css']

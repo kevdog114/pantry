@@ -12,5 +12,20 @@ export interface Recipe {
     source?: string;
     createdAt?: Date;
     ingredientText?: string;
+    ingredients?: {
+        id?: number;
+        name: string;
+        amount?: number;
+        unit?: string;
+        productId?: number;
+        product?: any; // Avoiding circular dependency for now, or use Product type if available
+    }[];
+    thawInstructions?: string;
+    customPrepInstructions?: string;
+    prepTasks?: {
+        id?: number;
+        description: string;
+        daysInAdvance: number;
+    }[];
 }
 

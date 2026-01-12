@@ -1,42 +1,107 @@
 <div class="meal-plan-container">
     <div class="header">
         <h1>Weekly Meal Plan</h1>
+        <div class="header-actions">
+            <button mat-stroked-button color="primary" (click)="runSousChef()">
+                <mat-icon>psychology</mat-icon> Plan Logistics (Sous Chef)
+            </button>
+            <div class="week-selector ms-2">
+                <!-- Placeholder for week navigation if needed later -->
+            </div>
+        </div>
     </div>
 
     <div class="calendar-grid" cdkDropListGroup>
-        <mat-card *ngFor="let day of days" class="day-card">
-            <mat-card-header>
-                <mat-card-title>{{ day | date:'EEEE' }}</mat-card-title>
-                <mat-card-subtitle>{{ day | date:'mediumDate' }}</mat-card-subtitle>
-            </mat-card-header>
-            <mat-card-content>
+        <div *ngFor="let day of days" class="day-card">
+
+            <div class="card-header-content">
+                <h2 class="day-name">{{ day | date:'EEEE' }}</h2>
+                <span class="day-date">{{ day | date:'MMM d' }}</span>
+            </div>
+
+            <div class="card-body">
                 <div class="meals-list" cdkDropList [cdkDropListData]="getPlansForDate(day)" [id]="day.toISOString()"
                     (cdkDropListDropped)="drop($event)">
-                    <div *ngFor="let plan of getPlansForDate(day)" class="meal-item" cdkDrag>
-                        <div class="meal-title">
-                            🍽️ {{ plan.recipe.title }}
-                            <button mat-icon-button color="warn" (click)="removeMeal(plan.id)">
-                                <mat-icon>delete</mat-icon>
+
+                    <div *ngFor="let plan of getPlansForDate(day)" class="meal-item" cdkDrag
+                        [class.highlighted]="highlightedMealPlanId === plan.id">
+                        <div class="meal-header">
+                            <div>
+                                <span class="meal-title-text" [routerLink]="['/recipes', plan.recipeId]"
+                                    style="cursor: pointer;">
+                                    {{ plan.recipe.title }}
+                                </span>
+                                <div *ngIf="hasPrepTasks(plan)" class="prep-indicator text-muted"
+                                    style="font-size: 0.8rem; display: flex; align-items: center; margin-top: 2px;">
+                                    <mat-icon
+                                        style="font-size: 14px; width: 14px; height: 14px; vertical-align: middle; margin-right: 4px;">content_cut</mat-icon>
+                                    <span>Requires prep</span>
+                                </div>
+                            </div>
+                            <button mat-icon-button class="action-btn" color="warn"
+                                (click)="$event.stopPropagation(); removeMeal(plan)">
+                                <mat-icon>close</mat-icon>
                             </button>
                         </div>
 
-                        <div *ngIf="getThawingAdvice(plan)" class="thawing-advice">
-                            ❄️ {{ getThawingAdvice(plan) }}
+                        <div class="indicators" *ngIf="getMissingIngredients(plan).length > 0">
+
+
+                            <!-- Purchase Notice -->
+                            <div *ngIf="getMissingIngredients(plan).length > 0" class="badge buy">
+                                <mat-icon>shopping_cart</mat-icon>
+                                <span>Buy: {{ getMissingIngredients(plan).join(', ') }}</span>
+                            </div>
                         </div>
+                    </div>
+
+                    <!-- Prep Tasks Section -->
+                    <div class="prep-tasks-section mb-3" *ngIf="getPrepTasksForDate(day).length > 0">
+                        <div class="prep-header mb-1">
+                            <mat-icon inline="true" class="small-icon">checklist</mat-icon> <strong>Prep
+                                Checklist</strong>
+                        </div>
+                        <div *ngFor="let task of getPrepTasksForDate(day)" class="prep-task-item"
+                            (click)="task.relatedMealPlanId ? toggleHighlight(task.relatedMealPlanId) : null"
+                            [class.highlighted]="task.relatedMealPlanId && highlightedMealPlanId === task.relatedMealPlanId"
+                            style="cursor: pointer;"
+                            [title]="task.relatedRecipeTitle ? 'Click to highlight ' + task.relatedRecipeTitle : ''">
+
+                            <!-- Dynamic Icon -->
+                            <mat-icon inline="true" class="task-icon"
+                                [class.text-info]="task.type === 'FREEZE' || task.type === 'THAW'"
+                                [class.text-muted]="task.type === 'PREP'">
+                                {{ task.icon || 'arrow_right' }}
+                            </mat-icon>
+
+                            <div class="task-details">
+                                <span class="task-desc">{{ task.description || task.task }}</span>
+                                <div class="task-meta text-muted small" *ngIf="task.relatedRecipeTitle">
+                                    For {{task.relatedRecipeTitle}}
+                                    <!-- Only show meal date if available and different? -->
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Visual placeholder if empty to encourage dropping or adding -->
+                    <div class="empty-state" *ngIf="getPlansForDate(day).length === 0">
+                        Add a meal
                     </div>
                 </div>
 
-                <div class="add-meal-form">
-                    <mat-form-field appearance="outline" class="w-100">
-                        <mat-label>Add Recipe</mat-label>
-                        <mat-select (selectionChange)="addMeal(day, $event.value)" placeholder="Select Recipe">
+                <div class="add-meal-section">
+                    <mat-form-field appearance="outline" class="w-100" subscriptSizing="dynamic">
+                        <mat-label>+ Add Recipe</mat-label>
+                        <mat-select #recipeSelect (selectionChange)="addMeal(day, $event.value, recipeSelect)"
+                            placeholder="Select Recipe">
                             <mat-option *ngFor="let recipe of recipes" [value]="recipe.id">
                                 {{ recipe.title }}
                             </mat-option>
                         </mat-select>
                     </mat-form-field>
                 </div>
-            </mat-card-content>
-        </mat-card>
+            </div>
+        </div>
     </div>
 </div>

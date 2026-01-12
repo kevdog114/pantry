@@ -1,0 +1,18 @@
+
+model MealTask {
+  id                Int      @id @default(autoincrement())
+  date              DateTime
+  type              String   // 'SHOP', 'PREP', 'THAW', 'FREEZE'
+  description       String
+  completed         Boolean  @default(false)
+  
+  // Optional relations
+  mealPlanId        Int?
+  mealPlan          MealPlan? @relation(fields: [mealPlanId], references: [id], onDelete: SetNull)
+  
+  recipeId          Int?
+  recipe            Recipe?   @relation(fields: [recipeId], references: [id], onDelete: SetNull)
+
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}

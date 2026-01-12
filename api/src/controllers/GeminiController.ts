@@ -302,7 +302,14 @@ export const post = async (req: Request, res: Response) => {
             "recipe": {
               "title": "Recipe Title",
               "description": "Brief description",
-              "ingredients": ["Ingredient 1", "Ingredient 2"],
+              "ingredients": [
+                { 
+                  "name": "Ingredient Name", 
+                  "amount": 1.5, 
+                  "unit": "cup",
+                  "productId": 123 // Optional: Only if this matches a product in the list below (use ID from context). Null if no match.
+                }
+              ],
               "instructions": ["Step 1", "Step 2"],
               "time": {
                 "prep": "10 mins",
@@ -695,9 +702,12 @@ export const post = async (req: Request, res: Response) => {
             }));
 
           case "addToMealPlan":
+            // Fix Timezone: Append T12:00:00 so it falls in the middle of the day, 
+            // avoiding UTC 00:00 rolling back to previous day in Western timezones.
+            const dateStr = args.date.includes('T') ? args.date : `${args.date}T12:00:00`;
             const newPlan = await prisma.mealPlan.create({
               data: {
-                date: new Date(args.date),
+                date: new Date(dateStr),
                 recipeId: args.recipeId
               }
             });

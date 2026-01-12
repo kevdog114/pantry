@@ -11,6 +11,14 @@ import { MatCardModule } from '@angular/material/card';
 import { Router } from '@angular/router';
 import { environment } from '../../environments/environment';
 import { MatTabsModule } from '@angular/material/tabs';
+import { MatAutocompleteModule } from '@angular/material/autocomplete';
+import { ProductListService } from '../components/product-list/product-list.service';
+import { Product } from '../types/product';
+import { FormControl } from '@angular/forms';
+import { map, startWith } from 'rxjs/operators';
+import { Observable } from 'rxjs';
+import { GeminiService } from '../services/gemini.service';
+import { MatSnackBar } from '@angular/material/snack-bar';
 
 @Component({
   selector: 'app-recipe-edit',
@@ -22,7 +30,8 @@ import { MatTabsModule } from '@angular/material/tabs';
     MatButtonModule,
     MatIconModule,
     MatCardModule,
-    MatTabsModule
+    MatTabsModule,
+    MatAutocompleteModule
   ],
   templateUrl: './recipe-edit.component.html',
   styleUrl: './recipe-edit.component.css'
@@ -37,9 +46,9 @@ export class RecipeEditComponent implements AfterViewInit {
     if (recipeId !== undefined) {
       this.svc.get(parseInt(recipeId)).subscribe(p => {
         this.recipe = p;
-        if (!this.recipe.steps) {
-          this.recipe.steps = [];
-        }
+        if (!this.recipe.steps) this.recipe.steps = [];
+        if (!this.recipe.ingredients) this.recipe.ingredients = [];
+        if (!this.recipe.prepTasks) this.recipe.prepTasks = [];
       });
     }
     else {
@@ -49,6 +58,8 @@ export class RecipeEditComponent implements AfterViewInit {
         title: "",
         description: "",
         steps: [],
+        ingredients: [],
+        prepTasks: [],
         source: "",
         ingredientText: ""
       }
@@ -88,10 +99,125 @@ export class RecipeEditComponent implements AfterViewInit {
     return index;
   }
 
-  constructor(private svc: RecipeListService, private router: Router) {
-  }
+  public allProducts: Product[] = [];
+  public filteredProducts: Observable<Product[]>[] = [];
+
+  constructor(
+    private svc: RecipeListService,
+    private router: Router,
+    private productService: ProductListService,
+    private geminiService: GeminiService,
+    private snackBar: MatSnackBar
+  ) { }
 
   ngAfterViewInit(): void {
+    this.productService.GetAll().subscribe(products => {
+      this.allProducts = products;
+    });
+  }
+
+  public addIngredient = () => {
+    if (!this.recipe!.ingredients) this.recipe!.ingredients = [];
+    this.recipe!.ingredients.push({
+      name: "",
+      amount: undefined,
+      unit: "",
+      productId: undefined
+    });
+  }
+
+  public removeIngredient(index: number) {
+    this.recipe!.ingredients?.splice(index, 1);
+  }
+
+  public filterProducts(index: number, event: any) {
+    // Simple filtering logic if needed, but MatAutocomplete often handled via separate controls or inline
+    // For simplicity in a dynamic list without FormArray complications:
+    // We can just rely on the template to show all or filter if we create a control per row.
+    // But dealing with dynamic controls in template-driven forms is tricky.
+    // Let's assume a simple method to get filtered list based on current string.
+    const val = event.target.value.toLowerCase();
+    // This is a naive implementation; ideally use ReactiveForms FormArray.
+    // But let's stick to template driven for minimal refactor of existing code style.
+  }
+
+  public getFilteredProducts(name: string): Product[] {
+    if (!name) return this.allProducts.slice(0, 50);
+    const filterValue = name.toLowerCase();
+    return this.allProducts.filter(option => option.title.toLowerCase().includes(filterValue)).slice(0, 20);
+  }
+
+  public onIngredientParamChange(ing: any, event: any) {
+    // If user typed something that matches a product exactly, link it?
+    // Or if they selected from autocomplete (handled by (optionSelected))
+  }
+
+  public onProductSelected(ing: any, event: any) {
+    const product = event.option.value as Product;
+    ing.name = product.title;
+    ing.productId = product.id;
+    ing.unit = product.trackCountBy === 'weight' ? 'lb' : 'count';
+  }
+
+  public generateThawAdvice() {
+    if (!this.recipe?.ingredients || this.recipe.ingredients.length === 0) {
+      this.snackBar.open("Please add ingredients first.", "Close", { duration: 3000 });
+      return;
+    }
+
+    // Only ask advice for ingredients that have a name
+    const items = this.recipe.ingredients.map(i => i.name).filter(n => n && n.trim().length > 0);
+
+    if (items.length === 0) {
+      this.snackBar.open("Ingredients must have names.", "Close", { duration: 3000 });
+      return;
+    }
+
+    this.snackBar.open("Consulting Gemini for thaw advice...", undefined, { duration: 2000 });
+
+    this.geminiService.getThawAdvice(items).subscribe({
+      next: (response: any) => {
+        const adviceItems = response.data || [];
+        let addedCount = 0;
+
+        adviceItems.forEach((r: any) => {
+          if (r.hoursToThaw > 0) {
+            const days = Math.ceil(r.hoursToThaw / 24);
+            // Check if similar task exists to avoid dupes? 
+            // For now, just add. User can delete.
+            if (!this.recipe!.prepTasks) this.recipe!.prepTasks = [];
+
+            this.recipe!.prepTasks.push({
+              description: `Thaw ${r.name}: ${r.advice}`,
+              daysInAdvance: days
+            });
+            addedCount++;
+          }
+        });
+
+        if (addedCount > 0) {
+          this.snackBar.open(`Added ${addedCount} thaw tasks!`, "Close", { duration: 2000 });
+        } else {
+          this.snackBar.open("No thawing needed for these ingredients.", "Close", { duration: 2000 });
+        }
+      },
+      error: (err) => {
+        console.error(err);
+        this.snackBar.open("Failed to generate advice.", "Close", { duration: 3000 });
+      }
+    });
+  }
+
+  public addPrepTask = () => {
+    if (!this.recipe!.prepTasks) this.recipe!.prepTasks = [];
+    this.recipe!.prepTasks.push({
+      description: "",
+      daysInAdvance: 1
+    });
+  }
+
+  public removePrepTask(index: number) {
+    this.recipe!.prepTasks?.splice(index, 1);
   }
 
   public delete = () => {
