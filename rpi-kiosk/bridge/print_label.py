@@ -84,31 +84,33 @@ def create_label_image(data):
 
     elif data.get('size') == '23mm':
         # 23mm Square Label (DK-11221)
-        width = 272
-        height = 272
+        # brother_ql printable area is 202x202
+        width = 202
+        height = 202
         img = Image.new('RGB', (width, height), color='white')
         draw = ImageDraw.Draw(img)
         
         try:
-            font_date = ImageFont.truetype("/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf", 36)
-            font_tiny = ImageFont.truetype("/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf", 20)
+            # Scale down fonts for 202x202
+            font_date = ImageFont.truetype("/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf", 28)
+            font_tiny = ImageFont.truetype("/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf", 16)
         except:
             font_date = ImageFont.load_default()
             font_tiny = ImageFont.load_default()
 
         # QR Code
         qr_data = data.get('qrData', f"S2-{data.get('stockId')}")
-        qr = qrcode.QRCode(box_size=5, border=1) 
+        qr = qrcode.QRCode(box_size=4, border=1) 
         qr.add_data(qr_data)
         qr.make(fit=True)
         
         qr_img = qr.make_image(fill_color="black", back_color="white")
-        qr_target = 170
+        qr_target = 130
         qr_img = qr_img.resize((qr_target, qr_target))
         
         # Center QR Horizontally, Top aligned
         qr_x = (width - qr_target) // 2
-        qr_y = 10
+        qr_y = 5
         img.paste(qr_img, (qr_x, qr_y))
         
         # Expiration Date
@@ -118,12 +120,9 @@ def create_label_image(data):
             text_w = draw.textlength(date_str, font=font_date)
             text_x = (width - text_w) / 2
         except:
-            text_x = 20 # Fallback
+            text_x = 10 # Fallback
             
         draw.text((text_x, qr_y + qr_target + 5), date_str, font=font_date, fill='black')
-        
-        # Optional: draw S2 ID tiny?
-        # draw.text((5, 5), qr_data, font=font_tiny, fill='black')
 
     else:
         # Stock Label Format (Compact)
@@ -384,6 +383,11 @@ def status_cmd(args):
                         # Fallback/Sanity Check
                         if media_width_byte == 0 and resp[10] > 0:
                             media_width_byte = resp[10]
+                        
+                        # Specific override for 23mm (DK-11221 Square)
+                        if media_width_byte == 23:
+                             media_len_byte = 23
+                             media_type_byte = 0x0A # Treat as die-cut
                         
                         media_type = 'Die-Cut' if media_type_byte == 0x0A else 'Continuous'
                         
