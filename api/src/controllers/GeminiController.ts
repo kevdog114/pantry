@@ -26,7 +26,7 @@ const geminiConfig = {
 };
 
 // Helper to get the model based on feature setting or fallback
-async function getGeminiModel(featureKey: string, fallbackModelName: string = DEFAULT_FALLBACK_MODEL) {
+export async function getGeminiModel(featureKey: string, fallbackModelName: string = DEFAULT_FALLBACK_MODEL) {
   let modelName = fallbackModelName;
   try {
     const setting = await prisma.systemSetting.findUnique({
@@ -49,7 +49,7 @@ async function getGeminiModel(featureKey: string, fallbackModelName: string = DE
 }
 
 // Reuseable execution wrapper with fallback
-async function executeWithFallback<T>(
+export async function executeWithFallback<T>(
   featureKey: string,
   operation: (model: any) => Promise<T>,
   fallbackModelName: string = DEFAULT_FALLBACK_MODEL

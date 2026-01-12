@@ -434,6 +434,17 @@ export class MealPlanComponent implements OnInit {
                     this.snackBar.open("Plan generated but failed to save.", "Close", { duration: 2000 });
                 }
             });
+
+            // Generate Shopping List (Logistics via Gemini)
+            this.mealPlanService.generateShoppingList(today.toISOString(), future.toISOString()).subscribe({
+                next: (res) => {
+                    console.log('Shopping list generated:', res);
+                    if (res.items && res.items.length > 0) {
+                        this.snackBar.open(`Added ${res.items.length} items to Shopping List`, 'Cool', { duration: 3000 });
+                    }
+                },
+                error: (err) => console.error('Shopping list gen failed', err)
+            });
         });
     }
 

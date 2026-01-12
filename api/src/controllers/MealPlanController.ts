@@ -1,5 +1,177 @@
 import { NextFunction, Response, Request } from "express";
 import prisma from '../lib/prisma';
+import { executeWithFallback } from "./GeminiController";
+
+export const generateShoppingList = async (req: Request, res: Response): Promise<any> => {
+    const { startDate, endDate } = req.body;
+    if (!startDate || !endDate) return res.status(400).send("StartDate and EndDate required");
+
+    try {
+        const start = new Date(startDate);
+        const end = new Date(endDate);
+        const meals = await prisma.mealPlan.findMany({
+            where: { date: { gte: start, lte: end } },
+            include: {
+                recipe: {
+                    include: {
+                        ingredients: {
+                            include: {
+                                product: {
+                                    include: { stockItems: true }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
+        // Collect Data
+        const requirements: any[] = [];
+        const inventory: Record<string, any> = {};
+
+        meals.forEach(meal => {
+            meal.recipe.ingredients.forEach(ing => {
+                // Add to Requirements
+                requirements.push({
+                    recipe: meal.recipe.name,
+                    ingredientName: ing.name,
+                    neededAmount: ing.amount,
+                    neededUnit: ing.unit,
+                    linkedProduct: ing.product?.title || null
+                });
+
+                // Add to Inventory (once per product)
+                if (ing.product) {
+                    const pTitle = ing.product.title;
+                    if (!inventory[pTitle]) {
+                        const stock = ing.product.stockItems || [];
+                        const totalStock = stock.reduce((acc, item) => acc + item.quantity, 0);
+                        inventory[pTitle] = {
+                            totalStock: totalStock,
+                            stockUnit: ing.product.trackCountBy || 'units'
+                        };
+                    }
+                }
+            });
+        });
+
+        if (requirements.length === 0) return res.send({ message: "No ingredients found in this range" });
+
+        // Build Prompt
+        const prompt = `
+            I am planning meals and need to generate a shopping list.
+            
+            I have a list of 'Requirements' (ingredients needed for recipes) and a list of 'Inventory' (what I currently have in stock).
+            
+            INSTRUCTIONS:
+            1. Group requirements by Product (or Ingredient Name if no product is linked).
+            2. Sum up the total amount needed for each group.
+            3. Check the 'Inventory' for that product.
+            4. Calculate: (Total Needed) - (Inventory).
+            5. If the result is greater than 0, add it to the shopping list.
+            6. Handle unit conversions intelligently (e.g., if needed is '1 lb' and inventory is '16 oz', that is 0 needed. If needed is 4 units and inventory is 1 unit, buy 3).
+            7. If an ingredient is NOT linked to a product, assume I have 0 inventory and need to buy the full amount, UNLESS it is a common basic pantry staple like water, salt, pepper, or oil (in small quantities).
+            
+            OUTPUT:
+            Return ONLY a JSON array of items to buy.
+            Format: [{ "name": "Item Name", "quantity": number, "unit": "string", "reason": "Reason for buying (e.g. Need 12 total, have 1)" }]
+            
+            --- INVENTORY ---
+            ${JSON.stringify(inventory, null, 2)}
+            
+            --- REQUIREMENTS ---
+            ${JSON.stringify(requirements, null, 2)}
+        `;
+
+        const { result } = await executeWithFallback('gemini_shopping_model', async (model) => {
+            return await model.generateContent({
+                contents: [{ role: 'user', parts: [{ text: prompt }] }],
+                generationConfig: { responseMimeType: "application/json" }
+            });
+        });
+
+        const responseText = result.response.text();
+        const json = JSON.parse(responseText);
+        const itemsToBuy = Array.isArray(json) ? json : (json.items || []);
+
+        // Add to Shopping List
+        let list = await prisma.shoppingList.findFirst();
+        if (!list) list = await prisma.shoppingList.create({ data: { name: "My Shopping List" } });
+
+        // Get all existing active logistics items to track what is still needed
+        const existingLogisticsItems = await prisma.shoppingListItem.findMany({
+            where: {
+                shoppingListId: list.id,
+                fromLogistics: true,
+                checked: false
+            }
+        });
+        const processedIds = new Set<number>();
+        const createdItems = [];
+
+        for (const item of itemsToBuy) {
+            // Check for existing unchecked item with same name
+            const existing = await prisma.shoppingListItem.findFirst({
+                where: {
+                    shoppingListId: list.id,
+                    name: item.name,
+                    checked: false
+                }
+            });
+
+            if (existing) {
+                if (existing.fromLogistics) {
+                    // Update existing logistics item with NEW total (do not accumulate)
+                    await prisma.shoppingListItem.update({
+                        where: { id: existing.id },
+                        data: { quantity: item.quantity || 1 }
+                    });
+                    processedIds.add(existing.id);
+                    createdItems.push(existing); // Pushing old object, but it's just for response
+                } else {
+                    // Item exists but was manually added. Create a separate logistics entry to ensure coverage.
+                    const newItem = await prisma.shoppingListItem.create({
+                        data: {
+                            shoppingListId: list.id,
+                            name: item.name,
+                            quantity: item.quantity || 1,
+                            fromLogistics: true
+                        }
+                    });
+                    createdItems.push(newItem);
+                }
+            } else {
+                // Create new
+                const newItem = await prisma.shoppingListItem.create({
+                    data: {
+                        shoppingListId: list.id,
+                        name: item.name,
+                        quantity: item.quantity || 1,
+                        fromLogistics: true
+                    }
+                });
+                createdItems.push(newItem);
+            }
+        }
+
+        // Cleanup: Remove logistics items that are no longer returned by the AI (stale requirements)
+        for (const oldItem of existingLogisticsItems) {
+            if (!processedIds.has(oldItem.id)) {
+                console.log(`Removing stale logistics item: ${oldItem.name}`);
+                await prisma.shoppingListItem.delete({ where: { id: oldItem.id } });
+            }
+        }
+
+        res.json({ message: "Shopping list updated", items: createdItems });
+
+    } catch (e: any) {
+        console.error("Error generating shopping list:", e);
+        res.status(500).json({ error: e.message });
+    }
+}
+
+
 
 const mapMealPlan = (meal: any) => {
     if (meal.recipe) {

@@ -41,7 +41,12 @@
 
     <mat-list *ngIf="!isLoading && !error && shoppingList">
         <mat-list-item *ngFor="let item of shoppingList.items">
-            <span matListItemTitle [class.checked]="item.checked">{{ item.name }}</span>
+            <span matListItemTitle [class.checked]="item.checked">
+                {{ item.name }}
+                <mat-icon *ngIf="item.fromLogistics" class="logistics-icon ms-2"
+                    style="font-size: 16px; width: 16px; height: 16px; vertical-align: middle; color: #673ab7;"
+                    matTooltip="From Logistics Plan">smart_toy</mat-icon>
+            </span>
             <span matListItemLine *ngIf="item.quantity > 1">Quantity: {{ item.quantity }}</span>
 
             <button mat-icon-button matListItemMeta (click)="deleteItem(item)">

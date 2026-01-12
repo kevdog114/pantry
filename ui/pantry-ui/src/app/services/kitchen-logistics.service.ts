@@ -46,7 +46,7 @@ export class KitchenLogisticsService {
     }>();
 
     // Helper to get or create a task in the map
-    const getOrCreateTask = (date: Date, type: 'FREEZE' | 'THAW', product: any, recipeTitle: string, planId: number, cookDate: Date) => {
+    const getOrCreateTask = (date: Date, type: 'FREEZE' | 'THAW', product: any, recipeTitle: string, planId: number, cookDate: Date, amount: number) => {
       const dateStr = date.toISOString().split('T')[0];
       const key = `${type}_${dateStr}_${product.id}`;
 
@@ -64,7 +64,7 @@ export class KitchenLogisticsService {
       }
 
       const task = aggregatedTasks.get(key)!;
-      task.count += 1; // Accumulate count
+      task.count += amount; // Accumulate actual amount
       task.linkedRecipeNames.add(recipeTitle);
       task.linkedMealDates.push(cookDate);
       if (planId) task.relatedMealPlanIds.push(planId);
@@ -81,6 +81,30 @@ export class KitchenLogisticsService {
       icon: 'shopping_cart'
     });
 
+    // Track available frozen stock for allocation simulation
+    const frozenStockMap = new Map<number, number>();
+
+    // Pre-populate frozen stock from included product data
+    // Note: We need to iterate all meals to find products first
+    mealPlans.forEach(plan => {
+      const recipe = plan.recipe as any;
+      if (recipe && recipe.ingredients) {
+        recipe.ingredients.forEach((ing: any) => {
+          if (ing.product && ing.product.stockItems) {
+            // Only count FROZEN stock items
+            const frozenQty = ing.product.stockItems
+              .filter((item: any) => item.frozen)
+              .reduce((sum: number, item: any) => sum + item.quantity, 0);
+
+            // Only set if not already set (avoid overwriting if multiple ingredients point to same product, though it should be same data)
+            if (!frozenStockMap.has(ing.product.id)) {
+              frozenStockMap.set(ing.product.id, frozenQty);
+            }
+          }
+        });
+      }
+    });
+
     mealPlans.forEach(plan => {
       const cookDate = new Date(plan.date);
       const recipe = plan.recipe as any;
@@ -91,23 +115,45 @@ export class KitchenLogisticsService {
       recipe.ingredients.forEach((ing: any) => {
         const product = ing.product;
         if (product) {
+          const qtyNeeded = ing.amount || 0; // Use amount from recipe
           const lifespan = product.refrigeratorLifespanDays;
 
-          if (lifespan !== undefined && lifespan !== null) {
+          if (lifespan !== undefined && lifespan !== null && qtyNeeded > 0) {
             const cookDateNoTime = new Date(cookDate.getFullYear(), cookDate.getMonth(), cookDate.getDate());
             const shopDateNoTime = new Date(shoppingDate.getFullYear(), shoppingDate.getMonth(), shoppingDate.getDate());
 
             const diffTime = cookDateNoTime.getTime() - shopDateNoTime.getTime();
             const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
-            if (diffDays > lifespan) {
-              // Aggregate Freeze Task
-              getOrCreateTask(shoppingDate, 'FREEZE', product, recipe.title, plan.id, cookDate);
+            // Allocation Logic
+            let currentFrozen = frozenStockMap.get(product.id) || 0;
 
-              // Aggregate Thaw Task
+            // 1. Take from Existing Frozen Stock
+            const qtyFromFrozen = Math.min(qtyNeeded, currentFrozen);
+            if (qtyFromFrozen > 0) {
+              // Must Thaw this amount
               const thawDate = new Date(cookDate);
-              thawDate.setDate(cookDate.getDate() - 1);
-              getOrCreateTask(thawDate, 'THAW', product, recipe.title, plan.id, cookDate);
+              thawDate.setDate(cookDate.getDate() - 1); // Thaw 1 day before
+              getOrCreateTask(thawDate, 'THAW', product, recipe.title, plan.id, cookDate, qtyFromFrozen);
+
+              // Decrement simulated stock
+              frozenStockMap.set(product.id, currentFrozen - qtyFromFrozen);
+            }
+
+            // 2. Remainder must optionally be Bought & Frozen
+            const qtyRemaining = qtyNeeded - qtyFromFrozen;
+            if (qtyRemaining > 0) {
+              // Determine if we need to freeze these newly bought items
+              if (diffDays > lifespan) {
+                // Need to Freeze
+                getOrCreateTask(shoppingDate, 'FREEZE', product, recipe.title, plan.id, cookDate, qtyRemaining);
+
+                // Need to Thaw (these same items later)
+                const thawDate = new Date(cookDate);
+                thawDate.setDate(cookDate.getDate() - 1);
+                getOrCreateTask(thawDate, 'THAW', product, recipe.title, plan.id, cookDate, qtyRemaining);
+              }
+              // Else: Keep fresh, no tasks needed
             }
           }
         }

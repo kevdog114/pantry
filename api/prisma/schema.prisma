@@ -265,6 +265,7 @@ model ShoppingListItem {
   name           String
   quantity       Int          @default(1)
   checked        Boolean      @default(false)
+  fromLogistics  Boolean      @default(false)
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
 }

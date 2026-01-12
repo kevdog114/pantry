@@ -9,6 +9,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatListModule } from '@angular/material/list';
 import { MatMenuModule } from '@angular/material/menu';
+import { MatTooltipModule } from '@angular/material/tooltip';
 import { ShoppingListService, ShoppingList, ShoppingListItem } from '../services/shopping-list.service';
 import { GeminiService } from '../services/gemini.service';
 
@@ -25,7 +26,8 @@ import { GeminiService } from '../services/gemini.service';
         MatCheckboxModule,
         MatCheckboxModule,
         MatListModule,
-        MatMenuModule
+        MatMenuModule,
+        MatTooltipModule
     ],
     templateUrl: './shopping-list.component.html',
     styleUrl: './shopping-list.component.css'

@@ -11,6 +11,7 @@ export interface ShoppingListItem {
     name: string;
     quantity: number;
     checked: boolean;
+    fromLogistics?: boolean;
     createdAt: Date;
     updatedAt: Date;
 }

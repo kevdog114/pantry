@@ -220,6 +220,7 @@ app.put("/meal-plan/:id", MealPlanController.updateMealPlan);
 app.delete("/meal-plan/:id", MealPlanController.removeMealFromPlan);
 
 app.post("/meal-plan/tasks", MealPlanController.saveLogisticsTasks);
+app.post("/meal-plan/generate-shopping-list", MealPlanController.generateShoppingList);
 app.get("/meal-plan/tasks/upcoming", MealPlanController.getUpcomingTasks);
 app.put("/meal-plan/tasks/:id/complete", MealPlanController.completeTask);
 

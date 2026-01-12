@@ -39,6 +39,10 @@ export class MealPlanService {
         return this.http.post<any>(`${this.apiUrl}/tasks`, { tasks, startDate, endDate });
     }
 
+    generateShoppingList(startDate: string, endDate: string): Observable<any> {
+        return this.http.post<any>(`${this.apiUrl}/generate-shopping-list`, { startDate, endDate });
+    }
+
     getUpcomingTasks(startDate?: string, endDate?: string): Observable<any[]> {
         let url = `${this.apiUrl}/tasks/upcoming`;
         if (startDate && endDate) {
