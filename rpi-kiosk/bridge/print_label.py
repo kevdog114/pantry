@@ -266,11 +266,8 @@ def discover_cmd(args):
         print(json.dumps([]))
 
 def status_cmd(args):
-    # Get status from printer
-    # This requires sending ESC i S and reading 32 bytes
-    # We will try to use the backend to do this.
-    identifier = args.printer
-    backend = args.backend
+    # Get status from printer using brother_ql CLI
+    # This delegates the low-level communication to the library
     
     status_data = {
         'connected': False,
@@ -279,195 +276,108 @@ def status_cmd(args):
         'errors': []
     }
     
+    import subprocess
+    import shutil
+    
+    # helper to find executable
+    brother_ql_bin = shutil.which('brother_ql')
+    if not brother_ql_bin:
+        status_data['errors'].append("brother_ql binary not found")
+        print(json.dumps(status_data))
+        return
+
+    cmd = [
+        brother_ql_bin,
+        '--backend', args.backend,
+        '--model', args.model,
+        '--printer', args.printer,
+        'status'
+    ]
+    
     try:
-        # Manual interaction using the backend logic
-        # We need to open the device, write to it, and read from it.
-        # brother_ql 'send' doesn't return the handle.
-        # So we have to use the backend driver directly.
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=5)
         
-        if backend == 'pyusb':
-            import usb.core
-            import usb.util
-            
-            # Parse identifier (usb://0xYYYY:0xZZZZ/num)
-            # Simplified generic finder or use brother_ql's helper to get device
-            # For robustness, we will try to use brother_ql internals if possible,
-            # but usually it's easier to just use usb.core if we have the VID:PID
-            
-            # Use brother_ql to parse identifier?
-            # Let's assume the user passes a valid identifier.
-            
-            # Hardcoded QL-600 check if identifier not specific?
-            # brother_ql's send uses a helper to find.
-            
-            # Let's try to query status.
-            pass
-
-        # Since we are using brother_ql_inventree, let's see if we can use its API.
-        # Assuming there isn't a simple 'get_status' exposed in top level, 
-        # we will assume the user has QL-600 and we can validly use pyusb to query it.
-        
-        # NOTE: brother_ql_inventree v1.3 has a 'status' feature.
-        # If we can import it, great.
-        try:
-            # Try to find a status function
-            from brother_ql_inventree.cmds import status as status_module
-            # This logic is hypothetical based on "version 1.3 introduced ... cli command"
-            # It's likely in valid python module.
-        except ImportError:
-            pass
-
-        # Fallback implementation:
-        # Just return "ONLINE" if we can see it during discovery?
-        # User wants "status and label type".
-        
-        # We will try to read 32 bytes from USB
-        # This is a basic implementation of status reading for Brother QL
-        
-        # Find device (assuming 1st brother printer if identifier not strict)
-        dev = usb.core.find(idVendor=0x04f9) # Brother
-        if dev:
+        if result.returncode != 0:
+            status_data['status'] = 'ERROR'
+            status_data['errors'].append(f"Command failed: {result.stderr.strip()}")
+            if "Device not found" in result.stderr:
+                 status_data['status'] = 'OFFLINE'
+        else:
             status_data['connected'] = True
-            status_data['status'] = 'ONLINE'
+            status_data['status'] = 'READY'
             
-            try:
-                # Detach kernel driver if needed
-                if dev.is_kernel_driver_active(0):
-                    dev.detach_kernel_driver(0)
-            except:
-                pass
+            # Parse Output
+            # Example:
+            # Model: QL-600
+            # Media type: [DK] Die-cut labels
+            # Media size: 23 x 23 mm
+            # Errors: ...
+            
+            output_lines = result.stdout.split('\n')
+            media_type = "Unknown"
+            media_size = "Unknown"
+            
+            detected_width = 0
+            detected_length = 0
+            is_die_cut = False
+            
+            for line in output_lines:
+                line = line.strip()
+                if not line: continue
                 
-            try:
-                # dev.set_configuration() # Sometimes resets the device, safer to skip if active?
-                # Let's try skipping set_configuration if already configured
-                try:
-                    cfg = dev.get_active_configuration()
-                except:
-                    dev.set_configuration()
-                    cfg = dev.get_active_configuration()
+                lower_line = line.lower()
+                
+                if line.startswith("Media type:"):
+                    raw_type = line.split(':', 1)[1].strip()
+                    if "Die-cut" in raw_type:
+                        is_die_cut = True
+                    elif "Continuous" in raw_type:
+                        is_die_cut = False
                         
-                # Find OUT and IN endpoints
-                intf = cfg[(0,0)]
-                
-                ep_out = usb.util.find_descriptor(intf, custom_match=lambda e: usb.util.endpoint_direction(e.bEndpointAddress) == usb.util.ENDPOINT_OUT)
-                ep_in = usb.util.find_descriptor(intf, custom_match=lambda e: usb.util.endpoint_direction(e.bEndpointAddress) == usb.util.ENDPOINT_IN)
-                
-                if ep_out and ep_in:
-                    # Clear buffer
+                elif line.startswith("Media size:"):
+                    media_size = line.split(':', 1)[1].strip()
+                    # Try to parse dimensions "62 x 100 mm" or "62 mm"
+                    parts = media_size.replace('mm', '').split('x')
                     try:
-                        dev.read(ep_in.bEndpointAddress, 1024, timeout=100)
+                        detected_width = int(parts[0].strip())
+                        if len(parts) > 1:
+                            detected_length = int(parts[1].strip())
                     except:
                         pass
-                        
-                    # Send Status Request (ESC i S)
-                    cmd = b'\x1b\x69\x53'
-                    ep_out.write(cmd)
-                    
-                # Read 32 bytes
-                    resp = dev.read(ep_in.bEndpointAddress, 32, timeout=1000)
-                    if len(resp) >= 32:
-                        # Try to import BrotherQLStatus for robust parsing
-                        try:
-                            from brother_ql.readers import BrotherQLStatus
-                        except ImportError:
-                            try:
-                                from brother_ql_inventree.readers import BrotherQLStatus
-                            except ImportError:
-                                BrotherQLStatus = None
-
-                        if BrotherQLStatus:
-                             # Use library to parse
-                             try:
-                                 status_obj = BrotherQLStatus(resp)
-                                 
-                                 # Map status_obj properties
-                                 # media_type is usually 'continuous_tape' or 'die_cut_labels'
-                                 is_die_cut = (status_obj.media_type_name == 'die_cut_labels') or (status_obj.media_type == 0x0A)
-                                 
-                                 status_data['media'] = f"{status_obj.media_width}mm"
-                                 if status_obj.media_length > 0:
-                                     status_data['media'] += f" x {status_obj.media_length}mm"
-                                 status_data['media'] += f" {'Die-Cut' if is_die_cut else 'Continuous'}"
-                                 
-                                 status_data['detected_label'] = {
-                                     'width': status_obj.media_width,
-                                     'length': status_obj.media_length,
-                                     'type': 'die-cut' if is_die_cut else 'continuous'
-                                 }
-                                 
-                                 # Errors
-                                 if status_obj.errors:
-                                     status_data['status'] = 'ERROR'
-                                     status_data['errors'].append(f"Printer Errors: {status_obj.errors}")
-                                 else:
-                                     status_data['status'] = 'READY'
-                                     
-                             except Exception as e:
-                                 # Fallback to manual if parsing fails
-                                 logger.error(f"BrotherQLStatus parsing failed: {e}")
-                                 # ... manual logic below or just error ...
-                                 status_data['errors'].append(f"Status Parse Error: {e}")
-                        else:
-
-                            # Manual Parsing (Fallback)
-                            # Byte 8: Error Info 1
-                            # Byte 9: Error Info 2
-                            # Byte 11: Media Type
-                            # Byte 17: Media Width
-                            # Byte 18: Media Length
-                            
-                            media_width_byte = resp[17]
-                            media_len_byte = resp[18]
-                            media_type_byte = resp[11]
-                            
-                            # Fallback/Sanity Check
-                            if media_width_byte == 0 and resp[10] > 0:
-                                media_width_byte = resp[10]
-                            
-                            # Specific override for 23mm (DK-11221 Square)
-                            if media_width_byte == 23:
-                                    media_len_byte = 23
-                                    media_type_byte = 0x0A # Treat as die-cut
-                            
-                            media_type = 'Die-Cut' if media_type_byte == 0x0A else 'Continuous'
-                            
-                            label_size = f"{media_width_byte}mm"
-                            if media_len_byte > 0:
-                                label_size += f" x {media_len_byte}mm"
-                            
-                            status_data['media'] = f"{label_size} {media_type}"
-                            status_data['detected_label'] = {
-                                'width': media_width_byte,
-                                'length': media_len_byte,
-                                'type': 'die-cut' if media_type_byte == 0x0A else 'continuous'
-                            }
-                            
-                            # Errors
-                            err1 = resp[8]
-                            err2 = resp[9]
-                            
-                            if err1 != 0 or err2 != 0:
-                                status_data['status'] = 'ERROR'
-                                status_data['errors'].append(f"Error Codes: {hex(err1)}, {hex(err2)}")
-                            else:
-                                status_data['status'] = 'READY'
-                                
-                        # Config: Report current model setting
-                        status_data['config'] = {
-                            'model': 'QL-600', 
-                            'auto_cut': True, 
-                            'resolution': 'Standard' 
-                        }
-
-            except Exception as e:
-                status_data['status'] = 'ERROR'
-                status_data['errors'].append(str(e))
                 
-        else:
-            status_data['status'] = 'OFFLINE'
+                elif line.startswith("Errors:"):
+                     errs = line.split(':', 1)[1].strip()
+                     if errs and errs != "None":
+                         status_data['status'] = 'ERROR'
+                         status_data['errors'].append(errs)
+
+            # Heuristic: If length is 0, treat as continuous/unknown length
+            if detected_length == 0:
+                is_die_cut = False
+
+            media_type_str = 'Die-Cut' if is_die_cut else 'Continuous'
             
+            # Reconstruct standardized media string
+            final_media_str = f"{detected_width}mm"
+            if detected_length > 0:
+                final_media_str += f" x {detected_length}mm"
+            final_media_str += f" {media_type_str}"
+            
+            status_data['media'] = final_media_str
+            status_data['detected_label'] = {
+                'width': detected_width,
+                'length': detected_length,
+                'type': 'die-cut' if is_die_cut else 'continuous'
+            }
+            
+            status_data['config'] = {
+                 'model': args.model,
+                 'auto_cut': True
+            }
+
     except Exception as e:
         status_data['errors'].append(str(e))
+        status_data['status'] = 'ERROR'
         
     print(json.dumps(status_data))
 
