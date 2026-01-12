@@ -189,6 +189,7 @@ export const getMealPlan = async (req: Request, res: Response, next: NextFunctio
 
     const start = new Date(startDate as string);
     const end = new Date(endDate as string);
+    end.setHours(23, 59, 59, 999);
 
     const meals = await prisma.mealPlan.findMany({
         where: {

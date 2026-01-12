@@ -292,6 +292,7 @@ export const post = async (req: Request, res: Response) => {
     const productContext = await getProductContext();
     const systemInstruction = `
       You are a helpful cooking assistant. You have access to the user's pantry inventory.
+      The current date is ${new Date().toLocaleDateString()}.
       You can use the provided tools to managing stock entries (create, edit, delete, list).
       
       When the user asks for a recipe, or just wants to chat, you MUST return a JSON object with the following structure:
@@ -506,6 +507,40 @@ export const post = async (req: Request, res: Response) => {
                 newDate: { type: FunctionDeclarationSchemaType.STRING, description: "New Date (YYYY-MM-DD)" }
               },
               required: ["mealPlanId", "newDate"]
+            }
+          },
+          {
+            name: "createRecipe",
+            description: "Create a new recipe in the recipe book.",
+            parameters: {
+              type: FunctionDeclarationSchemaType.OBJECT,
+              properties: {
+                title: { type: FunctionDeclarationSchemaType.STRING, description: "Title of the recipe" },
+                description: { type: FunctionDeclarationSchemaType.STRING, description: "Description or summary" },
+                ingredients: {
+                  type: FunctionDeclarationSchemaType.ARRAY,
+                  description: "List of ingredients",
+                  items: {
+                    type: FunctionDeclarationSchemaType.OBJECT,
+                    properties: {
+                      name: { type: FunctionDeclarationSchemaType.STRING },
+                      amount: { type: FunctionDeclarationSchemaType.NUMBER },
+                      unit: { type: FunctionDeclarationSchemaType.STRING },
+                      productId: { type: FunctionDeclarationSchemaType.INTEGER, description: "Optional: ID of matching product in inventory" }
+                    },
+                    required: ["name"]
+                  }
+                },
+                steps: {
+                  type: FunctionDeclarationSchemaType.ARRAY,
+                  description: "List of instruction steps",
+                  items: { type: FunctionDeclarationSchemaType.STRING }
+                },
+                prepTime: { type: FunctionDeclarationSchemaType.NUMBER, description: "Prep time in minutes" },
+                cookTime: { type: FunctionDeclarationSchemaType.NUMBER, description: "Cook time in minutes" },
+                yield: { type: FunctionDeclarationSchemaType.STRING, description: "Servings/Yield" }
+              },
+              required: ["title", "steps", "ingredients"]
             }
           }
         ]
@@ -723,6 +758,35 @@ export const post = async (req: Request, res: Response) => {
               data: { date: new Date(args.newDate) }
             });
             return { message: "Moved meal plan" };
+
+          case "createRecipe":
+            const newRecipe = await prisma.recipe.create({
+              data: {
+                name: args.title,
+                description: args.description || '',
+                source: 'Gemini Assistant',
+                prepTime: args.prepTime,
+                cookTime: args.cookTime,
+                yield: args.yield,
+                totalTime: (args.prepTime || 0) + (args.cookTime || 0),
+                ingredientText: args.ingredients.map((i: any) => `${i.amount || ''} ${i.unit || ''} ${i.name}`).join('\n'),
+                steps: {
+                  create: (args.steps || []).map((step: string, idx: number) => ({
+                    stepNumber: idx + 1,
+                    instruction: step
+                  }))
+                },
+                ingredients: {
+                  create: (args.ingredients || []).map((ing: any) => ({
+                    name: ing.name,
+                    amount: ing.amount,
+                    unit: ing.unit,
+                    productId: ing.productId
+                  }))
+                }
+              }
+            });
+            return { message: "Recipe created successfully. ID: " + newRecipe.id, recipeId: newRecipe.id };
 
           default:
             return { error: "Unknown tool" };
