@@ -161,6 +161,22 @@ function connectSocket() {
         // If we wanted to print:
         // If we wanted to print:
         if (payload.type === 'STOCK_LABEL' || payload.type === 'SAMPLE_LABEL' || payload.type === 'MODIFIER_LABEL') {
+            // Inject detected size if not present or override? User requested bridge to handle it.
+            // Check any known printer
+            let detectedSize = null;
+            Object.values(knownPrinters).forEach(p => {
+                if (p.detected_label && p.detected_label.width > 0 && p.detected_label.width < 30) {
+                    detectedSize = '23mm';
+                }
+            });
+
+            if (detectedSize) {
+                console.log(`Injecting detected size: ${detectedSize}`);
+                payload.data = payload.data || {};
+                payload.data.size = detectedSize;
+                // Force size into data if it wasn't there
+            }
+
             const data = JSON.stringify(payload.data);
             const requestId = payload.requestId; // Extract request ID
 
@@ -214,6 +230,8 @@ function connectSocket() {
 }
 
 // Check devices
+const knownPrinters = {};
+
 function checkDevices() {
     const pythonCmd = '/opt/venv/bin/python3 print_label.py';
 
@@ -236,6 +254,10 @@ function checkDevices() {
                         if (!err) {
                             try {
                                 statusInfo = JSON.parse(stdout);
+
+                                // Cache status globally
+                                knownPrinters[device.identifier] = statusInfo;
+
                             } catch (e) {
                                 console.error("Error parsing status output", e);
                             }

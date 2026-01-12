@@ -11,8 +11,8 @@ export class LabelService {
 
   constructor(private http: HttpClient) { }
 
-  printStockLabel(stockId: number): Observable<any> {
-    return this.http.post(`${this.apiUrl}/labels/stock/${stockId}`, {});
+  printStockLabel(stockId: number, size: string = 'standard'): Observable<any> {
+    return this.http.post(`${this.apiUrl}/labels/stock/${stockId}`, { size });
   }
 
   printQuickLabel(text: string): Observable<any> {

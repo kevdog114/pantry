@@ -74,9 +74,9 @@
                                 }
                             </button>
                             <mat-divider></mat-divider>
-                            <button mat-menu-item (click)="printStockLabel(row)">
+                            <button mat-menu-item (click)="printStockLabel(row, labelSizeCode)">
                                 <mat-icon>print</mat-icon>
-                                Print Stock Label
+                                Print Stock Label ({{labelSizeDescription}})
                             </button>
                             <button mat-menu-item *ngIf="row.opened" (click)="printModifier(row, 'Opened')">
                                 <mat-icon>print</mat-icon>

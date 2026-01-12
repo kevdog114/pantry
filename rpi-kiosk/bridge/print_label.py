@@ -82,6 +82,49 @@ def create_label_image(data):
         # Center text vertically?
         draw.text((30, 25), full_text, font=font_mod, fill='black')
 
+    elif data.get('size') == '23mm':
+        # 23mm Square Label (DK-11221)
+        width = 272
+        height = 272
+        img = Image.new('RGB', (width, height), color='white')
+        draw = ImageDraw.Draw(img)
+        
+        try:
+            font_date = ImageFont.truetype("/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf", 36)
+            font_tiny = ImageFont.truetype("/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf", 20)
+        except:
+            font_date = ImageFont.load_default()
+            font_tiny = ImageFont.load_default()
+
+        # QR Code
+        qr_data = data.get('qrData', f"S2-{data.get('stockId')}")
+        qr = qrcode.QRCode(box_size=5, border=1) 
+        qr.add_data(qr_data)
+        qr.make(fit=True)
+        
+        qr_img = qr.make_image(fill_color="black", back_color="white")
+        qr_target = 170
+        qr_img = qr_img.resize((qr_target, qr_target))
+        
+        # Center QR Horizontally, Top aligned
+        qr_x = (width - qr_target) // 2
+        qr_y = 10
+        img.paste(qr_img, (qr_x, qr_y))
+        
+        # Expiration Date
+        date_str = data.get('expirationDate', 'N/A')
+        # Center text
+        try:
+            text_w = draw.textlength(date_str, font=font_date)
+            text_x = (width - text_w) / 2
+        except:
+            text_x = 20 # Fallback
+            
+        draw.text((text_x, qr_y + qr_target + 5), date_str, font=font_date, fill='black')
+        
+        # Optional: draw S2 ID tiny?
+        # draw.text((5, 5), qr_data, font=font_tiny, fill='black')
+
     else:
         # Stock Label Format (Compact)
         # "About 200px height" as requested
@@ -168,11 +211,16 @@ def print_label_cmd(args):
     qlr = BrotherQLRaster(args.model)
     qlr.exception_on_warning = True
     
+    # Select label type
+    label_type = '62'
+    if data.get('size') == '23mm':
+        label_type = '23x23'
+
     # 62 is the tape width in mm (Red/Black or Black)
     instructions = convert(
         qlr=qlr, 
         images=[img], 
-        label='62', 
+        label=label_type, 
         cut=True, 
         dither=True, 
         compress=False, 

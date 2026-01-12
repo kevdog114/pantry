@@ -11,6 +11,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatDividerModule } from '@angular/material/divider';
 import { dateTimestampProvider } from 'rxjs/internal/scheduler/dateTimestampProvider';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { KioskService } from '../services/kiosk.service';
 
 
 interface IndexedBarcode {
@@ -65,8 +66,53 @@ export class ProductViewComponent {
   /**
    *
    */
-  constructor(private svc: ProductListService, private snackbar: MatSnackBar, private dialog: MatDialog, private labelService: LabelService) {
+  public labelSizeDescription: string = 'Standard';
+  public labelSizeCode: string = 'standard';
 
+  constructor(
+    private svc: ProductListService,
+    private snackbar: MatSnackBar,
+    private dialog: MatDialog,
+    private labelService: LabelService,
+    private kioskService: KioskService
+  ) {
+    this.detectPrinterMedia();
+  }
+
+  detectPrinterMedia() {
+    this.kioskService.getKiosks().subscribe(kiosks => {
+      // Find first online printer
+      let found = false;
+      for (const kiosk of kiosks) {
+        if (kiosk.devices) {
+          const printer = kiosk.devices.find(d => d.type === 'PRINTER' && (d.status === 'ONLINE' || d.status === 'READY'));
+          if (printer && printer.details) {
+            try {
+              const details = typeof printer.details === 'string' ? JSON.parse(printer.details) : printer.details;
+              // Check detected label width
+              if (details.detected_label) {
+                const w = details.detected_label.width;
+                if (w >= 50) { // 62mm usually reads around 58-62 depending on printer
+                  this.labelSizeDescription = '62mm Standard';
+                  this.labelSizeCode = 'standard';
+                } else if (w > 0 && w < 30) { // 23mm
+                  this.labelSizeDescription = '23mm Square';
+                  this.labelSizeCode = '23mm';
+                } else {
+                  // Fallback or use media string
+                  this.labelSizeDescription = details.media || 'Standard';
+                  this.labelSizeCode = 'standard';
+                }
+              }
+              found = true;
+            } catch (e) {
+              console.error("Error parsing printer details", e);
+            }
+          }
+        }
+        if (found) break;
+      }
+    });
   }
 
   openAudioChat() {
@@ -142,8 +188,8 @@ export class ProductViewComponent {
     });
   }
 
-  printStockLabel(stockItem: StockItem) {
-    this.labelService.printStockLabel(stockItem.id!).subscribe({
+  printStockLabel(stockItem: StockItem, size: string = 'standard') {
+    this.labelService.printStockLabel(stockItem.id!, size).subscribe({
       next: (res) => {
         this.snackbar.open(res.message || "Label Sent", "Okay", { duration: 3000 });
       },

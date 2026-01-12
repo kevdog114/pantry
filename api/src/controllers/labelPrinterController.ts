@@ -121,6 +121,8 @@ export const printStockLabel = async (req: Request, res: Response, next: NextFun
             return;
         }
 
+        const { size } = req.body;
+
         const payload = {
             type: 'STOCK_LABEL',
             data: {
@@ -128,7 +130,8 @@ export const printStockLabel = async (req: Request, res: Response, next: NextFun
                 expirationDate: stockItem.expirationDate ? stockItem.expirationDate.toISOString().split('T')[0] : 'N/A',
                 quantity: stockItem.quantity,
                 stockId: stockItem.id,
-                qrData: `S2-${stockItem.id}`
+                qrData: `S2-${stockItem.id}`,
+                size: size || 'standard'
             }
         };
 

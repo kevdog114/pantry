@@ -15,8 +15,6 @@ import { Observable, of } from 'rxjs';
 import { catchError, map, filter } from 'rxjs/operators';
 import { CommonModule } from '@angular/common';
 
-import PullToRefresh from 'pulltorefreshjs';
-
 @Component({
   selector: 'app-root',
   imports: [RouterOutlet, MatIconModule, MatToolbarModule, MatButtonModule, MatDividerModule,
@@ -61,20 +59,6 @@ export class AppComponent implements OnInit {
       map(response => !!response.user),
       catchError(() => of(false))
     );
-
-    // Initialize Pull-to-Refresh
-    PullToRefresh.init({
-      mainElement: 'mat-sidenav-content',
-      onRefresh() {
-        window.location.reload();
-      },
-      distIgnore: 50, // Optional: Ignore if scrolled down more than 50px
-      iconArrow: '<span class="material-symbols-outlined">arrow_downward</span>',
-      iconRefreshing: '<span class="material-symbols-outlined">refresh</span>',
-      instructionsPullToRefresh: 'Pull down to refresh',
-      instructionsReleaseToRefresh: 'Release to refresh',
-      instructionsRefreshing: 'Refreshing...'
-    });
   }
 
   logout() {
