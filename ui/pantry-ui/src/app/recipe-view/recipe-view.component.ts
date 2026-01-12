@@ -10,6 +10,8 @@ import { RecipeListService } from '../components/recipe-list/recipe-list.service
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { AudioChatDialogComponent } from '../components/audio-chat-dialog/audio-chat-dialog.component';
 
+import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+
 @Component({
     selector: 'app-recipe-view',
     standalone: true,
@@ -20,7 +22,8 @@ import { AudioChatDialogComponent } from '../components/audio-chat-dialog/audio-
         MatIconModule,
         MatCardModule,
         MatDividerModule,
-        MatDialogModule
+        MatDialogModule,
+        MatSnackBarModule
     ],
     templateUrl: './recipe-view.component.html',
     styleUrl: './recipe-view.component.scss'
@@ -33,7 +36,8 @@ export class RecipeViewComponent implements OnInit {
         private route: ActivatedRoute,
         private router: Router,
         private recipeService: RecipeListService,
-        private dialog: MatDialog
+        private dialog: MatDialog,
+        private snackBar: MatSnackBar
     ) { }
 
     ngOnInit(): void {
@@ -68,6 +72,7 @@ export class RecipeViewComponent implements OnInit {
     deleteRecipe() {
         if (this.recipe && confirm('Are you sure you want to delete this recipe?')) {
             this.recipeService.delete(this.recipe.id).subscribe(() => {
+                this.snackBar.open("Successfully deleted the recipe", "Close", { duration: 3000 });
                 this.router.navigate(['/recipes']);
             });
         }

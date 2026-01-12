@@ -6,7 +6,13 @@
                 <mat-icon>psychology</mat-icon> Plan Logistics (Sous Chef)
             </button>
             <div class="week-selector ms-2">
-                <!-- Placeholder for week navigation if needed later -->
+                <button mat-icon-button (click)="previousWeek()" aria-label="Previous Week">
+                    <mat-icon>chevron_left</mat-icon>
+                </button>
+                <button mat-button (click)="resetToToday()">Today</button>
+                <button mat-icon-button (click)="nextWeek()" aria-label="Next Week">
+                    <mat-icon>chevron_right</mat-icon>
+                </button>
             </div>
         </div>
     </div>

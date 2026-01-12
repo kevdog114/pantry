@@ -22,7 +22,10 @@
 
         <strong class="d-block mb-1 section-title">Ingredients</strong>
         <ul class="ps-3 mb-3 small ingredient-list">
-            <li *ngFor="let ing of recipe.ingredients">{{ ing }}</li>
+            <li *ngFor="let ing of recipe.ingredients">
+                <strong>{{ ing.name }}</strong>
+                <span *ngIf="ing.amount"> - {{ ing.amount }} {{ing.unit}}</span>
+            </li>
         </ul>
 
         <strong class="d-block mb-1 section-title">Instructions</strong>

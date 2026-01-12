@@ -221,10 +221,20 @@ export class RecipeEditComponent implements AfterViewInit {
   }
 
   public delete = () => {
-    if (this.recipe && this.recipe.id)
-      this.svc.delete(this.recipe.id).subscribe(() => {
-        this.router.navigate(["/recipes"]);
-      })
+    if (this.recipe && this.recipe.id) {
+      if (confirm('Are you sure you want to delete this recipe?')) {
+        this.svc.delete(this.recipe.id).subscribe({
+          next: () => {
+            this.snackBar.open("Successfully deleted the recipe", "Close", { duration: 3000 });
+            this.router.navigate(["/recipes"]);
+          },
+          error: (err) => {
+            console.error("Error deleting recipe:", err);
+            this.snackBar.open("Failed to delete recipe", "Close", { duration: 3000 });
+          }
+        })
+      }
+    }
   }
 
   public save = () => {

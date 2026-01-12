@@ -53,6 +53,17 @@ export class MealPlanComponent implements OnInit {
     highlightedMealPlanId: number | null = null;
     logisticsActive = false;
 
+    loadUpcomingTasks() {
+        const start = this.days[0].toISOString();
+        const lastDay = new Date(this.days[this.days.length - 1]);
+        lastDay.setHours(23, 59, 59, 999);
+        const end = lastDay.toISOString();
+
+        this.mealPlanService.getUpcomingTasks(start, end).subscribe(tasks => {
+            this.populateDailyTasksFromLogistics(tasks);
+        });
+    }
+
     constructor(
         private mealPlanService: MealPlanService,
         private recipeService: RecipeService,
@@ -68,14 +79,38 @@ export class MealPlanComponent implements OnInit {
         this.loadMealPlans();
     }
 
+    startDateInView: Date = new Date();
+
     generateDays() {
-        const today = new Date();
-        today.setHours(0, 0, 0, 0); // Normalize to start of day
+        this.days = [];
+        const start = new Date(this.startDateInView);
+        start.setHours(0, 0, 0, 0); // Normalize to start of day
         for (let i = 0; i < 7; i++) {
-            const date = new Date(today);
-            date.setDate(today.getDate() + i);
+            const date = new Date(start);
+            date.setDate(start.getDate() + i);
             this.days.push(date);
         }
+    }
+
+    previousWeek() {
+        this.startDateInView.setDate(this.startDateInView.getDate() - 7);
+        this.generateDays();
+        this.loadMealPlans();
+        this.loadUpcomingTasks();
+    }
+
+    nextWeek() {
+        this.startDateInView.setDate(this.startDateInView.getDate() + 7);
+        this.generateDays();
+        this.loadMealPlans();
+        this.loadUpcomingTasks();
+    }
+
+    resetToToday() {
+        this.startDateInView = new Date();
+        this.generateDays();
+        this.loadMealPlans();
+        this.loadUpcomingTasks();
     }
 
     loadRecipes() {

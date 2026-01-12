@@ -130,7 +130,7 @@ model MealPlan {
   id        Int      @id @default(autoincrement())
   date      DateTime
   recipeId  Int
-  recipe    Recipe   @relation(fields: [recipeId], references: [id])
+  recipe    Recipe   @relation(fields: [recipeId], references: [id], onDelete: Cascade)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   tasks     MealTask[]
@@ -139,7 +139,7 @@ model MealPlan {
 model RecipeStep {
   id          Int      @id @default(autoincrement())
   recipeId    Int
-  recipe      Recipe   @relation(fields: [recipeId], references: [id])
+  recipe      Recipe   @relation(fields: [recipeId], references: [id], onDelete: Cascade)
   stepNumber  Int
   instruction String
   createdAt   DateTime @default(now())

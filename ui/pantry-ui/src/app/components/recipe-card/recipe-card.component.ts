@@ -6,10 +6,17 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { RecipeListService } from '../recipe-list/recipe-list.service';
 
+export interface ChatIngredient {
+    name: string;
+    amount?: number | string;
+    unit?: string;
+    productId?: number;
+}
+
 export interface ChatRecipe {
     title: string;
     description: string;
-    ingredients: string[];
+    ingredients: ChatIngredient[]; // Changed from string[] to ChatIngredient[]
     instructions: string[];
     time: {
         prep: string;
@@ -53,11 +60,19 @@ export class RecipeCardComponent {
             return minutes;
         };
 
+        const formatIngredient = (ing: ChatIngredient): string => {
+            let part = ing.name;
+            if (ing.amount) part += ` - ${ing.amount}`;
+            if (ing.unit) part += ` ${ing.unit}`;
+            return part;
+        };
+
         const newRecipe = {
             title: this.recipe.title,
             description: this.recipe.description,
             source: 'gemini-pro-latest',
-            ingredientText: this.recipe.ingredients.join('\n'), // Convert array to text
+            ingredientText: this.recipe.ingredients.map(formatIngredient).join('\n'),
+            ingredients: this.recipe.ingredients, // Pass the structured ingredients
             prepTime: parseTime(this.recipe.time.prep),
             cookTime: parseTime(this.recipe.time.cook),
             totalTime: parseTime(this.recipe.time.total),

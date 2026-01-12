@@ -91,3 +91,9 @@ app-root {
     box-shadow: 0 8px 16px rgba(0, 0, 0, 0.15);
   }
 }
+
+// Global Mat Card Tweaks for Theme Consistency
+.mat-mdc-card {
+  background-color: var(--mat-card-container-color, #fff);
+  color: var(--mat-card-subtitle-text-color, inherit);
+}

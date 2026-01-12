@@ -65,12 +65,15 @@
                         <li *ngFor="let ing of recipe.ingredients">
                             <mat-icon class="check-icon">check_circle_outline</mat-icon>
                             <span>
-                                <strong>{{ ing.name }}</strong>
+                                <a *ngIf="ing.product; else plainText" [routerLink]="['/products', ing.product.id]"
+                                    class="ingredient-link">
+                                    <strong>{{ ing.name }}</strong>
+                                </a>
+                                <ng-template #plainText>
+                                    <strong>{{ ing.name }}</strong>
+                                </ng-template>
+
                                 <span *ngIf="ing.amount"> - {{ ing.amount }} {{ing.unit}}</span>
-                                <span *ngIf="ing.product" class="text-muted ms-2 small">
-                                    (Linked to stock: <a
-                                        [routerLink]="['/products', ing.product.id]">{{ing.product.title}}</a>)
-                                </span>
                             </span>
                         </li>
                         <li *ngIf="(!recipe.ingredients || recipe.ingredients.length === 0)" class="empty-state">No
@@ -81,7 +84,7 @@
 
             <div *ngIf="recipe.thawInstructions || (recipe.prepTasks && recipe.prepTasks.length > 0)" class="mt-4">
                 <h2>Prep & Thawing</h2>
-                <mat-card class="prep-card bg-light">
+                <mat-card class="prep-card">
                     <mat-card-content>
                         <div *ngIf="recipe.prepTasks && recipe.prepTasks.length > 0" class="mb-3">
                             <h4 class="d-flex align-items-center"><mat-icon class="me-2">content_cut</mat-icon> Prepping
