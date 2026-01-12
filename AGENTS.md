@@ -116,7 +116,7 @@ The UI is an Angular application written in TypeScript.
 
 ### Development
 
-To work on the UI locally, navigate to the `ui/pentry-ui/` directory.
+To work on the UI locally, navigate to the `ui/pantry-ui/` directory.
 
 1.  **Install Dependencies:**
     ```bash

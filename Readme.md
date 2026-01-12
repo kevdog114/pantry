@@ -22,38 +22,59 @@ The primary goals of this project are:
 2. Track when things expire
 3. To have a modern UI that works well on many screen sizes
    - Phones
-   - Touchscreen kiosks (more on that later)
+   - Touchscreen kiosks
    - Tablets
    - Desktop
-3. and to make it easy for the user to do all of this!
+4. and to make it easy for the user to do all of this!
 
 ## Features
-1. Product tracking
+1. **Product Tracking**
    1. [x] Product list/view/edit
    2. [x] Stock item view/edit
    3. [x] Product images
-   4. [x] Barcode support for products
-1. Core
-   1. [ ] Product search
-   2. [ ] Settings management
-   3. [ ] Tagging - Work in progress
-   4. [x] Fridge-to-freezer expiration handling
-   5. [x] Freezer-to-fridge expiration handling
-   6. [x] Open item expiration handling
-   7. [x] Hardware barcode scanning support
-   8. [ ] Camera-based barcode scanning support - coming soon
-   9. [ ] Automated backup system for database/images
-2. [ ] Arduino-based scale to handle updating weights of product automatically
-3. [ ] Integration with trmnl for refrigerator-friendly display
-4. [ ] Raspberry Pi-based kiosk with barcode scanner and display - In Progress
-5. [ ] Well-documented API
-6. [ ] Integration with Home Assistant
-7. [ ] Integration with Mealie (associate Mealie ingredients with Pantry Products, create meal plans, etc...)
-8. [ ] Integration with existing shopping list?
+   4. [x] Barcode support for products (UPC, EAN, etc.)
+   5. [x] Expiration date tracking (Fridge-to-freezer, Freezer-to-fridge, Open item handling)
+   6. [x] Product Tagging
+   7. [x] Search capabilities
+
+2. **Core Functionality**
+   1. [x] Hardware barcode scanning support (USB scanners)
+   2. [x] Camera-based barcode scanning support (Mobile/Webcam)
+   3. [x] Settings management
+   4. [ ] Automated backup system for database/images
+
+3. **Smart Features (AI Powered)**
+   1. [x] Gemini Integration for product categorization and details
+   2. [x] AI-assisted product tagging
+   3. [x] Context-aware recipe chat (Audio/Text)
+
+4. **Planning & Shopping**
+   1. [x] Shopping List (Add/Remove/Sort items)
+   2. [x] Recipe Management
+
+5. **Hardware Integrations**
+   1. [x] Label Printing (Brother Label Printers)
+      - Dynamic label sizing
+      - Modifier labels (e.g., "Opened", "Frozen")
+   2. [x] Raspberry Pi Kiosk capability
+   3. [x] Home Assistant Integration (Display control)
+   4. [ ] Arduino-based scale (Planned)
+   5. [ ] Trmnl E-ink display integration (Planned)
+
+6. **Integrations**
+   1. [ ] Mealie Integration (Planned)
 
 
-## Hardware barcode scanning
+## Hardware Support
+### Barcode Scanners
+Pantry supports standard USB HID barcode scanners. No special configuration is usually required; they just act as keyboard input.
 
+### Label Printing
+Pantry supports printing custom labels for stock items (including expiration dates and QR codes) using Brother QL-series label printers (specifically tested with QL-600 series). This requires running the **rpi-kiosk** bridge software.
+
+### Raspberry Pi Kiosk
+A dedicated Kiosk mode is available for Raspberry Pi devices, allowing for a touch-friendly interface, direct hardware label printing, and Home Assistant display integration.
+See [rpi-kiosk/README.md](./rpi-kiosk/README.md) for detailed installation and configuration instructions.
 
 ## Deployment/hosting
 This can easily be deployed using Docker using the included docker-compose and Dockerfile files
@@ -61,13 +82,14 @@ as-is or as a basis for your own needs. The included docker-compose and Dockerfi
 tailored for use in Portainer.
 
 You will need to supply several environment variables which are necessary for Pantry to work:
-1. `api_baseurl` is needed so the UI knows how to access the API. Example: `https://pantry-api.yourdomain.com`
+1. `API_BASEURL` is needed so the UI knows how to access the API. Example: `https://pantry-api.yourdomain.com`
 2. `ALLOW_ORIGIN` is needed by the API to allow the UI to talk to it. Example: `https://pantry.yourdomain.com`
-3. `site_title` is used to control the title at the top of the webpage. Example: "Smith Family Pantry"
+3. `SITE_TITLE` is used to control the title at the top of the webpage. Example: "Smith Family Pantry"
+4. `GEMINI_API_KEY` is required for AI features (product categorization, recipe chat). Get one from Google AI Studio.
 
 ### API and UI
 Right now, the API and UI are separate containers that each need to be accessible from a user's web browser.
-This also requires the use of the `api_baseurl` and `ALLOW_ORIGIN` environment variables to function. In the
+This also requires the use of the `API_BASEURL` and `ALLOW_ORIGIN` environment variables to function. In the
 future, this may be simplified. But for now, you can use something like `swag` docker container to help simplify
 this. But if you are just accessing the site locally with an IP address, then you don't need to do anything
 extra right now.
