@@ -22,7 +22,8 @@
     <div class="add-item-form">
         <mat-form-field appearance="outline" class="w-full">
             <mat-label>Add item</mat-label>
-            <input matInput [(ngModel)]="newItemName" (keyup.enter)="addItem()" placeholder="Milk, Bread, etc.">
+            <input matInput class="barcode-input" [(ngModel)]="newItemName" (keyup.enter)="addItem()"
+                placeholder="Milk, Bread, etc.">
             <button mat-icon-button matSuffix (click)="addItem()">
                 <mat-icon>add</mat-icon>
             </button>

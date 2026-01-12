@@ -27,7 +27,8 @@
         <div class="col">
             <mat-form-field class="w-100">
                 <mat-label>Search</mat-label>
-                <input name="searchbox" (keyup.enter)="refreshList()" matInput [(ngModel)]="searchTerm" />
+                <input name="searchbox" class="barcode-input" (keyup.enter)="refreshList()" matInput
+                    [(ngModel)]="searchTerm" />
                 <button mat-icon-button matSuffix (click)="refreshList()"><mat-icon>search</mat-icon></button>
                 <mat-hint>Enter your search here</mat-hint>
             </mat-form-field>

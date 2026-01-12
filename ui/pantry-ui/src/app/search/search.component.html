@@ -4,7 +4,8 @@
             <div class="col col-md-6">
                 <mat-form-field class="w-100">
                     <mat-label>Search</mat-label>
-                    <input name="searchbox" (keyup.enter)="doSearch()" matInput [(ngModel)]="searchTerm" />
+                    <input name="searchbox" class="barcode-input" (keyup.enter)="doSearch()" matInput
+                        [(ngModel)]="searchTerm" />
                     <button mat-icon-button matSuffix (click)="doSearch()"><mat-icon>search</mat-icon></button>
                     <mat-hint>Enter your search here</mat-hint>
                 </mat-form-field>
@@ -20,4 +21,3 @@
         </ul>
     </mat-card-content>
 </mat-card>
-

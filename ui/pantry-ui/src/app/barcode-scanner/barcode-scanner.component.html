@@ -47,9 +47,9 @@
                             <div class="mb-3">
                                 <label for="manualInput" class="form-label">Enter Barcode / UPC</label>
                                 <div class="input-group">
-                                    <input type="text" class="form-control form-control-lg" id="manualInput"
-                                        [(ngModel)]="manualBarcodeInput" name="barcode" placeholder="e.g. 123456789012"
-                                        autofocus>
+                                    <input type="text" class="form-control form-control-lg barcode-input"
+                                        id="manualInput" [(ngModel)]="manualBarcodeInput" name="barcode"
+                                        placeholder="e.g. 123456789012" autofocus>
                                     <button class="btn btn-primary" type="submit" [disabled]="!manualBarcodeInput">
                                         <i class="bi bi-search"></i>
                                     </button>
