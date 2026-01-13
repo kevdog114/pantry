@@ -22,4 +22,8 @@ export class LabelService {
   printModifierLabel(action: string, date: string, expiration: string): Observable<any> {
     return this.http.post(`${this.apiUrl}/labels/modifier`, { action, date, expiration });
   }
+
+  printRecipeLabel(recipeId: number, size: string): Observable<any> {
+    return this.http.post(`${this.apiUrl}/labels/recipe/${recipeId}`, { size });
+  }
 }

@@ -12,6 +12,9 @@ import { AudioChatDialogComponent } from '../components/audio-chat-dialog/audio-
 
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatTooltipModule } from '@angular/material/tooltip';
+import { MatMenuModule } from '@angular/material/menu';
+import { LabelService } from '../services/label.service';
+import { KioskService } from '../services/kiosk.service';
 
 @Component({
     selector: 'app-recipe-view',
@@ -25,7 +28,8 @@ import { MatTooltipModule } from '@angular/material/tooltip';
         MatDividerModule,
         MatDialogModule,
         MatSnackBarModule,
-        MatTooltipModule
+        MatTooltipModule,
+        MatMenuModule
     ],
     templateUrl: './recipe-view.component.html',
     styleUrl: './recipe-view.component.scss'
@@ -35,19 +39,24 @@ export class RecipeViewComponent implements OnInit {
     parsedIngredients: any[] = [];
     qrCodeDataUrl: string = '';
     currentUrl: string = '';
-    protected readonly printDate = new Date();
+    labelSizeCode: string = 'continuous';
+    labelSizeDescription: string = 'Continuous';
 
     constructor(
         private route: ActivatedRoute,
         private router: Router,
         private recipeService: RecipeListService,
         private dialog: MatDialog,
-        private snackBar: MatSnackBar
+        private snackBar: MatSnackBar,
+        private labelService: LabelService,
+        private kioskService: KioskService
     ) { }
 
     ngOnInit(): void {
         const id = this.route.snapshot.paramMap.get('id');
         this.currentUrl = window.location.href;
+
+        this.detectPrinterMedia();
 
         if (id) {
             this.recipeService.get(parseInt(id)).subscribe({
@@ -59,6 +68,41 @@ export class RecipeViewComponent implements OnInit {
                 error: (err) => console.error('Failed to load recipe', err)
             });
         }
+    }
+
+    detectPrinterMedia() {
+        this.kioskService.getKiosks().subscribe(kiosks => {
+            // Find first online printer
+            let found = false;
+            for (const kiosk of kiosks) {
+                if (kiosk.devices) {
+                    const printer = kiosk.devices.find(d => d.type === 'PRINTER' && (d.status === 'ONLINE' || d.status === 'READY'));
+                    if (printer && printer.details) {
+                        try {
+                            const details = typeof printer.details === 'string' ? JSON.parse(printer.details) : printer.details;
+                            // Check detected label width
+                            if (details.detected_label) {
+                                const w = details.detected_label.width;
+                                if (w >= 50) {
+                                    this.labelSizeDescription = 'Continuous';
+                                    this.labelSizeCode = 'continuous';
+                                } else if (w > 0 && w < 30) { // 23mm
+                                    this.labelSizeDescription = '23mm Square';
+                                    this.labelSizeCode = '23mm'; // matches bridge expectation
+                                } else {
+                                    this.labelSizeDescription = details.media || 'Continuous';
+                                    this.labelSizeCode = 'continuous';
+                                }
+                            }
+                            found = true;
+                        } catch (e) {
+                            console.error("Error parsing printer details", e);
+                        }
+                    }
+                }
+                if (found) break;
+            }
+        });
     }
 
     private parseIngredients() {
@@ -76,6 +120,17 @@ export class RecipeViewComponent implements OnInit {
 
     printRecipe() {
         window.print();
+    }
+
+    printRecipeLabel(size?: string) {
+        if (!this.recipe) return;
+
+        const targetSize = size || this.labelSizeCode;
+
+        this.labelService.printRecipeLabel(this.recipe.id, targetSize).subscribe({
+            next: (res) => this.snackBar.open(res.message, 'Close', { duration: 3000 }),
+            error: (err) => this.snackBar.open('Failed to print label', 'Close', { duration: 3000 })
+        });
     }
 
     openAudioChat() {

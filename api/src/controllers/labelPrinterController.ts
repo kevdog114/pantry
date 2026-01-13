@@ -182,3 +182,49 @@ export const printModifierLabel = async (req: Request, res: Response, next: Next
         res.status(500).json({ message: "Failed to print modifier label" });
     }
 }
+
+export const printRecipeLabel = async (req: Request, res: Response, next: NextFunction): Promise<any> => {
+    try {
+        const recipeId = parseInt(req.params.id);
+        const { size } = req.body;
+
+        const recipe = await prisma.recipe.findUnique({
+            where: { id: recipeId }
+        });
+
+        if (!recipe) {
+            res.status(404).json({ message: "Recipe not found" });
+            return;
+        }
+
+        const io = req.app.get('io');
+        const targetSocket = await findTargetSocket(io);
+
+        if (!targetSocket) {
+            res.status(503).json({ message: "No online label printers found." });
+            return;
+        }
+
+        const payload = {
+            type: 'RECIPE_LABEL',
+            data: {
+                title: recipe.name,
+                preparedDate: new Date().toISOString().split('T')[0],
+                qrData: `R-${recipe.id}`,
+                size: size || 'continuous'
+            }
+        };
+
+        const result = await sendPrintCommandAndWait(targetSocket, payload);
+
+        if (result.success) {
+            res.json({ success: true, message: "Label printed successfully." });
+        } else {
+            res.status(500).json({ success: false, message: "Print failed: " + result.message });
+        }
+
+    } catch (e) {
+        console.error('Error printing recipe label', e);
+        res.status(500).json({ message: "Failed to print recipe label" });
+    }
+}

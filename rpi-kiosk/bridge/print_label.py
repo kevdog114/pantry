@@ -82,6 +82,90 @@ def create_label_image(data):
         # Center text vertically?
         draw.text((30, 25), full_text, font=font_mod, fill='black')
 
+    elif data.get('qrData', '').startswith('R-'):
+        # Recipe Label
+        title = data.get('title', 'Recipe')
+        date_str = data.get('preparedDate', 'N/A')
+        qr_data = data.get('qrData')
+
+        if data.get('size') == '23mm':
+            width = 202
+            height = 202
+            img = Image.new('RGB', (width, height), color='white')
+            draw = ImageDraw.Draw(img)
+            
+            try:
+                font_date = ImageFont.truetype("/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf", 26)
+                font_tiny = ImageFont.truetype("/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf", 16)
+            except:
+                font_date = ImageFont.load_default()
+                font_tiny = ImageFont.load_default()
+
+            # QR Code
+            qr = qrcode.QRCode(box_size=4, border=1) 
+            qr.add_data(qr_data)
+            qr.make(fit=True)
+            
+            qr_img = qr.make_image(fill_color="black", back_color="white")
+            qr_target = 130
+            qr_img = qr_img.resize((qr_target, qr_target))
+            
+            # Center QR Horizontally, Top aligned
+            qr_x = (width - qr_target) // 2
+            qr_y = 5
+            img.paste(qr_img, (qr_x, qr_y))
+            
+            # Date
+            txt = f"{date_str}"
+            try:
+                text_w = draw.textlength(txt, font=font_date)
+                text_x = (width - text_w) / 2
+            except:
+                text_x = 10
+            
+            draw.text((text_x, qr_y + qr_target + 5), txt, font=font_date, fill='black')
+            
+        else:
+            # Continuous Recipe Label
+            height = 250
+            img = Image.new('RGB', (width, height), color='white')
+            draw = ImageDraw.Draw(img)
+
+            try:
+                font_title = ImageFont.truetype("/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf", 50)
+                font_detail = ImageFont.truetype("/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf", 35)
+                font_small = ImageFont.truetype("/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf", 25)
+            except:
+                font_title = ImageFont.load_default()
+                font_detail = ImageFont.load_default()
+                font_small = ImageFont.load_default()
+
+            # Layout:
+            # Left: QR
+            # Right: Title, Date
+            
+            qr = qrcode.QRCode(box_size=6, border=1)
+            qr.add_data(qr_data)
+            qr.make(fit=True)
+            
+            qr_img = qr.make_image(fill_color="black", back_color="white")
+            qr_size = 180
+            qr_img = qr_img.resize((qr_size, qr_size))
+            
+            margin = 35
+            img.paste(qr_img, (margin, margin))
+            
+            # Text
+            text_x = margin + qr_size + 30
+            
+            # Truncate title
+            if len(title) > 20: title = title[:19] + "..."
+            draw.text((text_x, margin), title, font=font_title, fill='black')
+            
+            draw.text((text_x, margin + 70), f"Prep: {date_str}", font=font_detail, fill='black')
+            
+            draw.text((text_x, margin + 130), f"ID: {qr_data}", font=font_small, fill='black')
+
     elif data.get('size') == '23mm':
         # 23mm Square Label (DK-11221)
         # brother_ql printable area is 202x202

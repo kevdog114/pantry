@@ -15,9 +15,19 @@
             </p>
         </div>
         <div class="actions">
-            <button mat-stroked-button color="primary" (click)="printRecipe()">
+            <button mat-stroked-button color="primary" [matMenuTriggerFor]="printMenu">
                 <mat-icon>print</mat-icon> Print
             </button>
+            <mat-menu #printMenu="matMenu">
+                <button mat-menu-item (click)="printRecipe()">
+                    <mat-icon>print</mat-icon> Print Page
+                </button>
+                <mat-divider></mat-divider>
+                <!-- Automatic / Detected -->
+                <button mat-menu-item (click)="printRecipeLabel()">
+                    <mat-icon>smart_button</mat-icon> Print Label ({{ labelSizeDescription }})
+                </button>
+            </mat-menu>
             <button mat-flat-button color="primary" [routerLink]="['/recipes', recipe.id, 'edit']">
                 <mat-icon>edit</mat-icon> Edit
             </button>
