@@ -263,7 +263,8 @@ model ShoppingListItem {
   productId      Int?
   product        Product?     @relation(fields: [productId], references: [id])
   name           String
-  quantity       Int          @default(1)
+  quantity       Float        @default(1)
+  unit           String?
   checked        Boolean      @default(false)
   fromLogistics  Boolean      @default(false)
   createdAt      DateTime     @default(now())

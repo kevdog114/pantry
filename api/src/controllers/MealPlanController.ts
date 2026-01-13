@@ -70,12 +70,19 @@ export const generateShoppingList = async (req: Request, res: Response): Promise
             3. Check the 'Inventory' for that product.
             4. Calculate: (Total Needed) - (Inventory).
             5. If the result is greater than 0, add it to the shopping list.
-            6. Handle unit conversions intelligently (e.g., if needed is '1 lb' and inventory is '16 oz', that is 0 needed. If needed is 4 units and inventory is 1 unit, buy 3).
+            6. Handle unit conversions intelligently:
+               - If ingredients use different units (e.g., cups vs oz), convert them to a common unit to sum them.
+               - If appropriate, convert the final amount to standard package sizes (e.g., if need 8 oz of cheese and it comes in 8 oz blocks, say 1 block or package).
+               - If conversion to packages is ambiguous, just list the total amount and unit (e.g. 1.5 lbs).
             7. If an ingredient is NOT linked to a product, assume I have 0 inventory and need to buy the full amount, UNLESS it is a common basic pantry staple like water, salt, pepper, or oil (in small quantities).
             
             OUTPUT:
             Return ONLY a JSON array of items to buy.
-            Format: [{ "name": "Item Name", "quantity": number, "unit": "string", "reason": "Reason for buying (e.g. Need 12 total, have 1)" }]
+            Format: [{ "name": "Item Name", "quantity": number, "unit": "string", "reason": "Reason for buying" }]
+            
+            Examples:
+            - { "name": "Cheddar Cheese", "quantity": 1, "unit": "package (8oz)", "reason": "Need 1 cup+1oz, approx 1 package" }
+            - { "name": "Milk", "quantity": 0.5, "unit": "gallon", "reason": "Need 2 quarts" }
             
             --- INVENTORY ---
             ${JSON.stringify(inventory, null, 2)}
@@ -125,17 +132,21 @@ export const generateShoppingList = async (req: Request, res: Response): Promise
                     // Update existing logistics item with NEW total (do not accumulate)
                     await prisma.shoppingListItem.update({
                         where: { id: existing.id },
-                        data: { quantity: item.quantity || 1 }
+                        data: {
+                            quantity: item.quantity || 1,
+                            unit: item.unit || null
+                        }
                     });
                     processedIds.add(existing.id);
-                    createdItems.push(existing); // Pushing old object, but it's just for response
+                    createdItems.push(existing);
                 } else {
-                    // Item exists but was manually added. Create a separate logistics entry to ensure coverage.
+                    // Item exists but was manually added. Create a separate logistics entry.
                     const newItem = await prisma.shoppingListItem.create({
                         data: {
                             shoppingListId: list.id,
                             name: item.name,
                             quantity: item.quantity || 1,
+                            unit: item.unit || null,
                             fromLogistics: true
                         }
                     });
@@ -148,6 +159,7 @@ export const generateShoppingList = async (req: Request, res: Response): Promise
                         shoppingListId: list.id,
                         name: item.name,
                         quantity: item.quantity || 1,
+                        unit: item.unit || null,
                         fromLogistics: true
                     }
                 });

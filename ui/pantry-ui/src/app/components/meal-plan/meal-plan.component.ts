@@ -20,8 +20,8 @@ import { MatNativeDateModule } from '@angular/material/core';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { DragDropModule, CdkDragDrop, moveItemInArray, transferArrayItem } from '@angular/cdk/drag-drop';
-
 import { KitchenLogisticsService, LogisticsTask } from '../../services/kitchen-logistics.service';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 
 @Component({
     selector: 'app-meal-plan',
@@ -37,10 +37,10 @@ import { KitchenLogisticsService, LogisticsTask } from '../../services/kitchen-l
         MatDatepickerModule,
         MatNativeDateModule,
         MatDialogModule,
-        MatDialogModule,
         DragDropModule,
         RouterModule,
-        MatTooltipModule
+        MatTooltipModule,
+        MatProgressSpinnerModule
     ],
     templateUrl: './meal-plan.component.html',
     styleUrls: ['./meal-plan.component.css']
@@ -48,7 +48,6 @@ import { KitchenLogisticsService, LogisticsTask } from '../../services/kitchen-l
 export class MealPlanComponent implements OnInit {
     days: Date[] = [];
     mealPlans: { [key: string]: MealPlan[] } = {};
-    // Extended type to support UI specific fields if needed, but LogisticsTask should cover most
     dailyPrepTasks: { [key: string]: LogisticsTask[] } = {};
     recipes: Recipe[] = [];
     selectedDate: Date = new Date();
@@ -56,6 +55,7 @@ export class MealPlanComponent implements OnInit {
     loadingThawAdvice = false;
     highlightedMealPlanId: number | null = null;
     logisticsActive = false;
+    isPlanningLogistics = false;
     weatherMap: Map<string, any> = new Map();
 
     loadUpcomingTasks() {
@@ -451,6 +451,8 @@ export class MealPlanComponent implements OnInit {
     }
 
     runSousChef() {
+        if (this.isPlanningLogistics) return;
+        this.isPlanningLogistics = true;
         this.logisticsActive = true;
         this.snackBar.open("Consulting Sous Chef...", "Close", { duration: 1500 });
 
@@ -459,34 +461,46 @@ export class MealPlanComponent implements OnInit {
         const future = new Date();
         future.setDate(today.getDate() + 14);
 
-        this.mealPlanService.getMealPlan(today.toISOString(), future.toISOString()).subscribe(plans => {
-            // Generate Plan with Shopping Date = TODAY (assuming we shop today)
-            const logisticsPlan = this.logisticsService.generateLogisticsPlan(plans, today);
+        this.mealPlanService.getMealPlan(today.toISOString(), future.toISOString()).subscribe({
+            next: (plans) => {
+                // Generate Plan with Shopping Date = TODAY (assuming we shop today)
+                const logisticsPlan = this.logisticsService.generateLogisticsPlan(plans, today);
 
-            // Populate Local View
-            this.populateDailyTasksFromLogistics(logisticsPlan.tasks);
+                // Populate Local View
+                this.populateDailyTasksFromLogistics(logisticsPlan.tasks);
 
-            // Save to Backend
-            this.mealPlanService.saveLogisticsTasks(logisticsPlan.tasks, today.toISOString(), future.toISOString()).subscribe({
-                next: () => {
-                    this.snackBar.open("Logistics Plan Updated & Saved!", "Close", { duration: 2000 });
-                },
-                error: (err) => {
-                    console.error("Failed to save tasks", err);
-                    this.snackBar.open("Plan generated but failed to save.", "Close", { duration: 2000 });
-                }
-            });
-
-            // Generate Shopping List (Logistics via Gemini)
-            this.mealPlanService.generateShoppingList(today.toISOString(), future.toISOString()).subscribe({
-                next: (res) => {
-                    console.log('Shopping list generated:', res);
-                    if (res.items && res.items.length > 0) {
-                        this.snackBar.open(`Added ${res.items.length} items to Shopping List`, 'Cool', { duration: 3000 });
+                // Save to Backend
+                this.mealPlanService.saveLogisticsTasks(logisticsPlan.tasks, today.toISOString(), future.toISOString()).subscribe({
+                    next: () => {
+                        this.snackBar.open("Logistics Plan Updated & Saved!", "Close", { duration: 2000 });
+                    },
+                    error: (err) => {
+                        console.error("Failed to save tasks", err);
+                        this.snackBar.open("Plan generated but failed to save.", "Close", { duration: 2000 });
+                        // If we are only waiting for this to fail, we might want to ensure spinner stops if shopping list also fails or finishes.
+                        // But we will primarily rely on the Shopping List generation which is the longer task.
                     }
-                },
-                error: (err) => console.error('Shopping list gen failed', err)
-            });
+                });
+
+                // Generate Shopping List (Logistics via Gemini)
+                this.mealPlanService.generateShoppingList(today.toISOString(), future.toISOString()).subscribe({
+                    next: (res) => {
+                        console.log('Shopping list generated:', res);
+                        if (res.items && res.items.length > 0) {
+                            this.snackBar.open(`Added ${res.items.length} items to Shopping List`, 'Cool', { duration: 3000 });
+                        }
+                        this.isPlanningLogistics = false;
+                    },
+                    error: (err) => {
+                        console.error('Shopping list gen failed', err);
+                        this.isPlanningLogistics = false;
+                    }
+                });
+            },
+            error: (err) => {
+                console.error("Failed to get meal plan", err);
+                this.isPlanningLogistics = false;
+            }
         });
     }
 

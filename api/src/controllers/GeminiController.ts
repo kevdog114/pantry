@@ -679,6 +679,23 @@ export const post = async (req: Request, res: Response) => {
             if (!shoppingList) {
               shoppingList = await prisma.shoppingList.create({ data: { name: "My Shopping List" } });
             }
+
+            // Check if item already exists to update quantity instead of duplicating
+            const existingItem = await prisma.shoppingListItem.findFirst({
+              where: {
+                shoppingListId: shoppingList.id,
+                name: args.item
+              }
+            });
+
+            if (existingItem) {
+              const updatedItem = await prisma.shoppingListItem.update({
+                where: { id: existingItem.id },
+                data: { quantity: args.quantity || 1 }
+              });
+              return { message: "Updated shopping list item quantity", item: updatedItem };
+            }
+
             const newShoppingItem = await prisma.shoppingListItem.create({
               data: {
                 shoppingListId: shoppingList.id,

@@ -2,10 +2,12 @@
     <div class="header">
         <h1>Weekly Meal Plan</h1>
         <div class="header-actions">
-            <button mat-stroked-button color="primary" (click)="runSousChef()">
-                <mat-icon>psychology</mat-icon>
-                <span class="desktop-label">Plan Logistics</span>
-                <span class="mobile-label">Plan Logistics</span>
+            <button mat-stroked-button color="primary" (click)="runSousChef()" [disabled]="isPlanningLogistics">
+                <mat-icon *ngIf="!isPlanningLogistics">psychology</mat-icon>
+                <mat-spinner *ngIf="isPlanningLogistics" diameter="20"
+                    style="margin-right: 8px; display: inline-block; vertical-align: middle;"></mat-spinner>
+                <span class="desktop-label">{{ isPlanningLogistics ? 'Processing...' : 'Plan Logistics' }}</span>
+                <span class="mobile-label">{{ isPlanningLogistics ? '...' : 'Plan Logistics' }}</span>
             </button>
             <div class="week-selector ms-2">
                 <button mat-icon-button (click)="previousWeek()" aria-label="Previous Week">
