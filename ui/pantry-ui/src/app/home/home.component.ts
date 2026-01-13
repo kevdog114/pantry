@@ -7,6 +7,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { ProductListService } from '../components/product-list/product-list.service';
 import { Product } from '../types/product';
 import { MatBottomSheet, MatBottomSheetModule } from '@angular/material/bottom-sheet';
+import { MatRippleModule } from '@angular/material/core';
 import { QuickSnackComponent } from '../components/quick-snack/quick-snack.component';
 import { environment } from '../../environments/environment';
 import { UpcomingTasksWidgetComponent } from './upcoming-tasks-widget/upcoming-tasks-widget.component';
@@ -21,6 +22,7 @@ import { UpcomingTasksWidgetComponent } from './upcoming-tasks-widget/upcoming-t
         MatButtonModule,
         MatIconModule,
         MatBottomSheetModule,
+        MatRippleModule,
         UpcomingTasksWidgetComponent
     ],
     templateUrl: './home.component.html',
@@ -31,6 +33,7 @@ export class HomeComponent implements OnInit {
     public recentProducts: Product[] = [];
     public totalProducts: number = 0;
     public totalStock: number = 0;
+    public currentDate: Date = new Date();
 
     constructor(
         private productService: ProductListService,

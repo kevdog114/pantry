@@ -1,29 +1,53 @@
 .tasks-card {
     height: 100%;
+    border-radius: 20px;
+    background-color: var(--mat-sys-surface);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
 }
 
 .tasks-list {
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 16px;
     margin-top: 10px;
+}
+
+.date-group {
+    margin-bottom: 12px;
+}
+
+.date-header {
+    color: var(--mat-sys-tertiary);
+    font-size: 0.8rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin: 0 0 8px 0;
 }
 
 .task-item {
     display: flex;
-    align-items: center;
-    padding: 8px 0;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    align-items: flex-start;
+    padding: 12px;
+    border-radius: 12px;
+    background-color: var(--mat-sys-surface-container-low);
+    margin-bottom: 8px;
+    transition: background-color 0.2s;
+}
+
+.task-item:hover {
+    background-color: var(--mat-sys-surface-container-high);
 }
 
 .task-item:last-child {
-    border-bottom: none;
+    margin-bottom: 0;
 }
 
 .task-icon-container {
     margin-right: 12px;
     display: flex;
     align-items: center;
+    padding-top: 2px;
 }
 
 .task-details {
@@ -33,11 +57,14 @@
 .task-desc {
     font-size: 0.95rem;
     font-weight: 500;
+    color: var(--mat-sys-on-surface);
+    line-height: 1.4;
 }
 
 .task-meta {
-    font-size: 0.8rem;
-    color: rgba(255, 255, 255, 0.6);
+    font-size: 0.85rem;
+    color: var(--mat-sys-on-surface-variant);
+    margin-top: 4px;
 }
 
 .task-recipe {
@@ -45,36 +72,41 @@
 }
 
 .task-actions {
-    margin-left: 8px;
+    margin-left: 12px;
 }
 
 .completed {
-    opacity: 0.5;
+    opacity: 0.6;
+}
+
+.completed .task-desc {
     text-decoration: line-through;
 }
 
 .empty-state {
-    padding: 20px;
+    padding: 32px;
     text-align: center;
-    color: rgba(255, 255, 255, 0.5);
+    color: var(--mat-sys-on-surface-variant);
     font-style: italic;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
 }
 
 .text-primary {
-    color: #82b1ff;
+    color: var(--mat-sys-primary);
 }
 
-/* Light blue for freeze */
 .text-info {
-    color: #4fc3f7;
+    color: var(--mat-sys-tertiary);
 }
 
-/* Light cyan for thaw */
 .text-success {
-    color: #81c784;
+    color: var(--mat-sys-primary);
+    /* Using primary for success/shop for consistency or could be strictly green */
 }
 
-/* Green for shop */
 .text-muted {
-    color: #bdbdbd;
+    color: var(--mat-sys-outline);
 }
