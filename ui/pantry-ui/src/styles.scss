@@ -97,3 +97,30 @@ app-root {
   background-color: var(--mat-card-container-color, #fff);
   color: var(--mat-card-subtitle-text-color, inherit);
 }
+
+@media print {
+
+  mat-toolbar,
+  mat-sidenav,
+  app-side-menu,
+  .audio-chat-fab {
+    display: none !important;
+  }
+
+  mat-sidenav-content {
+    margin-left: 0 !important;
+    padding: 0 !important;
+  }
+
+  .sidenav-container {
+    background: white !important;
+  }
+
+  body,
+  html {
+    background-color: white !important;
+    color: black !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+}

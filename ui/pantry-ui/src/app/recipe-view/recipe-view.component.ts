@@ -11,6 +11,7 @@ import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { AudioChatDialogComponent } from '../components/audio-chat-dialog/audio-chat-dialog.component';
 
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { MatTooltipModule } from '@angular/material/tooltip';
 
 @Component({
     selector: 'app-recipe-view',
@@ -23,7 +24,8 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
         MatCardModule,
         MatDividerModule,
         MatDialogModule,
-        MatSnackBarModule
+        MatSnackBarModule,
+        MatTooltipModule
     ],
     templateUrl: './recipe-view.component.html',
     styleUrl: './recipe-view.component.scss'
@@ -31,6 +33,9 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 export class RecipeViewComponent implements OnInit {
     recipe: Recipe | undefined;
     parsedIngredients: any[] = [];
+    qrCodeDataUrl: string = '';
+    currentUrl: string = '';
+    protected readonly printDate = new Date();
 
     constructor(
         private route: ActivatedRoute,
@@ -42,11 +47,14 @@ export class RecipeViewComponent implements OnInit {
 
     ngOnInit(): void {
         const id = this.route.snapshot.paramMap.get('id');
+        this.currentUrl = window.location.href;
+
         if (id) {
             this.recipeService.get(parseInt(id)).subscribe({
                 next: (r) => {
                     this.recipe = r;
                     this.parseIngredients();
+                    this.generateQrCode();
                 },
                 error: (err) => console.error('Failed to load recipe', err)
             });
@@ -55,6 +63,19 @@ export class RecipeViewComponent implements OnInit {
 
     private parseIngredients() {
         // No parsing needed for structured ingredients
+    }
+
+    private async generateQrCode() {
+        try {
+            const QRCode = await import('qrcode');
+            this.qrCodeDataUrl = await QRCode.toDataURL(this.currentUrl, { width: 150, margin: 1 });
+        } catch (err) {
+            console.error('Failed to generate QR code', err);
+        }
+    }
+
+    printRecipe() {
+        window.print();
     }
 
     openAudioChat() {
