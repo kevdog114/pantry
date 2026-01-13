@@ -1,6 +1,9 @@
 
 import { Component, OnInit } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
 import { CommonModule } from '@angular/common';
+import { MatTooltipModule } from '@angular/material/tooltip';
+import { environment } from '../../../environments/environment';
 import { RouterModule } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { MealPlanService, MealPlan } from '../../services/meal-plan.service';
@@ -36,7 +39,8 @@ import { KitchenLogisticsService, LogisticsTask } from '../../services/kitchen-l
         MatDialogModule,
         MatDialogModule,
         DragDropModule,
-        RouterModule
+        RouterModule,
+        MatTooltipModule
     ],
     templateUrl: './meal-plan.component.html',
     styleUrls: ['./meal-plan.component.css']
@@ -52,6 +56,7 @@ export class MealPlanComponent implements OnInit {
     loadingThawAdvice = false;
     highlightedMealPlanId: number | null = null;
     logisticsActive = false;
+    weatherMap: Map<string, any> = new Map();
 
     loadUpcomingTasks() {
         const start = this.days[0].toISOString();
@@ -69,7 +74,8 @@ export class MealPlanComponent implements OnInit {
         private recipeService: RecipeService,
         private logisticsService: KitchenLogisticsService, // Injected
         private geminiService: GeminiService,
-        private snackBar: MatSnackBar
+        private snackBar: MatSnackBar,
+        private http: HttpClient
     ) {
         this.generateDays();
     }
@@ -90,6 +96,7 @@ export class MealPlanComponent implements OnInit {
             date.setDate(start.getDate() + i);
             this.days.push(date);
         }
+        this.loadWeather();
     }
 
     previousWeek() {
@@ -537,5 +544,61 @@ export class MealPlanComponent implements OnInit {
     hasPrepTasks(plan: MealPlan): boolean {
         const r = plan.recipe as any;
         return r && r.prepTasks && r.prepTasks.length > 0;
+    }
+
+    loadWeather() {
+        if (this.days.length === 0) return;
+        const start = this.days[0].toISOString().split('T')[0];
+        const endDay = new Date(this.days[this.days.length - 1]);
+        endDay.setDate(endDay.getDate() + 1);
+        const end = endDay.toISOString().split('T')[0];
+
+        this.http.get<any[]>(`${environment.apiUrl}/weather/forecast?start=${start}&end=${end}`)
+            .subscribe({
+                next: (data) => {
+                    this.weatherMap.clear();
+                    data.forEach(w => {
+                        if (!w.date) return;
+                        // Robustly parse date to avoid timezone offset issues
+                        let dateStr = w.date;
+                        if (dateStr.includes('T')) {
+                            dateStr = dateStr.split('T')[0];
+                        }
+                        const [y, m, d] = dateStr.split('-').map(Number);
+                        const localDate = new Date(y, m - 1, d);
+                        this.weatherMap.set(localDate.toDateString(), w);
+                    });
+                },
+                error: (err) => console.error("Failed to load weather", err)
+            });
+    }
+
+    getWeather(date: Date) {
+        return this.weatherMap.get(date.toDateString());
+    }
+
+    getWeatherTooltip(w: any): string {
+        if (!w) return '';
+        let text = `${w.condition || 'Unknown'}\nHigh: ${w.highTemp}° | Low: ${w.lowTemp}°`;
+        if (w.precipitationChance > 0) {
+            text += `\nPrecipitation: ${w.precipitationChance}%`;
+        }
+        return text;
+    }
+
+    getWeatherIcon(condition: string): string {
+        if (!condition) return 'question_mark';
+        const c = condition.toLowerCase();
+
+        if (c.includes('sunny') || c.includes('clear')) return 'wb_sunny';
+        if (c.includes('partly cloudy')) return 'partly_cloudy_day'; // Or cloud_queue
+        if (c.includes('cloud')) return 'cloud';
+        if (c.includes('rain') || c.includes('shower') || c.includes('drizzle')) return 'water_drop';
+        if (c.includes('snow') || c.includes('flurries') || c.includes('blizzard')) return 'ac_unit';
+        if (c.includes('thunder') || c.includes('storm')) return 'thunderstorm';
+        if (c.includes('fog') || c.includes('haze') || c.includes('mist')) return 'foggy';
+        if (c.includes('wind') || c.includes('breeze')) return 'air';
+
+        return 'wb_cloudy'; // Default fallback
     }
 }

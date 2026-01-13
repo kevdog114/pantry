@@ -3,7 +3,9 @@
         <h1>Weekly Meal Plan</h1>
         <div class="header-actions">
             <button mat-stroked-button color="primary" (click)="runSousChef()">
-                <mat-icon>psychology</mat-icon> Plan Logistics (Sous Chef)
+                <mat-icon>psychology</mat-icon>
+                <span class="desktop-label">Plan Logistics</span>
+                <span class="mobile-label">Plan Logistics</span>
             </button>
             <div class="week-selector ms-2">
                 <button mat-icon-button (click)="previousWeek()" aria-label="Previous Week">
@@ -21,8 +23,20 @@
         <div *ngFor="let day of days" class="day-card">
 
             <div class="card-header-content">
-                <h2 class="day-name">{{ day | date:'EEEE' }}</h2>
-                <span class="day-date">{{ day | date:'MMM d' }}</span>
+                <div class="date-group">
+                    <h2 class="day-name">{{ day | date:'EEEE' }}</h2>
+                    <span class="day-date">{{ day | date:'MMM d' }}</span>
+                </div>
+                <div class="weather-info" *ngIf="getWeather(day) as w" [matTooltip]="getWeatherTooltip(w)">
+                    <mat-icon class="weather-icon">{{getWeatherIcon(w.condition)}}</mat-icon>
+                    <span class="temps" *ngIf="w.highTemp !== null && w.lowTemp !== null">
+                        {{w.highTemp}}°/{{w.lowTemp}}°
+                    </span>
+                    <span class="precip" *ngIf="w.precipitationChance > 0">
+                        <mat-icon style="font-size: 14px; width: 14px; height: 14px;">water_drop</mat-icon>
+                        {{w.precipitationChance}}%
+                    </span>
+                </div>
             </div>
 
             <div class="card-body">

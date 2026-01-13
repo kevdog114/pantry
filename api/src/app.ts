@@ -12,6 +12,7 @@ import * as AuthController from "./controllers/AuthController";
 import { PersonalAccessTokenController } from "./controllers/PersonalAccessTokenController";
 import * as SettingsController from "./controllers/SettingsController";
 import * as ChatController from "./controllers/ChatController"; // Import ChatController
+import { WeatherController } from "./controllers/WeatherController";
 import * as FamilyController from "./controllers/FamilyController";
 
 import * as MealPlanController from "./controllers/MealPlanController";
@@ -206,6 +207,10 @@ app.get("/uploads/:filename", (req: Request, res: Response) => {
 
 app.get("/settings", SettingsController.getSettings);
 app.put("/settings", SettingsController.updateSettings);
+
+app.get("/weather/settings", WeatherController.getSettings);
+app.post("/weather/settings", WeatherController.updateSettings);
+app.get("/weather/forecast", WeatherController.getForecast);
 
 app.get("/family/members", FamilyController.getMembers);
 app.post("/family/members", FamilyController.createMember);

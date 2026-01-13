@@ -8,10 +8,15 @@ import { MatSnackBar } from '@angular/material/snack-bar';
 import { GeminiService } from '../services/gemini.service';
 import { SettingsService } from './settings.service';
 
+import { RouterModule } from '@angular/router';
+
+import { MatTabsModule } from '@angular/material/tabs';
+import { WeatherSettingsComponent } from './weather-settings/weather-settings.component';
+
 @Component({
   selector: 'app-settings',
   standalone: true,
-  imports: [CommonModule, FormsModule, MatFormFieldModule, MatSelectModule, MatButtonModule],
+  imports: [CommonModule, FormsModule, MatFormFieldModule, MatSelectModule, MatButtonModule, RouterModule, MatTabsModule, WeatherSettingsComponent],
   templateUrl: './settings.component.html',
   styleUrls: ['./settings.component.css']
 })

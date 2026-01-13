@@ -1,64 +1,94 @@
-<div class="settings-container">
-    <h2>Gemini Model Settings</h2>
-
-    <div *ngIf="loading">Loading...</div>
-
-    <div *ngIf="!loading" class="settings-form">
-        <div class="setting-item">
-            <h3>Gemini Chat</h3>
-            <p>Select the AI model for general chat.</p>
-            <mat-form-field appearance="fill">
-                <mat-label>Model</mat-label>
-                <mat-select [(ngModel)]="selectedChatModel">
-                    <mat-option *ngFor="let model of models" [value]="model.name">
-                        {{model.displayName}} ({{model.name}})
-                    </mat-option>
-                </mat-select>
-            </mat-form-field>
-        </div>
-
-        <div class="setting-item">
-            <h3>Product Image Recognition</h3>
-            <p>Select the AI model for creating products from images.</p>
-            <mat-form-field appearance="fill">
-                <mat-label>Model</mat-label>
-                <mat-select [(ngModel)]="selectedVisionModel">
-                    <mat-option *ngFor="let model of models" [value]="model.name">
-                        {{model.displayName}} ({{model.name}})
-                    </mat-option>
-                </mat-select>
-            </mat-form-field>
-
-        </div>
-
-        <div class="setting-item">
-            <h3>Quick Snack Suggestion</h3>
-            <p>Select the AI model for quick snack suggestions.</p>
-            <mat-form-field appearance="fill">
-                <mat-label>Model</mat-label>
-                <mat-select [(ngModel)]="selectedQuickSnackModel">
-                    <mat-option *ngFor="let model of models" [value]="model.name">
-                        {{model.displayName}} ({{model.name}})
-                    </mat-option>
-                </mat-select>
-            </mat-form-field>
-        </div>
-
-        <div class="setting-item">
-            <h3>Expiration Date Estimation</h3>
-            <p>Select the AI model for estimating expiration dates.</p>
-            <mat-form-field appearance="fill">
-                <mat-label>Model</mat-label>
-                <mat-select [(ngModel)]="selectedExpirationModel">
-                    <mat-option *ngFor="let model of models" [value]="model.name">
-                        {{model.displayName}} ({{model.name}})
-                    </mat-option>
-                </mat-select>
-            </mat-form-field>
-        </div>
-
-        <div class="actions">
-            <button mat-raised-button color="primary" (click)="saveSettings()">Save Settings</button>
-        </div>
+<div class="settings-page">
+    <div class="header">
+        <h1>Settings</h1>
     </div>
+
+    <mat-tab-group animationDuration="0ms" class="custom-tabs">
+        <mat-tab label="Gemini AI">
+            <div class="tab-content">
+                <div class="settings-card">
+                    <h2>Gemini Model Configuration</h2>
+                    <p class="subtitle">Configure the AI models used for various features.</p>
+
+                    <div *ngIf="loading" class="loading-state">
+                        <div class="spinner"></div> Loading settings...
+                    </div>
+
+                    <div *ngIf="!loading" class="settings-form">
+                        <div class="setting-item">
+                            <div class="setting-info">
+                                <h3>General Chat</h3>
+                                <p>Model used for the main chat interface.</p>
+                            </div>
+                            <mat-form-field appearance="outline">
+                                <mat-label>Select Model</mat-label>
+                                <mat-select [(ngModel)]="selectedChatModel">
+                                    <mat-option *ngFor="let model of models" [value]="model.name">
+                                        {{model.displayName}}
+                                    </mat-option>
+                                </mat-select>
+                            </mat-form-field>
+                        </div>
+
+                        <div class="setting-item">
+                            <div class="setting-info">
+                                <h3>Vision & Recognition</h3>
+                                <p>Model used for analyzing product images.</p>
+                            </div>
+                            <mat-form-field appearance="outline">
+                                <mat-label>Select Model</mat-label>
+                                <mat-select [(ngModel)]="selectedVisionModel">
+                                    <mat-option *ngFor="let model of models" [value]="model.name">
+                                        {{model.displayName}}
+                                    </mat-option>
+                                </mat-select>
+                            </mat-form-field>
+                        </div>
+
+                        <div class="setting-item">
+                            <div class="setting-info">
+                                <h3>Quick Snack</h3>
+                                <p>Model used for generating snack ideas.</p>
+                            </div>
+                            <mat-form-field appearance="outline">
+                                <mat-label>Select Model</mat-label>
+                                <mat-select [(ngModel)]="selectedQuickSnackModel">
+                                    <mat-option *ngFor="let model of models" [value]="model.name">
+                                        {{model.displayName}}
+                                    </mat-option>
+                                </mat-select>
+                            </mat-form-field>
+                        </div>
+
+                        <div class="setting-item">
+                            <div class="setting-info">
+                                <h3>Expiration Estimator</h3>
+                                <p>Model used for guessing expiration dates.</p>
+                            </div>
+                            <mat-form-field appearance="outline">
+                                <mat-label>Select Model</mat-label>
+                                <mat-select [(ngModel)]="selectedExpirationModel">
+                                    <mat-option *ngFor="let model of models" [value]="model.name">
+                                        {{model.displayName}}
+                                    </mat-option>
+                                </mat-select>
+                            </mat-form-field>
+                        </div>
+
+                        <div class="actions">
+                            <button mat-flat-button color="primary" (click)="saveSettings()">
+                                Save Changes
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </mat-tab>
+
+        <mat-tab label="Weather">
+            <div class="tab-content">
+                <app-weather-settings></app-weather-settings>
+            </div>
+        </mat-tab>
+    </mat-tab-group>
 </div>

@@ -292,3 +292,16 @@ model MealTask {
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 }
+
+model DailyWeather {
+  id                  Int      @id @default(autoincrement())
+  date                DateTime @unique
+  highTemp            Int?
+  lowTemp             Int?
+  condition           String?  // e.g. "Sunny", "Cloudy", "Rain"
+  precipitationChance Int?     // Percentage
+  precipitationAmount Float?   // Inches
+  provider            String   // "weather.gov", "tempest"
+  icon                String?  // Icon code or url
+  updatedAt           DateTime @updatedAt
+}

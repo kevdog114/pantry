@@ -5,6 +5,8 @@ import app from "./app";
 import prisma from './lib/prisma';
 import * as crypto from "crypto";
 import * as bcrypt from 'bcryptjs';
+import * as cron from 'node-cron';
+import { WeatherService } from './services/WeatherService';
 
 const createDefaultAdmin = async () => {
     const users = await prisma.user.findMany();
@@ -140,6 +142,15 @@ io.on("connection", (socket) => {
 const server = httpServer.listen(app.get("port"), async () => {
     await createDefaultAdmin();
     console.log(`App running on port ${app.get("port")}`);
+
+    // Initialize Weather Job
+    const weatherService = new WeatherService();
+    // Sync immediately on startup (will only fetch if enabled and config exists)
+    weatherService.syncWeather();
+    // Sync every hour
+    cron.schedule('0 * * * *', () => {
+        weatherService.syncWeather();
+    });
 });
 
 export default server;

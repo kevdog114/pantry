@@ -69,10 +69,36 @@
     color: var(--mat-sys-on-surface);
 }
 
+.date-group {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+}
+
 .day-date {
     font-size: 0.875rem;
     color: var(--mat-sys-on-surface-variant);
     font-weight: 500;
+}
+
+.weather-info {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.weather-icon {
+    font-size: 20px;
+    width: 20px;
+    height: 20px;
+}
+
+.precip {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    font-size: 0.85em;
+    color: #448aff;
 }
 
 .card-body {
@@ -233,16 +259,16 @@
     display: none;
     /* Hide helper text space for compact look if not needed */
 }
+
 /* Highlight Styling */
 .highlighted {
     position: relative;
     z-index: 10;
-    box-shadow: 0 0 0 2px var(--mat-sys-primary) inset, 0 4px 12px rgba(0,0,0,0.15);
+    box-shadow: 0 0 0 2px var(--mat-sys-primary) inset, 0 4px 12px rgba(0, 0, 0, 0.15);
     transition: all 0.2s ease;
 }
 
-[data-bs-theme="dark"] .highlighted {
-}
+[data-bs-theme="dark"] .highlighted {}
 
 /* Prep Task Styling */
 .prep-tasks-section {
@@ -275,11 +301,11 @@
 }
 
 .prep-task-item:hover {
-    background-color: rgba(0,0,0,0.05);
+    background-color: rgba(0, 0, 0, 0.05);
 }
 
 [data-bs-theme="dark"] .prep-task-item:hover {
-    background-color: rgba(255,255,255,0.1);
+    background-color: rgba(255, 255, 255, 0.1);
 }
 
 .prep-task-item.highlighted {
@@ -310,3 +336,59 @@
     color: var(--mat-sys-tertiary);
 }
 
+/* Mobile/Desktop Label Visibility */
+.mobile-label {
+    display: none;
+}
+
+/* Responsive Design */
+@media (max-width: 900px) {
+    .header {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 12px;
+        margin-bottom: 24px;
+        text-align: center;
+    }
+
+    .header-actions {
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        width: 100%;
+    }
+
+    /* Toggle labels on mobile */
+    .desktop-label {
+        display: none;
+    }
+
+    .mobile-label {
+        display: inline;
+    }
+
+    /* Allow buttons to sit side-by-side */
+    .header-actions button[mat-stroked-button] {
+        width: auto;
+        flex-shrink: 1;
+        min-width: 0;
+        /* Allow shrinking */
+        padding: 0 12px;
+    }
+
+    .header-actions button[mat-stroked-button] .mat-icon {
+        margin-right: 4px;
+    }
+
+    /* Compact week selector */
+    .week-selector {
+        width: auto;
+        margin-left: 0 !important;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        flex-shrink: 0;
+    }
+}

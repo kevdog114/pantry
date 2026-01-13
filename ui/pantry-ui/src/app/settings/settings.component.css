@@ -1,0 +1,165 @@
+.settings-page {
+    padding: 24px;
+    max-width: 1000px;
+    /* Wider to accommodate side-by-side or comfortable reading */
+    margin: 0 auto;
+    font-family: 'Roboto', sans-serif;
+}
+
+.header h1 {
+    font-size: 2.5rem;
+    font-weight: 300;
+    margin-bottom: 24px;
+    color: var(--text-primary, #333);
+}
+
+/* Customizing Tabs */
+::ng-deep .custom-tabs .mat-mdc-tab-header {
+    border-bottom: 1px solid rgba(0, 0, 0, 0.12);
+}
+
+::ng-deep .custom-tabs .mat-mdc-tab-label-container {
+    overflow: visible;
+    /* Ensure shadows/focus rings aren't clipped */
+}
+
+/* Tab Content & Card */
+.tab-content {
+    padding-top: 24px;
+    animation: fadeIn 0.3s ease-in-out;
+}
+
+.settings-card {
+    background: var(--card-bg, #fff);
+    border-radius: 12px;
+    padding: 32px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+    border: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.settings-card h2 {
+    font-size: 1.5rem;
+    margin-top: 0;
+    margin-bottom: 8px;
+    font-weight: 500;
+}
+
+.subtitle {
+    color: var(--text-secondary, #666);
+    margin-bottom: 32px;
+    font-size: 0.95rem;
+}
+
+/* Form Styles */
+.settings-form {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+
+.setting-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    /* Align top for multi-line description */
+    padding-bottom: 24px;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.setting-item:last-of-type {
+    border-bottom: none;
+    padding-bottom: 0;
+}
+
+.setting-info {
+    max-width: 60%;
+}
+
+.setting-info h3 {
+    margin: 0 0 4px 0;
+    font-size: 1.1rem;
+    font-weight: 500;
+}
+
+.setting-info p {
+    margin: 0;
+    color: var(--text-secondary, #777);
+    font-size: 0.9rem;
+    line-height: 1.4;
+}
+
+mat-form-field {
+    width: 300px;
+}
+
+/* Actions */
+.actions {
+    margin-top: 32px;
+    display: flex;
+    justify-content: flex-end;
+}
+
+/* Loading State */
+.loading-state {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    color: var(--text-secondary, #666);
+    font-style: italic;
+    padding: 24px;
+}
+
+.spinner {
+    width: 20px;
+    height: 20px;
+    border: 2px solid rgba(0, 0, 0, 0.1);
+    border-left-color: var(--primary-color, #3f51b5);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Dark Mode Adjustments (if applicable global vars aren't enough) */
+@media (prefers-color-scheme: dark) {
+    .settings-card {
+        background: #1e1e1e;
+        border-color: #333;
+    }
+
+    .header h1 {
+        color: #e0e0e0;
+    }
+
+    .subtitle {
+        color: #aaa;
+    }
+
+    .setting-info h3 {
+        color: #ddd;
+    }
+
+    .setting-info p {
+        color: #aaa;
+    }
+
+    ::ng-deep .custom-tabs .mat-mdc-tab-header {
+        border-bottom-color: rgba(255, 255, 255, 0.12);
+    }
+}

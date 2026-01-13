@@ -115,6 +115,11 @@ export const routes: Routes = [
         canActivate: [AuthGuard]
     },
     {
+        path: "settings/weather",
+        loadComponent: () => import('./settings/weather-settings/weather-settings.component').then(m => m.WeatherSettingsComponent),
+        canActivate: [AuthGuard]
+    },
+    {
         path: "settings/tags",
         component: TagManagerComponent,
         canActivate: [AuthGuard]
