@@ -103,25 +103,57 @@ app-root {
   mat-toolbar,
   mat-sidenav,
   app-side-menu,
-  .audio-chat-fab {
+  .audio-chat-fab,
+  .cdk-overlay-container,
+  .cdk-global-overlay-wrapper,
+  .cdk-overlay-pane,
+  .mat-mdc-dialog-container {
     display: none !important;
   }
 
   mat-sidenav-content {
     margin-left: 0 !important;
     padding: 0 !important;
+    background-color: white !important;
+    color: black !important;
   }
 
-  .sidenav-container {
+  .sidenav-container,
+  .mat-drawer-container,
+  .mat-drawer-content,
+  mat-sidenav-container {
     background: white !important;
+    background-color: white !important;
   }
 
   body,
-  html {
+  html,
+  app-root {
     background-color: white !important;
     color: black !important;
     height: auto !important;
     overflow: visible !important;
+  }
+
+  .mat-mdc-card {
+    background-color: white !important;
+    color: black !important;
+    box-shadow: none !important;
+    border: 1px solid #ddd !important;
+  }
+
+  // Force all text to black for better contrast
+  p,
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6,
+  span,
+  div,
+  li {
+    color: black !important;
   }
 }
 
@@ -139,6 +171,7 @@ body.kiosk-mode {
   //   border-radius: 6px;
   // }
 }
+
 // Global Interactive Card Style
 .interactive-card {
   cursor: pointer;
