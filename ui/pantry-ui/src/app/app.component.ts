@@ -59,6 +59,11 @@ export class AppComponent implements OnInit {
       map(response => !!response.user),
       catchError(() => of(false))
     );
+
+    // Apply Kiosk Mode if enabled
+    if (localStorage.getItem('kiosk_mode') === 'true') {
+      document.body.classList.add('kiosk-mode');
+    }
   }
 
   logout() {

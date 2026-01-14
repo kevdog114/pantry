@@ -85,6 +85,27 @@
             </div>
         </mat-tab>
 
+        <mat-tab label="Display">
+            <div class="tab-content">
+                <div class="settings-card">
+                    <h2>Display Settings</h2>
+                    <p class="subtitle">Configure display options for different devices.</p>
+                    <div class="settings-form">
+                        <div class="setting-item">
+                            <div class="setting-info">
+                                <h3>Kiosk Mode</h3>
+                                <p>Increases the size of the interface for small touch screens. (Zoom 1.25x / Font 1.5x)
+                                </p>
+                            </div>
+                            <mat-slide-toggle [(ngModel)]="kioskMode" (change)="saveSettings()" color="primary">
+                                Enabled
+                            </mat-slide-toggle>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </mat-tab>
+
         <mat-tab label="Weather">
             <div class="tab-content">
                 <app-weather-settings></app-weather-settings>

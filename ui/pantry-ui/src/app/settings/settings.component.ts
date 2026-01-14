@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatSelectModule } from '@angular/material/select';
 import { MatButtonModule } from '@angular/material/button';
+import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { GeminiService } from '../services/gemini.service';
 import { SettingsService } from './settings.service';
@@ -16,7 +17,7 @@ import { WeatherSettingsComponent } from './weather-settings/weather-settings.co
 @Component({
   selector: 'app-settings',
   standalone: true,
-  imports: [CommonModule, FormsModule, MatFormFieldModule, MatSelectModule, MatButtonModule, RouterModule, MatTabsModule, WeatherSettingsComponent],
+  imports: [CommonModule, FormsModule, MatFormFieldModule, MatSelectModule, MatButtonModule, RouterModule, MatTabsModule, WeatherSettingsComponent, MatSlideToggleModule],
   templateUrl: './settings.component.html',
   styleUrls: ['./settings.component.css']
 })
@@ -35,6 +36,7 @@ export class SettingsComponent implements OnInit {
   selectedQuickSnackModel: string = 'gemini-flash-latest';
 
   loading = true;
+  kioskMode = false;
 
   constructor(
     private geminiService: GeminiService,
@@ -43,6 +45,9 @@ export class SettingsComponent implements OnInit {
   ) { }
 
   ngOnInit(): void {
+    // Load Kiosk Mode setting from LocalStorage
+    this.kioskMode = localStorage.getItem('kiosk_mode') === 'true';
+    this.applyKioskMode();
     this.loadData();
   }
 
@@ -96,5 +101,16 @@ export class SettingsComponent implements OnInit {
         this.snackBar.open('Failed to save settings', 'Close', { duration: 3000 });
       }
     });
+
+    localStorage.setItem('kiosk_mode', this.kioskMode ? 'true' : 'false');
+    this.applyKioskMode();
+  }
+
+  applyKioskMode() {
+    if (this.kioskMode) {
+      document.body.classList.add('kiosk-mode');
+    } else {
+      document.body.classList.remove('kiosk-mode');
+    }
   }
 }
