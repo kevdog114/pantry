@@ -688,6 +688,7 @@ export const post = async (req: Request, res: Response) => {
               }
             });
 
+
             if (existingItem) {
               const updatedItem = await prisma.shoppingListItem.update({
                 where: { id: existingItem.id },
