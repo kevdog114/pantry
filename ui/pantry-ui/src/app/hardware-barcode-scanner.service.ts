@@ -97,7 +97,9 @@ export class HardwareBarcodeScannerService {
         this.searchForBarcode(this.currentBarcode);
       }
       else if (this.isScanning) {
-        this.currentBarcode = this.currentBarcode + event.key;
+        if (event.key.length === 1) {
+          this.currentBarcode = this.currentBarcode + event.key;
+        }
       }
       /*if(event.key == '/' && (event.target == null || event.target.tagName.toLowerCase() != 'input'))
       {
