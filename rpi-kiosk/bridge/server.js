@@ -288,8 +288,12 @@ function checkDevices() {
             if (devices.length > 0) {
                 // Check status for each found device
                 devices.forEach(device => {
-                    exec(`${pythonCmd} status --printer "${device.identifier}"`, (err, stdout) => {
+                    exec(`${pythonCmd} status --printer "${device.identifier}"`, (err, stdout, stderr) => {
                         let statusInfo = { status: 'ONLINE', media: 'Unknown', errors: [] };
+
+                        if (stderr) {
+                            console.error(`Status stderr for ${device.identifier}:`, stderr);
+                        }
 
                         if (!err) {
                             try {
@@ -300,7 +304,10 @@ function checkDevices() {
 
                             } catch (e) {
                                 console.error("Error parsing status output", e);
+                                console.error("Stdout was:", stdout);
                             }
+                        } else {
+                            console.error("Status check error:", err);
                         }
 
                         if (socket && socket.connected) {

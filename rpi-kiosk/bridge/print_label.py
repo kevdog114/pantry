@@ -443,7 +443,12 @@ def discover_cmd(args):
         output = []
         for dev in devices:
             # dev might be a string (identifier) or object
-            identifier = str(dev)
+            identifier = dev
+            if isinstance(dev, dict):
+                identifier = dev.get('identifier', str(dev))
+            
+            identifier = str(identifier)
+            
             output.append({
                 'identifier': identifier,
                 'model': 'Brother Printer', # Can't detect model easily without query
@@ -616,6 +621,7 @@ if __name__ == "__main__":
     status_parser = subparsers.add_parser('status', help='Get printer status')
     status_parser.add_argument('--printer', default='usb://0x04f9:0x20c0', help='Printer Identifier')
     status_parser.add_argument('--backend', default='pyusb', help='Backend Identifier')
+    status_parser.add_argument('--model', default='QL-600', help='Printer Model')
 
     # Configure Command
     configure_parser = subparsers.add_parser('configure', help='Configure printer settings')
