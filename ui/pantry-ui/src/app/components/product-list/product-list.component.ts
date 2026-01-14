@@ -19,6 +19,7 @@ import { MatDialog } from "@angular/material/dialog";
 import { PhotoUploadComponent } from "../photo-upload/photo-upload.component";
 import { MatBottomSheet, MatBottomSheetModule } from '@angular/material/bottom-sheet';
 import { QuickSnackComponent } from '../quick-snack/quick-snack.component';
+import { MatTooltipModule } from '@angular/material/tooltip';
 
 type DisplayModeOption = "grid" | "list";
 type SortOption = "alphabetical" | "expire";
@@ -43,7 +44,8 @@ type SortOption = "alphabetical" | "expire";
         MatListModule,
         MatInputModule,
         PhotoUploadComponent,
-        MatBottomSheetModule
+        MatBottomSheetModule,
+        MatTooltipModule
     ]
 })
 export class ProductListComponent implements AfterViewInit {

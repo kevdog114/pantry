@@ -1,0 +1,27 @@
+<div class="equipment-container">
+    <div class="header">
+        <h1>My Kitchen Equipment</h1>
+        <button mat-flat-button color="primary" routerLink="/equipment/add">
+            <mat-icon>add</mat-icon> Add Equipment
+        </button>
+    </div>
+
+    <div class="grid">
+        <mat-card *ngFor="let item of items" class="interactive-card" [routerLink]="['/equipment', 'edit', item.id]">
+            <img mat-card-image [src]="getImageUrl(item)" *ngIf="hasImage(item); else placeholder" [alt]="item.name"
+                style="height: 200px; object-fit: cover;">
+            <ng-template #placeholder>
+                <div class="placeholder-image">
+                    <mat-icon>kitchen</mat-icon>
+                </div>
+            </ng-template>
+            <mat-card-content>
+                <h2>{{item.name}}</h2>
+                <p class="notes" *ngIf="item.notes">{{item.notes}}</p>
+                <div class="meta" *ngIf="item.purchaseDate">
+                    <span>Purchased: {{item.purchaseDate | date}}</span>
+                </div>
+            </mat-card-content>
+        </mat-card>
+    </div>
+</div>

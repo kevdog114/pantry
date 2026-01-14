@@ -237,3 +237,44 @@ export const printRecipeLabel = async (req: Request, res: Response, next: NextFu
         res.status(500).json({ message: "Failed to print recipe label" });
     }
 }
+export const printAssetLabel = async (req: Request, res: Response, next: NextFunction): Promise<any> => {
+    try {
+        const id = parseInt(req.params.id);
+        const item = await prisma.equipment.findUnique({
+            where: { id }
+        });
+
+        if (!item) {
+            res.status(404).json({ message: "Equipment not found" });
+            return;
+        }
+
+        const io = req.app.get('io');
+        const targetSocket = await findTargetSocket(io);
+
+        if (!targetSocket) {
+            res.status(503).json({ message: "No online label printers found." });
+            return;
+        }
+
+        const payload = {
+            type: 'ASSET_LABEL',
+            data: {
+                name: item.name,
+                purchaseDate: item.purchaseDate ? item.purchaseDate.toISOString().split('T')[0] : '',
+                qrData: `E-${item.id}`
+            }
+        };
+
+        const result = await sendPrintCommandAndWait(targetSocket, payload);
+
+        if (result.success) {
+            res.json({ success: true, message: "Label printed." });
+        } else {
+            res.status(500).json({ success: false, message: "Print failed: " + result.message });
+        }
+    } catch (e) {
+        console.error('Error printing asset label', e);
+        res.status(500).json({ message: "Failed to print asset label" });
+    }
+}

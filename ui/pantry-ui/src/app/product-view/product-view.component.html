@@ -1,122 +1,158 @@
-<div *ngIf="product">
-    <h1>
-        {{product.title}}
-        <span *ngIf="product.isLeftover" class="badge text-bg-warning ms-2"
-            style="font-size: 0.6em; vertical-align: middle;">Leftover</span>
-    </h1>
-    <a *ngIf="product && !product.isLeftover" mat-raised-button href="/products/{{product.id}}/stock-items">Add
-        Stock</a>
-    <a *ngIf="product && !product.isLeftover" mat-raised-button href="/products/{{product.id}}/edit">Edit Product</a>
-    <div class="row">
-        <div class="col-sm-8">
-            <table mat-table [dataSource]="product.stockItems">
-                <ng-container matColumnDef="quantity">
-                    <th mat-header-cell *matHeaderCellDef>Quantity</th>
-                    <td mat-cell *matCellDef="let row">
-                        {{row.quantity}}
-                        <span *ngIf="row.opened" class="badge text-bg-primary">Open</span>
-                        <span *ngIf="row.frozen" class="badge text-bg-info">Frozen</span>
-                    </td>
-                </ng-container>
-                <ng-container matColumnDef="expiration">
-                    <th mat-header-cell *matHeaderCellDef>Expiration</th>
-                    <td mat-cell *matCellDef="let row">{{row.expirationDate | date}}</td>
-                </ng-container>
-                <ng-container matColumnDef="actions">
-                    <th mat-header-cell *matHeaderCellDef></th>
-                    <td mat-cell *matCellDef="let row">
-                        <button mat-raised-button (click)="UseStock(row, 1)">
-                            Use 1
-                            <mat-spinner style="display: inline-block;" diameter="20"
-                                *ngIf="row.loading_use"></mat-spinner>
-                        </button>
-                        <button mat-icon-button [matMenuTriggerFor]="stockItemEdit">
-                            <mat-icon>more_vert</mat-icon>
-                        </button>
-                        <mat-menu #stockItemEdit="matMenu">
-                            <a mat-menu-item href="/products/{{product.id}}/stock-items/{{row.id}}">
-                                <mat-icon>edit</mat-icon>
-                                Edit
-                            </a>
-                            <button (click)="setFrozen(row, true)" *ngIf="row.frozen != true" mat-menu-item>
-                                <mat-icon>ac_unit</mat-icon>
-                                Freeze
-                                @if(product.freezerLifespanDays !== null)
-                                {
-                                <small>(expire in {{product.freezerLifespanDays}} days)</small>
-                                }
-                                @else
-                                {
-                                <small>(don't change expiration)</small>
-                                }
-                            </button>
-                            <button (click)="setFrozen(row, false)" *ngIf="row.frozen" mat-menu-item>
-                                <mat-icon>thermometer_gain</mat-icon>
-                                Remove from Freezer
-                                @if(row.expirationExtensionAfterThaw !== null)
-                                {
-                                <small>(expire in {{row.expirationExtensionAfterThaw}} days)</small>
-                                }
-                                @else
-                                {
-                                <small>(don't change expiration)</small>
-                                }
-                            </button>
-                            <button (click)="setOpened(row)" *ngIf="row.opened != true" mat-menu-item>
-                                <mat-icon>orders</mat-icon>
-                                Open
-                                @if(row.frozen !== true && product.openedLifespanDays !== null)
-                                {
-                                <small>(expire in {{product.openedLifespanDays}} days)</small>
-                                }
-                                @else if(row.frozen === true && product.openedLifespanDays !== null)
-                                {
-                                <small>(expire in {{product.openedLifespanDays}} days if thawed)</small>
-                                }
-                                @else
-                                {
-                                <small>(don't change expiration)</small>
-                                }
-                            </button>
-                            <mat-divider></mat-divider>
-                            <button mat-menu-item (click)="printStockLabel(row, labelSizeCode)">
-                                <mat-icon>print</mat-icon>
-                                Print Stock Label ({{labelSizeDescription}})
-                            </button>
-                            <button mat-menu-item *ngIf="row.opened" (click)="printModifier(row, 'Opened')">
-                                <mat-icon>print</mat-icon>
-                                Print 'Opened' Status
-                            </button>
-                            <button mat-menu-item *ngIf="row.frozen" (click)="printModifier(row, 'Frozen')">
-                                <mat-icon>print</mat-icon>
-                                Print 'Frozen' Status
-                            </button>
-                        </mat-menu>
-                    </td>
-                </ng-container>
-                <tr mat-header-row *matHeaderRowDef="['quantity', 'expiration', 'actions']"></tr>
-                <tr mat-row *matRowDef="let row; columns: ['quantity', 'expiration', 'actions']"
-                    [class.active]="row.id == stockId"></tr>
-            </table>
-        </div>
-        <div class="col-sm-4">
-            <mat-card>
-                <mat-card-header>
-                    <mat-card-title>
-                        Barcodes
-                    </mat-card-title>
-                </mat-card-header>
-                <mat-card-content>
-                    <div *ngFor="let barcode of product.barcodes">
-                        {{barcode.barcode}}
-                    </div>
-                </mat-card-content>
+<div *ngIf="product" class="h-100 d-flex flex-column">
 
-            </mat-card>
+    <!-- Header -->
+    <div class="header-section">
+        <h1 class="page-title">
+            {{product.title}}
+            <span *ngIf="product.isLeftover" class="leftover-badge">Leftover</span>
+        </h1>
+
+        <div class="actions-group">
+            <a *ngIf="!product.isLeftover" mat-stroked-button color="primary"
+                [routerLink]="['/products', product.id, 'edit']">
+                <mat-icon>edit</mat-icon> Edit Product
+            </a>
+            <a *ngIf="!product.isLeftover" mat-filled-button color="primary"
+                [routerLink]="['/products', product.id, 'stock-items']">
+                <mat-icon>add</mat-icon> Add Stock
+            </a>
         </div>
     </div>
 
-    <button mat-fab class="audio-chat-fab" color="accent" (click)="openAudioChat()">
+    <!-- Main Content -->
+    <div class="content-grid">
+
+        <!-- Left Column: Stock Items -->
+        <mat-card>
+            <mat-card-header>
+                <mat-card-title>Stock Inventory</mat-card-title>
+            </mat-card-header>
+            <mat-card-content>
+                <table mat-table [dataSource]="product.stockItems" class="w-100">
+
+                    <!-- Quantity Column -->
+                    <ng-container matColumnDef="quantity">
+                        <th mat-header-cell *matHeaderCellDef> Quantity </th>
+                        <td mat-cell *matCellDef="let row">
+                            <div class="d-flex align-items-center">
+                                <span class="fw-bold fs-6">{{row.quantity}}</span>
+                                <span *ngIf="row.opened" class="status-badge badge-open">Open</span>
+                                <span *ngIf="row.frozen" class="status-badge badge-frozen">Frozen</span>
+                            </div>
+                        </td>
+                    </ng-container>
+
+                    <!-- Expiration Column -->
+                    <ng-container matColumnDef="expiration">
+                        <th mat-header-cell *matHeaderCellDef> Expiration </th>
+                        <td mat-cell *matCellDef="let row" class="text-secondary">
+                            {{row.expirationDate | date:'mediumDate'}}
+                        </td>
+                    </ng-container>
+
+                    <!-- Actions Column -->
+                    <ng-container matColumnDef="actions">
+                        <th mat-header-cell *matHeaderCellDef></th>
+                        <td mat-cell *matCellDef="let row" class="text-end">
+                            <button mat-stroked-button color="accent" (click)="UseStock(row, 1)"
+                                [disabled]="menuTrigger.menuOpen">
+                                Use 1
+                                <mat-spinner style="display: inline-block; margin-left: 8px; vertical-align: middle;"
+                                    diameter="18" *ngIf="row.loading_use"></mat-spinner>
+                            </button>
+
+                            <button mat-icon-button [matMenuTriggerFor]="stockItemEdit" #menuTrigger="matMenuTrigger"
+                                class="ms-2">
+                                <mat-icon>more_vert</mat-icon>
+                            </button>
+
+                            <mat-menu #stockItemEdit="matMenu">
+                                <a mat-menu-item [routerLink]="['/products', product.id, 'stock-items', row.id]">
+                                    <mat-icon>edit</mat-icon> Edit
+                                </a>
+
+                                <button mat-menu-item (click)="setFrozen(row, true)" *ngIf="!row.frozen">
+                                    <mat-icon>ac_unit</mat-icon> Freeze
+                                    <small class="text-muted ms-2"
+                                        *ngIf="product.freezerLifespanDays">(+{{product.freezerLifespanDays}}
+                                        days)</small>
+                                </button>
+
+                                <button mat-menu-item (click)="setFrozen(row, false)" *ngIf="row.frozen">
+                                    <mat-icon>thermometer_gain</mat-icon> Remove from Freezer
+                                </button>
+
+                                <button mat-menu-item (click)="setOpened(row)" *ngIf="!row.opened">
+                                    <mat-icon>orders</mat-icon> Open
+                                    <small class="text-muted ms-2"
+                                        *ngIf="product.openedLifespanDays">(+{{product.openedLifespanDays}}
+                                        days)</small>
+                                </button>
+
+                                <mat-divider></mat-divider>
+
+                                <button mat-menu-item (click)="printStockLabel(row, labelSizeCode)">
+                                    <mat-icon>print</mat-icon> Print Label ({{labelSizeDescription}})
+                                </button>
+
+                                <button mat-menu-item *ngIf="row.opened" (click)="printModifier(row, 'Opened')">
+                                    <mat-icon>print</mat-icon> Print 'Opened' Strip
+                                </button>
+
+                                <button mat-menu-item *ngIf="row.frozen" (click)="printModifier(row, 'Frozen')">
+                                    <mat-icon>print</mat-icon> Print 'Frozen' Strip
+                                </button>
+                            </mat-menu>
+                        </td>
+                    </ng-container>
+
+                    <tr mat-header-row *matHeaderRowDef="['quantity', 'expiration', 'actions']"></tr>
+                    <tr mat-row *matRowDef="let row; columns: ['quantity', 'expiration', 'actions']"
+                        [class.bg-light-subtle]="row.id == stockId"></tr>
+                </table>
+
+                <div *ngIf="!product.stockItems || product.stockItems.length === 0" class="p-4 text-center text-muted">
+                    No items in stock.
+                </div>
+            </mat-card-content>
+        </mat-card>
+
+        <!-- Right Column: Image and Barcodes -->
+        <div class="d-flex flex-column gap-4 image-column">
+
+            <mat-card>
+                <mat-card-content class="pt-4">
+                    <!-- Product Image -->
+                    <div class="product-image-container">
+                        <img *ngIf="GetFileDownloadUrl(product)" [src]="GetFileDownloadUrl(product)"
+                            class="product-image" alt="Product Image">
+                        <div *ngIf="!GetFileDownloadUrl(product)" class="image-placeholder">
+                            <mat-icon style="font-size: 64px; width: 64px; height: 64px;">image_not_supported</mat-icon>
+                            <span class="mt-2">No Image</span>
+                        </div>
+                    </div>
+
+                    <!-- Barcodes List -->
+                    <h3 class="mat-h3 mb-3">Barcodes</h3>
+                    <div class="barcode-list">
+                        <div class="barcode-item" *ngFor="let barcode of product.barcodes">
+                            <mat-icon class="barcode-icon">qr_code_2</mat-icon>
+                            {{barcode.barcode}}
+                        </div>
+                        <div *ngIf="!product.barcodes || product.barcodes.length === 0" class="text-muted fst-italic">
+                            No barcodes linked.
+                        </div>
+                    </div>
+                </mat-card-content>
+            </mat-card>
+
+        </div>
+    </div>
+
+    <!-- Audio Chat FAB -->
+    <button mat-fab class="audio-chat-fab" color="tertiary" (click)="openAudioChat()"
+        matTooltip="Ask Gemini about this product">
         <mat-icon>smart_toy</mat-icon>
     </button>
+
 </div>

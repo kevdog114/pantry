@@ -1,0 +1,48 @@
+<div class="edit-container">
+    <h1>{{isNew ? 'Add Equipment' : 'Edit Equipment'}}</h1>
+
+    <div class="form-grid">
+        <mat-form-field appearance="fill">
+            <mat-label>Name</mat-label>
+            <input matInput [(ngModel)]="item.name" required>
+        </mat-form-field>
+
+        <mat-form-field appearance="fill">
+            <mat-label>Notes</mat-label>
+            <textarea matInput [(ngModel)]="item.notes" rows="4"></textarea>
+        </mat-form-field>
+
+        <mat-form-field appearance="fill">
+            <mat-label>Purchase Date</mat-label>
+            <input matInput [matDatepicker]="picker" [(ngModel)]="item.purchaseDate">
+            <mat-datepicker-toggle matSuffix [for]="picker"></mat-datepicker-toggle>
+            <mat-datepicker #picker></mat-datepicker>
+        </mat-form-field>
+    </div>
+
+    <div class="actions">
+        <button mat-raised-button color="primary" (click)="save()">Save</button>
+        <button mat-button routerLink="/equipment">Cancel</button>
+        <button mat-button color="warn" *ngIf="!isNew" (click)="delete()">Delete</button>
+        <button mat-stroked-button *ngIf="!isNew" (click)="printLabel()">
+            <mat-icon>print</mat-icon> Print Asset Tag
+        </button>
+    </div>
+
+    <div class="files-section" *ngIf="!isNew">
+        <h2>Files & Photos</h2>
+        <input type="file" (change)="onFileSelected($event)" #fileInput style="display: none;">
+        <button mat-stroked-button (click)="fileInput.click()">
+            <mat-icon>upload</mat-icon> Upload File
+        </button>
+
+        <div class="file-list">
+            <div *ngFor="let file of item.files" class="file-item">
+                <img [src]="getFileUrl(file)" *ngIf="file.mimeType.startsWith('image/')" class="thumb">
+                <div class="file-info">
+                    <a [href]="getFileUrl(file)" target="_blank">{{file.path}}</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

@@ -184,6 +184,24 @@ const getFamilyContext = async (filterMemberIds?: number[]): Promise<string> => 
   return context;
 };
 
+const getEquipmentContext = async (): Promise<string> => {
+  try {
+    const equipment = await prisma.equipment.findMany();
+    if (equipment.length === 0) return "No cooking equipment/appliances tracked.";
+
+    let context = "Available Cooking Equipment & Appliances:\n";
+    for (const item of equipment) {
+      context += `- ${item.name}`;
+      if (item.notes) context += ` (${item.notes})`;
+      context += "\n";
+    }
+    return context;
+  } catch (e) {
+    console.error("Failed to fetch equipment for context", e);
+    return "";
+  }
+};
+
 export const post = async (req: Request, res: Response) => {
   try {
     let { prompt, history = [], sessionId, additionalContext } = req.body as {
@@ -333,6 +351,10 @@ export const post = async (req: Request, res: Response) => {
 
       Here are the family preferences and details. Please consider these when suggesting recipes or answering food questions:
       ${await getFamilyContext()}
+
+      Here is the available cooking equipment:
+      ${await getEquipmentContext()}
+
 
       ${additionalContext ? `\nCONTEXT FROM USER'S CURRENT VIEW:\n${additionalContext}\n` : ''}
     `;

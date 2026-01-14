@@ -23,6 +23,7 @@ import * as ShoppingListController from "./controllers/ShoppingListController";
 import { isAuthenticated } from "./middleware/auth";
 
 import * as LabelPrinterController from "./controllers/labelPrinterController";
+import * as EquipmentController from "./controllers/EquipmentController";
 import cors from "cors";
 import fileUpload from "express-fileupload";
 import session from "express-session";
@@ -248,6 +249,15 @@ app.post("/labels/quick-print", LabelPrinterController.printQuickLabel);
 app.post("/labels/stock/:id", LabelPrinterController.printStockLabel);
 app.post("/labels/modifier", LabelPrinterController.printModifierLabel);
 app.post("/labels/recipe/:id", LabelPrinterController.printRecipeLabel);
+app.post("/labels/asset/:id", LabelPrinterController.printAssetLabel);
+
+
+app.get("/equipment", EquipmentController.getAll);
+app.get("/equipment/:id", EquipmentController.getById);
+app.post("/equipment", EquipmentController.create);
+app.put("/equipment/:id", EquipmentController.update);
+app.delete("/equipment/:id", EquipmentController.deleteById);
+app.post("/equipment/:id/files", EquipmentController.uploadFile);
 
 app.get('/*', (req: Request, res: Response) => {
     res.sendFile('index.html', { root: '../ui/pantry-ui/dist/pantry-ui' });

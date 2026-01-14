@@ -39,6 +39,11 @@ export class HardwareBarcodeScannerService {
         }
       })
     }
+    else if (barcode.toLowerCase().startsWith("e-")) {
+      // equipment barcode
+      barcode = barcode.substring(2);
+      this.router.navigate(["equipment", "edit", barcode]);
+    }
     else if (barcode.toLowerCase().startsWith("s2-")) {
       // new s2 stock item barcode
       barcode = barcode.substring(3);

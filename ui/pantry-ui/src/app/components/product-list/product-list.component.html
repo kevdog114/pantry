@@ -1,112 +1,119 @@
-<div>
-    <h1>Products</h1>
+<!-- Main Page Structure -->
+<div class="header-section">
+    <h1 class="page-title">Pantry Inventory</h1>
 
-    <div class="row">
-        <div class="col">
-            <mat-form-field class="w-100">
-                <mat-label>Area</mat-label>
-                <mat-select>
-                    <mat-option>-- None --</mat-option>
-                    <mat-option value="0">All</mat-option>
-                    <mat-divider></mat-divider>
-                    <mat-option value="1">Pantry</mat-option>
-                    <mat-option value="2">Freezer</mat-option>
-                    <mat-option value="3">Refrigerator</mat-option>
-                </mat-select>
-            </mat-form-field>
-        </div>
-        <div class="col">
-            <mat-form-field class="w-100">
-                <mat-label>Sort</mat-label>
-                <mat-select [(value)]="selectedSortOption">
-                    <mat-option value="expire">Expiring Soon</mat-option>
-                    <mat-option value="alphabetical">Alphabetical</mat-option>
-                </mat-select>
-            </mat-form-field>
-        </div>
-        <div class="col">
-            <mat-form-field class="w-100">
-                <mat-label>Search</mat-label>
-                <input name="searchbox" class="barcode-input" (keyup.enter)="refreshList()" matInput
-                    [(ngModel)]="searchTerm" />
-                <button mat-icon-button matSuffix (click)="refreshList()"><mat-icon>search</mat-icon></button>
-                <mat-hint>Enter your search here</mat-hint>
-            </mat-form-field>
-        </div>
+    <div class="actions-group">
+        <a mat-stroked-button color="primary" [routerLink]="['/products', 'create']">
+            <mat-icon>add</mat-icon> Create Product
+        </a>
+        <button mat-filled-button color="primary" (click)="openPhotoUploadDialog()">
+            <mat-icon>add_a_photo</mat-icon> Add by Photo
+        </button>
     </div>
-
-
-
-
-    <mat-button-toggle-group name="displayMode" [(ngModel)]="DisplayMode">
-        <mat-button-toggle value="grid">
-            <mat-icon>grid_view</mat-icon>
-        </mat-button-toggle>
-        <mat-button-toggle value="list">
-            <mat-icon>list_view</mat-icon>
-        </mat-button-toggle>
-    </mat-button-toggle-group>
-    <a mat-raised-button [routerLink]="['/products', 'create']">Create Product</a>
-    <button mat-raised-button (click)="openPhotoUploadDialog()"><mat-icon>add_a_photo</mat-icon> Add by Photo</button>
-
 </div>
 
+<div class="toolbar-container">
+    <!-- Search Bar -->
+    <div class="search-container">
+        <mat-icon class="text-secondary ms-2">search</mat-icon>
+        <input type="text" class="search-input" placeholder="Search products..." [(ngModel)]="searchTerm"
+            (keyup.enter)="refreshList()">
+    </div>
 
-<div class="list-group" *ngIf="DisplayMode === 'list'">
-    <a [routerLink]="['/products', product.id]" class="list-group-item list-group-item-action" aria-current="true"
-        *ngFor="let product of products; track product">
-        <div class="d-flex w-100 justify-content-between">
-            <img style="max-height: 75px;" matListItemAvatar [src]="GetFileDownloadUrl(product)">
-            <div class="w-100">
-                <div class="d-flex w-100 justify-content-between">
-                    <h5 class="mb-1">
-                        {{product.title}}
-                        <span *ngIf="product.isLeftover" class="badge text-bg-warning ms-1"
-                            style="font-size: 0.7em;">Leftover</span>
-                    </h5>
-                    <small *ngIf="product.totalQuantity">{{product.totalQuantity}} in stock</small>
-                </div>
-                <div class="w-100">
-                    <span matListItemLine *ngIf="product.minExpiration !== undefined">
-                        {{product.quantityExpiringSoon}}
-                        expiring on
-                        {{product.minExpiration | date}}
-                    </span>
+    <!-- Filter/Sort Group -->
+    <div class="filter-group">
+
+        <!-- Sort Dropdown (Simplified) -->
+        <mat-form-field appearance="outline" subscriptSizing="dynamic" class="dense-form-field" style="width: 180px;">
+            <mat-label>Sort By</mat-label>
+            <mat-select [(value)]="selectedSortOption">
+                <mat-option value="expire">Expiring Soon</mat-option>
+                <mat-option value="alphabetical">Alphabetical</mat-option>
+            </mat-select>
+        </mat-form-field>
+
+        <!-- Area Dropdown (Preserving existing UI even if logic was missing) -->
+        <mat-form-field appearance="outline" subscriptSizing="dynamic" class="dense-form-field" style="width: 150px;">
+            <mat-label>Area</mat-label>
+            <mat-select>
+                <mat-option>-- None --</mat-option>
+                <mat-option value="0">All</mat-option>
+                <mat-divider></mat-divider>
+                <mat-option value="1">Pantry</mat-option>
+                <mat-option value="2">Freezer</mat-option>
+                <mat-option value="3">Refrigerator</mat-option>
+            </mat-select>
+        </mat-form-field>
+
+        <!-- View Toggle -->
+        <div class="view-toggles">
+            <mat-button-toggle-group name="displayMode" [(ngModel)]="DisplayMode" aria-label="View Mode">
+                <mat-button-toggle value="grid" matTooltip="Grid View">
+                    <mat-icon>grid_view</mat-icon>
+                </mat-button-toggle>
+                <mat-button-toggle value="list" matTooltip="List View">
+                    <mat-icon>view_list</mat-icon>
+                </mat-button-toggle>
+            </mat-button-toggle-group>
+        </div>
+    </div>
+</div>
+
+<!-- Product Grid -->
+<div class="product-grid" *ngIf="DisplayMode === 'grid'">
+    <div class="product-card" *ngFor="let product of products" [routerLink]="['/products', product.id]">
+        <div class="card-image-wrapper">
+            <span *ngIf="product.isLeftover" class="leftover-badge">Leftover</span>
+            <img *ngIf="GetFileDownloadUrl(product)" class="card-image" [src]="GetFileDownloadUrl(product)"
+                alt="{{product.title}}">
+            <div *ngIf="!GetFileDownloadUrl(product)" class="card-image-placeholder">
+                <mat-icon>image_not_supported</mat-icon>
+            </div>
+        </div>
+        <div class="card-content">
+            <h3 class="card-title">{{product.title}}</h3>
+
+            <div class="card-meta">
+                <div class="expiry-info" *ngIf="product.minExpiration">
+                    <mat-icon style="font-size: 16px; width: 16px; height: 16px;">event_busy</mat-icon>
+                    <span>{{product.minExpiration | date:'mediumDate'}}</span>
+                    <span *ngIf="product.quantityExpiringSoon"
+                        class="text-muted ms-1">({{product.quantityExpiringSoon}})</span>
                 </div>
             </div>
         </div>
-    </a>
-</div>
-
-
-<div class="row" *ngIf="DisplayMode === 'grid'">
-    <div class="col-sm-12">
-        <div class="row row-cols-2 row-cols-sm-3 row-cols-md-5 rows-cols-lg-8">
-            <mat-card appearance="outlined" *ngFor="let product of products" class="col">
-                <mat-card-header class="text-truncate">
-                    <mat-card-title>
-                        {{product.title}}
-                        <span *ngIf="product.isLeftover" class="badge text-bg-warning"
-                            style="font-size: 0.6em;">Leftover</span>
-                        <a class="stretched-link" [routerLink]="['/products', product.id]"></a>
-                    </mat-card-title>
-                    <mat-card-subtitle>
-                        <ng-container *ngIf="product.minExpiration !== undefined">
-                            <small>{{product.quantityExpiringSoon}} exp on {{product.minExpiration | date}}</small>
-                        </ng-container>
-                    </mat-card-subtitle>
-                </mat-card-header>
-                <img mat-card-image class="object-fit-contain" style="height: 125px;"
-                    [src]="GetFileDownloadUrl(product)">
-                <!--<mat-card-actions>
-                    <button mat-icon-button (click)="removeImage(file)"><mat-icon>delete</mat-icon></button>
-                    <a href="GetFileDownloadUrl(file.id)" mat-icon-button><mat-icon>download</mat-icon></a>
-                </mat-card-actions>-->
-            </mat-card>
-        </div>
     </div>
 </div>
 
-<button mat-fab class="quick-snack-fab" color="accent" (click)="openQuickSnack()">
+<!-- Product List -->
+<div class="product-list-container" *ngIf="DisplayMode === 'list'">
+    <a [routerLink]="['/products', product.id]" class="list-item" *ngFor="let product of products">
+        <img *ngIf="GetFileDownloadUrl(product)" class="list-avatar" [src]="GetFileDownloadUrl(product)" alt="">
+        <div *ngIf="!GetFileDownloadUrl(product)"
+            class="list-avatar d-flex align-items-center justify-content-center bg-secondary-subtle text-secondary">
+            <mat-icon style="font-size: 24px; width: 24px; height: 24px;">image_not_supported</mat-icon>
+        </div>
+
+        <div class="list-details">
+            <div class="list-title">
+                {{product.title}}
+                <span *ngIf="product.isLeftover" class="badge bg-warning text-dark rounded-pill"
+                    style="font-size: 0.7em;">Leftover</span>
+            </div>
+            <div class="list-meta">
+                <span *ngIf="product.totalQuantity">{{product.totalQuantity}} in stock</span>
+                <span *ngIf="product.minExpiration" class="text-danger d-flex align-items-center gap-1">
+                    <mat-icon style="font-size: 16px; width: 16px; height: 16px;">event_busy</mat-icon>
+                    Exp: {{product.minExpiration | date}}
+                </span>
+            </div>
+        </div>
+
+        <mat-icon class="text-secondary">chevron_right</mat-icon>
+    </a>
+</div>
+
+<!-- Quick Snack FAB -->
+<button mat-fab class="quick-snack-fab" color="tertiary" (click)="openQuickSnack()" matTooltip="Quick Snack">
     <mat-icon>lunch_dining</mat-icon>
 </button>

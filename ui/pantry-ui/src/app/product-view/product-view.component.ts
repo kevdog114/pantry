@@ -12,6 +12,7 @@ import { MatDividerModule } from '@angular/material/divider';
 import { dateTimestampProvider } from 'rxjs/internal/scheduler/dateTimestampProvider';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { KioskService } from '../services/kiosk.service';
+import { environment } from '../../environments/environment';
 
 
 interface IndexedBarcode {
@@ -24,6 +25,8 @@ interface IndexedBarcode {
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { AudioChatDialogComponent } from '../components/audio-chat-dialog/audio-chat-dialog.component';
 import { LabelService } from '../services/label.service';
+import { RouterModule } from '@angular/router';
+import { MatTooltipModule } from '@angular/material/tooltip';
 
 @Component({
   selector: 'app-product-view',
@@ -38,7 +41,9 @@ import { LabelService } from '../services/label.service';
     MatMenuModule,
     MatIconModule,
     MatDividerModule,
-    MatDialogModule
+    MatDialogModule,
+    RouterModule,
+    MatTooltipModule
   ],
   templateUrl: './product-view.component.html',
   styleUrl: './product-view.component.scss'
@@ -217,5 +222,15 @@ export class ProductViewComponent {
         console.error(err);
       }
     });
+  }
+
+  public GetFileDownloadUrl = (stockItem: any): string => {
+    // Logic from product-list.component.ts but adapted if needed.
+    // Wait, product-list uses product.files. 
+    // This view has 'product' property.
+    if (this.product && this.product.files && this.product.files.length > 0)
+      return environment.apiUrl + "/files/" + this.product.files[0].id + "?size=medium";
+    else
+      return "";
   }
 }

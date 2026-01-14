@@ -170,6 +170,21 @@ export const routes: Routes = [
         canActivate: [AuthGuard]
     },
     {
+        path: "equipment",
+        loadComponent: () => import('./equipment/equipment-list/equipment-list.component').then(m => m.EquipmentListComponent),
+        canActivate: [AuthGuard]
+    },
+    {
+        path: "equipment/add",
+        loadComponent: () => import('./equipment/equipment-edit/equipment-edit.component').then(m => m.EquipmentEditComponent),
+        canActivate: [AuthGuard]
+    },
+    {
+        path: "equipment/edit/:id",
+        loadComponent: () => import('./equipment/equipment-edit/equipment-edit.component').then(m => m.EquipmentEditComponent),
+        canActivate: [AuthGuard]
+    },
+    {
         path: "**",
         redirectTo: "home"
     }

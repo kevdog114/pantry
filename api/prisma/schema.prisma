@@ -45,9 +45,12 @@ model File {
   path      String
   mimeType  String
   products  Product[] @relation("ProductToFile")
+  equipment Equipment[] @relation("EquipmentToFile")
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
 }
+
+
 
 model Tag {
   id        Int       @id @default(autoincrement())
@@ -312,4 +315,15 @@ model DailyWeather {
   provider            String   // "weather.gov", "tempest"
   icon                String?  // Icon code or url
   updatedAt           DateTime @updatedAt
+}
+
+
+model Equipment {
+  id           Int       @id @default(autoincrement())
+  name         String
+  notes        String?
+  purchaseDate DateTime?
+  files        File[]    @relation("EquipmentToFile")
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 }
