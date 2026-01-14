@@ -1,6 +1,7 @@
 name: Publish App Docker Images
 
 on:
+  workflow_dispatch:
   push:
     branches:
       - main

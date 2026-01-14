@@ -1,6 +1,7 @@
 name: Publish Kiosk Docker Image
 
 on:
+  workflow_dispatch:
   push:
     branches:
       - main
