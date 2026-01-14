@@ -68,7 +68,7 @@ const findTargetSocket = async (io: any): Promise<any> => {
 
 export const printQuickLabel = async (req: Request, res: Response, next: NextFunction): Promise<any> => {
     try {
-        const { text } = req.body;
+        const { type, date, size } = req.body;
         const io = req.app.get('io');
 
         const targetSocket = await findTargetSocket(io);
@@ -79,9 +79,11 @@ export const printQuickLabel = async (req: Request, res: Response, next: NextFun
         }
 
         const payload = {
-            type: 'SAMPLE_LABEL',
+            type: 'QUICK_LABEL',
             data: {
-                text: text || "Test Label"
+                type: type || "Label",
+                date: date || new Date().toISOString().split('T')[0],
+                size: size || 'continuous'
             }
         };
 

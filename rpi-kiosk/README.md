@@ -85,6 +85,8 @@ docker run --rm \
   -v /tmp/.X11-unix:/tmp/.X11-unix \
   -v /dev/bus/usb:/dev/bus/usb \
   -v pantry_data:/data \
+  -v /etc/localtime:/etc/localtime:ro \
+  -v /etc/timezone:/etc/timezone:ro \
   --privileged \
   -e DISPLAY=:0 \
   -e URL="https://pantry.yourdomain.com" \

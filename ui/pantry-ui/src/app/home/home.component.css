@@ -8,9 +8,9 @@
 
 /* --- Header --- */
 .dashboard-header {
-    margin-bottom: 32px;
+    margin-bottom: 16px;
     position: relative;
-    padding: 16px 0;
+    padding: 8px 0;
 }
 
 .header-content {
@@ -28,7 +28,7 @@
 }
 
 .dashboard-header h1 {
-    font-size: 3rem;
+    font-size: 2rem;
     font-weight: 300;
     margin: 0;
     line-height: 1.2;
@@ -48,78 +48,15 @@
 .dashboard-grid {
     display: flex;
     flex-direction: column;
-    gap: 48px;
-}
-
-/* --- Stats Section --- */
-.stats-section {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
     gap: 24px;
 }
 
-.stat-card {
-    background: var(--mat-sys-surface-container-low);
-    border-radius: 20px;
-    padding: 24px;
-    display: flex;
-    align-items: center;
-    gap: 24px;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
-    /* Soft shadow */
-    transition: transform 0.3s cubic-bezier(0.2, 0, 2, 1), box-shadow 0.3s;
-    border: 1px solid var(--mat-sys-outline-variant);
-}
-
-.stat-card:hover {
-    transform: translateY(-4px);
-    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.1);
-}
-
-.stat-icon {
-    width: 56px;
-    height: 56px;
-    border-radius: 16px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: var(--mat-sys-surface-container-highest);
-}
-
-.stat-icon mat-icon {
-    font-size: 28px;
-    width: 28px;
-    height: 28px;
-    color: var(--mat-sys-primary);
-}
-
-.stat-info {
-    display: flex;
-    flex-direction: column;
-}
-
-.stat-value {
-    font-size: 2.2rem;
-    font-weight: 700;
-    line-height: 1;
-    color: var(--mat-sys-on-surface);
-}
-
-.stat-label {
-    margin-top: 4px;
-    color: var(--mat-sys-on-surface-variant);
-    font-size: 0.95rem;
-}
-
-.warn-stat .stat-icon mat-icon {
-    color: var(--mat-sys-error);
-}
 
 /* --- Quick Actions --- */
 .actions-section h2 {
-    font-size: 1.5rem;
+    font-size: 1.2rem;
     font-weight: 400;
-    margin-bottom: 24px;
+    margin-bottom: 12px;
     color: var(--mat-sys-on-surface);
 }
 
@@ -137,7 +74,7 @@
     gap: 12px;
     background: var(--mat-sys-surface-container);
     border-radius: 16px;
-    height: 120px;
+    height: 90px;
     text-decoration: none;
     color: var(--mat-sys-on-surface);
     transition: all 0.2s ease;
@@ -285,57 +222,6 @@
     margin-top: 4px;
 }
 
-/* Horizontal Scroll List (Recent) */
-.horizontal-scroll-list {
-    display: flex;
-    gap: 16px;
-    overflow-x: auto;
-    padding-bottom: 16px;
-    /* Scrollbar space */
-    padding-left: 4px;
-    /* Focus outline space */
-    scrollbar-width: thin;
-}
-
-.mini-card {
-    min-width: 140px;
-    width: 140px;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    cursor: pointer;
-}
-
-.mini-card-img {
-    width: 100%;
-    aspect-ratio: 1;
-    border-radius: 16px;
-    background: var(--mat-sys-surface-container);
-    overflow: hidden;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: transform 0.2s;
-}
-
-.mini-card:hover .mini-card-img {
-    transform: scale(1.02);
-}
-
-.mini-card-img img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-}
-
-.mini-card-title {
-    font-size: 0.9rem;
-    font-weight: 500;
-    text-align: center;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
 
 
 /* --- Animations --- */
@@ -398,25 +284,6 @@
         gap: 32px;
     }
 
-    .stats-section {
-        grid-template-columns: 1fr;
-        /* Full width stats on mobile */
-        gap: 16px;
-    }
-
-    .stat-card {
-        padding: 16px;
-        min-height: 80px;
-    }
-
-    .stat-icon {
-        width: 48px;
-        height: 48px;
-    }
-
-    .stat-value {
-        font-size: 1.8rem;
-    }
 
     /* Actions become 2 columns */
     .actions-grid {

@@ -12,6 +12,8 @@ services:
       - DEFAULT_ADMIN_PASSWORD=${DEFAULT_ADMIN_PASSWORD}
     volumes:
       - pantry_data:/app/data
+      - /etc/localtime:/etc/localtime:ro
+      - /etc/timezone:/etc/timezone:ro
   pantry-ui:
     image: klschaefer/pantry-ui:latest
     pull_policy: always
@@ -20,6 +22,9 @@ services:
     environment:
       - API_BASEURL=${API_BASEURL}
       - SITE_TITLE=${SITE_TITLE}
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - /etc/timezone:/etc/timezone:ro
 
 volumes:
   pantry_data:

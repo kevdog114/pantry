@@ -160,7 +160,7 @@ function connectSocket() {
         // For Proof of Concept: Log it explicitly.
         // If we wanted to print:
         // If we wanted to print:
-        if (payload.type === 'STOCK_LABEL' || payload.type === 'SAMPLE_LABEL' || payload.type === 'MODIFIER_LABEL' || payload.type === 'RECIPE_LABEL') {
+        if (payload.type === 'STOCK_LABEL' || payload.type === 'SAMPLE_LABEL' || payload.type === 'MODIFIER_LABEL' || payload.type === 'RECIPE_LABEL' || payload.type === 'QUICK_LABEL') {
             // Inject detected size if not present or override? User requested bridge to handle it.
             // Check any known printer
             let detectedSize = null;

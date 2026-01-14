@@ -1,19 +1,39 @@
-<mat-card>
-  <mat-card-header>
-    <mat-card-title>Quick Label</mat-card-title>
-  </mat-card-header>
-  <mat-card-content>
-    <mat-form-field appearance="fill">
-      <mat-label>Label Text</mat-label>
-      <input matInput [(ngModel)]="label_text">
-    </mat-form-field>
+<div class="container">
+  <mat-card>
+    <mat-card-header>
+      <mat-card-title>Quick Label</mat-card-title>
+    </mat-card-header>
+    <mat-card-content>
+      <div class="form-section">
+        <h3>Label Type</h3>
+        <mat-chip-listbox aria-label="Label Type Selection" [value]="selectedType">
+          <mat-chip-option *ngFor="let type of labelTypes" [selected]="type === selectedType" (click)="selectType(type)"
+            color="primary">
+            {{type}}
+          </mat-chip-option>
+        </mat-chip-listbox>
+      </div>
 
-    <div>
-        <button mat-raised-button color="primary" (click)="printLabel()">Print Label</button>
-    </div>
+      <div class="form-section date-section" *ngIf="selectedType">
+        <mat-form-field appearance="fill" class="full-width">
+          <mat-label>Date</mat-label>
+          <input matInput [matDatepicker]="picker" [(ngModel)]="selectedDate">
+          <mat-datepicker-toggle matIconSuffix [for]="picker"></mat-datepicker-toggle>
+          <mat-datepicker #picker></mat-datepicker>
+        </mat-form-field>
+      </div>
 
-    <h3>Presets</h3>
-    <button mat-stroked-button (click)="setOpenedOn()">Opened On</button>
-
-  </mat-card-content>
-</mat-card>
+      <div class="status-section">
+        <mat-icon color="accent" *ngIf="labelSizeCode === '23mm'">square_foot</mat-icon>
+        <mat-icon color="primary" *ngIf="labelSizeCode !== '23mm'">receipt_long</mat-icon>
+        <span>Format: {{labelSizeDescription}}</span>
+      </div>
+    </mat-card-content>
+    <mat-card-actions align="end">
+      <button mat-raised-button color="primary" (click)="printLabel()" [disabled]="!selectedType || !selectedDate">
+        <mat-icon>print</mat-icon>
+        Print Label
+      </button>
+    </mat-card-actions>
+  </mat-card>
+</div>

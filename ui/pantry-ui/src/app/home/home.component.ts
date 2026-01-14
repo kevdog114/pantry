@@ -30,11 +30,11 @@ import { UpcomingTasksWidgetComponent } from './upcoming-tasks-widget/upcoming-t
 })
 export class HomeComponent implements OnInit {
     public expiringProducts: Product[] = [];
-    public recentProducts: Product[] = [];
     public leftoverProducts: Product[] = [];
-    public totalProducts: number = 0;
-    public totalStock: number = 0;
     public currentDate: Date = new Date();
+
+    public greeting: string = '';
+    private timeInterval: any;
 
     constructor(
         private productService: ProductListService,
@@ -42,19 +42,35 @@ export class HomeComponent implements OnInit {
     ) { }
 
     ngOnInit(): void {
+        this.updateTimeAndGreeting();
+        this.timeInterval = setInterval(() => {
+            this.updateTimeAndGreeting();
+        }, 60000); // Update every minute
+
         this.productService.GetAll().subscribe(products => {
-            this.totalProducts = products.length;
-            this.totalStock = products.reduce((acc, p) => acc + (p.totalQuantity || 0), 0);
+            // Calculate total quantity if not present (backend might not send it)
+            // Calculate total quantity and min expiration if not present (backend might not send it)
+            products.forEach(p => {
+                if (p.stockItems && p.stockItems.length > 0) {
+                    if (p.totalQuantity === undefined) {
+                        p.totalQuantity = p.stockItems.reduce((acc, item) => acc + item.quantity, 0);
+                    }
+                    if (!p.minExpiration) {
+                        const expirations = p.stockItems
+                            .map(i => i.expirationDate ? new Date(i.expirationDate).getTime() : null)
+                            .filter(d => d !== null) as number[];
+
+                        if (expirations.length > 0) {
+                            p.minExpiration = new Date(Math.min(...expirations));
+                        }
+                    }
+                }
+            });
 
             // Filter for expiring soon (has expiration date) and sort by date
             this.expiringProducts = products
                 .filter(p => p.minExpiration)
                 .sort((a, b) => new Date(a.minExpiration!).getTime() - new Date(b.minExpiration!).getTime())
-                .slice(0, 5);
-
-            // Recent products by ID descending
-            this.recentProducts = [...products]
-                .sort((a, b) => b.id - a.id)
                 .slice(0, 5);
 
             // Leftovers
@@ -68,6 +84,20 @@ export class HomeComponent implements OnInit {
         });
     }
 
+    ngOnDestroy(): void {
+        if (this.timeInterval) {
+            clearInterval(this.timeInterval);
+        }
+    }
+
+    private updateTimeAndGreeting() {
+        this.currentDate = new Date();
+        const hour = this.currentDate.getHours();
+        if (hour < 12) this.greeting = 'Good Morning';
+        else if (hour < 18) this.greeting = 'Good Afternoon';
+        else this.greeting = 'Good Evening';
+    }
+
     public openQuickSnack() {
         this.bottomSheet.open(QuickSnackComponent);
     }
@@ -77,12 +107,5 @@ export class HomeComponent implements OnInit {
             return environment.apiUrl + "/files/" + product.files[0].id + "?size=small";
         else
             return "";
-    }
-
-    public getGreeting(): string {
-        const hour = new Date().getHours();
-        if (hour < 12) return 'Good Morning';
-        if (hour < 18) return 'Good Afternoon';
-        return 'Good Evening';
     }
 }

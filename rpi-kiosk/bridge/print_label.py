@@ -91,6 +91,68 @@ def create_label_image(data):
             
         draw.text((50, height - 50), "Pantry App Test", font=font_small, fill='black')
 
+    elif 'type' in data and 'date' in data:
+        # QUICK_LABEL (Prepared, Expires, etc)
+        label_type = data.get('type', 'Label')
+        date_str = data.get('date', '')
+        
+        if data.get('size') == '23mm':
+            # Square 23mm
+            width = 202
+            height = 202
+            img = Image.new('RGB', (width, height), color='white')
+            draw = ImageDraw.Draw(img)
+            
+            try:
+                # Date large, Type small
+                font_date = ImageFont.truetype("/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf", 45)
+                font_type = ImageFont.truetype("/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf", 22)
+            except:
+                font_date = ImageFont.load_default()
+                font_type = ImageFont.load_default()
+
+            # Date
+            try:
+                w = draw.textlength(date_str, font=font_date)
+            except:
+                w = draw.textsize(date_str, font=font_date)[0]
+            draw.text(((width - w) / 2, 50), date_str, font=font_date, fill='black')
+            
+            # Type
+            try:
+                w = draw.textlength(label_type, font=font_type)
+            except:
+                w = draw.textsize(label_type, font=font_type)[0]
+            draw.text(((width - w) / 2, 110), label_type, font=font_type, fill='black')
+
+        else:
+            # Continuous (Height 200 to match stock)
+            height = 200
+            width = 696
+            img = Image.new('RGB', (width, height), color='white')
+            draw = ImageDraw.Draw(img)
+            
+            try:
+                font_date = ImageFont.truetype("/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf", 90)
+                font_type = ImageFont.truetype("/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf", 40)
+            except:
+                font_date = ImageFont.load_default()
+                font_type = ImageFont.load_default()
+            
+            # Date Centered
+            try:
+                w = draw.textlength(date_str, font=font_date)
+            except:
+                w = draw.textsize(date_str, font=font_date)[0]
+            draw.text(((width - w) / 2, 20), date_str, font=font_date, fill='black')
+            
+            # Type Centered Below
+            try:
+                w = draw.textlength(label_type, font=font_type)
+            except:
+                w = draw.textsize(label_type, font=font_type)[0]
+            draw.text(((width - w) / 2, 130), label_type, font=font_type, fill='black')
+
     elif 'action' in data:
         # Modifier Label (Opened/Frozen) - Compact Single Line
         height = 90

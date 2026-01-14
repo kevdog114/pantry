@@ -2,44 +2,12 @@
     <header class="dashboard-header fadeInDown">
         <div class="header-content">
             <span class="date-badge">{{ currentDate | date:'fullDate' }}</span>
-            <h1>{{ getGreeting() }}</h1>
+            <h1>{{ greeting }}</h1>
             <p class="subtitle">Here's your pantry overview</p>
         </div>
     </header>
 
     <div class="dashboard-grid">
-        <!-- Main Stats Area -->
-        <section class="stats-section fadeInUp" style="animation-delay: 0.1s">
-            <div class="stat-card primary-stat">
-                <div class="stat-icon">
-                    <mat-icon>inventory_2</mat-icon>
-                </div>
-                <div class="stat-info">
-                    <span class="stat-value">{{ totalProducts }}</span>
-                    <span class="stat-label">Total Items</span>
-                </div>
-            </div>
-
-            <div class="stat-card secondary-stat">
-                <div class="stat-icon">
-                    <mat-icon>category</mat-icon>
-                </div>
-                <div class="stat-info">
-                    <span class="stat-value">{{ totalStock }}</span>
-                    <span class="stat-label">Total Units</span>
-                </div>
-            </div>
-
-            <div class="stat-card warn-stat" *ngIf="expiringProducts.length > 0">
-                <div class="stat-icon">
-                    <mat-icon>timer</mat-icon>
-                </div>
-                <div class="stat-info">
-                    <span class="stat-value">{{ expiringProducts.length }}</span>
-                    <span class="stat-label">Expiring Soon</span>
-                </div>
-            </div>
-        </section>
 
         <!-- Quick Actions Grid -->
         <section class="actions-section fadeInUp" style="animation-delay: 0.2s">
@@ -68,6 +36,10 @@
                 <a mat-ripple [routerLink]="['/meal-plan']" class="action-tile">
                     <mat-icon>calendar_month</mat-icon>
                     <span>Meal Plan</span>
+                </a>
+                <a mat-ripple [routerLink]="['/quick-label']" class="action-tile">
+                    <mat-icon>print</mat-icon>
+                    <span>Quick Label</span>
                 </a>
             </div>
         </section>
@@ -131,24 +103,6 @@
                     </div>
                 </section>
 
-                <section class="list-widget">
-                    <div class="widget-header">
-                        <h3>Recently Added</h3>
-                    </div>
-                    <div class="horizontal-scroll-list">
-                        <div *ngFor="let product of recentProducts" class="mini-card"
-                            [routerLink]="['/products', product.id]" mat-ripple>
-                            <div class="mini-card-img">
-                                <img [src]="getImageUrl(product)" *ngIf="getImageUrl(product)" loading="lazy"
-                                    alt="{{product.title}}">
-                                <div class="icon-placeholder" *ngIf="!getImageUrl(product)">
-                                    <mat-icon>inventory_2</mat-icon>
-                                </div>
-                            </div>
-                            <span class="mini-card-title">{{ product.title }}</span>
-                        </div>
-                    </div>
-                </section>
             </div>
         </div>
     </div>

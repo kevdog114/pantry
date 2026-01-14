@@ -15,8 +15,12 @@ export class LabelService {
     return this.http.post(`${this.apiUrl}/labels/stock/${stockId}`, { size });
   }
 
-  printQuickLabel(text: string): Observable<any> {
-    return this.http.post(`${this.apiUrl}/labels/quick-print`, { text });
+  printQuickLabel(type: string, date: Date, size: string): Observable<any> {
+    return this.http.post(`${this.apiUrl}/labels/quick-print`, {
+      type,
+      date: date.toISOString().split('T')[0], // YYYY-MM-DD
+      size
+    });
   }
 
   printModifierLabel(action: string, date: string, expiration: string): Observable<any> {

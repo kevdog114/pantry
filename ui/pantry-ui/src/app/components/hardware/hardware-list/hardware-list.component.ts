@@ -33,7 +33,7 @@ export class HardwareListComponent implements OnInit {
 
     printTestLabel(device: any) {
         if (device.type === 'PRINTER' && (device.status === 'ONLINE' || device.status === 'READY')) {
-            this.labelService.printQuickLabel('TEST').subscribe({
+            this.labelService.printQuickLabel('TEST', new Date(), 'continuous').subscribe({
                 next: (res) => {
                     this.snackBar.open('Test label sent to printer', 'Close', { duration: 3000 });
                 },
