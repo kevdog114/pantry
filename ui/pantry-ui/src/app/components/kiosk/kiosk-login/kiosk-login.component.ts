@@ -90,6 +90,12 @@ export class KioskLoginComponent implements OnInit, OnDestroy {
             console.log('Kiosk linked!', data);
             this.status = 'Linked! Logging in...';
             if (data.authToken) {
+                // Save token for auto-login on restart
+                localStorage.setItem('kiosk_auth_token', data.authToken);
+                if (data.kioskId) {
+                    localStorage.setItem('kiosk_id', data.kioskId);
+                }
+
                 this.kioskService.kioskLogin(data.authToken, data.kioskId).subscribe({
                     next: (res) => {
                         // Successfully logged in (cookie set)

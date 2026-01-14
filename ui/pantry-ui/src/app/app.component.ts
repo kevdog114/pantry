@@ -11,6 +11,7 @@ import { MatSidenavModule } from '@angular/material/sidenav';
 import { SideMenuComponent } from './side-menu/side-menu.component';
 import { HardwareBarcodeScannerService } from './hardware-barcode-scanner.service';
 import { AuthService } from './services/auth';
+import { KioskService } from './services/kiosk.service';
 import { Observable, of } from 'rxjs';
 import { catchError, map, filter } from 'rxjs/operators';
 import { CommonModule } from '@angular/common';
@@ -41,6 +42,7 @@ export class AppComponent implements OnInit {
     private hardwareScanner: HardwareBarcodeScannerService,
     iconRegistry: MatIconRegistry,
     private authService: AuthService,
+    private kioskService: KioskService,
     private router: Router) {
     this.title = environment.siteTitle;
     hardwareScanner.ListenForScanner();
@@ -57,7 +59,29 @@ export class AppComponent implements OnInit {
   ngOnInit() {
     this.isAuthenticated = this.authService.getUser().pipe(
       map(response => !!response.user),
-      catchError(() => of(false))
+      catchError(() => {
+        // Try kiosk login
+        const kioskToken = localStorage.getItem('kiosk_auth_token');
+        const kioskId = localStorage.getItem('kiosk_id');
+
+        if (kioskToken) {
+          console.log("Session lost, attempting kiosk auto-login...");
+          return this.kioskService.kioskLogin(kioskToken, kioskId ? parseInt(kioskId) : undefined).pipe(
+            map(res => {
+              console.log("Kiosk auto-login successful");
+              if (this.router.url === '/login' || this.router.url === '/kiosk-login') {
+                this.router.navigate(['/']);
+              }
+              return true;
+            }),
+            catchError(err => {
+              console.error("Kiosk auto-login failed", err);
+              return of(false);
+            })
+          );
+        }
+        return of(false);
+      })
     );
 
     // Apply Kiosk Mode if enabled
