@@ -131,7 +131,14 @@ export const printStockLabel = async (req: Request, res: Response, next: NextFun
                 quantity: stockItem.quantity,
                 stockId: stockItem.id,
                 qrData: `S2-${stockItem.id}`,
-                size: size || 'standard'
+                size: size || 'standard',
+                frozen: stockItem.frozen,
+                opened: stockItem.opened,
+                // If opened, use openedDate.
+                // If frozen, we now have frozenDate.
+                openedDate: stockItem.openedDate ? stockItem.openedDate.toISOString().split('T')[0] : null,
+                frozenDate: stockItem.frozenDate ? stockItem.frozenDate.toISOString().split('T')[0] : null,
+                createdDate: stockItem.createdAt ? stockItem.createdAt.toISOString().split('T')[0] : null
             }
         };
 

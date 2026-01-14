@@ -44,7 +44,40 @@ def create_label_image(data):
         font_medium = ImageFont.load_default()
         font_small = ImageFont.load_default()
 
-    # If simple text label (Quick Print / Sample)
+    # Helper to wrap text
+    def wrap_text(text, font, max_width, draw):
+        lines = []
+        if not text: return lines
+        
+        # Split by newlines first
+        raw_lines = text.split('\n')
+        for raw_line in raw_lines:
+            words = raw_line.split(' ')
+            current_line = []
+            
+            for word in words:
+                test_line = ' '.join(current_line + [word])
+                # Check width
+                try:
+                    w = draw.textlength(test_line, font=font)
+                except:
+                    # Fallback for older Pillow
+                    w = draw.textsize(test_line, font=font)[0]
+                    
+                if w <= max_width:
+                    current_line.append(word)
+                else:
+                    if current_line:
+                        lines.append(' '.join(current_line))
+                        current_line = [word]
+                    else:
+                        # Word itself is too long, just add it (or truncate)
+                        lines.append(word)
+                        current_line = []
+            if current_line:
+                lines.append(' '.join(current_line))
+        return lines
+
     if 'text' in data:
         height = 500
         img = Image.new('RGB', (width, height), color='white')
@@ -61,9 +94,7 @@ def create_label_image(data):
     elif 'action' in data:
         # Modifier Label (Opened/Frozen) - Compact Single Line
         height = 90
-        # Re-initialize fonts for modifier
         try:
-            # Slightly smaller font to fit single line
             font_mod = ImageFont.truetype("/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf", 30)
         except:
             font_mod = ImageFont.load_default()
@@ -71,15 +102,9 @@ def create_label_image(data):
         img = Image.new('RGB', (width, height), color='white')
         draw = ImageDraw.Draw(img)
         
-        # Content: "{Action} {Date}   Exp: {Expiration}"
-        # Example: "Opened 2025-01-10   Exp: 2025-02-15"
-        
         action_text = f"{data.get('action', 'Modified')} {data.get('date', '')}"
         expiry_text = f"Exp: {data.get('expiration', 'N/A')}"
-        
         full_text = f"{action_text}   {expiry_text}"
-        
-        # Center text vertically?
         draw.text((30, 25), full_text, font=font_mod, fill='black')
 
     elif data.get('qrData', '').startswith('R-'):
@@ -101,28 +126,24 @@ def create_label_image(data):
                 font_date = ImageFont.load_default()
                 font_tiny = ImageFont.load_default()
 
-            # QR Code
             qr = qrcode.QRCode(box_size=4, border=1) 
             qr.add_data(qr_data)
             qr.make(fit=True)
-            
             qr_img = qr.make_image(fill_color="black", back_color="white")
             qr_target = 130
             qr_img = qr_img.resize((qr_target, qr_target))
             
-            # Center QR Horizontally, Top aligned
             qr_x = (width - qr_target) // 2
             qr_y = 5
             img.paste(qr_img, (qr_x, qr_y))
             
-            # Date
             txt = f"{date_str}"
             try:
                 text_w = draw.textlength(txt, font=font_date)
-                text_x = (width - text_w) / 2
             except:
-                text_x = 10
+                text_w = draw.textsize(txt, font=font_date)[0]
             
+            text_x = (width - text_w) / 2
             draw.text((text_x, qr_y + qr_target + 5), txt, font=font_date, fill='black')
             
         else:
@@ -132,90 +153,101 @@ def create_label_image(data):
             draw = ImageDraw.Draw(img)
 
             try:
-                font_title = ImageFont.truetype("/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf", 50)
-                font_detail = ImageFont.truetype("/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf", 35)
-                font_small = ImageFont.truetype("/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf", 25)
+                # Smaller font for title to allow wrapping
+                font_title = ImageFont.truetype("/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf", 30) # Reduced to 30
+                font_detail = ImageFont.truetype("/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf", 30)
+                font_small = ImageFont.truetype("/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf", 20)
             except:
                 font_title = ImageFont.load_default()
                 font_detail = ImageFont.load_default()
                 font_small = ImageFont.load_default()
 
-            # Layout:
-            # Left: QR
-            # Right: Title, Date
-            
+            # QR Code
             qr = qrcode.QRCode(box_size=6, border=1)
             qr.add_data(qr_data)
             qr.make(fit=True)
-            
             qr_img = qr.make_image(fill_color="black", back_color="white")
-            qr_size = 180
+            qr_size = 150 # Slightly smaller to fit ID below
             qr_img = qr_img.resize((qr_size, qr_size))
             
-            margin = 35
+            margin = 25
             img.paste(qr_img, (margin, margin))
             
-            # Text
+            # ID Text under QR
+            id_text = f"{qr_data}"
+            try:
+                id_w = draw.textlength(id_text, font=font_small)
+            except:
+                id_w = draw.textsize(id_text, font=font_small)[0]
+            
+            id_x = margin + (qr_size - id_w) / 2
+            draw.text((id_x, margin + qr_size + 5), id_text, font=font_small, fill='black')
+            
+            # Right Side Content
             text_x = margin + qr_size + 30
+            max_text_width = width - text_x - 10
             
-            # Truncate title
-            if len(title) > 20: title = title[:19] + "..."
-            draw.text((text_x, margin), title, font=font_title, fill='black')
+            # Title Wrapping
+            title_lines = wrap_text(title, font_title, max_text_width, draw)
             
-            draw.text((text_x, margin + 70), f"Prep: {date_str}", font=font_detail, fill='black')
+            y_cursor = margin
+            for line in title_lines[:3]: # Max 3 lines since font is smaller
+                draw.text((text_x, y_cursor), line, font=font_title, fill='black')
+                y_cursor += 35 # Line height
+                
+            y_cursor += 15 # Gap
             
-            draw.text((text_x, margin + 130), f"ID: {qr_data}", font=font_small, fill='black')
+            draw.text((text_x, y_cursor), f"Prep: {date_str}", font=font_detail, fill='black')
+            # If frozen/opened were applicable to recipe labels, we'd add here, but usually not.
 
     elif data.get('size') == '23mm':
-        # 23mm Square Label (DK-11221)
-        # brother_ql printable area is 202x202
+        # 23mm Square Label
         width = 202
         height = 202
         img = Image.new('RGB', (width, height), color='white')
         draw = ImageDraw.Draw(img)
         
         try:
-            # Scale down fonts for 202x202
             font_date = ImageFont.truetype("/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf", 28)
             font_tiny = ImageFont.truetype("/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf", 16)
         except:
             font_date = ImageFont.load_default()
             font_tiny = ImageFont.load_default()
 
-        # QR Code
         qr_data = data.get('qrData', f"S2-{data.get('stockId')}")
         qr = qrcode.QRCode(box_size=4, border=1) 
         qr.add_data(qr_data)
         qr.make(fit=True)
-        
         qr_img = qr.make_image(fill_color="black", back_color="white")
         qr_target = 130
         qr_img = qr_img.resize((qr_target, qr_target))
         
-        # Center QR Horizontally, Top aligned
         qr_x = (width - qr_target) // 2
         qr_y = 5
         img.paste(qr_img, (qr_x, qr_y))
         
         # Expiration Date
         date_str = data.get('expirationDate', 'N/A')
-        # Center text
+        if data.get('opened'):
+            date_str = "OPEN" # Too small for details?
+        elif data.get('frozen'):
+            date_str = "FRZN"
+            
         try:
             text_w = draw.textlength(date_str, font=font_date)
             text_x = (width - text_w) / 2
         except:
-            text_x = 10 # Fallback
+            text_x = 10
             
         draw.text((text_x, qr_y + qr_target + 5), date_str, font=font_date, fill='black')
 
     else:
         # Stock Label Format (Compact)
-        # "About 200px height" as requested
-        height = 200
-        # Re-initialize fonts for smaller scale
+        height = 200 # Fixed height
         try:
-            font_large = ImageFont.truetype("/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf", 45)
-            font_medium = ImageFont.truetype("/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf", 30)
+            # Reduce font sizes
+            font_large = ImageFont.truetype("/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf", 40) # was 45
+            font_medium = ImageFont.truetype("/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf", 28) # was 30
             font_small = ImageFont.truetype("/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf", 20)
         except:
             font_large = ImageFont.load_default()
@@ -225,50 +257,62 @@ def create_label_image(data):
         img = Image.new('RGB', (width, height), color='white')
         draw = ImageDraw.Draw(img)
         
-        # QR Code Generation
+        # QR Code
         qr_data = data.get('qrData', f"S2-{data.get('stockId')}")
-        qr = qrcode.QRCode(
-            version=1,
-            error_correction=qrcode.constants.ERROR_CORRECT_L,
-            box_size=6, # Smaller box size
-            border=1,
-        )
+        qr = qrcode.QRCode(box_size=6, border=1)
         qr.add_data(qr_data)
         qr.make(fit=True)
         
-        qr_target_size = 150 # Smaller QR code
+        qr_target_size = 140 # Slightly smaller
         qr_img = qr.make_image(fill_color="black", back_color="white")
         qr_img = qr_img.resize((qr_target_size, qr_target_size))
         
-        # Layout:
-        # Left: QR Code
-        # Bottom Left: ID Text
-        # Right: Product Name + Expiration
-        
         margin_left = 20
-        margin_top = 25 # Vertically centered approx
+        margin_top = 10 # Higher to fit text below
         
-        # Paste QR
         img.paste(qr_img, (margin_left, margin_top))
         
-        # Text under QR
-        id_text = f"{qr_data}" # S2-ID
-        draw.text((margin_left + 5, margin_top + qr_target_size + 2), id_text, font=font_small, fill='black')
+        # Center ID Text under QR
+        id_text = f"{qr_data}"
+        try:
+            id_w = draw.textlength(id_text, font=font_small)
+        except:
+            id_w = draw.textsize(id_text, font=font_small)[0]
+            
+        id_x = margin_left + (qr_target_size - id_w) / 2
+        draw.text((id_x, margin_top + qr_target_size + 2), id_text, font=font_small, fill='black')
         
         # Right Side Content
         text_x = margin_left + qr_target_size + 20
+        max_text_width = width - text_x - 10
         
-        # Title (Truncate to fit potentially)
+        # Title Wrapping
         title = data.get('title', 'Unknown Product')
-        # Simple wrap or truncate? Truncate for now to fit line
-        if len(title) > 22: 
-            title = title[:21] + "..."
-            
-        draw.text((text_x, 30), title, font=font_large, fill='black')
+        title_lines = wrap_text(title, font_large, max_text_width, draw)
         
-        # Expiration
-        expires = f"Exp: {data.get('expirationDate', 'N/A')}"
-        draw.text((text_x, 90), expires, font=font_medium, fill='black')
+        y_cursor = 20
+        for line in title_lines[:2]: # Limit 2 lines
+            draw.text((text_x, y_cursor), line, font=font_large, fill='black')
+            y_cursor += 45 # Line height spacing
+            
+        y_cursor += 10 # Gap
+        
+        # Dates / Info
+        # Priority: Opened > Frozen > Expiration
+        # "If the product is frozen or opened, include the freeze or open date IN ADDITION to the expiration"
+        
+        expires_str = f"Exp: {data.get('expirationDate', 'N/A')}"
+        draw.text((text_x, y_cursor), expires_str, font=font_medium, fill='black')
+        y_cursor += 35
+        
+        # Additional Status
+        if data.get('opened'):
+            op_date = data.get('openedDate', '???')
+            draw.text((text_x, y_cursor), f"Opened: {op_date}", font=font_medium, fill='black')
+        elif data.get('frozen'):
+            # API doesn't send frozenDate currently, but we can say "Frozen"
+            draw.text((text_x, y_cursor), f"FROZEN (Ready)", font=font_medium, fill='black')
+        
     
     return img
 

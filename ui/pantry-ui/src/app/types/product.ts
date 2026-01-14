@@ -49,5 +49,7 @@ export interface Product {
     freezerLifespanDays?: number | null,
     refrigeratorLifespanDays?: number | null,
     openedLifespanDays?: number | null,
-    trackCountBy?: string
+    trackCountBy?: string,
+    isLeftover?: boolean,
+    leftoverRecipeId?: number
 }

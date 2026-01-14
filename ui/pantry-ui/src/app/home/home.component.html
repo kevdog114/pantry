@@ -81,6 +81,32 @@
 
             <!-- Right Column: Expiring & Recent -->
             <div class="widget-column">
+                <section class="list-widget" *ngIf="leftoverProducts.length > 0">
+                    <div class="widget-header">
+                        <h3>
+                            <mat-icon style="vertical-align: middle; margin-right: 8px;">takeout_dining</mat-icon>
+                            Leftovers
+                        </h3>
+                    </div>
+                    <div class="compact-list">
+                        <div *ngFor="let product of leftoverProducts" class="compact-item"
+                            [routerLink]="['/products', product.id]" mat-ripple>
+                            <div class="item-img">
+                                <img [src]="getImageUrl(product)" *ngIf="getImageUrl(product)" loading="lazy"
+                                    alt="{{product.title}}">
+                                <div class="icon-placeholder" *ngIf="!getImageUrl(product)">
+                                    <mat-icon>takeout_dining</mat-icon>
+                                </div>
+                            </div>
+                            <div class="item-details">
+                                <span class="item-title">{{ product.title }}</span>
+                                <span class="item-subtitle expires">Expires {{ product.minExpiration | date:'mediumDate'
+                                    }}</span>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
                 <section class="list-widget" *ngIf="expiringProducts.length > 0">
                     <div class="widget-header">
                         <h3>Expiring Soon</h3>

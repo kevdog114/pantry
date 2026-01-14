@@ -4,6 +4,8 @@ import * as fs from 'fs';
 import * as ProductsController from "./controllers/ProductsController";
 import * as RecipeController from "./controllers/RecipeController";
 import * as ProductSearchController from "./controllers/ProductSearchController";
+import * as LeftoverController from "./controllers/LeftoverController";
+
 import * as ImageController from "./controllers/ImageController";
 import * as StockItemController from "./controllers/StockItemController";
 import * as TagsController from "./controllers/TagsController";
@@ -154,6 +156,8 @@ app.post("/recipes", RecipeController.create);
 app.get("/recipes/:id", RecipeController.getById);
 app.put("/recipes/:id", RecipeController.update);
 app.delete("/recipes/:id", RecipeController.deleteById);
+app.post("/recipes/:id/leftover", LeftoverController.create);
+
 
 app.post("/files", ImageController.create);
 app.get("/files/:id", ImageController.getById);

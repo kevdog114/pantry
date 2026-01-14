@@ -59,7 +59,11 @@
             <img style="max-height: 75px;" matListItemAvatar [src]="GetFileDownloadUrl(product)">
             <div class="w-100">
                 <div class="d-flex w-100 justify-content-between">
-                    <h5 class="mb-1">{{product.title}}</h5>
+                    <h5 class="mb-1">
+                        {{product.title}}
+                        <span *ngIf="product.isLeftover" class="badge text-bg-warning ms-1"
+                            style="font-size: 0.7em;">Leftover</span>
+                    </h5>
                     <small *ngIf="product.totalQuantity">{{product.totalQuantity}} in stock</small>
                 </div>
                 <div class="w-100">
@@ -82,6 +86,8 @@
                 <mat-card-header class="text-truncate">
                     <mat-card-title>
                         {{product.title}}
+                        <span *ngIf="product.isLeftover" class="badge text-bg-warning"
+                            style="font-size: 0.6em;">Leftover</span>
                         <a class="stretched-link" [routerLink]="['/products', product.id]"></a>
                     </mat-card-title>
                     <mat-card-subtitle>

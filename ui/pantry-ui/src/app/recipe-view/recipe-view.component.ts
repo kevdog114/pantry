@@ -153,4 +153,18 @@ export class RecipeViewComponent implements OnInit {
             });
         }
     }
+
+    createLeftover() {
+        if (!this.recipe) return;
+        this.recipeService.createLeftover(this.recipe.id).subscribe({
+            next: (res) => {
+                this.snackBar.open(`Leftover created: ${res.product.title}`, 'Go to Home', { duration: 5000 })
+                    .onAction().subscribe(() => {
+                        this.router.navigate(['/']);
+                    });
+            },
+            error: (err) => this.snackBar.open('Failed to create leftover', 'Close', { duration: 3000 })
+        });
+    }
+
 }

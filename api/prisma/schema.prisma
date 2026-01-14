@@ -35,6 +35,9 @@ model Product {
   shoppingListItems    ShoppingListItem[]
   createdAt              DateTime   @default(now())
   updatedAt              DateTime   @updatedAt
+  isLeftover             Boolean    @default(false)
+  leftoverRecipeId       Int?
+  leftoverRecipe         Recipe?    @relation("RecipeLeftovers", fields: [leftoverRecipeId], references: [id])
 }
 
 model File {
@@ -78,6 +81,7 @@ model StockItem {
   opened           Boolean   @default(false)
   purchaseDate     DateTime?
   openedDate       DateTime?
+  frozenDate       DateTime?
   expirationDate   DateTime?
   expirationExtensionAfterThaw Int?
   createdAt        DateTime  @default(now())
@@ -114,6 +118,7 @@ model Recipe {
   prepTasks      RecipePrepTask[]
   mealPlans      MealPlan[]
   tasks          MealTask[]
+  leftovers      Product[]    @relation("RecipeLeftovers")
 }
 
 model RecipePrepTask {
@@ -145,6 +150,8 @@ model RecipeStep {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 }
+
+
 
 model UnitOfMeasure {
   id             Int             @id @default(autoincrement())

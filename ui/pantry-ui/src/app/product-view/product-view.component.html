@@ -1,7 +1,12 @@
 <div *ngIf="product">
-    <h1>{{product.title}}</h1>
-    <a *ngIf="product" mat-raised-button href="/products/{{product.id}}/stock-items">Add Stock</a>
-    <a *ngIf="product" mat-raised-button href="/products/{{product.id}}/edit">Edit Product</a>
+    <h1>
+        {{product.title}}
+        <span *ngIf="product.isLeftover" class="badge text-bg-warning ms-2"
+            style="font-size: 0.6em; vertical-align: middle;">Leftover</span>
+    </h1>
+    <a *ngIf="product && !product.isLeftover" mat-raised-button href="/products/{{product.id}}/stock-items">Add
+        Stock</a>
+    <a *ngIf="product && !product.isLeftover" mat-raised-button href="/products/{{product.id}}/edit">Edit Product</a>
     <div class="row">
         <div class="col-sm-8">
             <table mat-table [dataSource]="product.stockItems">

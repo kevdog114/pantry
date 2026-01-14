@@ -31,6 +31,7 @@ import { UpcomingTasksWidgetComponent } from './upcoming-tasks-widget/upcoming-t
 export class HomeComponent implements OnInit {
     public expiringProducts: Product[] = [];
     public recentProducts: Product[] = [];
+    public leftoverProducts: Product[] = [];
     public totalProducts: number = 0;
     public totalStock: number = 0;
     public currentDate: Date = new Date();
@@ -55,6 +56,15 @@ export class HomeComponent implements OnInit {
             this.recentProducts = [...products]
                 .sort((a, b) => b.id - a.id)
                 .slice(0, 5);
+
+            // Leftovers
+            this.leftoverProducts = products
+                .filter(p => p.isLeftover && (p.totalQuantity || 0) > 0)
+                .sort((a, b) => {
+                    const dateA = a.minExpiration ? new Date(a.minExpiration).getTime() : Infinity;
+                    const dateB = b.minExpiration ? new Date(b.minExpiration).getTime() : Infinity;
+                    return dateA - dateB;
+                });
         });
     }
 
