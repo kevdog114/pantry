@@ -9,10 +9,14 @@ import { MatButtonModule } from '@angular/material/button';
 import { LabelService } from '../../../services/label.service';
 import { MatSnackBar } from '@angular/material/snack-bar';
 
+import { MatSlideToggleModule } from '@angular/material/slide-toggle';
+import { MatDialog, MatDialogModule } from '@angular/material/dialog';
+import { DeviceConfigDialogComponent } from '../device-config-dialog/device-config-dialog.component';
+
 @Component({
     selector: 'app-hardware-list',
     standalone: true,
-    imports: [CommonModule, MatCardModule, MatListModule, MatIconModule, MatButtonModule],
+    imports: [CommonModule, MatCardModule, MatListModule, MatIconModule, MatButtonModule, MatSlideToggleModule, MatDialogModule],
     templateUrl: './hardware-list.component.html',
     styleUrls: ['./hardware-list.component.css']
 })
@@ -22,13 +26,36 @@ export class HardwareListComponent implements OnInit {
     constructor(
         private kioskService: KioskService,
         private labelService: LabelService,
-        private snackBar: MatSnackBar
+        private snackBar: MatSnackBar,
+        private dialog: MatDialog
     ) { }
 
     ngOnInit() {
+        this.loadKiosks();
+    }
+
+    loadKiosks() {
         this.kioskService.getKiosks().subscribe(kiosks => {
             this.kiosks = kiosks;
         });
+    }
+
+    toggleScanner(kiosk: Kiosk) {
+        // Optimistic update
+        const originalValue = kiosk.hasKeyboardScanner;
+        kiosk.hasKeyboardScanner = !kiosk.hasKeyboardScanner;
+
+        this.kioskService.updateKioskSettings(kiosk.id, { hasKeyboardScanner: !!kiosk.hasKeyboardScanner })
+            .subscribe({
+                next: () => {
+                    this.snackBar.open('Settings updated', 'Close', { duration: 2000 });
+                },
+                error: (err) => {
+                    console.error('Failed to update settings', err);
+                    kiosk.hasKeyboardScanner = originalValue; // Revert
+                    this.snackBar.open('Failed to update settings', 'Close', { duration: 3000 });
+                }
+            });
     }
 
     printTestLabel(device: any) {
@@ -54,12 +81,39 @@ export class HardwareListComponent implements OnInit {
         }
     }
 
-    configureDevice(device: any) {
+    configureDevice(device: any, kioskId: number) {
         const details = this.getDeviceDetails(device);
-        const config = details.config ?
-            Object.entries(details.config).map(([k, v]) => `${k}: ${v}`).join(', ') :
-            'No configuration detected.';
+        const currentConfig = details.config || {};
 
-        this.snackBar.open(`Configuration: ${config}`, 'Close', { duration: 5000 });
+        const dialogRef = this.dialog.open(DeviceConfigDialogComponent, {
+            data: { device, config: currentConfig },
+            width: '400px'
+        });
+
+        dialogRef.afterClosed().subscribe(result => {
+            if (result) {
+                this.kioskService.updateDeviceConfig(kioskId, device.id, result).subscribe({
+                    next: (updatedDevice) => {
+                        this.snackBar.open('Device configuration updated', 'Close', { duration: 3000 });
+                        // Update local view
+                        const kiosk = this.kiosks.find(k => k.id === kioskId);
+                        if (kiosk && kiosk.devices) {
+                            const devIndex = kiosk.devices.findIndex(d => d.id === device.id);
+                            if (devIndex !== -1) {
+                                kiosk.devices[devIndex] = { ...kiosk.devices[devIndex], ...updatedDevice };
+                                // Re-parse details if needed or just trust details string was updated
+                                if (updatedDevice.details) {
+                                    kiosk.devices[devIndex].details = updatedDevice.details;
+                                }
+                            }
+                        }
+                    },
+                    error: (err) => {
+                        console.error('Failed to update config', err);
+                        this.snackBar.open('Failed to update configuration', 'Close', { duration: 3000 });
+                    }
+                });
+            }
+        });
     }
 }

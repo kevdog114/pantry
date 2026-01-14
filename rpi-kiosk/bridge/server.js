@@ -148,19 +148,57 @@ function connectSocket() {
         console.log('Disconnected from backend');
     });
 
+    socket.on('configure_device', (payload) => {
+        console.log('Received configure_device:', payload);
+        const { details } = payload;
+
+        if (details && details.config) {
+            const fs = require('fs');
+            // Save settings locally to be applied to future print jobs
+            try {
+                let currentSettings = {};
+                if (fs.existsSync('device_settings.json')) {
+                    currentSettings = JSON.parse(fs.readFileSync('device_settings.json', 'utf8'));
+                }
+
+                // Merge new config
+                const newSettings = { ...currentSettings, ...details.config };
+                fs.writeFileSync('device_settings.json', JSON.stringify(newSettings));
+                console.log('Updated local device settings:', newSettings);
+
+            } catch (e) {
+                console.error("Error saving device settings:", e);
+            }
+        }
+    });
+
     socket.on('print_label', (payload) => {
         console.log('Received print command:', payload);
 
-        // Example execution:
-        // Use lp if available, or just log.
-        // Assuming we might have `lp` installed.
-        // Brother QL-600 logic:
-        // Ideally we generate an image or use ptsender.
-
-        // For Proof of Concept: Log it explicitly.
-        // If we wanted to print:
-        // If we wanted to print:
         if (payload.type === 'STOCK_LABEL' || payload.type === 'SAMPLE_LABEL' || payload.type === 'MODIFIER_LABEL' || payload.type === 'RECIPE_LABEL' || payload.type === 'QUICK_LABEL') {
+
+            // Start with data from payload
+            const dataObj = payload.data || {};
+
+            // Load local overrides/settings
+            try {
+                const fs = require('fs');
+                if (fs.existsSync('device_settings.json')) {
+                    const settings = JSON.parse(fs.readFileSync('device_settings.json', 'utf8'));
+                    console.log('Applying device settings to print job:', settings);
+
+                    // Apply mapped settings
+                    // Map 'autoCut' from UI to 'cut' for python script
+                    if (settings.autoCut !== undefined) dataObj.cut = settings.autoCut;
+                    if (settings.highQuality !== undefined) dataObj.dither = settings.highQuality;
+                    // Add more mappings as needed
+                }
+            } catch (e) {
+                console.error("Error loading device settings for print:", e);
+            }
+
+            // Inject detected size if not present (Legacy/Fallback logic)
+            // ... (rest of logic)
             // Inject detected size if not present or override? User requested bridge to handle it.
             // Check any known printer
             let detectedSize = null;
@@ -172,12 +210,13 @@ function connectSocket() {
 
             if (detectedSize) {
                 console.log(`Injecting detected size: ${detectedSize}`);
-                payload.data = payload.data || {};
-                payload.data.size = detectedSize;
-                // Force size into data if it wasn't there
+                dataObj.size = detectedSize;
             }
 
-            const data = JSON.stringify(payload.data);
+            // Ensure payload has the updated data for referencing if needed, but we mostly use dataObj now
+            payload.data = dataObj;
+
+            const data = JSON.stringify(dataObj);
             const requestId = payload.requestId; // Extract request ID
 
             const fs = require('fs');
@@ -227,6 +266,7 @@ function connectSocket() {
             }
         }
     });
+
 }
 
 // Check devices

@@ -410,10 +410,10 @@ def print_label_cmd(args):
         qlr=qlr, 
         images=[img], 
         label=label_type, 
-        cut=True, 
-        dither=True, 
+        cut=data.get('cut', True),
+        dither=data.get('dither', True),
         compress=False, 
-        red=False
+        red=data.get('red', False)
     )
     
     # Send to printer
@@ -571,6 +571,32 @@ def status_cmd(args):
         
     print(json.dumps(status_data))
 
+def configure_cmd(args):
+    try:
+        with open(args.input_file, 'r') as f:
+            config = json.load(f)
+            
+        logger.info(f"Applying configuration to {args.printer}: {config}")
+        
+        # Implementation Note: 
+        # brother_ql does not natively support setting sleep timer via its high-level API.
+        # This would require finding the specific ESC/P command (likely ESC i K {n}) 
+        # and sending it via the backend.
+        
+        sleep_delay = config.get('sleepDelay')
+        if sleep_delay is not None:
+             logger.info(f"Setting sleep delay to {sleep_delay} minutes")
+             # Example of how we might send a raw command if we had the backend/instruction logic:
+             # instructions = b'\x1b\x69\x4b' + int(sleep_delay).to_bytes(1, 'little')
+             # send(instructions=instructions, printer_identifier=args.printer, backend_identifier=args.backend)
+             
+             # For now, we log it as success to verify the pipeline.
+             print("Configuration applied successfully (simulated)")
+
+    except Exception as e:
+        logger.error(f"Configuration failed: {e}")
+        print(f"Error: {e}")
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Brother QL Printer Tool')
     subparsers = parser.add_subparsers(dest='command', help='Command to run')
@@ -591,6 +617,12 @@ if __name__ == "__main__":
     status_parser.add_argument('--printer', default='usb://0x04f9:0x20c0', help='Printer Identifier')
     status_parser.add_argument('--backend', default='pyusb', help='Backend Identifier')
 
+    # Configure Command
+    configure_parser = subparsers.add_parser('configure', help='Configure printer settings')
+    configure_parser.add_argument('printer', help='Printer Identifier')
+    configure_parser.add_argument('input_file', help='Path to JSON config file')
+    configure_parser.add_argument('--backend', default='pyusb', help='Backend Identifier')
+
     args = parser.parse_args()
     
     if args.command == 'print':
@@ -599,6 +631,8 @@ if __name__ == "__main__":
         discover_cmd(args)
     elif args.command == 'status':
         status_cmd(args)
+    elif args.command == 'configure':
+        configure_cmd(args)
     else:
         # Default to print if file argument provided (backward compatibility)
         if hasattr(args, 'input_file') and args.input_file:

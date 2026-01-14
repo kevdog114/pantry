@@ -54,6 +54,18 @@ io.use(async (socket, next) => {
             if (pat) {
                 console.log(`Socket ${socket.id} authenticated as user ${pat.user.username}`);
                 (socket as any).pat = pat;
+
+                // Attempt to identify Kiosk
+                if (pat.description && pat.description.startsWith('Kiosk Login - ')) {
+                    const kioskName = pat.description.substring('Kiosk Login - '.length);
+                    const kiosk = await prisma.kiosk.findFirst({
+                        where: { userId: pat.userId, name: kioskName }
+                    });
+                    if (kiosk) {
+                        (socket as any).kioskId = kiosk.id;
+                        console.log(`Socket ${socket.id} identified as Kiosk: ${kiosk.name} (${kiosk.id})`);
+                    }
+                }
             } else {
                 console.warn(`Socket ${socket.id} failed auth: Token invalid or expired`);
             }
@@ -69,6 +81,13 @@ io.use(async (socket, next) => {
 io.on("connection", (socket) => {
     console.log("New socket connection:", socket.id);
     const pat = (socket as any).pat;
+    const kioskId = (socket as any).kioskId;
+
+    if (kioskId) {
+        const room = `kiosk_device_${kioskId}`;
+        console.log(`Socket ${socket.id} joining room ${room}`);
+        socket.join(room);
+    }
 
     socket.on("join_kiosk", (token) => {
         console.log(`Socket ${socket.id} joining kiosk room ${token}`);
@@ -103,11 +122,25 @@ io.on("connection", (socket) => {
 
                     if (existing) {
                         console.log(`Updating existing device ${existing.id}`);
+
+                        let incomingDetails: any = {};
+                        try { incomingDetails = JSON.parse(data.details); } catch (e) { }
+
+                        let existingDetails: any = {};
+                        try { existingDetails = existing.details ? JSON.parse(existing.details) : {}; } catch (e) { }
+
+                        const existingConfig = existingDetails.config || {};
+                        const incomingConfig = incomingDetails.config || {};
+
+                        // Merge config: preserve DB-only settings (like sleepDelay), overwrite with hardware-detected ones
+                        const mergedConfig = { ...existingConfig, ...incomingConfig };
+                        incomingDetails.config = mergedConfig;
+
                         await prisma.hardwareDevice.update({
                             where: { id: existing.id },
                             data: {
                                 status: data.status,
-                                details: data.details,
+                                details: JSON.stringify(incomingDetails),
                                 lastSeen: new Date()
                             }
                         });

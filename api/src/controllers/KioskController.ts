@@ -172,3 +172,89 @@ export const deleteKiosk = async (req: Request, res: Response) => {
         res.status(500).json({ message: "Failed to delete kiosk" });
     }
 };
+
+export const updateKioskSettings = async (req: Request, res: Response) => {
+    try {
+        const id = parseInt(req.params.id);
+        const { hasKeyboardScanner } = req.body;
+        const userId = (req.user as any).id;
+
+        const kiosk = await prisma.kiosk.findFirst({
+            where: { id, userId }
+        });
+
+        if (!kiosk) {
+            res.status(404).json({ message: "Kiosk not found" });
+            return;
+        }
+
+        const updatedKiosk = await prisma.kiosk.update({
+            where: { id },
+            data: { hasKeyboardScanner }
+        });
+
+        res.json(updatedKiosk);
+    } catch (error) {
+        console.error("Error updating kiosk settings:", error);
+        res.status(500).json({ message: "Failed to update kiosk settings" });
+    }
+};
+
+export const updateDeviceConfig = async (req: Request, res: Response) => {
+    try {
+        const kioskId = parseInt(req.params.kioskId);
+        const deviceId = parseInt(req.params.deviceId);
+        const config = req.body; // Expects the full config object or partial updates
+        const userId = (req.user as any).id;
+
+        // Verify ownership via Kiosk
+        const kiosk = await prisma.kiosk.findFirst({
+            where: { id: kioskId, userId }
+        });
+
+        if (!kiosk) {
+            res.status(404).json({ message: "Kiosk not found" });
+            return;
+        }
+
+        const device = await prisma.hardwareDevice.findFirst({
+            where: { id: deviceId, kioskId }
+        });
+
+        if (!device) {
+            res.status(404).json({ message: "Device not found" });
+            return;
+        }
+
+        // Parse existing details
+        let details: any = {};
+        try {
+            details = device.details ? JSON.parse(device.details) : {};
+        } catch (e) {
+            details = {};
+        }
+
+        // Merge config
+        details.config = { ...details.config, ...config };
+
+        const updatedDevice = await prisma.hardwareDevice.update({
+            where: { id: deviceId },
+            data: { details: JSON.stringify(details) }
+        });
+
+        // Notify Kiosk
+        const io = req.app.get("io");
+        if (io) {
+            io.to(`kiosk_device_${kioskId}`).emit('configure_device', {
+                deviceId: updatedDevice.id,
+                name: updatedDevice.name,
+                details: details // details object with config
+            });
+        }
+
+        res.json(updatedDevice);
+    } catch (error) {
+        console.error("Error updating device config:", error);
+        res.status(500).json({ message: "Failed to update device config" });
+    }
+};

@@ -8,9 +8,17 @@
                     class="bg-blue-100 p-2 rounded-full text-blue-600 flex items-center justify-center">
                     <mat-icon>desktop_windows</mat-icon>
                 </div>
-                <mat-card-title class="text-xl">{{ kiosk.name }}</mat-card-title>
-                <mat-card-subtitle class="text-gray-500">Last Active: {{ kiosk.lastActive | date:'short'
-                    }}</mat-card-subtitle>
+                <div class="flex-1">
+                    <mat-card-title class="text-xl">{{ kiosk.name }}</mat-card-title>
+                    <mat-card-subtitle class="text-gray-500">Last Active: {{ kiosk.lastActive | date:'short'
+                        }}</mat-card-subtitle>
+                </div>
+                <div>
+                    <mat-slide-toggle [checked]="!!kiosk.hasKeyboardScanner" (change)="toggleScanner(kiosk)"
+                        color="primary">
+                        Keyboard Barcode Scanner
+                    </mat-slide-toggle>
+                </div>
             </mat-card-header>
             <mat-card-content class="p-0">
                 <mat-list role="list" class="divide-y divide-gray-100 dark:divide-zinc-700">
@@ -51,7 +59,8 @@
                                     matTooltip="Print Test Label">
                                     <mat-icon>print</mat-icon>
                                 </button>
-                                <button mat-icon-button (click)="configureDevice(device)" matTooltip="Configuration">
+                                <button mat-icon-button (click)="configureDevice(device, kiosk.id)"
+                                    matTooltip="Configuration">
                                     <mat-icon>settings</mat-icon>
                                 </button>
                             </div>

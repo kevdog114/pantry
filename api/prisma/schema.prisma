@@ -241,6 +241,7 @@ model Kiosk {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   devices   HardwareDevice[]
+  hasKeyboardScanner Boolean @default(false)
 }
 
 model HardwareDevice {

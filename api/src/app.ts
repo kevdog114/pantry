@@ -237,6 +237,8 @@ app.put("/meal-plan/tasks/:id/complete", MealPlanController.completeTask);
 app.post("/kiosk/link", KioskController.linkKiosk);
 app.get("/kiosk", KioskController.getKiosks);
 app.delete("/kiosk/:id", KioskController.deleteKiosk);
+app.put("/kiosk/:id/settings", KioskController.updateKioskSettings);
+app.put("/kiosk/:kioskId/devices/:deviceId/config", KioskController.updateDeviceConfig);
 
 app.get("/shopping-list", ShoppingListController.getShoppingList);
 app.post("/shopping-list/:id/items", ShoppingListController.addItem);

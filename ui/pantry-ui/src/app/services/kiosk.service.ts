@@ -30,6 +30,7 @@ export interface Kiosk {
     lastActive: string;
     createdAt: string;
     devices?: HardwareDevice[];
+    hasKeyboardScanner?: boolean;
 }
 
 @Injectable({
@@ -58,5 +59,13 @@ export class KioskService {
 
     deleteKiosk(id: number): Observable<any> {
         return this.http.delete(`${this.apiUrl}/kiosk/${id}`);
+    }
+
+    updateKioskSettings(id: number, settings: { hasKeyboardScanner: boolean }): Observable<any> {
+        return this.http.put(`${this.apiUrl}/kiosk/${id}/settings`, settings);
+    }
+
+    updateDeviceConfig(kioskId: number, deviceId: number, config: any): Observable<any> {
+        return this.http.put(`${this.apiUrl}/kiosk/${kioskId}/devices/${deviceId}/config`, config);
     }
 }
