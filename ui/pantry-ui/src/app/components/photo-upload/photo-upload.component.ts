@@ -1,6 +1,6 @@
 import { CommonModule } from '@angular/common';
 import { HttpClient, HttpClientModule } from '@angular/common/http';
-import { Component, ElementRef, EventEmitter, OnInit, Output, ViewChild } from '@angular/core';
+import { Component, ElementRef, EventEmitter, OnInit, Output, ViewChild, OnDestroy } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatSelectModule } from '@angular/material/select';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -18,7 +18,7 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
   templateUrl: './photo-upload.component.html',
   styleUrl: './photo-upload.component.css'
 })
-export class PhotoUploadComponent implements OnInit {
+export class PhotoUploadComponent implements OnInit, OnDestroy {
   @ViewChild('videoElement') videoElement?: ElementRef;
   @ViewChild('canvasElement') canvasElement?: ElementRef;
 
@@ -37,6 +37,10 @@ export class PhotoUploadComponent implements OnInit {
   ngOnInit(): void {
     const savedDeviceId = localStorage.getItem('pantry_camera_device_id');
     this.startCamera(savedDeviceId || undefined);
+  }
+
+  ngOnDestroy(): void {
+    this.stopCamera();
   }
 
   getCameras() {

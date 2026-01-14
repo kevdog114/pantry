@@ -48,7 +48,9 @@ export class SmartChatInputComponent implements OnDestroy {
     ngOnDestroy() {
         if (this.recognition) {
             this.recognition.abort();
+            this.recognition.stop();
         }
+        this.isListening = false;
     }
 
     initSpeechRecognition() {

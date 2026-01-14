@@ -17,8 +17,14 @@ export class HardwareBarcodeScannerService {
   private isScanning: boolean = false;
 
   public searchForBarcode = (barcode: string) => {
-    if (barcode.toLowerCase().startsWith("st-")) {
-      // legacy stock item barcode
+    if (barcode.toLowerCase().startsWith("r-")) {
+      // recipe barcode
+      barcode = barcode.substring(2);
+      this.http.get<ProductBarcode>(environment.apiUrl + "/recipes/" + barcode).subscribe(result => {
+        if (result) {
+          this.router.navigate(["recipes", result.id]);
+        }
+      })
     }
     else if (barcode.toLowerCase().startsWith("sk-")) {
       // new stock item barcode
