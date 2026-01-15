@@ -1,5 +1,6 @@
 # Stage 1: Builder
-FROM node:20-bookworm-slim AS builder
+#FROM node:20-bookworm-slim AS builder
+FROM node:20-bullseye-slim AS builder
 
 # Install Python for venv building
 RUN apt-get update && apt-get install -y \
@@ -19,7 +20,8 @@ ENV PATH="/opt/venv/bin:$PATH"
 RUN pip install --no-cache-dir brother-ql-inventree Pillow qrcode[pil] pyusb paho-mqtt
 
 # Stage 2: Runtime
-FROM debian:bookworm-slim
+#FROM debian:bookworm-slim
+FROM debian:bullseye-slim
 
 # Install Runtime Dependencies
 # Removes printer-driver-ptouch (using python driver now)
