@@ -4,6 +4,8 @@ import { FormsModule } from '@angular/forms';
 import { Html5Qrcode, Html5QrcodeSupportedFormats } from 'html5-qrcode';
 import { HardwareBarcodeScannerService } from '../hardware-barcode-scanner.service';
 import { SocketService } from '../services/socket.service';
+import { HttpClient } from '@angular/common/http';
+import { environment } from '../../environments/environment';
 
 @Component({
   selector: 'app-barcode-scanner',
@@ -27,7 +29,11 @@ export class BarcodeScannerComponent implements OnInit, OnDestroy {
   claimedScannerName: string | null = null;
   isKioskMode = false;
 
-  constructor(private barcodeService: HardwareBarcodeScannerService, private socketService: SocketService) { }
+  constructor(
+    private barcodeService: HardwareBarcodeScannerService,
+    private socketService: SocketService,
+    private http: HttpClient
+  ) { }
 
   async ngOnInit() {
     // Load preferences
@@ -47,29 +53,21 @@ export class BarcodeScannerComponent implements OnInit, OnDestroy {
 
     this.isKioskMode = localStorage.getItem('kiosk_mode') === 'true';
     if (!this.isKioskMode) {
-      this.socketService.connected$.subscribe(connected => {
-        if (connected) {
-          console.log("Socket connected, refreshing scanners...");
-          this.refreshScanners();
-        }
-      });
-      // Also init immediately if already connected
-      if (this.socketService.isConnected()) {
-        this.refreshScanners();
-      }
+      // Refresh immediately
+      this.refreshScanners();
     }
   }
 
   refreshScanners() {
-    if (this.socketService.isConnected()) {
-      console.log("Emitting get_available_scanners...");
-      this.socketService.emit('get_available_scanners', (scanners: any[]) => {
-        console.log("Received scanners:", scanners);
+    this.http.get<any[]>(`${environment.apiUrl}/kiosk/scanners`).subscribe({
+      next: (scanners) => {
+        console.log("Received scanners via API:", scanners);
         this.availableScanners = scanners;
-      });
-    } else {
-      console.warn("Cannot refresh scanners: Socket not connected");
-    }
+      },
+      error: (err) => {
+        console.error("Failed to fetch scanners:", err);
+      }
+    });
   }
 
   claimScanner(scanner: any) {

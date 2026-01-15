@@ -326,6 +326,9 @@ io.on("connection", (socket) => {
 const activeKiosks = new Map<string, { kioskId: number, name: string, hasScanner: boolean }>();
 const claimedScanners = new Map<number, { claimerSocketId: string, claimerName: string }>();
 
+app.set('activeKiosks', activeKiosks);
+app.set('claimedScanners', claimedScanners);
+
 const server = httpServer.listen(app.get("port"), async () => {
     await createDefaultAdmin();
     console.log(`App running on port ${app.get("port")}`);
