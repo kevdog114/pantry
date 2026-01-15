@@ -86,9 +86,13 @@ app-root {
 
   /* Ensure the panel itself has rounded corners matching card style since we are making it look like a popup */
   .mat-mdc-dialog-container {
-    border-radius: 12px;
-    /* Box shadow to lift it up since we removed backdrop */
-    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.15);
+    border-radius: 16px;
+    /* Stronger box shadow to lift it up since we removed backdrop */
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.3) !important;
+    /* Border to distinguish from background content */
+    border: 1px solid var(--mat-sys-outline);
+    /* Ensure it stands out from the page background */
+    --mdc-dialog-container-color: var(--mat-sys-surface-container-highest);
   }
 }
 
