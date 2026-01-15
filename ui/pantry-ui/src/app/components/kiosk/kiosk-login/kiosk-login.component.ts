@@ -95,6 +95,9 @@ export class KioskLoginComponent implements OnInit, OnDestroy {
                 if (data.kioskId) {
                     localStorage.setItem('kiosk_id', data.kioskId);
                 }
+                if (data.kioskName) {
+                    localStorage.setItem('kiosk_name', data.kioskName);
+                }
 
                 this.kioskService.kioskLogin(data.authToken, data.kioskId).subscribe({
                     next: (res) => {

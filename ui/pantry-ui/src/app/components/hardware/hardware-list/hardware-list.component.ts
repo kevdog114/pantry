@@ -59,7 +59,7 @@ export class HardwareListComponent implements OnInit {
                         const authToken = localStorage.getItem('kiosk_auth_token');
                         if (authToken) {
                             // This call pushes the new scanner setting to kiosk_config.json on the bridge
-                            this.hardwareService.connectBridge(authToken, undefined, !!kiosk.hasKeyboardScanner).subscribe(
+                            this.hardwareService.connectBridge(authToken, kiosk.name, !!kiosk.hasKeyboardScanner).subscribe(
                                 () => console.log('Bridge config updated'),
                                 err => console.error('Failed to update bridge config', err)
                             );

@@ -73,6 +73,7 @@ export class AppComponent implements OnInit {
     // If we are a Kiosk, refresh settings and identify regardless of current auth state
     const kioskToken = localStorage.getItem('kiosk_auth_token');
     const kioskId = localStorage.getItem('kiosk_id');
+    const kioskName = localStorage.getItem('kiosk_name');
 
     let isScannerKiosk = false;
 
@@ -90,7 +91,7 @@ export class AppComponent implements OnInit {
             }
 
             // Update Bridge with new settings
-            this.hardwareService.connectBridge(kioskToken, undefined, res.kioskSettings.hasKeyboardScanner).subscribe();
+            this.hardwareService.connectBridge(kioskToken, kioskName || undefined, res.kioskSettings.hasKeyboardScanner).subscribe();
           }
         },
         error: (err) => console.error("Kiosk settings refresh failed", err)
@@ -103,6 +104,23 @@ export class AppComponent implements OnInit {
         if (isScannerKiosk) {
           console.log("Socket reconnected, re-identifying as scanner...");
           this.socketService.emit('identify_kiosk_scanner');
+        }
+      });
+
+      // Listen for remote setting updates
+      this.socketService.on('refresh_kiosk_settings', (settings: any) => {
+        console.log('Received remote settings update', settings);
+        if (settings.hasKeyboardScanner !== undefined) {
+          console.log("Applying remote scanner setting:", settings.hasKeyboardScanner);
+          this.hardwareScanner.setEnabled(settings.hasKeyboardScanner);
+          isScannerKiosk = settings.hasKeyboardScanner;
+
+          if (isScannerKiosk) {
+            this.socketService.emit('identify_kiosk_scanner');
+          }
+
+          // Update Bridge
+          this.hardwareService.connectBridge(kioskToken, kioskName || undefined, settings.hasKeyboardScanner).subscribe();
         }
       });
     }

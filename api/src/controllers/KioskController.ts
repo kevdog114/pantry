@@ -209,6 +209,13 @@ export const updateKioskSettings = async (req: Request, res: Response) => {
             data: { hasKeyboardScanner }
         });
 
+        // Notify Kiosk to refresh settings
+        const io = req.app.get("io");
+        if (io) {
+            console.log(`Emitting refresh_kiosk_settings to kiosk_device_${id}`);
+            io.to(`kiosk_device_${id}`).emit('refresh_kiosk_settings', updatedKiosk);
+        }
+
         res.json(updatedKiosk);
     } catch (error) {
         console.error("Error updating kiosk settings:", error);
