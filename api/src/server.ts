@@ -329,6 +329,8 @@ const claimedScanners = new Map<number, { claimerSocketId: string, claimerName: 
 app.set('activeKiosks', activeKiosks);
 app.set('claimedScanners', claimedScanners);
 
+
+
 const server = httpServer.listen(app.get("port"), async () => {
     await createDefaultAdmin();
     console.log(`App running on port ${app.get("port")}`);

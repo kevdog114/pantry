@@ -45,6 +45,7 @@ model File {
   path      String
   mimeType  String
   products  Product[] @relation("ProductToFile")
+  recipes   Recipe[]  @relation("RecipeToFile")
   equipment Equipment[] @relation("EquipmentToFile")
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
@@ -122,6 +123,7 @@ model Recipe {
   mealPlans      MealPlan[]
   tasks          MealTask[]
   leftovers      Product[]    @relation("RecipeLeftovers")
+  files          File[]       @relation("RecipeToFile")
 }
 
 model RecipePrepTask {

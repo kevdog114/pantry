@@ -1620,3 +1620,102 @@ export const generateProductImage = async (req: Request, res: Response) => {
     });
   }
 };
+
+export const generateRecipeImage = async (req: Request, res: Response) => {
+  try {
+    const { recipeTitle } = req.body;
+    if (!recipeTitle) {
+      res.status(400).json({ message: "Recipe title is required" });
+      return;
+    }
+
+    // 1. Generate Prompt using Text Model
+    const promptPrompt = `Describe a mouth-watering, professional food photography image of the dish "${recipeTitle}". The description should be for an image generator (like Imagen). high quality, restaurant style. Keep it under 40 words.`;
+
+    const { result: promptResult } = await executeWithFallback(
+      "gemini_image_prompt",
+      async (model) => await model.generateContent(promptPrompt)
+    );
+
+    const imagePrompt = promptResult.response.text();
+    console.log("Generated Recipe Image Prompt:", imagePrompt);
+
+    // 2. Call Imagen API
+    const setting = await prisma.systemSetting.findUnique({ where: { key: 'gemini_image_generation_model' } });
+    const modelName = setting?.value || "imagen-4.0-generate-001";
+
+    const apiKey = process.env.GEMINI_API_KEY;
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:predict?key=${apiKey}`;
+
+    const payload = {
+      instances: [
+        { prompt: imagePrompt }
+      ],
+      parameters: {
+        sampleCount: 1,
+        // Optional: Recipes might look better in 4:3 or 16:9, but 1:1 is safe for now. 
+        // Docs say aspect ratio support varies. Imagen 3 usually supports "1:1", "3:4", "4:3", "9:16", "16:9".
+        aspectRatio: "16:9"
+      }
+    };
+
+    const imgRes = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(payload)
+    });
+
+    if (!imgRes.ok) {
+      const errText = await imgRes.text();
+      // If 16:9 fails (rare but possible on some models), fallback to 1:1? 
+      // For now let's just throw.
+      throw new Error(`Imagen API failed: ${imgRes.status} ${imgRes.statusText} - ${errText}`);
+    }
+
+    const imgData = await imgRes.json();
+    const b64 = imgData.predictions?.[0]?.bytesBase64Encoded;
+
+    if (!b64) {
+      throw new Error("No image data returned from Imagen: " + JSON.stringify(imgData));
+    }
+
+    // 3. Save to File System and DB
+    const buffer = Buffer.from(b64, 'base64');
+
+    const file = await prisma.file.create({
+      data: {
+        path: `AI_Generated_Recipe_${recipeTitle.replace(/[^a-zA-Z0-9]/g, '_')}.png`,
+        mimeType: "image/png"
+      }
+    });
+
+    const filepath = path.join(UPLOAD_DIR, file.id.toString());
+    console.log(`Writing generated image for Recipe "${recipeTitle}" to ${filepath} (File ID: ${file.id})`);
+
+    if (!fs.existsSync(UPLOAD_DIR)) {
+      fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+    }
+
+    if (fs.existsSync(filepath)) {
+      fs.unlinkSync(filepath);
+    }
+    // Clear thumbnails
+    const smallThumb = filepath + "_thumb_" + 150;
+    const largeThumb = filepath + "_thumb_" + 200;
+    if (fs.existsSync(smallThumb)) fs.unlinkSync(smallThumb);
+    if (fs.existsSync(largeThumb)) fs.unlinkSync(largeThumb);
+
+    fs.writeFileSync(filepath, buffer);
+
+    res.json({ message: "success", file });
+
+  } catch (error: any) {
+    console.error("generateRecipeImage error", error);
+    res.status(500).json({
+      message: "error",
+      data: error.message
+    });
+  }
+};

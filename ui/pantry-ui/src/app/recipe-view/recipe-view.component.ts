@@ -16,6 +16,8 @@ import { MatMenuModule } from '@angular/material/menu';
 import { LabelService } from '../services/label.service';
 import { KioskService } from '../services/kiosk.service';
 
+import { EnvironmentService } from '../services/environment.service';
+
 @Component({
     selector: 'app-recipe-view',
     standalone: true,
@@ -49,7 +51,8 @@ export class RecipeViewComponent implements OnInit {
         private dialog: MatDialog,
         private snackBar: MatSnackBar,
         private labelService: LabelService,
-        private kioskService: KioskService
+        private kioskService: KioskService,
+        private env: EnvironmentService
     ) { }
 
     ngOnInit(): void {
@@ -68,6 +71,19 @@ export class RecipeViewComponent implements OnInit {
                 error: (err) => console.error('Failed to load recipe', err)
             });
         }
+    }
+
+    get mainImageUrl(): string | undefined {
+        if (this.recipe?.files && this.recipe.files.length > 0) {
+            const file = this.recipe.files[0];
+            const id = file.id;
+            let cacheBuster = "";
+            if (file.createdAt) {
+                cacheBuster = "&v=" + new Date(file.createdAt).getTime();
+            }
+            return this.env.apiUrl + "/files/" + id + "?size=medium" + cacheBuster;
+        }
+        return undefined;
     }
 
     detectPrinterMedia() {

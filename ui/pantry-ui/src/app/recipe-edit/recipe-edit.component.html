@@ -143,6 +143,38 @@
                     [disabled]="i === recipe.steps.length - 1"><mat-icon>arrow_downward</mat-icon></button>
             </div>
         </mat-tab>
+        <mat-tab label="Images">
+            <div class="row align-items-center mt-3">
+                <div class="col-12 d-flex gap-2 mb-3">
+                    <button mat-raised-button color="accent" (click)="generateImage()"
+                        [disabled]="isGeneratingImage || !recipe.title">
+                        <mat-icon>{{ isGeneratingImage ? 'hourglass_empty' : 'auto_awesome' }}</mat-icon>
+                        {{ isGeneratingImage ? 'Generating Image...' : 'Generate AI Image' }}
+                    </button>
+                    <!-- Upload Input -->
+                    <button mat-stroked-button color="primary" (click)="fileInput.click()">
+                        <mat-icon>upload</mat-icon> Upload Image
+                    </button>
+                    <input #fileInput type="file" multiple (change)="browsedFiles($event)" [(ngModel)]="inputValue"
+                        [ngModelOptions]="{standalone: true}" style="display: none;" />
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-6 col-md-4 col-lg-3 mb-3" *ngFor="let file of recipe.files">
+                    <mat-card class="h-100">
+                        <img mat-card-image [src]="GetFileDownloadUrl(file)" alt="Recipe Image"
+                            style="height: 200px; object-fit: cover;">
+                        <mat-card-actions align="end">
+                            <button mat-button color="warn" (click)="removeImage(file)">Remove</button>
+                        </mat-card-actions>
+                    </mat-card>
+                </div>
+                <div class="col-12" *ngIf="!recipe.files || recipe.files.length === 0">
+                    <p class="text-muted">No images added yet.</p>
+                </div>
+            </div>
+        </mat-tab>
     </mat-tab-group>
 
     <button mat-raised-button (click)="save()">Save</button>

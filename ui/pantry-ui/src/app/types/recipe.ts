@@ -1,3 +1,4 @@
+import { FileMeta } from "./product";
 import { RecipeStep } from "./recipe-step";
 
 export interface Recipe {
@@ -27,5 +28,6 @@ export interface Recipe {
         description: string;
         daysInAdvance: number;
     }[];
+    files?: FileMeta[];
 }
 

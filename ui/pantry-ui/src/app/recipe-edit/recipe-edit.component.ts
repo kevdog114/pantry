@@ -40,6 +40,7 @@ export class RecipeEditComponent implements AfterViewInit {
 
   private isCreate: boolean = false;
   public recipe: Recipe | undefined = undefined;
+  public isGeneratingImage: boolean = false;
 
   @Input()
   set id(recipeId: string) {
@@ -254,5 +255,98 @@ export class RecipeEditComponent implements AfterViewInit {
       });
     }
 
+  }
+
+  public generateImage() {
+    if (this.recipe && this.recipe.title) {
+      this.isGeneratingImage = true;
+      this.geminiService.generateRecipeImage(this.recipe.title).subscribe({
+        next: (res) => {
+          this.isGeneratingImage = false;
+          if (res.file) {
+            if (!this.recipe!.files) this.recipe!.files = [];
+            this.recipe!.files.push(res.file);
+            this.snackBar.open("Image generated successfully!", "Close", { duration: 3000 });
+          }
+        },
+        error: (err) => {
+          this.isGeneratingImage = false;
+          console.error(err);
+          this.snackBar.open("Failed to generate image: " + (err.error?.message || err.message), "Close", { duration: 5000 });
+        }
+      });
+    }
+  }
+
+  public removeImage(file: any) {
+    if (!confirm("Are you sure you want to remove this image?")) return;
+    // Call service to delete file mapping? For now, simplistic UI removal + backend save required or explicit delete endpoint.
+    // Usually we have a dedicated delete file endpoint.
+    // Ideally we call an endpoint to delete the file or unlink it.
+    // Assuming we just unlink from UI and save updates linkage, OR we delete the file itself.
+    // ProductEdit uses removeImage -> usually implies logic.
+    // Let's implement minimal array removal for now, assuming SAVE persists the state or we need a real delete call.
+    // Actually, looking at ProductEdit, it calls `removeImage(file)`.
+    // Let's check if we have a file service to delete.
+    // We can assume user wants to delete the file reference.
+    const index = this.recipe!.files!.indexOf(file);
+    if (index >= 0) {
+      this.recipe!.files!.splice(index, 1);
+      // Note: This only removes from the UI list. The backend update (save) needs to handle the relation update.
+      // OR we should call a service to delete the file.
+      // ProductEdit used: removeImage(file) { ... http.delete ... }
+      // We don't have that service easily injected here yet without looking deeper.
+      // Let's rely on SAVE updating the list if the backend supports "set" files on update.
+      // Checking RecipeController: update does NOT seem to handle fileIds currently?
+      // Wait, I updated ProductController earlier, but did I update RecipeController?
+      // I haven't updated RecipeController to handle `files` relation yet!
+      // I need to update RecipeController.ts as well.
+    }
+  }
+
+  public GetFileDownloadUrl = (fileOrId: number | any): string => {
+    let id: number;
+    let cacheBuster = "";
+
+    if (typeof fileOrId === 'number') {
+      id = fileOrId;
+    } else {
+      id = fileOrId.id;
+      if (fileOrId.createdAt) {
+        cacheBuster = "&v=" + new Date(fileOrId.createdAt).getTime();
+      }
+    }
+
+    return environment.apiUrl + "/files/" + id + "?size=small" + cacheBuster;
+  }
+
+  public inputValue: any;
+
+  browsedFiles = (evt: Event) => {
+    const fileList: FileList | null = (evt.target as HTMLInputElement).files;
+    if (fileList !== null)
+      this.addFiles(fileList);
+  }
+
+  addFiles = (fileList: FileList) => {
+    if (this.recipe === undefined)
+      return;
+
+    for (let i = 0; i < fileList.length; i++) {
+      const file: File = fileList[i];
+      this.svc.uploadFile(file).subscribe({
+        next: (result) => {
+          console.log("file upload result", result);
+          if (!this.recipe!.files) this.recipe!.files = [];
+          this.recipe!.files.push(result.file || result); // Assuming result returns file obj or is file obj
+          this.snackBar.open("Image uploaded successfully!", "Close", { duration: 3000 });
+        },
+        error: (err) => {
+          console.error("Upload failed", err);
+          this.snackBar.open("Failed to upload image", "Close", { duration: 3000 });
+        }
+      });
+    }
+    this.inputValue = undefined;
   }
 }

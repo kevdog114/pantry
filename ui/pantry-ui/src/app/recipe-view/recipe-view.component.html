@@ -3,6 +3,8 @@
     <div class="header">
         <div class="title-section">
             <div class="d-flex align-items-center gap-3">
+                <img *ngIf="mainImageUrl" [src]="mainImageUrl" alt="{{ recipe.title }}" class="recipe-header-image me-3"
+                    style="max-height: 100px; max-width: 100px; object-fit: cover; border-radius: 8px;">
                 <h1>{{ recipe.title }}</h1>
                 <div class="print-qr-code header-qr" *ngIf="qrCodeDataUrl">
                     <img [src]="qrCodeDataUrl" alt="QR">

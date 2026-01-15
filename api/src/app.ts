@@ -191,6 +191,7 @@ app.post("/gemini/image", GeminiController.postImage);
 app.post("/gemini/thaw-advice", GeminiController.postThawAdvice);
 app.post("/gemini/quick-suggest", GeminiController.postQuickSuggest);
 app.post("/gemini/generate-image", GeminiController.generateProductImage);
+app.post("/gemini/generate-recipe-image", GeminiController.generateRecipeImage);
 app.post("/gemini/product-details", GeminiController.postProductDetails);
 app.get("/gemini/models", GeminiController.getAvailableModels);
 

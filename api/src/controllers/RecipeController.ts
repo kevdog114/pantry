@@ -5,7 +5,8 @@ export const getAll = async (req: Request, res: Response, next: NextFunction): P
     const recipes = await prisma.recipe.findMany({
         include: {
             steps: { orderBy: { stepNumber: 'asc' } },
-            ingredients: { include: { product: true } }
+            ingredients: { include: { product: true } },
+            files: true
         }
     });
     res.send(recipes.map(mapToResponse));
@@ -41,12 +42,16 @@ export const create = async (req: Request, res: Response, next: NextFunction): P
                     description: task.description,
                     daysInAdvance: task.daysInAdvance || 0
                 })) || []
+            },
+            files: {
+                connect: req.body.files?.map((f: any) => ({ id: f.id })) || []
             }
         },
         include: {
             steps: { orderBy: { stepNumber: 'asc' } },
             ingredients: { include: { product: true } },
-            prepTasks: true
+            prepTasks: true,
+            files: true
         }
     });
 
@@ -74,7 +79,8 @@ export const getById = async (req: Request, res: Response, next: NextFunction): 
         include: {
             steps: { orderBy: { stepNumber: 'asc' } },
             ingredients: { include: { product: true } },
-            prepTasks: true
+            prepTasks: true,
+            files: true
         }
     });
 
@@ -125,12 +131,16 @@ export const update = async (req: Request, res: Response, next: NextFunction): P
                     })) || []
                 },
                 customPrepInstructions: req.body.customPrepInstructions, // Keeping for backward compat if needed
-                thawInstructions: req.body.thawInstructions
+                thawInstructions: req.body.thawInstructions,
+                files: {
+                    set: req.body.files?.map((f: any) => ({ id: f.id })) || []
+                }
             },
             include: {
                 steps: { orderBy: { stepNumber: 'asc' } },
                 ingredients: { include: { product: true } },
-                prepTasks: true
+                prepTasks: true,
+                files: true
             }
         });
 
@@ -159,6 +169,7 @@ const mapToResponse = (recipe: any) => {
         })) || [],
         prepTasks: recipe.prepTasks || [],
         thawInstructions: recipe.thawInstructions,
-        customPrepInstructions: recipe.customPrepInstructions
+        customPrepInstructions: recipe.customPrepInstructions,
+        files: recipe.files || []
     };
 }
