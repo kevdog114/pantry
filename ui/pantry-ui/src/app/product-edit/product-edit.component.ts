@@ -17,6 +17,7 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatSelectModule } from '@angular/material/select';
 
+
 @Component({
   selector: 'app-product-edit',
   imports: [FormsModule,
@@ -40,6 +41,7 @@ export class ProductEditComponent implements AfterViewInit {
   private isCreate: boolean = false;
   public product: Product | undefined = undefined;
   public isAskingAi: boolean = false;
+  public isGeneratingImage: boolean = false;
 
   private queryData = {
     productTitle: <string | undefined>"",
@@ -141,8 +143,40 @@ export class ProductEditComponent implements AfterViewInit {
     }
   }
 
-  public GetFileDownloadUrl = (fileId: number): string => {
-    return this.env.apiUrl + "/files/" + fileId + "?size=small";
+  public generateImage() {
+    if (this.product && this.product.title) {
+      this.isGeneratingImage = true;
+      this.geminiService.generateProductImage(this.product.title).subscribe({
+        next: (res) => {
+          this.isGeneratingImage = false;
+          if (res.file) {
+            this.product?.files.push(res.file);
+            this.snackBar.open("Image generated successfully!", "Close", { duration: 3000 });
+          }
+        },
+        error: (err) => {
+          this.isGeneratingImage = false;
+          console.error(err);
+          this.snackBar.open("Failed to generate image: " + (err.error?.message || err.message), "Close", { duration: 5000 });
+        }
+      });
+    }
+  }
+
+  public GetFileDownloadUrl = (fileOrId: number | FileMeta): string => {
+    let id: number;
+    let cacheBuster = "";
+
+    if (typeof fileOrId === 'number') {
+      id = fileOrId;
+    } else {
+      id = fileOrId.id;
+      if (fileOrId.createdAt) {
+        cacheBuster = "&v=" + new Date(fileOrId.createdAt).getTime();
+      }
+    }
+
+    return this.env.apiUrl + "/files/" + id + "?size=small" + cacheBuster;
   }
 
   public removeBarcode = (a: any) => {

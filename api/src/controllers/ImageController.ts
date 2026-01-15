@@ -44,7 +44,15 @@ export const deleteById = async (req: Request, res: Response, next: NextFunction
                 id: file.id
             }
         });
-        fs.unlinkSync(UPLOAD_DIR + file.id);
+        if (fs.existsSync(UPLOAD_DIR + file.id)) {
+            fs.unlinkSync(UPLOAD_DIR + file.id);
+        }
+
+        const smallThumb = UPLOAD_DIR + file.id + "_thumb_" + 150;
+        const largeThumb = UPLOAD_DIR + file.id + "_thumb_" + 200;
+
+        if (fs.existsSync(smallThumb)) fs.unlinkSync(smallThumb);
+        if (fs.existsSync(largeThumb)) fs.unlinkSync(largeThumb);
         res.sendStatus(200);
     } else {
         res.sendStatus(404);

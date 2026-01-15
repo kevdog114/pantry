@@ -1,6 +1,7 @@
 export interface FileMeta {
     id: number
     filename: string
+    createdAt?: string
 }
 
 export interface StockItem {

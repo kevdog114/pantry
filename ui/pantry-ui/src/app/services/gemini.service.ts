@@ -61,4 +61,8 @@ export class GeminiService {
   sortShoppingList(items: string[]): Observable<{ sortedItems: string[] }> {
     return this.http.post<any>(`${this.apiUrl.replace('/chat', '')}/shopping-list-sort`, { items });
   }
+
+  generateProductImage(productTitle: string): Observable<any> {
+    return this.http.post<any>(`${this.env.apiUrl}/gemini/generate-image`, { productTitle });
+  }
 }

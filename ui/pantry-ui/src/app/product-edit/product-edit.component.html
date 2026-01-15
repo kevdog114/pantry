@@ -110,12 +110,28 @@
                         <mat-card-title>{{file.filename}}</mat-card-title>
                     </mat-card-header>
                     <img mat-card-image class="object-fit-contain" style="height: 200px;"
-                        [src]="GetFileDownloadUrl(file.id)">
+                        [src]="GetFileDownloadUrl(file)">
                     <mat-card-actions>
                         <button mat-icon-button (click)="removeImage(file)"><mat-icon>delete</mat-icon></button>
-                        <a href="GetFileDownloadUrl(file.id)" mat-icon-button><mat-icon>download</mat-icon></a>
+                        <a [href]="GetFileDownloadUrl(file)" target="_blank"
+                            mat-icon-button><mat-icon>download</mat-icon></a>
                     </mat-card-actions>
                 </mat-card>
+
+                <mat-card appearance="outlined" class="col d-flex align-items-center justify-content-center"
+                    style="min-height: 250px;">
+                    <div class="d-flex flex-column align-items-center">
+                        <button mat-fab extended color="primary" (click)="generateImage()"
+                            [disabled]="isGeneratingImage || !product.title">
+                            <mat-icon *ngIf="!isGeneratingImage">auto_awesome</mat-icon>
+                            <mat-spinner *ngIf="isGeneratingImage" [diameter]="20"
+                                style="display:inline-block; margin-right: 8px; vertical-align: middle;"></mat-spinner>
+                            Generate Image
+                        </button>
+                        <small class="text-muted mt-2 text-center" *ngIf="!isGeneratingImage">From Product Title</small>
+                    </div>
+                </mat-card>
+
                 <mat-card appearance="outlined" class="col">
                     <input type="file" multiple (change)="browsedFiles($event)" [(ngModel)]="inputValue" />
 

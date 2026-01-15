@@ -62,6 +62,21 @@
 
                         <div class="setting-item">
                             <div class="setting-info">
+                                <h3>Image Generation</h3>
+                                <p>Model used for generating product images (Imagen).</p>
+                            </div>
+                            <mat-form-field appearance="outline">
+                                <mat-label>Select Model</mat-label>
+                                <mat-select [(ngModel)]="selectedImageGenModel">
+                                    <mat-option *ngFor="let model of models" [value]="model.name">
+                                        {{model.displayName}}
+                                    </mat-option>
+                                </mat-select>
+                            </mat-form-field>
+                        </div>
+
+                        <div class="setting-item">
+                            <div class="setting-info">
                                 <h3>Expiration Estimator</h3>
                                 <p>Model used for guessing expiration dates.</p>
                             </div>

@@ -1509,6 +1509,7 @@ export const postShoppingListSort = async (req: Request, res: Response) => {
     const cleaned = cleanJson(text);
     const data = JSON.parse(cleaned);
 
+
     res.json(data);
 
   } catch (e: any) {
@@ -1516,3 +1517,106 @@ export const postShoppingListSort = async (req: Request, res: Response) => {
     res.status(500).json({ error: e.message });
   }
 }
+
+export const generateProductImage = async (req: Request, res: Response) => {
+  try {
+    const { productTitle } = req.body;
+    if (!productTitle) {
+      res.status(400).json({ message: "Product title is required" });
+      return;
+    }
+
+    // 1. Generate Prompt using Text Model
+    const promptPrompt = `Describe a simple, photorealistic, isolated image of "${productTitle}" suitable for a pantry inventory app icon. The description should be for an image generator (like Imagen). Keep it under 40 words. Focus on the object with a plain background.`;
+
+    const { result: promptResult } = await executeWithFallback(
+      "gemini_image_prompt",
+      async (model) => await model.generateContent(promptPrompt)
+    );
+
+    const imagePrompt = promptResult.response.text();
+    console.log("Generated Image Prompt:", imagePrompt);
+
+    // 2. Call Imagen API
+    // We use direct fetch because the SDK support for Imagen is specific/evolving.
+    // Model: Configurable via settings
+    const setting = await prisma.systemSetting.findUnique({ where: { key: 'gemini_image_generation_model' } });
+    const modelName = setting?.value || "imagen-4.0-generate-001";
+
+    const apiKey = process.env.GEMINI_API_KEY;
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:predict?key=${apiKey}`;
+
+    const payload = {
+      instances: [
+        { prompt: imagePrompt }
+      ],
+      parameters: {
+        sampleCount: 1,
+        aspectRatio: "1:1"
+      }
+    };
+
+    const imgRes = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(payload)
+    });
+
+    if (!imgRes.ok) {
+      const errText = await imgRes.text();
+      throw new Error(`Imagen API failed: ${imgRes.status} ${imgRes.statusText} - ${errText}`);
+    }
+
+    const imgData = await imgRes.json();
+    // Expected format: { predictions: [ { bytesBase64Encoded: "..." } ] }
+    const b64 = imgData.predictions?.[0]?.bytesBase64Encoded;
+
+    if (!b64) {
+      throw new Error("No image data returned from Imagen: " + JSON.stringify(imgData));
+    }
+
+    // 3. Save to File System and DB
+    const buffer = Buffer.from(b64, 'base64');
+
+    const file = await prisma.file.create({
+      data: {
+        path: `AI_Generated_${productTitle.replace(/[^a-zA-Z0-9]/g, '_')}.png`,
+        mimeType: "image/png"
+      }
+    });
+
+    // Write to UPLOAD_DIR + file.id (as per ImageController logic)
+    const filepath = path.join(UPLOAD_DIR, file.id.toString());
+
+    console.log(`Writing generated image for Product "${productTitle}" to ${filepath} (File ID: ${file.id})`);
+
+    // Ensure dir exists
+    if (!fs.existsSync(UPLOAD_DIR)) {
+      fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+    }
+
+    // Explicitly delete if exists (should not happen for new ID, but good for sanity)
+    if (fs.existsSync(filepath)) {
+      fs.unlinkSync(filepath);
+    }
+    // Also clear any thumbnails that might strangely exist for this ID
+    const smallThumb = filepath + "_thumb_" + 150;
+    const largeThumb = filepath + "_thumb_" + 200;
+    if (fs.existsSync(smallThumb)) fs.unlinkSync(smallThumb);
+    if (fs.existsSync(largeThumb)) fs.unlinkSync(largeThumb);
+
+    fs.writeFileSync(filepath, buffer);
+
+    // 4. Return the file object
+    res.json({ message: "success", file });
+
+  } catch (error: any) {
+    console.error("generateProductImage error", error);
+    res.status(500).json({
+      message: "error",
+      data: error.message
+    });
+  }
+};
