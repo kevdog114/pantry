@@ -15,6 +15,11 @@ export class HardwareBarcodeScannerService {
 
   private currentBarcode: string = "";
   private isScanning: boolean = false;
+  private isEnabled: boolean = true;
+
+  public setEnabled(enabled: boolean) {
+    this.isEnabled = enabled;
+  }
 
   public searchForBarcode = (barcode: string) => {
     if (barcode.toLowerCase().startsWith("r-")) {
@@ -86,6 +91,8 @@ export class HardwareBarcodeScannerService {
 
   public ListenForScanner = () => {
     document.addEventListener('keydown', (event) => {
+      if (!this.isEnabled) return;
+
       //console.log("keydown", event.key);
       // Code to execute when a key is pressed
       if (event.key == '/') {

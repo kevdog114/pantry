@@ -3,23 +3,22 @@
 
     <div class="grid grid-cols-1 gap-6">
         <mat-card *ngFor="let kiosk of kiosks" class="mb-4 overflow-hidden rounded-xl shadow-lg dark:bg-zinc-800">
-            <mat-card-header class="bg-gray-50 dark:bg-zinc-700/50 p-4 border-b border-gray-100 dark:border-zinc-700">
-                <div mat-card-avatar
-                    class="bg-blue-100 p-2 rounded-full text-blue-600 flex items-center justify-center">
+            <div
+                class="flex items-center p-4 bg-gray-50 dark:bg-zinc-700/50 border-b border-gray-100 dark:border-zinc-700">
+                <div class="bg-blue-100 p-2 rounded-full text-blue-600 flex items-center justify-center mr-4 h-10 w-10">
                     <mat-icon>desktop_windows</mat-icon>
                 </div>
                 <div class="flex-1">
-                    <mat-card-title class="text-xl">{{ kiosk.name }}</mat-card-title>
-                    <mat-card-subtitle class="text-gray-500">Last Active: {{ kiosk.lastActive | date:'short'
-                        }}</mat-card-subtitle>
+                    <h3 class="text-xl font-medium m-0">{{ kiosk.name }}</h3>
+                    <p class="text-sm text-gray-500 m-0">Last Active: {{ kiosk.lastActive | date:'short' }}</p>
                 </div>
                 <div>
                     <mat-slide-toggle [checked]="!!kiosk.hasKeyboardScanner" (change)="toggleScanner(kiosk)"
                         color="primary">
-                        Keyboard Barcode Scanner
+                        Keyboard Scanner
                     </mat-slide-toggle>
                 </div>
-            </mat-card-header>
+            </div>
             <mat-card-content class="p-0">
                 <mat-list role="list" class="divide-y divide-gray-100 dark:divide-zinc-700">
                     <div *ngIf="kiosk.devices && kiosk.devices.length > 0; else noDevices">

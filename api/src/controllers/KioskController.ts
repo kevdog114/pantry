@@ -114,7 +114,7 @@ export const kioskLogin = async (req: Request, res: Response) => {
             return;
         }
 
-        req.login(pat.user, (err) => {
+        req.login(pat.user, async (err) => {
             if (err) {
                 res.status(500).json({ message: "Login failed" });
                 return;
@@ -126,11 +126,26 @@ export const kioskLogin = async (req: Request, res: Response) => {
             }).catch(console.error);
 
             // Store kioskId in session if provided (from socket or request)
+            let kioskSettings = {};
             if (req.body.kioskId) {
                 (req.session as any).kioskId = req.body.kioskId;
+
+                // Fetch settings
+                try {
+                    const kiosk = await prisma.kiosk.findUnique({
+                        where: { id: req.body.kioskId }
+                    });
+                    if (kiosk) {
+                        kioskSettings = {
+                            hasKeyboardScanner: kiosk.hasKeyboardScanner
+                        };
+                    }
+                } catch (e) {
+                    console.error("Error fetching kiosk settings for login:", e);
+                }
             }
 
-            res.json({ success: true, user: pat.user });
+            res.json({ success: true, user: pat.user, kioskSettings });
         });
     } catch (error) {
         console.error("Kiosk login error:", error);
@@ -176,6 +191,7 @@ export const deleteKiosk = async (req: Request, res: Response) => {
 export const updateKioskSettings = async (req: Request, res: Response) => {
     try {
         const id = parseInt(req.params.id);
+        console.log(`updateKioskSettings id=${id} body=`, req.body);
         const { hasKeyboardScanner } = req.body;
         const userId = (req.user as any).id;
 

@@ -166,6 +166,46 @@ function connectSocket() {
                 fs.writeFileSync('device_settings.json', JSON.stringify(newSettings));
                 console.log('Updated local device settings:', newSettings);
 
+                // Apply settings to printer hardware immediately
+                const fs2 = require('fs');
+                const tmpConfigFile = `/tmp/config_${Date.now()}.json`;
+                try {
+                    fs2.writeFileSync(tmpConfigFile, JSON.stringify(newSettings));
+
+                    // Call python script with 'configure' command
+                    // Assuming we can target the printer. We need the printer identifier?
+                    // The payload has `deviceId` but not the identifier string (USB ID).
+                    // However, we can look it up in knownPrinters or pass it if available.
+                    // For now, let's try to pass the identifier if we have it in the details, or default.
+
+                    let printerIdentifier = null;
+                    if (details.identifier) printerIdentifier = details.identifier;
+                    else {
+                        // Try to find any connected printer or use default
+                        // This might be risky if multiple printers, but usually 1 kiosk = 1 printer.
+                    }
+
+                    let cmd = `/opt/venv/bin/python3 print_label.py configure "${tmpConfigFile}"`;
+                    if (printerIdentifier) {
+                        cmd += ` --printer "${printerIdentifier}"`;
+                    }
+
+                    console.log('Executing printer configuration...');
+                    const { exec } = require('child_process');
+                    exec(cmd, (err, stdout, stderr) => {
+                        if (err) {
+                            console.error('Configuration Error:', err);
+                            console.error('Stderr:', stderr);
+                        } else {
+                            console.log('Configuration Output:', stdout);
+                        }
+                        try { fs2.unlinkSync(tmpConfigFile); } catch (e) { }
+                    });
+
+                } catch (e) {
+                    console.error("Error preparing config file:", e);
+                }
+
             } catch (e) {
                 console.error("Error saving device settings:", e);
             }

@@ -68,7 +68,11 @@ export class AppComponent implements OnInit {
           console.log("Session lost, attempting kiosk auto-login...");
           return this.kioskService.kioskLogin(kioskToken, kioskId ? parseInt(kioskId) : undefined).pipe(
             map(res => {
-              console.log("Kiosk auto-login successful");
+              console.log("Kiosk auto-login successful", res);
+              if (res.kioskSettings && res.kioskSettings.hasKeyboardScanner !== undefined) {
+                console.log("Setting scanner enabled:", res.kioskSettings.hasKeyboardScanner);
+                this.hardwareScanner.setEnabled(res.kioskSettings.hasKeyboardScanner);
+              }
               if (this.router.url === '/login' || this.router.url === '/kiosk-login') {
                 this.router.navigate(['/']);
               }

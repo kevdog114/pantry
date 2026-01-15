@@ -577,26 +577,65 @@ def status_cmd(args):
     print(json.dumps(status_data))
 
 def configure_cmd(args):
+    args_printer = args.printer
+    args_backend = args.backend
+    
     try:
         with open(args.input_file, 'r') as f:
             config = json.load(f)
             
-        logger.info(f"Applying configuration to {args.printer}: {config}")
+        logger.info(f"Applying configuration to {args_printer}: {config}")
         
-        # Implementation Note: 
-        # brother_ql does not natively support setting sleep timer via its high-level API.
-        # This would require finding the specific ESC/P command (likely ESC i K {n}) 
-        # and sending it via the backend.
+        # ESC/P Commands for Brother QL Series
+        # Note: These are standard for many QL printers but might vary by specific model firmware.
         
-        sleep_delay = config.get('sleepDelay')
-        if sleep_delay is not None:
+        # 1. Sleep Delay (Auto Power Off Time)
+        # Command: ESC i K {n} (Hex: 1B 69 4B n)
+        # n: 0-255 minutes. 0 = Disable? Or Default. 
+        if 'sleepDelay' in config and config['sleepDelay'] is not None:
+             sleep_delay = config['sleepDelay']
              logger.info(f"Setting sleep delay to {sleep_delay} minutes")
-             # Example of how we might send a raw command if we had the backend/instruction logic:
-             # instructions = b'\x1b\x69\x4b' + int(sleep_delay).to_bytes(1, 'little')
-             # send(instructions=instructions, printer_identifier=args.printer, backend_identifier=args.backend)
-             
-             # For now, we log it as success to verify the pipeline.
-             print("Configuration applied successfully (simulated)")
+             try:
+                 delay_int = int(sleep_delay)
+                 if delay_int < 0: delay_int = 0
+                 if delay_int > 255: delay_int = 255
+                 
+                 # ESC i K n
+                 instructions = b'\x1b\x69\x4b' + bytes([delay_int])
+                 
+                 send(
+                    instructions=instructions, 
+                    printer_identifier=args_printer, 
+                    backend_identifier=args_backend,
+                    blocking=True
+                 )
+                 print(f"Sleep delay set to {delay_int} minutes")
+             except Exception as e:
+                 logger.error(f"Failed to set sleep delay: {e}")
+                 print(f"Error setting sleep delay: {e}")
+
+        # 2. Auto Power On
+        # Command: ESC i U {n} (Hex: 1B 69 55 n)
+        # n: 0 (Off) or 1 (On)
+        if 'autoOn' in config and config['autoOn'] is not None:
+            auto_on = config['autoOn']
+            logger.info(f"Setting Auto Power On to {auto_on}")
+            try:
+                val = 1 if auto_on else 0
+                instructions = b'\x1b\x69\x55' + bytes([val])
+                
+                send(
+                    instructions=instructions, 
+                    printer_identifier=args_printer, 
+                    backend_identifier=args_backend,
+                    blocking=True
+                )
+                print(f"Auto Power On set to {'ON' if val else 'OFF'}")
+            except Exception as e:
+                logger.error(f"Failed to set Auto Power On: {e}")
+                print(f"Error setting Auto Power On: {e}")
+
+        print("Configuration commands sent.")
 
     except Exception as e:
         logger.error(f"Configuration failed: {e}")
