@@ -12,6 +12,7 @@ import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { DeviceConfigDialogComponent } from '../device-config-dialog/device-config-dialog.component';
+import { HardwareService } from '../../../services/hardware.service';
 
 @Component({
     selector: 'app-hardware-list',
@@ -27,7 +28,8 @@ export class HardwareListComponent implements OnInit {
         private kioskService: KioskService,
         private labelService: LabelService,
         private snackBar: MatSnackBar,
-        private dialog: MatDialog
+        private dialog: MatDialog,
+        private hardwareService: HardwareService
     ) { }
 
     ngOnInit() {
@@ -49,6 +51,20 @@ export class HardwareListComponent implements OnInit {
             .subscribe({
                 next: () => {
                     this.snackBar.open('Settings updated', 'Close', { duration: 2000 });
+
+                    // If we are modifying THIS kiosk's settings from the Kiosk itself,
+                    // we need to update the local bridge configuration.
+                    const currentKioskId = localStorage.getItem('kiosk_id');
+                    if (currentKioskId && parseInt(currentKioskId) === kiosk.id) {
+                        const authToken = localStorage.getItem('kiosk_auth_token');
+                        if (authToken) {
+                            // This call pushes the new scanner setting to kiosk_config.json on the bridge
+                            this.hardwareService.connectBridge(authToken, undefined, !!kiosk.hasKeyboardScanner).subscribe(
+                                () => console.log('Bridge config updated'),
+                                err => console.error('Failed to update bridge config', err)
+                            );
+                        }
+                    }
                 },
                 error: (err) => {
                     console.error('Failed to update settings', err);
