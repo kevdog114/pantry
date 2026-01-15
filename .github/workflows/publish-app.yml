@@ -11,7 +11,7 @@ on:
 
 jobs:
   build_and_publish:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, trusted]
     if: github.event_name != 'workflow_dispatch' || github.ref == 'refs/heads/main'
     steps:
       - name: Checkout code
