@@ -4,7 +4,7 @@ import { Component, Input } from '@angular/core';
 import { MatButtonModule } from '@angular/material/button';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { NavigationExtras, Router, RouterModule } from '@angular/router';
-import { environment } from '../../environments/environment';
+import { EnvironmentService } from '../services/environment.service';
 import { ProductListService } from '../components/product-list/product-list.service';
 import { TagsService } from '../tags.service';
 import { firstValueFrom } from 'rxjs';
@@ -48,7 +48,8 @@ export class MissingBarcodeComponent {
     private http: HttpClient,
     private router: Router,
     private productService: ProductListService,
-    private tagsService: TagsService
+    private tagsService: TagsService,
+    private env: EnvironmentService
   ) { }
 
   private checkBarcode(newBarcode: string | undefined) {
@@ -78,7 +79,7 @@ export class MissingBarcodeComponent {
 
   private checkGeminiMatch() {
     this.checkingMatch = true;
-    this.http.post<any>(`${environment.apiUrl}/gemini/product-match`, {
+    this.http.post<any>(`${this.env.apiUrl}/gemini/product-match`, {
       productName: this.ProductName,
       brand: this.ProductBrand
     }).subscribe(res => {
@@ -118,7 +119,7 @@ export class MissingBarcodeComponent {
 
     try {
       // 1. Get Suggestion
-      const suggestionRes = await firstValueFrom(this.http.post<any>(`${environment.apiUrl}/gemini/barcode-details`, {
+      const suggestionRes = await firstValueFrom(this.http.post<any>(`${this.env.apiUrl}/gemini/barcode-details`, {
         productName: this.ProductName,
         brand: this.ProductBrand,
         existingProductTitle: this.matchedProductTitle

@@ -12,7 +12,7 @@ import { MatDividerModule } from '@angular/material/divider';
 import { dateTimestampProvider } from 'rxjs/internal/scheduler/dateTimestampProvider';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { KioskService } from '../services/kiosk.service';
-import { environment } from '../../environments/environment';
+import { EnvironmentService } from '../services/environment.service';
 
 
 interface IndexedBarcode {
@@ -79,7 +79,8 @@ export class ProductViewComponent {
     private snackbar: MatSnackBar,
     private dialog: MatDialog,
     private labelService: LabelService,
-    private kioskService: KioskService
+    private kioskService: KioskService,
+    private env: EnvironmentService
   ) {
     this.detectPrinterMedia();
   }
@@ -229,7 +230,7 @@ export class ProductViewComponent {
     // Wait, product-list uses product.files. 
     // This view has 'product' property.
     if (this.product && this.product.files && this.product.files.length > 0)
-      return environment.apiUrl + "/files/" + this.product.files[0].id + "?size=medium";
+      return this.env.apiUrl + "/files/" + this.product.files[0].id + "?size=medium";
     else
       return "";
   }

@@ -5,7 +5,7 @@ import { Html5Qrcode, Html5QrcodeSupportedFormats } from 'html5-qrcode';
 import { HardwareBarcodeScannerService } from '../hardware-barcode-scanner.service';
 import { SocketService } from '../services/socket.service';
 import { HttpClient } from '@angular/common/http';
-import { environment } from '../../environments/environment';
+import { EnvironmentService } from '../services/environment.service';
 
 @Component({
   selector: 'app-barcode-scanner',
@@ -32,7 +32,8 @@ export class BarcodeScannerComponent implements OnInit, OnDestroy {
   constructor(
     private barcodeService: HardwareBarcodeScannerService,
     private socketService: SocketService,
-    private http: HttpClient
+    private http: HttpClient,
+    private env: EnvironmentService
   ) { }
 
   async ngOnInit() {
@@ -59,7 +60,7 @@ export class BarcodeScannerComponent implements OnInit, OnDestroy {
   }
 
   refreshScanners() {
-    this.http.get<any[]>(`${environment.apiUrl}/kiosk/scanners`).subscribe({
+    this.http.get<any[]>(`${this.env.apiUrl}/kiosk/scanners`).subscribe({
       next: (scanners) => {
         console.log("Received scanners via API:", scanners);
         this.availableScanners = scanners;

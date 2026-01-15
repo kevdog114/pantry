@@ -5,7 +5,7 @@ import { CommonModule } from "@angular/common";
 import { FormsModule } from "@angular/forms";
 import { RouterModule } from "@angular/router";
 import { MatButtonModule } from "@angular/material/button";
-import { environment } from "../../../environments/environment";
+import { EnvironmentService } from "../../services/environment.service";
 import { MatCardModule } from "@angular/material/card";
 import { MatFormFieldModule } from "@angular/material/form-field";
 import { MatDividerModule } from "@angular/material/divider";
@@ -57,7 +57,7 @@ export class ProductListComponent implements AfterViewInit {
         return this.localStorage.getItem("product-list-display-mode");
     }
 
-    constructor(private svc: ProductListService, private localStorage: LocalStorageService, private dialog: MatDialog, private bottomSheet: MatBottomSheet) {
+    constructor(private svc: ProductListService, private localStorage: LocalStorageService, private dialog: MatDialog, private bottomSheet: MatBottomSheet, private env: EnvironmentService) {
         console.log("display mode", this.DisplayMode);
         if (this.DisplayMode === null)
             this.DisplayMode = "grid";
@@ -111,7 +111,7 @@ export class ProductListComponent implements AfterViewInit {
 
     public GetFileDownloadUrl = (product: Product): string => {
         if (product && product.files && product.files.length > 0)
-            return environment.apiUrl + "/files/" + product.files[0].id + "?size=small";
+            return this.env.apiUrl + "/files/" + product.files[0].id + "?size=small";
         else
             return "";
     }

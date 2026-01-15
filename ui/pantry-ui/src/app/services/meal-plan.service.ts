@@ -2,7 +2,7 @@ import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { Recipe } from '../types/recipe';
-import { environment } from '../../environments/environment';
+import { EnvironmentService } from './environment.service';
 
 export interface MealPlan {
     id: number;
@@ -15,9 +15,11 @@ export interface MealPlan {
     providedIn: 'root'
 })
 export class MealPlanService {
-    private apiUrl = `${environment.apiUrl}/meal-plan`;
+    private apiUrl: string;
 
-    constructor(private http: HttpClient) { }
+    constructor(private http: HttpClient, private env: EnvironmentService) {
+        this.apiUrl = `${this.env.apiUrl}/meal-plan`;
+    }
 
     getMealPlan(startDate: string, endDate: string): Observable<MealPlan[]> {
         return this.http.get<MealPlan[]>(`${this.apiUrl}?startDate=${startDate}&endDate=${endDate}`);

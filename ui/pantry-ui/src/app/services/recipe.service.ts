@@ -2,15 +2,17 @@ import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { Recipe } from '../types/recipe';
-import { environment } from '../../environments/environment';
+import { EnvironmentService } from './environment.service';
 
 @Injectable({
     providedIn: 'root'
 })
 export class RecipeService {
-    private apiUrl = `${environment.apiUrl}/recipes`;
+    private apiUrl: string;
 
-    constructor(private http: HttpClient) { }
+    constructor(private http: HttpClient, private env: EnvironmentService) {
+        this.apiUrl = `${this.env.apiUrl}/recipes`;
+    }
 
     getAll(): Observable<Recipe[]> {
         return this.http.get<Recipe[]>(this.apiUrl);

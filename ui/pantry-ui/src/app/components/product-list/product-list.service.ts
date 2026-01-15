@@ -2,20 +2,19 @@ import { HttpClient } from "@angular/common/http";
 import { Injectable } from "@angular/core";
 import { Observable } from "rxjs";
 import { Product, StockItem } from "../../types/product";
-import { environment } from "../../../environments/environment";
+import { EnvironmentService } from "../../services/environment.service";
 
 
 @Injectable({
     providedIn: 'root'
 })
-export class ProductListService
-{
-    constructor(private http: HttpClient) {
-        
+export class ProductListService {
+    constructor(private http: HttpClient, private env: EnvironmentService) {
+
     }
 
     private a = (b: string): string => {
-        return environment.apiUrl + b;
+        return this.env.apiUrl + b;
     }
 
     public searchProducts = (searchQuery: string): Observable<Product[]> => {

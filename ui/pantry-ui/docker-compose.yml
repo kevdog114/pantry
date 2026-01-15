@@ -1,0 +1,9 @@
+version: '3'
+services:
+  pantry-ui:
+    build: .
+    ports:
+      - "8080:80"
+    environment:
+      - API_BASE_URL=http://localhost:3000
+      - SITE_NAME=My Pantry App

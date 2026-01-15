@@ -6,7 +6,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatDividerModule } from '@angular/material/divider';
 import { TestComponentComponent } from './test-component/test-component.component';
 import { ProductListComponent } from './components/product-list/product-list.component';
-import { environment } from '../environments/environment';
+import { EnvironmentService } from './services/environment.service';
 import { MatSidenavModule } from '@angular/material/sidenav';
 import { SideMenuComponent } from './side-menu/side-menu.component';
 import { HardwareBarcodeScannerService } from './hardware-barcode-scanner.service';
@@ -47,8 +47,9 @@ export class AppComponent implements OnInit {
     private kioskService: KioskService,
     private socketService: SocketService, // Injected SocketService
     private hardwareService: HardwareService,
+    private env: EnvironmentService,
     private router: Router) {
-    this.title = environment.siteTitle;
+    this.title = this.env.siteName;
     this.isSocketConnected$ = this.socketService.connected$;
     hardwareScanner.ListenForScanner();
 

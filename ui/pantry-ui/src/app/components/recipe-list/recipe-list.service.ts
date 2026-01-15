@@ -2,19 +2,19 @@ import { HttpClient } from "@angular/common/http";
 import { Injectable } from "@angular/core";
 import { Observable } from "rxjs";
 import { Recipe } from "../../types/recipe";
-import { environment } from "../../../environments/environment";
+import { EnvironmentService } from "../../services/environment.service";
 
 
 @Injectable({
     providedIn: 'root'
 })
 export class RecipeListService {
-    constructor(private http: HttpClient) {
+    constructor(private http: HttpClient, private env: EnvironmentService) {
 
     }
 
     private buildApiUrl = (b: string): string => {
-        return environment.apiUrl + b;
+        return this.env.apiUrl + b;
     }
 
     public getAll = (): Observable<Recipe[]> => {

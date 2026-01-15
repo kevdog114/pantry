@@ -10,7 +10,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatCardModule } from '@angular/material/card';
 import { Router } from '@angular/router';
-import { environment } from '../../environments/environment';
+import { EnvironmentService } from '../services/environment.service';
 import { MatTabsModule } from '@angular/material/tabs';
 import { GeminiService } from '../services/gemini.service';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
@@ -90,7 +90,7 @@ export class ProductEditComponent implements AfterViewInit {
     }
   }
 
-  constructor(private svc: ProductListService, private router: Router, private geminiService: GeminiService, private snackBar: MatSnackBar) {
+  constructor(private svc: ProductListService, private router: Router, private geminiService: GeminiService, private snackBar: MatSnackBar, private env: EnvironmentService) {
   }
 
   public askGeminiProductDetails() {
@@ -142,7 +142,7 @@ export class ProductEditComponent implements AfterViewInit {
   }
 
   public GetFileDownloadUrl = (fileId: number): string => {
-    return environment.apiUrl + "/files/" + fileId + "?size=small";
+    return this.env.apiUrl + "/files/" + fileId + "?size=small";
   }
 
   public removeBarcode = (a: any) => {

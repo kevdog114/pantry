@@ -1,7 +1,7 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable } from '@angular/core';
 import { BehaviorSubject } from 'rxjs';
-import { environment } from '../environments/environment';
+import { EnvironmentService } from './services/environment.service';
 import { ProductBarcode, Product } from './types/product';
 import { Router } from '@angular/router';
 import { SocketService } from './services/socket.service';
@@ -17,7 +17,7 @@ export class HardwareBarcodeScannerService {
   public claimedBySubject = new BehaviorSubject<string | null>(null);
   public claimedBy$ = this.claimedBySubject.asObservable();
 
-  constructor(private http: HttpClient, private router: Router, private socketService: SocketService) {
+  constructor(private http: HttpClient, private router: Router, private socketService: SocketService, private env: EnvironmentService) {
     // Listen for events indicating our scanner has been claimed/released
     this.socketService.on('scanner_claimed', (data: { by: string }) => {
       console.log("Scanner claimed by:", data.by);
@@ -52,7 +52,7 @@ export class HardwareBarcodeScannerService {
     if (barcode.toLowerCase().startsWith("r-")) {
       // recipe barcode
       barcode = barcode.substring(2);
-      this.http.get<ProductBarcode>(environment.apiUrl + "/recipes/" + barcode).subscribe(result => {
+      this.http.get<ProductBarcode>(this.env.apiUrl + "/recipes/" + barcode).subscribe(result => {
         if (result) {
           this.router.navigate(["recipes", result.id]);
         }
@@ -61,7 +61,7 @@ export class HardwareBarcodeScannerService {
     else if (barcode.toLowerCase().startsWith("sk-")) {
       // new stock item barcode
       barcode = barcode.substring(3);
-      this.http.get<ProductBarcode>(environment.apiUrl + "/stock-items/" + barcode).subscribe(result => {
+      this.http.get<ProductBarcode>(this.env.apiUrl + "/stock-items/" + barcode).subscribe(result => {
         if (result) {
           this.router.navigate(["products", result.ProductId], {
             queryParams: {
@@ -79,7 +79,7 @@ export class HardwareBarcodeScannerService {
     else if (barcode.toLowerCase().startsWith("s2-")) {
       // new s2 stock item barcode
       barcode = barcode.substring(3);
-      this.http.get<any>(environment.apiUrl + "/stock-items/" + barcode).subscribe(result => {
+      this.http.get<any>(this.env.apiUrl + "/stock-items/" + barcode).subscribe(result => {
         if (result) {
           // Result likely contains ProductId (or product.id)
           // Adjust based on expected return of /stock-items/:id
@@ -105,7 +105,7 @@ export class HardwareBarcodeScannerService {
           }
         })
       }
-      this.http.get<Product>(environment.apiUrl + "/barcodes/products?barcode=" + barcode).subscribe(result => {
+      this.http.get<Product>(this.env.apiUrl + "/barcodes/products?barcode=" + barcode).subscribe(result => {
         if (result) {
           this.router.navigate(["products", result.id]);
         }

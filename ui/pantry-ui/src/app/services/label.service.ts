@@ -1,15 +1,17 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import { environment } from '../../environments/environment';
+import { EnvironmentService } from './environment.service';
 
 @Injectable({
   providedIn: 'root'
 })
 export class LabelService {
-  private apiUrl = environment.apiUrl;
+  private apiUrl: string;
 
-  constructor(private http: HttpClient) { }
+  constructor(private http: HttpClient, private env: EnvironmentService) {
+    this.apiUrl = this.env.apiUrl;
+  }
 
   printStockLabel(stockId: number, size: string = 'standard'): Observable<any> {
     return this.http.post(`${this.apiUrl}/labels/stock/${stockId}`, { size });

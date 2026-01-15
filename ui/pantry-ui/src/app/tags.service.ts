@@ -1,6 +1,6 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable } from '@angular/core';
-import { environment } from '../environments/environment';
+import { EnvironmentService } from './services/environment.service';
 import { Observable } from 'rxjs';
 
 export interface Tag {
@@ -22,10 +22,10 @@ export interface TagGroup {
 })
 export class TagsService {
 
-  constructor(private http: HttpClient) { }
+  constructor(private http: HttpClient, private env: EnvironmentService) { }
 
   private url = (a: string): string => {
-    return environment.apiUrl + a;
+    return this.env.apiUrl + a;
   }
 
   public GetAll = (): Observable<Tag[]> => {

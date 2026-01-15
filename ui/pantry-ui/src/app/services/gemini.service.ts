@@ -1,16 +1,18 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
-import { environment } from '../../environments/environment';
+import { EnvironmentService } from './environment.service';
 
 @Injectable({
   providedIn: 'root'
 })
 export class GeminiService {
 
-  private apiUrl = `${environment.apiUrl}/gemini/chat`;
+  private apiUrl: string;
 
-  constructor(private http: HttpClient) { }
+  constructor(private http: HttpClient, private env: EnvironmentService) {
+    this.apiUrl = `${this.env.apiUrl}/gemini/chat`;
+  }
 
   sendMessage(prompt: string, history: any[], sessionId?: number, image?: File, additionalContext?: string): Observable<any> {
     if (image) {
@@ -41,19 +43,19 @@ export class GeminiService {
   }
 
   getProductDetailsSuggestion(productTitle: string): Observable<any> {
-    return this.http.post<any>(`${environment.apiUrl}/gemini/product-details`, { productTitle });
+    return this.http.post<any>(`${this.env.apiUrl}/gemini/product-details`, { productTitle });
   }
 
   quickSuggest(tags: string[], selectedMemberIds?: number[]): Observable<any> {
-    return this.http.post<any>(`${environment.apiUrl}/gemini/quick-suggest`, { tags, selectedMemberIds });
+    return this.http.post<any>(`${this.env.apiUrl}/gemini/quick-suggest`, { tags, selectedMemberIds });
   }
 
   getThawAdvice(items: string[]): Observable<any> {
-    return this.http.post<any>(`${environment.apiUrl}/gemini/thaw-advice`, { items });
+    return this.http.post<any>(`${this.env.apiUrl}/gemini/thaw-advice`, { items });
   }
 
   getAvailableModels(): Observable<any> {
-    return this.http.get<any>(`${environment.apiUrl}/gemini/models`);
+    return this.http.get<any>(`${this.env.apiUrl}/gemini/models`);
   }
 
   sortShoppingList(items: string[]): Observable<{ sortedItems: string[] }> {

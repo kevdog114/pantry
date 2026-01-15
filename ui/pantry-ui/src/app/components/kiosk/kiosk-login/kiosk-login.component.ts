@@ -4,7 +4,7 @@ import { KioskService } from '../../../services/kiosk.service';
 import { Router } from '@angular/router';
 import * as QRCode from 'qrcode';
 import { io, Socket } from 'socket.io-client';
-import { environment } from '../../../../environments/environment';
+import { EnvironmentService } from '../../../services/environment.service';
 import { HardwareService } from '../../../services/hardware.service';
 
 @Component({
@@ -23,7 +23,8 @@ export class KioskLoginComponent implements OnInit, OnDestroy {
     constructor(
         private kioskService: KioskService,
         private router: Router,
-        private hardwareService: HardwareService
+        private hardwareService: HardwareService,
+        private env: EnvironmentService
     ) { }
 
     ngOnInit() {
@@ -60,13 +61,13 @@ export class KioskLoginComponent implements OnInit, OnDestroy {
         let pathname = '';
 
         try {
-            const url = new URL(environment.apiUrl);
+            const url = new URL(this.env.apiUrl);
             origin = url.origin;
             pathname = url.pathname;
         } catch (e) {
             // Fallback for relative URLs: use current origin
             origin = window.location.origin;
-            pathname = environment.apiUrl;
+            pathname = this.env.apiUrl;
         }
 
         // Ensure pathname ends with / before appending socket.io

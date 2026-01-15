@@ -3,7 +3,7 @@ import { Component, OnInit } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { CommonModule } from '@angular/common';
 import { MatTooltipModule } from '@angular/material/tooltip';
-import { environment } from '../../../environments/environment';
+import { EnvironmentService } from '../../services/environment.service';
 import { RouterModule } from '@angular/router';
 import { FormsModule } from '@angular/forms';
 import { MealPlanService, MealPlan } from '../../services/meal-plan.service';
@@ -75,7 +75,8 @@ export class MealPlanComponent implements OnInit {
         private logisticsService: KitchenLogisticsService, // Injected
         private geminiService: GeminiService,
         private snackBar: MatSnackBar,
-        private http: HttpClient
+        private http: HttpClient,
+        private env: EnvironmentService
     ) {
         this.generateDays();
     }
@@ -567,7 +568,7 @@ export class MealPlanComponent implements OnInit {
         endDay.setDate(endDay.getDate() + 1);
         const end = endDay.toISOString().split('T')[0];
 
-        this.http.get<any[]>(`${environment.apiUrl}/weather/forecast?start=${start}&end=${end}`)
+        this.http.get<any[]>(`${this.env.apiUrl}/weather/forecast?start=${start}&end=${end}`)
             .subscribe({
                 next: (data) => {
                     this.weatherMap.clear();

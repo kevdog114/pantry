@@ -1,16 +1,18 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import { environment } from '../../environments/environment';
+import { EnvironmentService } from './environment.service';
 
 @Injectable({
   providedIn: 'root'
 })
 export class AuthService {
 
-  private baseUrl = environment.apiUrl + '/auth';
+  private baseUrl: string;
 
-  constructor(private http: HttpClient) { }
+  constructor(private http: HttpClient, private env: EnvironmentService) {
+    this.baseUrl = this.env.apiUrl + '/auth';
+  }
 
   login(credentials: any): Observable<any> {
     return this.http.post(`${this.baseUrl}/login`, credentials, { withCredentials: true });
@@ -41,6 +43,6 @@ export class AuthService {
   }
 
   getSocketToken(): Observable<{ token: string }> {
-    return this.http.get<{ token: string }>(`${environment.apiUrl}/auth/socket-token`, { withCredentials: true });
+    return this.http.get<{ token: string }>(`${this.env.apiUrl}/auth/socket-token`, { withCredentials: true });
   }
 }

@@ -2,7 +2,7 @@ import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable, of } from 'rxjs';
 import { catchError } from 'rxjs/operators';
-import { environment } from '../../environments/environment';
+import { EnvironmentService } from './environment.service';
 
 @Injectable({
     providedIn: 'root'
@@ -10,7 +10,7 @@ import { environment } from '../../environments/environment';
 export class HardwareService {
     private localBridgeUrl = 'http://localhost:8080';
 
-    constructor(private http: HttpClient) { }
+    constructor(private http: HttpClient, private env: EnvironmentService) { }
 
     checkBridge(): Observable<any> {
         return this.http.get(`${this.localBridgeUrl}/health`).pipe(
@@ -19,7 +19,7 @@ export class HardwareService {
     }
 
     connectBridge(token: string, kioskName?: string, hasKeyboardScanner?: boolean): Observable<any> {
-        let apiUrl = environment.apiUrl;
+        let apiUrl = this.env.apiUrl;
         // ensure full url if environment.apiUrl is relative
         if (apiUrl.startsWith('/')) {
             apiUrl = window.location.origin + apiUrl;

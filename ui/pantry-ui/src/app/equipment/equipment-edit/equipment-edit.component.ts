@@ -10,7 +10,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { EquipmentService } from '../../services/equipment.service';
 import { Equipment } from '../../types/equipment';
-import { environment } from '../../../environments/environment';
+import { EnvironmentService } from '../../services/environment.service';
 import { HttpClient } from '@angular/common/http';
 
 @Component({
@@ -28,7 +28,8 @@ export class EquipmentEditComponent implements OnInit {
         private equipmentService: EquipmentService,
         private route: ActivatedRoute,
         private router: Router,
-        private http: HttpClient
+        private http: HttpClient,
+        private env: EnvironmentService
     ) { }
 
     ngOnInit(): void {
@@ -71,13 +72,13 @@ export class EquipmentEditComponent implements OnInit {
     }
 
     printLabel() {
-        this.http.post(`${environment.apiUrl}/labels/asset/${this.item.id}`, {}).subscribe({
+        this.http.post(`${this.env.apiUrl}/labels/asset/${this.item.id}`, {}).subscribe({
             next: () => alert("Label printed!"),
             error: (err) => alert("Failed to print label")
         });
     }
 
     getFileUrl(file: any) {
-        return `${environment.apiUrl}/files/${file.id}`;
+        return `${this.env.apiUrl}/files/${file.id}`;
     }
 }

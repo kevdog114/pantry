@@ -9,7 +9,7 @@ import { Product } from '../types/product';
 import { MatBottomSheet, MatBottomSheetModule } from '@angular/material/bottom-sheet';
 import { MatRippleModule } from '@angular/material/core';
 import { QuickSnackComponent } from '../components/quick-snack/quick-snack.component';
-import { environment } from '../../environments/environment';
+import { EnvironmentService } from '../services/environment.service';
 import { UpcomingTasksWidgetComponent } from './upcoming-tasks-widget/upcoming-tasks-widget.component';
 
 @Component({
@@ -38,7 +38,8 @@ export class HomeComponent implements OnInit {
 
     constructor(
         private productService: ProductListService,
-        private bottomSheet: MatBottomSheet
+        private bottomSheet: MatBottomSheet,
+        private env: EnvironmentService
     ) { }
 
     ngOnInit(): void {
@@ -104,7 +105,7 @@ export class HomeComponent implements OnInit {
 
     public getImageUrl(product: Product): string {
         if (product && product.files && product.files.length > 0)
-            return environment.apiUrl + "/files/" + product.files[0].id + "?size=small";
+            return this.env.apiUrl + "/files/" + product.files[0].id + "?size=small";
         else
             return "";
     }

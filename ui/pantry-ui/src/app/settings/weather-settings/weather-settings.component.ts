@@ -10,7 +10,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
 import { MatTableModule } from '@angular/material/table';
 import { MatIconModule } from '@angular/material/icon';
-import { environment } from '../../../environments/environment';
+import { EnvironmentService } from '../../services/environment.service';
 
 interface WeatherSettings {
     provider: string;
@@ -55,7 +55,7 @@ export class WeatherSettingsComponent implements OnInit {
     isLoading = false;
     isLocating = false;
 
-    constructor(private http: HttpClient, private snackBar: MatSnackBar) { }
+    constructor(private http: HttpClient, private snackBar: MatSnackBar, private env: EnvironmentService) { }
 
     ngOnInit() {
         this.loadSettings();
@@ -89,7 +89,7 @@ export class WeatherSettingsComponent implements OnInit {
     }
 
     loadSettings() {
-        this.http.get<WeatherSettings>(`${environment.apiUrl}/weather/settings`)
+        this.http.get<WeatherSettings>(`${this.env.apiUrl}/weather/settings`)
             .subscribe(res => {
                 this.settings = res;
                 if (!this.settings.provider) this.settings.provider = 'disabled';
@@ -100,7 +100,7 @@ export class WeatherSettingsComponent implements OnInit {
         // Get next 14 days just to be sure we see something
         const start = new Date().toISOString().split('T')[0];
         const end = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-        this.http.get<DailyWeather[]>(`${environment.apiUrl}/weather/forecast?start=${start}&end=${end}`)
+        this.http.get<DailyWeather[]>(`${this.env.apiUrl}/weather/forecast?start=${start}&end=${end}`)
             .subscribe(res => {
                 this.forecast = res.map(w => {
                     // Fix timezone offset issue
@@ -122,7 +122,7 @@ export class WeatherSettingsComponent implements OnInit {
 
     saveSettings() {
         this.isLoading = true;
-        this.http.post(`${environment.apiUrl}/weather/settings`, this.settings)
+        this.http.post(`${this.env.apiUrl}/weather/settings`, this.settings)
             .subscribe({
                 next: () => {
                     this.isLoading = false;

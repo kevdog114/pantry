@@ -6,7 +6,7 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { FormsModule } from '@angular/forms';
 import { Product } from '../../../types/product';
-import { environment } from '../../../environments/environment';
+import { EnvironmentService } from '../../services/environment.service';
 import { Router } from '@angular/router';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
@@ -32,7 +32,7 @@ export class PhotoUploadComponent implements OnInit, OnDestroy {
   cameras: MediaDeviceInfo[] = [];
   selectedDeviceId: string = '';
 
-  constructor(private http: HttpClient, private router: Router, private snackBar: MatSnackBar) { }
+  constructor(private http: HttpClient, private router: Router, private snackBar: MatSnackBar, private env: EnvironmentService) { }
 
   ngOnInit(): void {
     const savedDeviceId = localStorage.getItem('pantry_camera_device_id');
@@ -146,7 +146,7 @@ export class PhotoUploadComponent implements OnInit, OnDestroy {
       const formData = new FormData();
       formData.append('file', blob, 'product-image.jpg');
 
-      this.http.post<Product & { warning?: string }>(`${environment.apiUrl}/gemini/image`, formData)
+      this.http.post<Product & { warning?: string }>(`${this.env.apiUrl}/gemini/image`, formData)
         .subscribe(response => {
           this.isLoading = false;
           if (response.warning) {

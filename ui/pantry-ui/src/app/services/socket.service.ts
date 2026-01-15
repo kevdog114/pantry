@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { io, Socket } from 'socket.io-client';
-import { environment } from '../../environments/environment';
+import { EnvironmentService } from './environment.service';
 import { Observable, Subject, BehaviorSubject } from 'rxjs';
 import { AuthService } from './auth';
 
@@ -11,7 +11,7 @@ export class SocketService {
     private socket: Socket | undefined;
     public connected$ = new BehaviorSubject<boolean>(false);
 
-    constructor(private authService: AuthService) {
+    constructor(private authService: AuthService, private env: EnvironmentService) {
         this.initSocket();
     }
 
@@ -51,7 +51,7 @@ export class SocketService {
             options.auth = { token };
         }
 
-        this.socket = io(environment.apiUrl, options);
+        this.socket = io(this.env.apiUrl, options);
 
         this.socket.on('connect', () => {
             console.log('SocketService: Connected');

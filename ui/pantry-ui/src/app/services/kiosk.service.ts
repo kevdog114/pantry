@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
-import { environment } from '../../environments/environment';
+import { EnvironmentService } from './environment.service';
 
 export interface KioskTokenResponse {
     token: string;
@@ -37,9 +37,11 @@ export interface Kiosk {
     providedIn: 'root'
 })
 export class KioskService {
-    private apiUrl = `${environment.apiUrl}`;
+    private apiUrl: string;
 
-    constructor(private http: HttpClient) { }
+    constructor(private http: HttpClient, private env: EnvironmentService) {
+        this.apiUrl = `${this.env.apiUrl}`;
+    }
 
     generateToken(): Observable<KioskTokenResponse> {
         return this.http.post<KioskTokenResponse>(`${this.apiUrl}/kiosk/token`, {});

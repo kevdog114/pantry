@@ -1,8 +1,10 @@
+import { inject } from '@angular/core';
 import { HttpInterceptorFn } from '@angular/common/http';
-import { environment } from '../../environments/environment';
+import { EnvironmentService } from '../services/environment.service';
 
 export const authInterceptor: HttpInterceptorFn = (req, next) => {
-    if (req.url.startsWith(environment.apiUrl)) {
+    const env = inject(EnvironmentService);
+    if (req.url.startsWith(env.apiUrl)) {
         const authReq = req.clone({
             withCredentials: true
         });

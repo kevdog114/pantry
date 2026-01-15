@@ -6,7 +6,7 @@ import { RouterModule } from '@angular/router';
 import { EquipmentService } from '../../services/equipment.service';
 import { Equipment } from '../../types/equipment';
 import { MatCardModule } from '@angular/material/card';
-import { environment } from '../../../environments/environment';
+import { EnvironmentService } from '../../services/environment.service';
 
 @Component({
     selector: 'app-equipment-list',
@@ -18,7 +18,7 @@ import { environment } from '../../../environments/environment';
 export class EquipmentListComponent implements OnInit {
     items: Equipment[] = [];
 
-    constructor(private equipmentService: EquipmentService) { }
+    constructor(private equipmentService: EquipmentService, private env: EnvironmentService) { }
 
     ngOnInit(): void {
         this.equipmentService.getAll().subscribe(data => this.items = data);
@@ -30,7 +30,7 @@ export class EquipmentListComponent implements OnInit {
 
     getImageUrl(item: Equipment): string {
         if (this.hasImage(item)) {
-            return `${environment.apiUrl}/files/${item.files![0].id}`;
+            return `${this.env.apiUrl}/files/${item.files![0].id}`;
         }
         return '';
     }
