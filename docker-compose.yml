@@ -18,7 +18,7 @@ services:
     image: klschaefer/pantry-ui:latest
     pull_policy: always
     ports:
-      - 4200:4200
+      - 4200:80
     environment:
       - API_BASEURL=${API_BASEURL}
       - SITE_TITLE=${SITE_TITLE}
