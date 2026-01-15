@@ -213,6 +213,27 @@ function connectSocket() {
         }
     });
 
+    socket.on('refresh_kiosk_settings', (settings) => {
+        console.log('Received refresh_kiosk_settings:', settings);
+        try {
+            const fs = require('fs');
+            let config = {};
+            if (fs.existsSync('kiosk_config.json')) {
+                config = JSON.parse(fs.readFileSync('kiosk_config.json', 'utf8'));
+            }
+
+            if (settings.hasKeyboardScanner !== undefined) {
+                config.hasKeyboardScanner = !!settings.hasKeyboardScanner;
+            }
+
+            fs.writeFileSync('kiosk_config.json', JSON.stringify(config));
+            console.log("Updated kiosk config:", config);
+            checkDevices();
+        } catch (e) {
+            console.error("Error updating kiosk settings:", e);
+        }
+    });
+
     socket.on('print_label', (payload) => {
         console.log('Received print command:', payload);
 
