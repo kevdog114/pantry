@@ -2,6 +2,7 @@ import { Injectable } from '@angular/core';
 import { io, Socket } from 'socket.io-client';
 import { environment } from '../../environments/environment';
 import { Observable, Subject, BehaviorSubject } from 'rxjs';
+import { AuthService } from './auth';
 
 @Injectable({
     providedIn: 'root'
@@ -10,35 +11,47 @@ export class SocketService {
     private socket: Socket | undefined;
     public connected$ = new BehaviorSubject<boolean>(false);
 
-    constructor() {
+    constructor(private authService: AuthService) {
         this.initSocket();
     }
 
     public initSocket() {
-        // Determine token: User token or Kiosk token
         const userToken = localStorage.getItem('access_token');
         const kioskToken = localStorage.getItem('kiosk_auth_token');
         const token = userToken || kioskToken;
 
-        if (!token) {
-            console.warn('SocketService: No token found, skipping connection');
-            return;
+        if (token) {
+            this.connect(token);
+        } else {
+            this.authService.getSocketToken().subscribe({
+                next: (res) => {
+                    console.log('SocketService: Obtained socket token from backend');
+                    this.connect(res.token);
+                },
+                error: (err) => {
+                    console.warn('SocketService: No local token found and failed to fetch one. Proceeding without auth.');
+                    this.connect(null);
+                }
+            });
         }
+    }
 
+    private connect(token: string | null) {
         if (this.socket && this.socket.connected) {
             this.connected$.next(true);
             return;
         }
 
-        const apiUrl = environment.apiUrl;
-
-        // Connect
-        this.socket = io(apiUrl, {
-            auth: { token },
+        const options: any = {
             transports: ['websocket', 'polling'],
             reconnection: true,
             reconnectionDelay: 5000
-        });
+        };
+        if (token) {
+            options.auth = { token };
+        }
+
+        this.socket = io(environment.apiUrl, options);
 
         this.socket.on('connect', () => {
             console.log('SocketService: Connected');

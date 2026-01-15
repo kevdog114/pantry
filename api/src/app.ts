@@ -138,6 +138,7 @@ app.get("/auth/user", AuthController.getCurrentUser);
 // All routes below this are protected
 app.use(isAuthenticated);
 
+app.get("/auth/socket-token", AuthController.generateSocketToken);
 app.post("/auth/logout", AuthController.logout);
 app.post("/auth/password", AuthController.changePassword);
 

@@ -39,4 +39,8 @@ export class AuthService {
   deletePersonalAccessToken(id: number): Observable<any> {
     return this.http.delete(`${this.baseUrl}/personal-access-tokens/${id}`, { withCredentials: true });
   }
+
+  getSocketToken(): Observable<{ token: string }> {
+    return this.http.get<{ token: string }>(`${environment.apiUrl}/auth/socket-token`, { withCredentials: true });
+  }
 }

@@ -47,15 +47,28 @@ export class BarcodeScannerComponent implements OnInit, OnDestroy {
 
     this.isKioskMode = localStorage.getItem('kiosk_mode') === 'true';
     if (!this.isKioskMode) {
-      this.refreshScanners();
+      this.socketService.connected$.subscribe(connected => {
+        if (connected) {
+          console.log("Socket connected, refreshing scanners...");
+          this.refreshScanners();
+        }
+      });
+      // Also init immediately if already connected
+      if (this.socketService.isConnected()) {
+        this.refreshScanners();
+      }
     }
   }
 
   refreshScanners() {
     if (this.socketService.isConnected()) {
+      console.log("Emitting get_available_scanners...");
       this.socketService.emit('get_available_scanners', (scanners: any[]) => {
+        console.log("Received scanners:", scanners);
         this.availableScanners = scanners;
       });
+    } else {
+      console.warn("Cannot refresh scanners: Socket not connected");
     }
   }
 

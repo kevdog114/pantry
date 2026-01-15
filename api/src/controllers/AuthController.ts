@@ -1,6 +1,34 @@
 import { Request, Response, NextFunction } from 'express';
 import prisma from '../lib/prisma';
 import * as bcrypt from 'bcryptjs';
+import * as crypto from 'crypto';
+
+export const generateSocketToken = async (req: Request, res: Response) => {
+    if (!req.user) {
+        return res.status(401).json({ message: 'Not authenticated' });
+    }
+
+    const userId = (req.user as any).id;
+    const description = `Web Socket Session - ${(req.user as any).username}`;
+
+    // Try to find existing token to avoid spamming DB
+    let pat = await prisma.personalAccessToken.findFirst({
+        where: { userId, description }
+    });
+
+    if (!pat) {
+        const token = crypto.randomBytes(32).toString('hex');
+        pat = await prisma.personalAccessToken.create({
+            data: {
+                userId,
+                token,
+                description
+            }
+        });
+    }
+
+    res.json({ token: pat.token });
+};
 
 export const login = (req: Request, res: Response) => {
     res.json({ user: req.user });
