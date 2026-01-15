@@ -204,22 +204,33 @@ io.on("connection", (socket) => {
 
     socket.on("identify_kiosk_scanner", async () => {
         // Called by Kiosk Frontend after login/connect if it has a scanner
-        if (!kioskId && !pat) return; // Must be authenticated, preferrably as kiosk
+        if (!kioskId && !pat) {
+            console.log(`Socket ${socket.id} tried to identify as scanner but has no kioskId or PAT.`);
+            return;
+        }
 
         // If identified via PAT logic earlier
         const socketAny = socket as any;
         if (socketAny.kioskId) {
             const kId = socketAny.kioskId;
+            console.log(`Checking scanner eligibility for Kiosk ${kId}...`);
             // Fetch fresh kiosk data to check 'hasKeyboardScanner'
             const kiosk = await prisma.kiosk.findUnique({ where: { id: kId } });
-            if (kiosk && kiosk.hasKeyboardScanner) {
-                console.log(`Kiosk ${kiosk.name} registered as available scanner.`);
-                activeKiosks.set(socket.id, {
-                    kioskId: kId,
-                    name: kiosk.name,
-                    hasScanner: true
-                });
+            if (kiosk) {
+                console.log(`Kiosk ${kiosk.name} hasKeyboardScanner: ${kiosk.hasKeyboardScanner}`);
+                if (kiosk.hasKeyboardScanner) {
+                    console.log(`Kiosk ${kiosk.name} registered as available scanner.`);
+                    activeKiosks.set(socket.id, {
+                        kioskId: kId,
+                        name: kiosk.name,
+                        hasScanner: true
+                    });
+                }
+            } else {
+                console.warn(`Kiosk record not found for ID ${kId}`);
             }
+        } else {
+            console.warn(`Socket ${socket.id} has no kioskId attached.`);
         }
     });
 

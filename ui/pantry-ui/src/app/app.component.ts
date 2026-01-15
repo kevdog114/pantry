@@ -74,6 +74,8 @@ export class AppComponent implements OnInit {
     const kioskToken = localStorage.getItem('kiosk_auth_token');
     const kioskId = localStorage.getItem('kiosk_id');
 
+    let isScannerKiosk = false;
+
     if (kioskToken) {
       this.kioskService.kioskLogin(kioskToken, kioskId ? parseInt(kioskId) : undefined).subscribe({
         next: (res) => {
@@ -81,7 +83,9 @@ export class AppComponent implements OnInit {
           if (res.kioskSettings && res.kioskSettings.hasKeyboardScanner !== undefined) {
             console.log("Setting scanner enabled:", res.kioskSettings.hasKeyboardScanner);
             this.hardwareScanner.setEnabled(res.kioskSettings.hasKeyboardScanner);
-            if (res.kioskSettings.hasKeyboardScanner) {
+
+            isScannerKiosk = res.kioskSettings.hasKeyboardScanner;
+            if (isScannerKiosk) {
               this.socketService.emit('identify_kiosk_scanner');
             }
 
@@ -90,6 +94,16 @@ export class AppComponent implements OnInit {
           }
         },
         error: (err) => console.error("Kiosk settings refresh failed", err)
+      });
+
+      // Re-identify on socket reconnection
+      this.socketService.connected$.pipe(
+        filter(connected => connected === true)
+      ).subscribe(() => {
+        if (isScannerKiosk) {
+          console.log("Socket reconnected, re-identifying as scanner...");
+          this.socketService.emit('identify_kiosk_scanner');
+        }
       });
     }
 
