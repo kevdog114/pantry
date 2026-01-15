@@ -100,7 +100,8 @@ export class KioskLoginComponent implements OnInit, OnDestroy {
                     next: (res) => {
                         // Successfully logged in (cookie set)
                         console.log('Login success, attempting to connect hardware bridge...');
-                        this.hardwareService.connectBridge(data.authToken, data.kioskName).subscribe({
+                        const hasScanner = res.kioskSettings?.hasKeyboardScanner || false;
+                        this.hardwareService.connectBridge(data.authToken, data.kioskName, hasScanner).subscribe({
                             next: (bridgeRes) => console.log('Hardware bridge connected', bridgeRes),
                             error: (err) => console.warn('Hardware bridge connection failed (ignore if not on Kiosk Device)', err)
                         });

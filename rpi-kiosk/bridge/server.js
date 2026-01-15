@@ -27,16 +27,17 @@ app.get('/health', (req, res) => {
 const fs = require('fs');
 
 app.post('/connect', (req, res) => {
-    const { token, apiUrl, kioskName } = req.body;
+    const { token, apiUrl, kioskName, hasKeyboardScanner } = req.body;
     if (!token) return res.status(400).json({ error: 'Token required' });
 
-    console.log('Received connect request', { apiUrl, kioskName });
+    console.log('Received connect request', { apiUrl, kioskName, hasKeyboardScanner });
 
     if (kioskName) {
         try {
             const config = {
                 device_name: kioskName,
-                device_id: kioskName.toLowerCase().replace(/[^a-z0-9]/g, '_')
+                device_id: kioskName.toLowerCase().replace(/[^a-z0-9]/g, '_'),
+                hasKeyboardScanner: !!hasKeyboardScanner
             };
             fs.writeFileSync('kiosk_config.json', JSON.stringify(config));
             console.log("Updated kiosk config:", config);
@@ -314,6 +315,29 @@ const knownPrinters = {};
 
 function checkDevices() {
     const pythonCmd = '/opt/venv/bin/python3 print_label.py';
+    const fs = require('fs');
+
+    // Check for Keyboard Scanner Config
+    try {
+        if (fs.existsSync('kiosk_config.json')) {
+            const config = JSON.parse(fs.readFileSync('kiosk_config.json', 'utf8'));
+            if (config.hasKeyboardScanner && socket && socket.connected) {
+                console.log('Reporting Keyboard Scanner to backend...');
+                socket.emit('device_register', {
+                    name: 'Kitchen Kiosk Barcode Scanner', // Use fixed name as requested or derived
+                    type: 'SCANNER',
+                    status: 'ONLINE',
+                    details: JSON.stringify({
+                        identifier: 'keyboard_scanner',
+                        description: 'USB Keyboard Barcode Scanner',
+                        config: {}
+                    })
+                });
+            }
+        }
+    } catch (e) {
+        console.error("Error checking kiosk config for scanner:", e);
+    }
 
     exec(`${pythonCmd} discover`, (err, stdout) => {
         if (err) {

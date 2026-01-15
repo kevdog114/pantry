@@ -13,6 +13,7 @@ import { HardwareBarcodeScannerService } from './hardware-barcode-scanner.servic
 import { AuthService } from './services/auth';
 import { KioskService } from './services/kiosk.service';
 import { SocketService } from './services/socket.service';
+import { HardwareService } from './services/hardware.service';
 import { Observable, of } from 'rxjs';
 import { catchError, map, filter } from 'rxjs/operators';
 import { CommonModule } from '@angular/common';
@@ -45,6 +46,7 @@ export class AppComponent implements OnInit {
     private authService: AuthService,
     private kioskService: KioskService,
     private socketService: SocketService, // Injected SocketService
+    private hardwareService: HardwareService,
     private router: Router) {
     this.title = environment.siteTitle;
     this.isSocketConnected$ = this.socketService.connected$;
@@ -68,13 +70,33 @@ export class AppComponent implements OnInit {
       this.scannerClaimedBy = claimer;
     });
 
+    // If we are a Kiosk, refresh settings and identify regardless of current auth state
+    const kioskToken = localStorage.getItem('kiosk_auth_token');
+    const kioskId = localStorage.getItem('kiosk_id');
+
+    if (kioskToken) {
+      this.kioskService.kioskLogin(kioskToken, kioskId ? parseInt(kioskId) : undefined).subscribe({
+        next: (res) => {
+          console.log("Kiosk settings refreshed", res);
+          if (res.kioskSettings && res.kioskSettings.hasKeyboardScanner !== undefined) {
+            console.log("Setting scanner enabled:", res.kioskSettings.hasKeyboardScanner);
+            this.hardwareScanner.setEnabled(res.kioskSettings.hasKeyboardScanner);
+            if (res.kioskSettings.hasKeyboardScanner) {
+              this.socketService.emit('identify_kiosk_scanner');
+            }
+
+            // Update Bridge with new settings
+            this.hardwareService.connectBridge(kioskToken, undefined, res.kioskSettings.hasKeyboardScanner).subscribe();
+          }
+        },
+        error: (err) => console.error("Kiosk settings refresh failed", err)
+      });
+    }
+
     this.isAuthenticated = this.authService.getUser().pipe(
       map(response => !!response.user),
       catchError(() => {
         // Try kiosk login
-        const kioskToken = localStorage.getItem('kiosk_auth_token');
-        const kioskId = localStorage.getItem('kiosk_id');
-
         if (kioskToken) {
           console.log("Session lost, attempting kiosk auto-login...");
           return this.kioskService.kioskLogin(kioskToken, kioskId ? parseInt(kioskId) : undefined).pipe(

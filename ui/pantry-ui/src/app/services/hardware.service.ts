@@ -18,7 +18,7 @@ export class HardwareService {
         );
     }
 
-    connectBridge(token: string, kioskName?: string): Observable<any> {
+    connectBridge(token: string, kioskName?: string, hasKeyboardScanner?: boolean): Observable<any> {
         let apiUrl = environment.apiUrl;
         // ensure full url if environment.apiUrl is relative
         if (apiUrl.startsWith('/')) {
@@ -26,7 +26,7 @@ export class HardwareService {
         }
         if (apiUrl.endsWith('/')) apiUrl = apiUrl.slice(0, -1);
 
-        return this.http.post(`${this.localBridgeUrl}/connect`, { token, apiUrl, kioskName }).pipe(
+        return this.http.post(`${this.localBridgeUrl}/connect`, { token, apiUrl, kioskName, hasKeyboardScanner }).pipe(
             catchError(err => {
                 console.error('Failed to connect bridge', err);
                 return of({ success: false, error: err })
