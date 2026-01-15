@@ -1,7 +1,15 @@
-<mat-toolbar>
+<div *ngIf="scannerClaimedBy"
+  style="background-color: #f44336; color: white; padding: 10px; display: flex; justify-content: space-between; align-items: center;">
+  <span><strong>SCANNER CLAIMED BY: {{scannerClaimedBy}}</strong></span>
+  <button mat-raised-button color="accent" (click)="forceReleaseScanner()">STOP CLAIM</button>
+</div>
+
+<mat-toolbar [color]="scannerClaimedBy ? 'warn' : 'primary'">
   <button mat-icon-button (click)="sidenav.toggle()">
     <mat-icon>menu</mat-icon>
   </button>
+  <mat-icon *ngIf="isSocketConnected$ | async" class="small-icon ms-2" title="Connected to Backend"
+    style="font-size: 1.2rem; height: 1.2rem; width: 1.2rem; opacity: 0.7;">cloud_done</mat-icon>
   <a [routerLink]="['/']">{{title}}</a>
   <span class="example-spacer"></span>
   <a mat-icon-button [routerLink]="['/barcode/scanner']">

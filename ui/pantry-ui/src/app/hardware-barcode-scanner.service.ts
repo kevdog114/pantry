@@ -4,6 +4,7 @@ import { BehaviorSubject } from 'rxjs';
 import { environment } from '../environments/environment';
 import { ProductBarcode, Product } from './types/product';
 import { Router } from '@angular/router';
+import { SocketService } from './services/socket.service';
 
 @Injectable({
   providedIn: 'root'
@@ -11,7 +12,29 @@ import { Router } from '@angular/router';
 export class HardwareBarcodeScannerService {
 
   public BarcodeSearch = new BehaviorSubject<string | null>(null);
-  constructor(private http: HttpClient, private router: Router) { }
+
+  // Track if this kiosk's scanner is claimed by another device
+  public claimedBySubject = new BehaviorSubject<string | null>(null);
+  public claimedBy$ = this.claimedBySubject.asObservable();
+
+  constructor(private http: HttpClient, private router: Router, private socketService: SocketService) {
+    // Listen for events indicating our scanner has been claimed/released
+    this.socketService.on('scanner_claimed', (data: { by: string }) => {
+      console.log("Scanner claimed by:", data.by);
+      this.claimedBySubject.next(data.by);
+    });
+
+    this.socketService.on('scanner_released', () => {
+      console.log("Scanner released");
+      this.claimedBySubject.next(null);
+    });
+
+    // Listen for incoming barcode scans (if we are the one who claimed another scanner)
+    this.socketService.on('barcode_scan', (data: { barcode: string }) => {
+      console.log("Received remote barcode scan:", data.barcode);
+      this.searchForBarcode(data.barcode);
+    });
+  }
 
   private currentBarcode: string = "";
   private isScanning: boolean = false;
@@ -19,6 +42,10 @@ export class HardwareBarcodeScannerService {
 
   public setEnabled(enabled: boolean) {
     this.isEnabled = enabled;
+  }
+
+  public forceReleaseScanner() {
+    this.socketService.emit('force_release_scanner');
   }
 
   public searchForBarcode = (barcode: string) => {
@@ -90,6 +117,9 @@ export class HardwareBarcodeScannerService {
   }
 
   public ListenForScanner = () => {
+    // Ensure socket is initialized if it wasn't already (e.g. late login)
+    // this.socketService.initSocket(); // Moved logic to Service or App init to avoid redundancy
+
     document.addEventListener('keydown', (event) => {
       if (!this.isEnabled) return;
 
@@ -110,9 +140,16 @@ export class HardwareBarcodeScannerService {
       }
       else if (this.isScanning && event.key.toLowerCase() == "enter") {
         this.isScanning = false;
-        this.BarcodeSearch.next(this.currentBarcode);
-        console.log("Search for", this.currentBarcode);
-        this.searchForBarcode(this.currentBarcode);
+
+        // Check if we are claimed
+        if (this.claimedBySubject.value) {
+          console.log("Forwarding scan to owner:", this.claimedBySubject.value);
+          this.socketService.emit('barcode_scan', { barcode: this.currentBarcode });
+        } else {
+          this.BarcodeSearch.next(this.currentBarcode);
+          console.log("Search for", this.currentBarcode);
+          this.searchForBarcode(this.currentBarcode);
+        }
       }
       else if (this.isScanning) {
         if (event.key.length === 1) {

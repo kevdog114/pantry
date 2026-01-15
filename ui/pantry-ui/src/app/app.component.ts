@@ -12,6 +12,7 @@ import { SideMenuComponent } from './side-menu/side-menu.component';
 import { HardwareBarcodeScannerService } from './hardware-barcode-scanner.service';
 import { AuthService } from './services/auth';
 import { KioskService } from './services/kiosk.service';
+import { SocketService } from './services/socket.service';
 import { Observable, of } from 'rxjs';
 import { catchError, map, filter } from 'rxjs/operators';
 import { CommonModule } from '@angular/common';
@@ -43,8 +44,10 @@ export class AppComponent implements OnInit {
     iconRegistry: MatIconRegistry,
     private authService: AuthService,
     private kioskService: KioskService,
+    private socketService: SocketService, // Injected SocketService
     private router: Router) {
     this.title = environment.siteTitle;
+    this.isSocketConnected$ = this.socketService.connected$;
     hardwareScanner.ListenForScanner();
 
     iconRegistry.setDefaultFontSetClass("material-symbols-outlined");
@@ -56,7 +59,15 @@ export class AppComponent implements OnInit {
     });
   }
 
+  scannerClaimedBy: string | null = null; // Property for UI
+  isSocketConnected$: Observable<boolean>; // Property for UI
+
   ngOnInit() {
+    // Subscribe to claimed status
+    this.hardwareScanner.claimedBy$.subscribe(claimer => {
+      this.scannerClaimedBy = claimer;
+    });
+
     this.isAuthenticated = this.authService.getUser().pipe(
       map(response => !!response.user),
       catchError(() => {
@@ -72,6 +83,11 @@ export class AppComponent implements OnInit {
               if (res.kioskSettings && res.kioskSettings.hasKeyboardScanner !== undefined) {
                 console.log("Setting scanner enabled:", res.kioskSettings.hasKeyboardScanner);
                 this.hardwareScanner.setEnabled(res.kioskSettings.hasKeyboardScanner);
+
+                // Identify as scanner to backend
+                if (res.kioskSettings.hasKeyboardScanner) {
+                  this.socketService.emit('identify_kiosk_scanner');
+                }
               }
               if (this.router.url === '/login' || this.router.url === '/kiosk-login') {
                 this.router.navigate(['/']);
@@ -99,5 +115,9 @@ export class AppComponent implements OnInit {
       this.router.navigate(['/login']);
       this.isAuthenticated = of(false);
     });
+  }
+
+  forceReleaseScanner() {
+    this.hardwareScanner.forceReleaseScanner();
   }
 }

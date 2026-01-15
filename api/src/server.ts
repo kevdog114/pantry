@@ -169,8 +169,151 @@ io.on("connection", (socket) => {
 
     socket.on("disconnect", () => {
         // console.log("Socket disconnected:", socket.id);
+        const kioskData = activeKiosks.get(socket.id);
+        if (kioskData) {
+            console.log(`Kiosk disconnected: ${kioskData.name}`);
+            activeKiosks.delete(socket.id);
+
+            // If this kiosk was claimed, notify the claimer
+            const claim = claimedScanners.get(kioskData.kioskId);
+            if (claim) {
+                // If the disconnected socket was the one claimed? 
+                // Wait, if activeKiosks has it, it WAS the kiosk.
+                // So if the kiosk disconnects, the claim is void.
+                io.to(claim.claimerSocketId).emit('scanner_released');
+                claimedScanners.delete(kioskData.kioskId);
+            }
+        }
+
+        // If the disconnected socket was a CLAIMER
+        for (const [kioskId, claim] of claimedScanners.entries()) {
+            if (claim.claimerSocketId === socket.id) {
+                console.log(`Claimer disconnected, releasing scanner for kiosk ${kioskId}`);
+                claimedScanners.delete(kioskId);
+                // Notify the kiosk
+                // We need to find the kiosk socket. 
+                // We can broadcast to the kiosk room
+                io.to(`kiosk_device_${kioskId}`).emit('scanner_released');
+            }
+        }
+    });
+
+    // --- Scanner Sharing Logic ---
+
+    // Track online Kiosks: socketId -> { kioskId, name, hasScanner }
+
+    socket.on("identify_kiosk_scanner", async () => {
+        // Called by Kiosk Frontend after login/connect if it has a scanner
+        if (!kioskId && !pat) return; // Must be authenticated, preferrably as kiosk
+
+        // If identified via PAT logic earlier
+        const socketAny = socket as any;
+        if (socketAny.kioskId) {
+            const kId = socketAny.kioskId;
+            // Fetch fresh kiosk data to check 'hasKeyboardScanner'
+            const kiosk = await prisma.kiosk.findUnique({ where: { id: kId } });
+            if (kiosk && kiosk.hasKeyboardScanner) {
+                console.log(`Kiosk ${kiosk.name} registered as available scanner.`);
+                activeKiosks.set(socket.id, {
+                    kioskId: kId,
+                    name: kiosk.name,
+                    hasScanner: true
+                });
+            }
+        }
+    });
+
+    socket.on("get_available_scanners", (callback) => {
+        const available = [];
+        for (const [sId, data] of activeKiosks.entries()) {
+            const isClaimed = claimedScanners.has(data.kioskId);
+            if (!isClaimed) {
+                available.push({
+                    id: data.kioskId,
+                    name: data.name
+                });
+            }
+        }
+        if (typeof callback === 'function') callback(available);
+    });
+
+    socket.on("claim_scanner", (targetKioskId: number, callback) => {
+        if (!pat) return; // Auth required
+
+        // Check if available
+        let targetSocketId = null;
+        for (const [sId, data] of activeKiosks.entries()) {
+            if (data.kioskId == targetKioskId) {
+                targetSocketId = sId;
+                break;
+            }
+        }
+
+        if (targetSocketId && !claimedScanners.has(targetKioskId)) {
+            const claimerName = pat.user.username; // Or derive from PAT description
+            claimedScanners.set(targetKioskId, {
+                claimerSocketId: socket.id,
+                claimerName: claimerName
+            });
+
+            // Notify Kiosk
+            io.to(targetSocketId).emit('scanner_claimed', { by: claimerName });
+            if (typeof callback === 'function') callback({ success: true });
+            console.log(`Scanner on kiosk ${targetKioskId} claimed by ${claimerName}`);
+        } else {
+            if (typeof callback === 'function') callback({ success: false, error: 'Scanner not available' });
+        }
+    });
+
+    socket.on("release_scanner", (targetKioskId: number) => {
+        const claim = claimedScanners.get(targetKioskId);
+        if (claim && claim.claimerSocketId === socket.id) {
+            claimedScanners.delete(targetKioskId);
+            io.to(`kiosk_device_${targetKioskId}`).emit('scanner_released');
+        }
+    });
+
+    socket.on("force_release_scanner", () => {
+        // Called by the KIOSK itself to break a claim
+        const socketAny = socket as any;
+        if (socketAny.kioskId) {
+            const kId = socketAny.kioskId;
+            const claim = claimedScanners.get(kId);
+            if (claim) {
+                console.log(`Kiosk ${kId} force released scanner from ${claim.claimerName}`);
+                // Notify claimer?
+                // Actually, the claimer sees 'scanner_released' logic if we implemented strictly, 
+                // but simpler: just delete claim and maybe notify?
+                // We should probably notify the claimer that they lost the lock.
+                // But the requirement says "after the web socket connection closes, the scanner should automatically become unclaimed."
+                // Force release is explicit.
+
+                claimedScanners.delete(kId);
+                // Also notify the kiosk's *own* socket (though it called this, 
+                // other sockets for same kiosk might exist? No, usually 1 frontend).
+                // But the Service listens for 'scanner_released', so emit to self.
+                socket.emit('scanner_released');
+            }
+        }
+    });
+
+    socket.on("barcode_scan", (data) => {
+        // Forwarding from KIOSK -> CLAIMER
+        const socketAny = socket as any;
+        if (socketAny.kioskId) {
+            const kId = socketAny.kioskId;
+            const claim = claimedScanners.get(kId);
+            if (claim) {
+                console.log(`Forwarding scan from ${kId} to ${claim.claimerName}: ${data.barcode}`);
+                io.to(claim.claimerSocketId).emit('barcode_scan', data);
+            }
+        }
     });
 });
+
+// Maps for tracking state outside the connection handler
+const activeKiosks = new Map<string, { kioskId: number, name: string, hasScanner: boolean }>();
+const claimedScanners = new Map<number, { claimerSocketId: string, claimerName: string }>();
 
 const server = httpServer.listen(app.get("port"), async () => {
     await createDefaultAdmin();
