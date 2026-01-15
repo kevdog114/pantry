@@ -11,6 +11,7 @@ on:
 jobs:
   build_and_publish:
     runs-on: ubuntu-latest
+    if: github.event_name != 'workflow_dispatch' || github.ref == 'refs/heads/main'
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
