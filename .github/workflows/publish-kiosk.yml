@@ -33,6 +33,6 @@ jobs:
         with:
           context: rpi-kiosk
           file: rpi-kiosk/Dockerfile
-          platforms: linux/amd64,linux/arm64
+          platforms: linux/arm64
           push: true
           tags: ${{ secrets.DOCKERHUB_USERNAME }}/pantry-kiosk:latest
