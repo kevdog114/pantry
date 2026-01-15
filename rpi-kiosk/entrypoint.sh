@@ -21,7 +21,7 @@ xset s off     # Disable screen saver.
 xset s noblank # Don't blank the video device.
 
 # Clear any previous session data (optional, ensures clean state)
-rm -rf /root/.config/chromium/Singleton*
+rm -f /data/SingletonSocket /data/SingletonCookie /data/SingletonLock
 
 # Start Window Manager
 matchbox-window-manager -use_titlebar no &

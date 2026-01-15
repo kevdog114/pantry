@@ -25,6 +25,7 @@ except ImportError:
 
 from PIL import Image, ImageDraw, ImageFont
 import qrcode
+from datetime import datetime
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -103,27 +104,44 @@ def create_label_image(data):
             img = Image.new('RGB', (width, height), color='white')
             draw = ImageDraw.Draw(img)
             
+            # Format Date for 3-line display
             try:
-                # Date large, Type small
-                font_date = ImageFont.truetype("/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf", 45)
+                dt = datetime.strptime(date_str, '%Y-%m-%d')
+                date_line1 = dt.strftime('%b %-d')
+                date_line2 = dt.strftime('%Y')
+            except:
+                date_line1 = date_str
+                date_line2 = ""
+
+            try:
+                font_date1 = ImageFont.truetype("/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf", 40)
+                font_date2 = ImageFont.truetype("/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf", 35)
                 font_type = ImageFont.truetype("/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf", 22)
             except:
-                font_date = ImageFont.load_default()
+                font_date1 = ImageFont.load_default()
+                font_date2 = ImageFont.load_default()
                 font_type = ImageFont.load_default()
 
-            # Date
+            # Line 1 (Date)
             try:
-                w = draw.textlength(date_str, font=font_date)
+                w = draw.textlength(date_line1, font=font_date1)
             except:
-                w = draw.textsize(date_str, font=font_date)[0]
-            draw.text(((width - w) / 2, 50), date_str, font=font_date, fill='black')
+                w = draw.textsize(date_line1, font=font_date1)[0]
+            draw.text(((width - w) / 2, 35), date_line1, font=font_date1, fill='black')
             
-            # Type
+            # Line 2 (Year)
+            try:
+                w = draw.textlength(date_line2, font=font_date2)
+            except:
+                w = draw.textsize(date_line2, font=font_date2)[0]
+            draw.text(((width - w) / 2, 80), date_line2, font=font_date2, fill='black')
+
+            # Line 3 (Type)
             try:
                 w = draw.textlength(label_type, font=font_type)
             except:
                 w = draw.textsize(label_type, font=font_type)[0]
-            draw.text(((width - w) / 2, 110), label_type, font=font_type, fill='black')
+            draw.text(((width - w) / 2, 130), label_type, font=font_type, fill='black')
 
         else:
             # Continuous (Height 200 to match stock)
@@ -270,11 +288,11 @@ def create_label_image(data):
         draw = ImageDraw.Draw(img)
         
         try:
-            font_date = ImageFont.truetype("/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf", 28)
-            font_tiny = ImageFont.truetype("/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf", 16)
+            font_date = ImageFont.truetype("/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf", 22)
+            font_status = ImageFont.truetype("/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf", 20)
         except:
             font_date = ImageFont.load_default()
-            font_tiny = ImageFont.load_default()
+            font_status = ImageFont.load_default()
 
         qr_data = data.get('qrData', f"S2-{data.get('stockId')}")
         qr = qrcode.QRCode(box_size=4, border=1) 
@@ -288,20 +306,39 @@ def create_label_image(data):
         qr_y = 5
         img.paste(qr_img, (qr_x, qr_y))
         
-        # Expiration Date
+        # Expiration Date & Status
         date_str = data.get('expirationDate', 'N/A')
+        status_line = ""
+        
         if data.get('opened'):
-            date_str = "OPEN" # Too small for details?
+            status_line = "OPEN"
         elif data.get('frozen'):
-            date_str = "FRZN"
+            status_line = "FRZN"
             
-        try:
-            text_w = draw.textlength(date_str, font=font_date)
-            text_x = (width - text_w) / 2
-        except:
-            text_x = 10
+        cursor_y = qr_y + qr_target + 2
+        
+        if status_line:
+            # Status
+            try:
+                w = draw.textlength(status_line, font=font_status)
+            except:
+                w = draw.textsize(status_line, font=font_status)[0]
+            draw.text(((width - w) / 2, cursor_y), status_line, font=font_status, fill='black')
+            cursor_y += 20
             
-        draw.text((text_x, qr_y + qr_target + 5), date_str, font=font_date, fill='black')
+            # Date
+            try:
+                w = draw.textlength(date_str, font=font_date)
+            except:
+                w = draw.textsize(date_str, font=font_date)[0]
+            draw.text(((width - w) / 2, cursor_y), date_str, font=font_date, fill='black')
+        else:
+            # Just Date
+            try:
+                w = draw.textlength(date_str, font=font_date)
+            except:
+                w = draw.textsize(date_str, font=font_date)[0]
+            draw.text(((width - w) / 2, cursor_y + 10), date_str, font=font_date, fill='black')
 
     else:
         # Stock Label Format (Compact)
