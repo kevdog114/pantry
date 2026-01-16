@@ -95,6 +95,11 @@
                                     <mat-icon>print</mat-icon> Print Label ({{labelSizeDescription}})
                                 </button>
 
+                                <button mat-menu-item *ngIf="product.trackCountBy === 'quantity' && row.quantity > 1"
+                                    (click)="printMultipleStockLabels(row, labelSizeCode)">
+                                    <mat-icon>print_add</mat-icon> Print {{row.quantity}} Labels
+                                </button>
+
                                 <button mat-menu-item *ngIf="row.opened" (click)="printModifier(row, 'Opened')">
                                     <mat-icon>print</mat-icon> Print 'Opened' Strip
                                 </button>
