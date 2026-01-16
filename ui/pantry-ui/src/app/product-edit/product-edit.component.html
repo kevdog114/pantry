@@ -1,158 +1,194 @@
-<form *ngIf="product">
-    <div class="row">
-        <mat-form-field>
-            <mat-label>Product Title</mat-label>
-            <input name="title" matInput [(ngModel)]="product.title" />
-        </mat-form-field>
-
-        <mat-form-field class="ml-2">
-            <mat-label>Track amount by</mat-label>
-            <mat-select [(ngModel)]="product.trackCountBy" name="trackCountBy">
-                <mat-option value="quantity">Quantity</mat-option>
-                <mat-option value="weight">Weight</mat-option>
-            </mat-select>
-        </mat-form-field>
-    </div>
-    <div class="row mb-2">
-        <div class="col-12">
-            <button mat-stroked-button color="primary" (click)="askGeminiProductDetails()"
-                [disabled]="!product.title || isAskingAi">
-                <mat-icon *ngIf="!isAskingAi">auto_awesome</mat-icon>
-                <mat-spinner *ngIf="isAskingAi" [diameter]="20"
-                    style="display:inline-block; vertical-align: middle;"></mat-spinner>
-                Ask AI for product details
+<div class="page-container" *ngIf="product">
+    <!-- Header Section -->
+    <div class="header-section">
+        <h1 class="page-title">{{ isCreate ? 'New Product' : 'Edit Product' }}</h1>
+        <div class="action-bar">
+            <button mat-stroked-button color="warn" (click)="delete()" *ngIf="!isCreate">
+                <mat-icon>delete</mat-icon> Delete
+            </button>
+            <button mat-flat-button color="primary" (click)="save()">
+                <mat-icon>save</mat-icon> Save Changes
             </button>
         </div>
     </div>
-    <div class="row">
-        <div class="col-sm-4">
-            <mat-form-field class="w-100">
-                <mat-label>Freezer Lifespan in Days</mat-label>
-                <input name="freezerLifespanDays" matInput [(ngModel)]="product.freezerLifespanDays">
-                <mat-hint>Once an item is frozen, how many days is it good?</mat-hint>
-            </mat-form-field>
-        </div>
-        <div class="col-sm-4">
-            <mat-form-field class="w-100">
-                <mat-label>Refrigerator Lifespan in Days</mat-label>
-                <input name="refrigeratorLifespanDays" matInput [(ngModel)]="product.refrigeratorLifespanDays">
-                <mat-hint>Once an item is removed from the freezer, how many days is it good?</mat-hint>
-            </mat-form-field>
-        </div>
-        <div class="col-sm-4">
-            <mat-form-field class="w-100">
-                <mat-label>Opened Lifespan in Days</mat-label>
-                <input name="openedLifespanDays" matInput [(ngModel)]="product.openedLifespanDays">
-                <mat-hint>Once an item is opened, how many days is it good?</mat-hint>
-            </mat-form-field>
-        </div>
-    </div>
 
-    <mat-tab-group>
-        <mat-tab label="Barcodes">
-            <mat-card>
+    <!-- Main Content -->
+    <div class="row">
+        <!-- Left Column: Basic Info & Lifespan -->
+        <div class="col-lg-8">
+            <!-- Basic Details Card -->
+            <mat-card class="section-card">
                 <mat-card-header>
-                    <mat-card-title>
-                        Barcodes
-                        <button mat-icon-button (click)="addBarcode()"><mat-icon>add</mat-icon></button>
-                    </mat-card-title>
+                    <mat-card-title>Basic Information</mat-card-title>
                 </mat-card-header>
-                <mat-card-content>
+                <div class="card-content-padded">
+                    <div class="form-grid">
+                        <mat-form-field appearance="outline" class="w-100">
+                            <mat-label>Product Title</mat-label>
+                            <input name="title" matInput [(ngModel)]="product.title" placeholder="Ex. Whole Milk" />
+                        </mat-form-field>
+
+                        <mat-form-field appearance="outline" class="w-100">
+                            <mat-label>Track Amount By</mat-label>
+                            <mat-select [(ngModel)]="product.trackCountBy" name="trackCountBy">
+                                <mat-option value="quantity">Quantity (Units)</mat-option>
+                                <mat-option value="weight">Weight</mat-option>
+                            </mat-select>
+                        </mat-form-field>
+                    </div>
+
+                    <div class="d-flex align-center mt-2">
+                        <button mat-stroked-button color="primary" (click)="askGeminiProductDetails()"
+                            [disabled]="!product.title || isAskingAi">
+                            <mat-icon *ngIf="!isAskingAi">auto_awesome</mat-icon>
+                            <mat-spinner *ngIf="isAskingAi" [diameter]="20"
+                                style="display:inline-block; vertical-align: middle; margin-right: 8px;"></mat-spinner>
+                            {{ isAskingAi ? 'Asking AI...' : 'Auto-fill Details with AI' }}
+                        </button>
+                    </div>
+                </div>
+            </mat-card>
+
+            <!-- Lifespan Card -->
+            <mat-card class="section-card">
+                <mat-card-header>
+                    <mat-card-title>Storage & Shelf Life</mat-card-title>
+                </mat-card-header>
+                <div class="card-content-padded">
+                    <div class="lifespan-grid">
+                        <mat-form-field appearance="outline">
+                            <mat-label>Freezer (Days)</mat-label>
+                            <span matPrefix><mat-icon class="mr-2">ac_unit</mat-icon> &nbsp;</span>
+                            <input name="freezerLifespanDays" type="number" matInput
+                                [(ngModel)]="product.freezerLifespanDays">
+                        </mat-form-field>
+
+                        <mat-form-field appearance="outline">
+                            <mat-label>Refrigerator (Days)</mat-label>
+                            <span matPrefix><mat-icon class="mr-2">kitchen</mat-icon> &nbsp;</span>
+                            <input name="refrigeratorLifespanDays" type="number" matInput
+                                [(ngModel)]="product.refrigeratorLifespanDays">
+                        </mat-form-field>
+
+                        <mat-form-field appearance="outline">
+                            <mat-label>Opened (Days)</mat-label>
+                            <span matPrefix><mat-icon class="mr-2">timelapse</mat-icon> &nbsp;</span>
+                            <input name="openedLifespanDays" type="number" matInput
+                                [(ngModel)]="product.openedLifespanDays">
+                        </mat-form-field>
+                    </div>
+                </div>
+            </mat-card>
+
+            <!-- Barcodes Section -->
+            <mat-card class="section-card">
+                <div class="row d-flex align-items-center justify-content-between px-3 pt-3">
+                    <div class="col">
+                        <mat-card-title>Barcodes</mat-card-title>
+                    </div>
+                    <div class="col-auto">
+                        <button mat-stroked-button (click)="addBarcode()">
+                            <mat-icon>add</mat-icon> Add Barcode
+                        </button>
+                    </div>
+                </div>
+
+                <div class="card-content-padded">
+                    @if (product.barcodes.length === 0) {
+                    <div class="text-center text-muted p-4">
+                        <mat-icon
+                            style="font-size: 48px; width: 48px; height: 48px; opacity: 0.5;">qr_code_scanner</mat-icon>
+                        <p>No barcodes linked to this product yet.</p>
+                    </div>
+                    }
 
                     @for(barcode of product.barcodes; track barcode.barcode) {
-                    <div class="row">
-                        <div class="col-sm-2">
-                            <mat-form-field class="w-100">
-                                <mat-label>Barcode</mat-label>
-                                <input [name]="'barcode-' + $index" class="barcode-input" matInput
-                                    [(ngModel)]="barcode.barcode">
-                            </mat-form-field>
+                    <div class="barcode-item">
+                        <div class="row g-2">
+                            <div class="col-md-3">
+                                <mat-form-field appearance="outline" class="w-100 density-compact">
+                                    <mat-label>Barcode</mat-label>
+                                    <input [name]="'barcode-' + $index" matInput [(ngModel)]="barcode.barcode">
+                                </mat-form-field>
+                            </div>
+                            <div class="col-md-3">
+                                <mat-form-field appearance="outline" class="w-100 density-compact">
+                                    <mat-label>Brand</mat-label>
+                                    <input [name]="'brand-' + $index" matInput [(ngModel)]="barcode.brand">
+                                </mat-form-field>
+                            </div>
+                            <div class="col-md-4">
+                                <app-tags category="Category" [selectedTags]="barcode.tags"
+                                    (selectionChange)="barcode.tags = $event"></app-tags>
+                            </div>
+                            <div class="col-md-2 barcode-actions">
+                                <button mat-icon-button color="warn" (click)="removeBarcode(barcode)"
+                                    matTooltip="Remove Barcode">
+                                    <mat-icon>delete</mat-icon>
+                                </button>
+                            </div>
                         </div>
-                        <div class="col-sm-2" *ngIf="product.trackCountBy === 'weight'">
-                            <mat-form-field class="w-100">
-                                <mat-label>Tare Weight (g)</mat-label>
-                                <input [name]="'tareWeight-' + $index" matInput type="number"
-                                    [(ngModel)]="barcode.tareWeight">
-                            </mat-form-field>
-                        </div>
-                        <div class="col-sm-2">
-                            <mat-form-field class="w-100">
-                                <mat-label>Brand</mat-label>
-                                <input [name]="'brand-' + $index" matInput [(ngModel)]="barcode.brand">
-                            </mat-form-field>
-                        </div>
-                        <div [class]="product.trackCountBy === 'weight' ? 'col-sm-2' : 'col-sm-4'">
-                            <mat-form-field class="w-100">
-                                <mat-label>Description</mat-label>
-                                <input [name]="'description-' + $index" matInput [(ngModel)]="barcode.description">
-                            </mat-form-field>
-                        </div>
-                        <div class="col-sm-3">
-                            <app-tags category="Category" [selectedTags]="barcode.tags"
-                                (selectionChange)="barcode.tags = $event"></app-tags>
-                        </div>
-                        <div class="col-sm-1 d-flex align-items-center justify-content-center">
-                            <button mat-icon-button matSuffix (click)="removeBarcode(barcode)">
-                                <mat-icon>delete</mat-icon>
-                            </button>
+                        <div class="row g-2 mt-2">
+                            <div class="col-md-12">
+                                <mat-form-field appearance="outline" class="w-100 density-compact">
+                                    <mat-label>Description / Variant Name</mat-label>
+                                    <input [name]="'description-' + $index" matInput [(ngModel)]="barcode.description"
+                                        placeholder="e.g. 12-pack">
+                                </mat-form-field>
+                            </div>
+                            <div class="col-md-4" *ngIf="product.trackCountBy === 'weight'">
+                                <mat-form-field appearance="outline" class="w-100 density-compact">
+                                    <mat-label>Tare Weight (g)</mat-label>
+                                    <input [name]="'tareWeight-' + $index" matInput type="number"
+                                        [(ngModel)]="barcode.tareWeight">
+                                </mat-form-field>
+                            </div>
                         </div>
                     </div>
                     }
-                </mat-card-content>
-
+                </div>
             </mat-card>
-
-        </mat-tab>
-        <mat-tab label="Product Images">
-            <div *ngIf="product" class="row row-cols-1 row-cols-sm-2 row-cols-md-3 rows-cols-lg-4">
-                <mat-card appearance="outlined" *ngFor="let file of product.files" class="col">
-                    <mat-card-header class="text-truncate">
-                        <mat-card-title>{{file.filename}}</mat-card-title>
-                    </mat-card-header>
-                    <img mat-card-image class="object-fit-contain" style="height: 200px;"
-                        [src]="GetFileDownloadUrl(file)">
-                    <mat-card-actions>
-                        <button mat-icon-button (click)="removeImage(file)"><mat-icon>delete</mat-icon></button>
-                        <a [href]="GetFileDownloadUrl(file)" target="_blank"
-                            mat-icon-button><mat-icon>download</mat-icon></a>
-                    </mat-card-actions>
-                </mat-card>
-
-                <mat-card appearance="outlined" class="col d-flex align-items-center justify-content-center"
-                    style="min-height: 250px;">
-                    <div class="d-flex flex-column align-items-center">
-                        <button mat-fab extended color="primary" (click)="generateImage()"
-                            [disabled]="isGeneratingImage || !product.title">
-                            <mat-icon *ngIf="!isGeneratingImage">auto_awesome</mat-icon>
-                            <mat-spinner *ngIf="isGeneratingImage" [diameter]="20"
-                                style="display:inline-block; margin-right: 8px; vertical-align: middle;"></mat-spinner>
-                            Generate Image
-                        </button>
-                        <small class="text-muted mt-2 text-center" *ngIf="!isGeneratingImage">From Product Title</small>
-                    </div>
-                </mat-card>
-
-                <mat-card appearance="outlined" class="col">
-                    <input type="file" multiple (change)="browsedFiles($event)" [(ngModel)]="inputValue" />
-
-                </mat-card>
-            </div>
-        </mat-tab>
-    </mat-tab-group>
-
-    <div class="row">
-        <div class="col-md-8">
-
         </div>
 
-        <div class="col-md-4">
+        <!-- Right Column: Images -->
+        <div class="col-lg-4">
+            <mat-card class="section-card">
+                <mat-card-header>
+                    <mat-card-title>Product Images</mat-card-title>
+                </mat-card-header>
+                <div class="card-content-padded">
+                    <div class="image-gallery">
+                        <!-- Images Loop -->
+                        <div class="image-card" *ngFor="let file of product.files" (click)="openImage(file)">
+                            <img [src]="GetFileDownloadUrl(file)" [alt]="file.filename">
+                            <div class="image-actions" (click)="$event.stopPropagation()">
+                                <a [href]="GetFileDownloadUrl(file)" target="_blank" mat-icon-button class="text-white">
+                                    <mat-icon>download</mat-icon>
+                                </a>
+                                <button mat-icon-button color="warn" (click)="removeImage(file)">
+                                    <mat-icon>delete</mat-icon>
+                                </button>
+                            </div>
+                        </div>
 
+                        <!-- Generate with AI Button -->
+                        <button class="image-card add-image-card generate-image-card" (click)="generateImage()"
+                            [disabled]="isGeneratingImage || !product.title" matTooltip="Generate AI Image">
+                            <mat-spinner *ngIf="isGeneratingImage" [diameter]="30" color="accent"></mat-spinner>
+                            <mat-icon *ngIf="!isGeneratingImage">auto_awesome</mat-icon>
+                            <span *ngIf="!isGeneratingImage">Generate</span>
+                        </button>
+
+                        <!-- Upload Button -->
+                        <div class="image-card add-image-card" (click)="fileInput.click()">
+                            <mat-icon>cloud_upload</mat-icon>
+                            <span>Upload</span>
+                            <input #fileInput type="file" multiple (change)="browsedFiles($event)"
+                                [(ngModel)]="inputValue" style="display: none;" />
+                        </div>
+                    </div>
+                </div>
+            </mat-card>
         </div>
     </div>
-
-    <button mat-raised-button (click)="save()">Save</button>
-    <button mat-raised-button (click)="delete()">Delete</button>
-</form>
-
-<div>
 </div>

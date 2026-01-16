@@ -16,6 +16,7 @@ import { GeminiService } from '../services/gemini.service';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatSelectModule } from '@angular/material/select';
+import { MatTooltipModule } from '@angular/material/tooltip';
 
 
 @Component({
@@ -31,14 +32,15 @@ import { MatSelectModule } from '@angular/material/select';
     TagsComponent,
     MatProgressSpinnerModule,
     MatSnackBarModule,
-    MatSelectModule
+    MatSelectModule,
+    MatTooltipModule
   ],
   templateUrl: './product-edit.component.html',
   styleUrl: './product-edit.component.css'
 })
 export class ProductEditComponent implements AfterViewInit {
 
-  private isCreate: boolean = false;
+  public isCreate: boolean = false;
   public product: Product | undefined = undefined;
   public isAskingAi: boolean = false;
   public isGeneratingImage: boolean = false;
@@ -177,6 +179,10 @@ export class ProductEditComponent implements AfterViewInit {
     }
 
     return this.env.apiUrl + "/files/" + id + "?size=small" + cacheBuster;
+  }
+
+  public openImage(file: FileMeta) {
+    window.open(this.GetFileDownloadUrl(file), '_blank');
   }
 
   public removeBarcode = (a: any) => {

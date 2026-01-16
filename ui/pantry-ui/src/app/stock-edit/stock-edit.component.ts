@@ -12,6 +12,8 @@ import { Router } from '@angular/router';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatOptionModule } from '@angular/material/core';
 import { MatSelectModule } from '@angular/material/select';
+import { MatIconModule } from '@angular/material/icon';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 
 @Component({
   selector: 'app-stock-edit',
@@ -25,7 +27,9 @@ import { MatSelectModule } from '@angular/material/select';
     MatButtonModule,
     MatCheckboxModule,
     MatOptionModule,
-    MatSelectModule
+    MatSelectModule,
+    MatIconModule,
+    MatProgressSpinnerModule
   ],
   templateUrl: './stock-edit.component.html',
   styleUrl: './stock-edit.component.css'
