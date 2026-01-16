@@ -98,6 +98,9 @@ export class StockEditComponent implements AfterViewInit {
 
     }
 
+    this.stockItem.quantity = Number(this.stockItem.quantity);
+    if (this.stockItem.expirationDate) this.stockItem.expirationDate = new Date(this.stockItem.expirationDate);
+
     if (this._stockId === undefined) {
       // create
       this.svc.CreateStock(this.stockItem).subscribe(() => {

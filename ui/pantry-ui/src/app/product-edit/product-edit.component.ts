@@ -219,6 +219,10 @@ export class ProductEditComponent implements AfterViewInit {
 
     this.product.fileIds = this.product.files.map(a => a.id);
 
+    if (this.product.freezerLifespanDays) this.product.freezerLifespanDays = Number(this.product.freezerLifespanDays);
+    if (this.product.refrigeratorLifespanDays) this.product.refrigeratorLifespanDays = Number(this.product.refrigeratorLifespanDays);
+    if (this.product.openedLifespanDays) this.product.openedLifespanDays = Number(this.product.openedLifespanDays);
+
     if (this.isCreate) {
       this.svc.Create(this.product).subscribe(p => {
         this.product = p;
