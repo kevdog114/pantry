@@ -4,9 +4,15 @@
     <button class="new-chat-btn" (click)="newChat()">
       <span class="icon">+</span> New Chat
     </button>
+    <div class="chat-tabs">
+      <button [class.active]="currentTab === 'adhoc'" (click)="setTab('adhoc')">Ad-hoc</button>
+      <button [class.active]="currentTab === 'recipe'" (click)="setTab('recipe')">Recipes</button>
+      <button [class.active]="currentTab === 'product'" (click)="setTab('product')">Products</button>
+    </div>
+
     <div class="session-list">
-      <div *ngFor="let session of sessions" class="session-item" [class.active]="session.id === currentSessionId"
-        (click)="loadSession(session.id)">
+      <div *ngFor="let session of filteredSessions" class="session-item"
+        [class.active]="session.id === currentSessionId" (click)="loadSession(session.id)">
         <span class="session-title">{{ session.title }}</span>
         <button class="delete-btn" (click)="deleteSession(session.id, $event)" title="Delete Chat">🗑️</button>
       </div>

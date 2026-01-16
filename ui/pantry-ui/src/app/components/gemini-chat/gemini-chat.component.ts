@@ -26,6 +26,18 @@ export class GeminiChatComponent implements OnInit {
 
   sessions: any[] = [];
   currentSessionId: number | null = null;
+  currentTab: 'adhoc' | 'recipe' | 'product' = 'adhoc';
+
+  get filteredSessions() {
+    return this.sessions.filter(s => {
+      if (this.currentTab === 'adhoc') return !s.entityType;
+      return s.entityType === this.currentTab;
+    });
+  }
+
+  setTab(tab: 'adhoc' | 'recipe' | 'product') {
+    this.currentTab = tab;
+  }
 
   constructor(
     private geminiService: GeminiService,

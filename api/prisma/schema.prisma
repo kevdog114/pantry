@@ -201,6 +201,8 @@ model ChatSession {
   id        Int           @id @default(autoincrement())
   title     String        @default("New Chat")
   messages  ChatMessage[]
+  entityType String?
+  entityId   Int?
   createdAt DateTime      @default(now())
   updatedAt DateTime      @updatedAt
 }

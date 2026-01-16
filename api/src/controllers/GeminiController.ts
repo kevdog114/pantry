@@ -204,11 +204,13 @@ const getEquipmentContext = async (): Promise<string> => {
 
 export const post = async (req: Request, res: Response) => {
   try {
-    let { prompt, history = [], sessionId, additionalContext } = req.body as {
+    let { prompt, history = [], sessionId, additionalContext, entityType, entityId } = req.body as {
       prompt: string;
       history: Content[];
       sessionId?: number | string;
       additionalContext?: string;
+      entityType?: string;
+      entityId?: number | string;
     };
 
     if (sessionId) {
@@ -237,6 +239,8 @@ export const post = async (req: Request, res: Response) => {
       const session = await prisma.chatSession.create({
         data: {
           title: prompt.substring(0, 50) + (prompt.length > 50 ? '...' : ''),
+          entityType: entityType || null,
+          entityId: entityId ? parseInt(entityId.toString(), 10) : null
         }
       });
       sessionId = session.id;

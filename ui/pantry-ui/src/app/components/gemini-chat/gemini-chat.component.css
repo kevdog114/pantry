@@ -40,6 +40,33 @@
   line-height: 1;
 }
 
+.chat-tabs {
+  display: flex;
+  padding: 0 10px 10px;
+  gap: 5px;
+}
+
+.chat-tabs button {
+  flex: 1;
+  background-color: transparent;
+  border: 1px solid var(--bs-border-color);
+  border-radius: 4px;
+  padding: 5px;
+  font-size: 0.8rem;
+  cursor: pointer;
+  color: var(--bs-body-color);
+}
+
+.chat-tabs button.active {
+  background-color: var(--bs-primary);
+  color: white;
+  border-color: var(--bs-primary);
+}
+
+.chat-tabs button:hover:not(.active) {
+  background-color: var(--bs-secondary-bg);
+}
+
 .session-list {
   flex-grow: 1;
   overflow-y: auto;

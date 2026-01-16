@@ -14,7 +14,7 @@ export class GeminiService {
     this.apiUrl = `${this.env.apiUrl}/gemini/chat`;
   }
 
-  sendMessage(prompt: string, history: any[], sessionId?: number, image?: File, additionalContext?: string): Observable<any> {
+  sendMessage(prompt: string, history: any[], sessionId?: number, image?: File, additionalContext?: string, entityType?: string, entityId?: number): Observable<any> {
     if (image) {
       const formData = new FormData();
       formData.append('prompt', prompt);
@@ -25,9 +25,12 @@ export class GeminiService {
       if (additionalContext) {
         formData.append('additionalContext', additionalContext);
       }
+      if (entityType) formData.append('entityType', entityType);
+      if (entityId) formData.append('entityId', entityId.toString());
+
       return this.http.post<any>(this.apiUrl, formData);
     }
-    return this.http.post<any>(this.apiUrl, { prompt, history, sessionId, additionalContext });
+    return this.http.post<any>(this.apiUrl, { prompt, history, sessionId, additionalContext, entityType, entityId });
   }
 
   getSessions(): Observable<any> {

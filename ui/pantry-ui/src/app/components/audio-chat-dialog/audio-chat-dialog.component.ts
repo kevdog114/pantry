@@ -65,13 +65,20 @@ export class AudioChatDialogComponent implements OnDestroy {
         this.isThinking = true;
         // this.responseItems = []; // Removed
 
+        let entityType: string | undefined;
+        let entityId: number | undefined;
+
         let context = '';
         if (this.data.product) {
+            entityType = 'product';
+            entityId = this.data.product.id;
             context = `User is viewing product: ${this.data.product.title}. 
     ID: ${this.data.product.id}. 
     Current Stock Count: ${this.data.product.stockItems?.length || 0}. 
     Barcodes: ${this.data.product.barcodes?.map(b => b.barcode).join(', ')}.`;
         } else if (this.data.recipe) {
+            entityType = 'recipe';
+            entityId = this.data.recipe.id;
             context = `User is viewing recipe: ${this.data.recipe.title}.
     ID: ${this.data.recipe.id}.
     Description: ${this.data.recipe.description || 'None'}.
@@ -79,7 +86,7 @@ export class AudioChatDialogComponent implements OnDestroy {
     Steps: ${this.data.recipe.steps?.map((s, i) => `${i + 1}. ${s.description}`).join('\n') || 'None'}.`;
         }
 
-        this.geminiService.sendMessage(text, [], this.sessionId, image, context).subscribe({
+        this.geminiService.sendMessage(text, [], this.sessionId, image, context, entityType, entityId).subscribe({
             next: (res) => {
                 this.isThinking = false;
                 if (res.sessionId) {
