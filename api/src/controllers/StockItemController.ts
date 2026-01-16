@@ -96,7 +96,8 @@ export const update = async (req: Request, res: Response, next: NextFunction): P
             frozen: req.body.frozen,
             opened: req.body.opened,
             openedDate: req.body.openedDate ? new Date(req.body.openedDate) : undefined,
-            ...frozenDateOperation
+            ...frozenDateOperation,
+            unit: req.body.unit
         }
     });
     res.send(stockItem);
@@ -109,7 +110,8 @@ export const create = async (req: Request, res: Response, next: NextFunction): P
             expirationDate: req.body.expirationDate ? new Date(req.body.expirationDate) : undefined,
             quantity: req.body.quantity,
             frozen: req.body.frozen,
-            opened: req.body.opened
+            opened: req.body.opened,
+            unit: req.body.unit
         }
     });
     res.send(stockItem);

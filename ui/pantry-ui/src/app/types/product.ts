@@ -8,6 +8,7 @@ export interface StockItem {
     id?: number,
     productId: number,
     quantity: number,
+    unit?: string
     expirationDate: Date
 
     productBarcodeId: number

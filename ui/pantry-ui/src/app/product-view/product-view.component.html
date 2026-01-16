@@ -35,7 +35,7 @@
                         <th mat-header-cell *matHeaderCellDef> Quantity </th>
                         <td mat-cell *matCellDef="let row">
                             <div class="d-flex align-items-center">
-                                <span class="fw-bold fs-6">{{row.quantity}}</span>
+                                <span class="fw-bold fs-6">{{row.quantity}} {{row.unit}}</span>
                                 <span *ngIf="row.opened" class="status-badge badge-open">Open</span>
                                 <span *ngIf="row.frozen" class="status-badge badge-frozen">Frozen</span>
                             </div>
