@@ -28,6 +28,7 @@ import { LabelService } from '../services/label.service';
 import { Router, RouterModule } from '@angular/router';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { StockItemDialogComponent } from '../components/stock-item-dialog/stock-item-dialog.component';
+import { StockAddDialogComponent } from '../components/stock-add-dialog/stock-add-dialog.component';
 
 @Component({
   selector: 'app-product-view',
@@ -67,11 +68,15 @@ export class ProductViewComponent implements OnChanges {
     return this._stockId;
   }
 
+  @Input("create-stock") createStock: string | undefined;
+  @Input("scanned-barcode") scannedBarcode: string | undefined;
+
   @Input()
   set id(productId: number) {
     this.svc.Get(productId).subscribe(p => {
       this.product = p;
       this.checkAndOpenStockDialog();
+      this.checkAndOpenCreateDialog();
     });
   }
 
@@ -97,9 +102,43 @@ export class ProductViewComponent implements OnChanges {
     if (changes['stockId']) {
       this.checkAndOpenStockDialog();
     }
+    if (changes['createStock']) {
+      this.checkAndOpenCreateDialog();
+    }
   }
 
   private hasOpenedDialogForStockId: number | undefined = undefined;
+
+  checkAndOpenCreateDialog() {
+    if (this.product && this.createStock === 'true') {
+      setTimeout(() => {
+        const dialogRef = this.dialog.open(StockAddDialogComponent, {
+          data: {
+            product: this.product,
+            scannedBarcode: this.scannedBarcode
+          },
+          width: '400px',
+          maxWidth: '95vw'
+        });
+
+        dialogRef.afterClosed().subscribe(result => {
+          this.router.navigate([], {
+            queryParams: {
+              'create-stock': null,
+              'scanned-barcode': null
+            },
+            queryParamsHandling: 'merge'
+          });
+
+          if (result) {
+            if (this.product?.id) {
+              this.svc.Get(this.product.id).subscribe(p => this.product = p);
+            }
+          }
+        });
+      }, 100);
+    }
+  }
 
   checkAndOpenStockDialog() {
     if (this.product && this._stockId) {
