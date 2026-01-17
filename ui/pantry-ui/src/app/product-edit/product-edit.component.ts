@@ -225,9 +225,15 @@ export class ProductEditComponent implements AfterViewInit {
 
     this.product.fileIds = this.product.files.map(a => a.id);
 
-    if (this.product.freezerLifespanDays) this.product.freezerLifespanDays = Number(this.product.freezerLifespanDays);
-    if (this.product.refrigeratorLifespanDays) this.product.refrigeratorLifespanDays = Number(this.product.refrigeratorLifespanDays);
-    if (this.product.openedLifespanDays) this.product.openedLifespanDays = Number(this.product.openedLifespanDays);
+    this.product.freezerLifespanDays = (this.product.freezerLifespanDays === null || this.product.freezerLifespanDays === undefined || (this.product.freezerLifespanDays as any) === '') ? null : Number(this.product.freezerLifespanDays);
+    this.product.refrigeratorLifespanDays = (this.product.refrigeratorLifespanDays === null || this.product.refrigeratorLifespanDays === undefined || (this.product.refrigeratorLifespanDays as any) === '') ? null : Number(this.product.refrigeratorLifespanDays);
+    this.product.openedLifespanDays = (this.product.openedLifespanDays === null || this.product.openedLifespanDays === undefined || (this.product.openedLifespanDays as any) === '') ? null : Number(this.product.openedLifespanDays);
+
+    if (this.product.barcodes) {
+      this.product.barcodes.forEach(b => {
+        b.tareWeight = (b.tareWeight === null || b.tareWeight === undefined || (b.tareWeight as any) === '') ? undefined : Number(b.tareWeight);
+      });
+    }
 
     if (this.isCreate) {
       this.svc.Create(this.product).subscribe(p => {
