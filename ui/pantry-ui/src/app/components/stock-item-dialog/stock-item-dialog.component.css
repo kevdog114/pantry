@@ -1,0 +1,35 @@
+.status-card {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 12px;
+    border-radius: 8px;
+    background-color: var(--mat-sys-surface-variant);
+    color: var(--mat-sys-on-surface-variant);
+    font-weight: 500;
+}
+
+.status-card.active {
+    background-color: var(--mat-sys-primary-container);
+    color: var(--mat-sys-on-primary-container);
+}
+
+.details-grid {
+    display: flex;
+    justify-content: space-around;
+    padding: 8px 0;
+    text-align: center;
+}
+
+.detail-item {
+    display: flex;
+    flex-direction: column;
+}
+
+.detail-item label {
+    font-size: 0.8rem;
+    color: var(--mat-sys-outline);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}

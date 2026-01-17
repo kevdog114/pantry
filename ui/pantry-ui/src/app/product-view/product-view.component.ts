@@ -1,4 +1,4 @@
-import { Component, Input } from '@angular/core';
+import { Component, Input, OnChanges, SimpleChanges } from '@angular/core';
 import { ProductListService } from '../components/product-list/product-list.service';
 import { Product, StockItem } from '../types/product';
 import { CommonModule, DatePipe, JsonPipe } from '@angular/common';
@@ -25,8 +25,9 @@ interface IndexedBarcode {
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { AudioChatDialogComponent } from '../components/audio-chat-dialog/audio-chat-dialog.component';
 import { LabelService } from '../services/label.service';
-import { RouterModule } from '@angular/router';
+import { Router, RouterModule } from '@angular/router';
 import { MatTooltipModule } from '@angular/material/tooltip';
+import { StockItemDialogComponent } from '../components/stock-item-dialog/stock-item-dialog.component';
 
 @Component({
   selector: 'app-product-view',
@@ -48,14 +49,19 @@ import { MatTooltipModule } from '@angular/material/tooltip';
   templateUrl: './product-view.component.html',
   styleUrl: './product-view.component.scss'
 })
-export class ProductViewComponent {
+export class ProductViewComponent implements OnChanges {
   private barcodeIndex: number = 0;
   public product: Product | undefined;
   public _stockId: number | undefined;
 
   @Input("stock-id")
-  set stockId(newStockId: number | undefined) {
-    this._stockId = newStockId;
+  set stockId(newStockId: number | string | undefined) {
+    if (newStockId)
+      this._stockId = Number(newStockId);
+    else
+      this._stockId = undefined;
+
+    this.checkAndOpenStockDialog();
   }
   get stockId() {
     return this._stockId;
@@ -65,6 +71,7 @@ export class ProductViewComponent {
   set id(productId: number) {
     this.svc.Get(productId).subscribe(p => {
       this.product = p;
+      this.checkAndOpenStockDialog();
     });
   }
 
@@ -80,9 +87,56 @@ export class ProductViewComponent {
     private dialog: MatDialog,
     private labelService: LabelService,
     private kioskService: KioskService,
-    private env: EnvironmentService
+    private env: EnvironmentService,
+    private router: Router
   ) {
     this.detectPrinterMedia();
+  }
+
+  ngOnChanges(changes: SimpleChanges): void {
+    if (changes['stockId']) {
+      this.checkAndOpenStockDialog();
+    }
+  }
+
+  private hasOpenedDialogForStockId: number | undefined = undefined;
+
+  checkAndOpenStockDialog() {
+    if (this.product && this._stockId) {
+      if (this.hasOpenedDialogForStockId === this._stockId) {
+        return; // Already opened for this ID
+      }
+
+      const stockItem = this.product.stockItems.find(i => i.id === this._stockId);
+      if (stockItem) {
+        this.hasOpenedDialogForStockId = this._stockId;
+
+        // Slight delay to ensure UI is ready
+        setTimeout(() => {
+          const dialogRef = this.dialog.open(StockItemDialogComponent, {
+            data: {
+              stockItem: stockItem,
+              product: this.product,
+              labelSizeCode: this.labelSizeCode,
+              labelSizeDescription: this.labelSizeDescription
+            },
+            width: '400px',
+            maxWidth: '95vw',
+            panelClass: 'stock-item-popup'
+          });
+
+          dialogRef.afterClosed().subscribe(() => {
+            // Clear the query param so they can re-scan or just to clean up URL
+            this.router.navigate([], {
+              queryParams: { 'stock-id': null },
+              queryParamsHandling: 'merge'
+            });
+            this.hasOpenedDialogForStockId = undefined;
+            this._stockId = undefined;
+          });
+        }, 100);
+      }
+    }
   }
 
   detectPrinterMedia() {

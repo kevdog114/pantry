@@ -1,0 +1,84 @@
+<h2 mat-dialog-title>
+    {{ data.product.title }}
+    <small class="d-block text-muted fs-6" *ngIf="data.stockItem.productBarcodeId">
+        {{ getBarcodeBrand(data.stockItem.productBarcodeId) }}
+    </small>
+</h2>
+
+<mat-dialog-content>
+    <div class="d-flex flex-column gap-3 py-2">
+        <!-- Status Grid -->
+        <div class="row g-2">
+            <div class="col-6">
+                <div class="status-card" [class.active]="data.stockItem.opened">
+                    <mat-icon>timelapse</mat-icon>
+                    <span>{{ data.stockItem.opened ? 'Opened' : 'Sealed' }}</span>
+                </div>
+            </div>
+            <div class="col-6">
+                <div class="status-card" [class.active]="data.stockItem.frozen">
+                    <mat-icon>ac_unit</mat-icon>
+                    <span>{{ data.stockItem.frozen ? 'Frozen' : 'Thawed' }}</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Details -->
+        <div class="details-grid">
+            <div class="detail-item">
+                <label>Quantity</label>
+                <span class="fs-4 fw-bold">{{ data.stockItem.quantity }} <small>{{ data.stockItem.unit }}</small></span>
+            </div>
+            <div class="detail-item">
+                <label>Expiration</label>
+                <span class="fs-4">{{ data.stockItem.expirationDate | date:'mediumDate' }}</span>
+            </div>
+        </div>
+
+        <mat-divider></mat-divider>
+
+        <!-- Quick Actions -->
+        <div class="d-grid gap-2">
+            <button mat-flat-button color="primary" class="py-2" *ngIf="data.product.trackCountBy === 'quantity'"
+                (click)="useOne()">
+                <mat-icon>remove_circle_outline</mat-icon> Use 1 Unit
+            </button>
+
+            <div class="d-flex gap-2">
+                <button mat-stroked-button class="flex-grow-1" (click)="toggleOpen()"
+                    [color]="data.stockItem.opened ? 'warn' : 'accent'">
+                    <mat-icon>orders</mat-icon> {{ data.stockItem.opened ? 'Mark Sealed' : 'Mark Open' }}
+                </button>
+                <button mat-stroked-button class="flex-grow-1" (click)="toggleFreeze()"
+                    [color]="data.stockItem.frozen ? 'warn' : 'accent'">
+                    <mat-icon>ac_unit</mat-icon> {{ data.stockItem.frozen ? 'Unfreeze' : 'Freeze' }}
+                </button>
+            </div>
+        </div>
+
+        <mat-expansion-panel class="mat-elevation-z0 border">
+            <mat-expansion-panel-header>
+                <mat-panel-title>
+                    <mat-icon class="me-2">print</mat-icon> Print Labels
+                </mat-panel-title>
+            </mat-expansion-panel-header>
+
+            <div class="d-grid gap-2">
+                <button mat-stroked-button (click)="printLabel()">Print Stock Label
+                    ({{data.labelSizeDescription}})</button>
+                <button mat-stroked-button *ngIf="data.stockItem.opened" (click)="printModifier('Opened')">Print
+                    'Opened' Strip</button>
+                <button mat-stroked-button *ngIf="data.stockItem.frozen" (click)="printModifier('Frozen')">Print
+                    'Frozen' Strip</button>
+            </div>
+        </mat-expansion-panel>
+
+    </div>
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+    <button mat-button color="warn" (click)="edit()" class="me-auto">
+        <mat-icon>edit</mat-icon> Edit Record
+    </button>
+    <button mat-button mat-dialog-close>Close</button>
+</mat-dialog-actions>
