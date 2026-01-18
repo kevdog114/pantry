@@ -5,6 +5,9 @@
             <span class="fw-bold title">{{ recipe.title }}</span>
         </div>
         <div class="actions">
+            <button mat-icon-button (click)="downloadPdf($event)" title="Download PDF" class="save-btn">
+                <mat-icon>picture_as_pdf</mat-icon>
+            </button>
             <button mat-icon-button (click)="save($event)" title="Save to Cookbook" class="save-btn">
                 <mat-icon>save</mat-icon>
             </button>

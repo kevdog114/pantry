@@ -5,6 +5,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { RecipeListService } from '../recipe-list/recipe-list.service';
+import { RecipePdfService } from '../../services/recipe-pdf.service';
 
 export interface ChatIngredient {
     name: string;
@@ -38,7 +39,8 @@ export class RecipeCardComponent {
 
     constructor(
         private recipeService: RecipeListService,
-        private snackBar: MatSnackBar
+        private snackBar: MatSnackBar,
+        private pdfService: RecipePdfService
     ) { }
 
     toggle() {
@@ -88,5 +90,10 @@ export class RecipeCardComponent {
                 console.error(err);
             }
         });
+    }
+
+    downloadPdf(event: Event) {
+        event.stopPropagation();
+        this.pdfService.generateFromChatRecipe(this.recipe);
     }
 }

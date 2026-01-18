@@ -17,6 +17,7 @@ import { LabelService } from '../services/label.service';
 import { KioskService } from '../services/kiosk.service';
 
 import { EnvironmentService } from '../services/environment.service';
+import { RecipePdfService } from '../services/recipe-pdf.service';
 
 @Component({
     selector: 'app-recipe-view',
@@ -52,7 +53,8 @@ export class RecipeViewComponent implements OnInit {
         private snackBar: MatSnackBar,
         private labelService: LabelService,
         private kioskService: KioskService,
-        private env: EnvironmentService
+        private env: EnvironmentService,
+        private pdfService: RecipePdfService
     ) { }
 
     ngOnInit(): void {
@@ -136,6 +138,12 @@ export class RecipeViewComponent implements OnInit {
 
     printRecipe() {
         window.print();
+    }
+
+    downloadPdf() {
+        if (this.recipe) {
+            this.pdfService.generateFromRecipe(this.recipe);
+        }
     }
 
     printRecipeLabel(size?: string) {
