@@ -43,8 +43,9 @@
                     <input matInput name="quantity" type="number" [(ngModel)]="stockItem.quantity" />
                 </mat-form-field>
 
-                <mat-label>Unit</mat-label>
-                <input matInput name="unit" [(ngModel)]="stockItem.unit" placeholder="e.g., pcs, kg, oz" />
+                <mat-form-field appearance="outline">
+                    <mat-label>Unit</mat-label>
+                    <input matInput name="unit" [(ngModel)]="stockItem.unit" placeholder="e.g., pcs, kg, oz" />
                 </mat-form-field>
 
                 <mat-form-field appearance="outline">
