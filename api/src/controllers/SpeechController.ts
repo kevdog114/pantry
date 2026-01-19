@@ -37,7 +37,10 @@ export const transcribe = async (req: Request, res: Response) => {
         let transcript = '';
         let errorString = '';
 
+        let responseSent = false;
+
         client.connect(WHISPER_PORT, WHISPER_HOST, () => {
+            // ... code to send audio ...
             // Send Audio Start
             const startMsg = JSON.stringify({
                 type: 'audio-start',
@@ -50,10 +53,6 @@ export const transcribe = async (req: Request, res: Response) => {
             client.write(startMsg);
 
             // Send Audio Chunk
-            // Setup chunking if needed, but for short commands, one chunk is fine usually.
-            // Max chunk size is safe to keep reasonable, e.g. 1024 bytes, or send all at once if small.
-            // Wyoming protocol expects: JSON header + payload.
-
             const chunkHeader = JSON.stringify({
                 type: 'audio-chunk',
                 data: {
@@ -81,9 +80,11 @@ export const transcribe = async (req: Request, res: Response) => {
                 try {
                     const msg = JSON.parse(line);
                     if (msg.type === 'transcript') {
-                        transcript = msg.data.text;
-                        // Assuming non-streaming or final result after audio-stop
-                        client.end();
+                        if (!responseSent) {
+                            res.json({ text: msg.data.text });
+                            responseSent = true;
+                        }
+                        client.destroy();
                     }
                 } catch (e) {
                     // Ignore non-JSON or partial lines
@@ -93,15 +94,18 @@ export const transcribe = async (req: Request, res: Response) => {
 
         client.on('end', () => {
             cleanup();
-            res.json({ text: transcript });
+            if (!responseSent) {
+                res.json({ text: '' });
+                responseSent = true;
+            }
         });
 
         client.on('error', (err) => {
             console.error('Whisper socket error:', err);
-            errorString = err.message;
             cleanup();
-            if (!res.headersSent) {
+            if (!responseSent) {
                 res.status(500).json({ error: 'Failed to communicate with Speech service', details: err.message });
+                responseSent = true;
             }
         });
 
