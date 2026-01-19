@@ -41,9 +41,11 @@ export const transcribe = async (req: Request, res: Response) => {
             // Send Audio Start
             const startMsg = JSON.stringify({
                 type: 'audio-start',
-                rate: 16000,
-                width: 2,
-                channels: 1
+                data: {
+                    rate: 16000,
+                    width: 2,
+                    channels: 1
+                }
             }) + '\n';
             client.write(startMsg);
 
@@ -54,9 +56,11 @@ export const transcribe = async (req: Request, res: Response) => {
 
             const chunkHeader = JSON.stringify({
                 type: 'audio-chunk',
-                rate: 16000,
-                width: 2,
-                channels: 1,
+                data: {
+                    rate: 16000,
+                    width: 2,
+                    channels: 1
+                },
                 payload_length: pcmBuffer.length
             }) + '\n';
 
