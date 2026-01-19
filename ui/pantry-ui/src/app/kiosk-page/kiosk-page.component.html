@@ -2,24 +2,43 @@
     <!-- Status Section (Top 50%) -->
     <div class="status-section" [class.scanning]="activeMode !== 'NONE'">
         <h1 class="status-text">{{ status }}</h1>
+        <h2 *ngIf="statusSubtext" class="status-subtext">{{ statusSubtext }}</h2>
         <mat-icon *ngIf="activeMode !== 'NONE'" class="pulse-icon">qr_code_scanner</mat-icon>
     </div>
 
     <!-- Action Section (Bottom 50%) -->
     <div class="action-section">
 
+        <!-- RESTOCK VIEW -->
+        <div *ngIf="activeMode === 'RESTOCK'" class="button-grid single-action-grid">
+            <button mat-flat-button class="large-btn finish-btn" (click)="finishAction()">
+                <div class="btn-content">
+                    <mat-icon>check_circle</mat-icon>
+                    <span>FINISH RESTOCKING</span>
+                </div>
+            </button>
+        </div>
+
+        <!-- CONSUME VIEW -->
+        <div *ngIf="activeMode === 'CONSUME'" class="button-grid single-action-grid">
+            <button mat-flat-button class="large-btn finish-btn consume-finish" (click)="finishAction()">
+                <div class="btn-content">
+                    <mat-icon>check_circle</mat-icon>
+                    <span>FINISH CONSUMING</span>
+                </div>
+            </button>
+        </div>
+
         <!-- MAIN VIEW -->
-        <div *ngIf="viewState === 'MAIN'" class="button-grid">
-            <button mat-flat-button color="primary" class="large-btn" [class.active-mode]="activeMode === 'RESTOCK'"
-                (click)="setMode('RESTOCK')">
+        <div *ngIf="viewState === 'MAIN' && activeMode === 'NONE'" class="button-grid">
+            <button mat-flat-button color="primary" class="large-btn" (click)="setMode('RESTOCK')">
                 <div class="btn-content">
                     <mat-icon>inventory_2</mat-icon>
                     <span>RESTOCK</span>
                 </div>
             </button>
 
-            <button mat-flat-button color="primary" class="large-btn" [class.active-mode]="activeMode === 'CONSUME'"
-                (click)="setMode('CONSUME')">
+            <button mat-flat-button color="primary" class="large-btn" (click)="setMode('CONSUME')">
                 <div class="btn-content">
                     <mat-icon>restaurant</mat-icon>
                     <span>CONSUME</span>
@@ -73,8 +92,6 @@
         </div>
 
         <!-- PRINT LABELS VIEW -->
-        <!-- 5 Buttons: Back + 4 Options. Maybe 3 cols? Or list? 
-           User said "Large buttons". 2 columns is safe. -->
         <div *ngIf="viewState === 'PRINT_LABELS'" class="button-grid compact-grid">
             <button mat-stroked-button class="large-btn back-btn full-width" (click)="openUtilities()">
                 <div class="btn-content">

@@ -67,6 +67,19 @@ export const create = async (req: Request, res: Response, next: NextFunction): P
 }
 
 export const deleteById = async (req: Request, res: Response, next: NextFunction): Promise<any> => {
+    // Manual cascade delete dependencies
+    await prisma.stockItem.deleteMany({ where: { productId: parseInt(req.params.id) } });
+    await prisma.productBarcode.deleteMany({ where: { productId: parseInt(req.params.id) } });
+    await prisma.recipeProduct.deleteMany({ where: { productId: parseInt(req.params.id) } });
+    await prisma.shoppingListItem.deleteMany({ where: { productId: parseInt(req.params.id) } });
+
+    // Handle Leftovers relation (SetNull or Delete? Depending on logic. Safe to just update leftovers)
+    // Actually schema says: leftoverRecipe Recipe? @relation("RecipeLeftovers"...)
+    // But Recipe has leftovers Product[] @relation("RecipeLeftovers")
+    // If we delete the product, we dont need to update Recipe explicitly if not required, but strict mode might.
+    // However, FK error is likely from one of the above.
+
+
     await prisma.product.delete({
         where: {
             id: parseInt(req.params.id)

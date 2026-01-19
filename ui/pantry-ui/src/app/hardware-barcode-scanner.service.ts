@@ -32,13 +32,22 @@ export class HardwareBarcodeScannerService {
     // Listen for incoming barcode scans (if we are the one who claimed another scanner)
     this.socketService.on('barcode_scan', (data: { barcode: string }) => {
       console.log("Received remote barcode scan:", data.barcode);
-      this.searchForBarcode(data.barcode);
+      if (this.customHandler) {
+        this.customHandler(data.barcode);
+      } else {
+        this.searchForBarcode(data.barcode);
+      }
     });
   }
 
   private currentBarcode: string = "";
   private isScanning: boolean = false;
   private isEnabled: boolean = true;
+  private customHandler: ((barcode: string) => void) | null = null;
+
+  public setCustomHandler(handler: ((barcode: string) => void) | null) {
+    this.customHandler = handler;
+  }
 
   public setEnabled(enabled: boolean) {
     this.isEnabled = enabled;
@@ -150,6 +159,8 @@ export class HardwareBarcodeScannerService {
         if (this.claimedBySubject.value) {
           console.log("Forwarding scan to owner:", this.claimedBySubject.value);
           this.socketService.emit('barcode_scan', { barcode: this.currentBarcode });
+        } else if (this.customHandler) {
+          this.customHandler(this.currentBarcode);
         } else {
           this.BarcodeSearch.next(this.currentBarcode);
           console.log("Search for", this.currentBarcode);

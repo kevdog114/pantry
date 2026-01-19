@@ -1531,21 +1531,42 @@ export const postBarcodeDetails = async (req: Request, res: Response) => {
   try {
     const { productName, brand, existingProductTitle } = req.body;
 
-    const prompt = `I am adding a barcode for "${productName}"${brand ? ` (${brand})` : ''} to an existing product "${existingProductTitle}".
-        Suggest a short description for this specific barcode variant (e.g. "15oz Can", "Family Size", "Spicy variety") and a list of tags that apply to this product.
+    const prompt = `I am adding a barcode for "${productName}"${brand ? ` (${brand})` : ''} to the pantry.
         
-        Return the result as a JSON object with keys:
+        TASKS:
+        1. Suggest a **Clean Product Title**. 
+           - Remove brand names (unless it's the product name like "Nutella"), sizes, packaging codes, and noise like "IMP", "Pack", "oz". 
+           - Example: Input "Kellogg's Frosted Flakes 15oz IMP" -> Title "Frosted Flakes".
+           - Example: Input "Gerber Grads Puffs Banana" -> Title "Banana Puffs".
+        2. Extract/Validate the **Brand**.
+        3. Create a **Short Description** for this specific barcode variant (e.g. "15oz Can", "Family Size", "Spicy variety").
+        4. Suggest **Tags** (e.g. "Breakfast", "Snack").
+        5. Estimate **Shelf Life** in days (Pantry, Fridge, Freezer, Opened).
+        
+        Return JSON keys:
+        - title (string)
+        - brand (string)
         - description (string)
         - tags (array of strings)
+        - pantryLifespanDays (number or null)
+        - refrigeratorLifespanDays (number or null)
+        - freezerLifespanDays (number or null)
+        - openedLifespanDays (number or null)
         `;
 
     const schema = {
       type: FunctionDeclarationSchemaType.OBJECT,
       properties: {
+        title: { type: FunctionDeclarationSchemaType.STRING },
+        brand: { type: FunctionDeclarationSchemaType.STRING },
         description: { type: FunctionDeclarationSchemaType.STRING },
-        tags: { type: FunctionDeclarationSchemaType.ARRAY, items: { type: FunctionDeclarationSchemaType.STRING } }
+        tags: { type: FunctionDeclarationSchemaType.ARRAY, items: { type: FunctionDeclarationSchemaType.STRING } },
+        pantryLifespanDays: { type: FunctionDeclarationSchemaType.NUMBER, nullable: true },
+        refrigeratorLifespanDays: { type: FunctionDeclarationSchemaType.NUMBER, nullable: true },
+        freezerLifespanDays: { type: FunctionDeclarationSchemaType.NUMBER, nullable: true },
+        openedLifespanDays: { type: FunctionDeclarationSchemaType.NUMBER, nullable: true }
       },
-      required: ["description", "tags"]
+      required: ["title", "brand", "description", "tags"]
     } as any;
 
     const { result, warning } = await executeWithFallback(

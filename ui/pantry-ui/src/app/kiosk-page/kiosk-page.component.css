@@ -40,6 +40,15 @@
     letter-spacing: 2px;
 }
 
+.status-subtext {
+    font-size: 2rem;
+    font-weight: 200;
+    margin-top: 10px;
+    text-align: center;
+    color: #b3e5fc;
+    opacity: 0.9;
+}
+
 .pulse-icon {
     font-size: 6rem;
     width: 6rem;
@@ -85,6 +94,12 @@
     width: 100%;
 }
 
+.single-action-grid {
+    grid-template-columns: 1fr;
+    grid-template-rows: 1fr;
+}
+
+
 .compact-grid {
     /* For 5 buttons, maybe custom layout */
     grid-template-columns: 1fr 1fr;
@@ -117,6 +132,25 @@
     position: relative;
     z-index: 10;
 }
+
+.finish-btn {
+    font-size: 3rem !important;
+    background-color: #2e7d32 !important;
+    /* Green */
+    color: white !important;
+}
+
+.consume-finish {
+    background-color: #00838f !important;
+    /* Cyan-ish for consume or maybe keep green? Let's do distinct color */
+}
+
+.finish-btn .btn-content mat-icon {
+    font-size: 64px;
+    width: 64px;
+    height: 64px;
+}
+
 
 .btn-content {
     display: flex;
