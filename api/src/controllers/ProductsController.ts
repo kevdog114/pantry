@@ -7,7 +7,7 @@ export const getById = async (req: Request, res: Response, next: NextFunction): 
             id: parseInt(req.params.id)
         },
         include: {
-            stockItems: true,
+            stockItems: { include: { location: true } },
             files: true,
             barcodes: {
                 include: {
@@ -78,7 +78,7 @@ export const deleteById = async (req: Request, res: Response, next: NextFunction
 export const getAll = async (req: Request, res: Response, next: NextFunction): Promise<any> => {
     const products = await prisma.product.findMany({
         include: {
-            stockItems: true,
+            stockItems: { include: { location: true } },
             files: true,
             barcodes: {
                 include: {
@@ -130,7 +130,7 @@ export const updateById = async (req: Request, res: Response, next: NextFunction
             })
         },
         include: {
-            stockItems: true,
+            stockItems: { include: { location: true } },
             files: true,
             barcodes: {
                 include: {
@@ -157,7 +157,7 @@ export const searchProductByBarcode = async (req: Request, res: Response, next: 
         include: {
             product: {
                 include: {
-                    stockItems: true,
+                    stockItems: { include: { location: true } },
                     files: true,
                     tags: true,
                     barcodes: {

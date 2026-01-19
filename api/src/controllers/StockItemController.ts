@@ -97,7 +97,8 @@ export const update = async (req: Request, res: Response, next: NextFunction): P
             opened: req.body.opened,
             openedDate: req.body.openedDate ? new Date(req.body.openedDate) : undefined,
             ...frozenDateOperation,
-            unit: req.body.unit
+            unit: req.body.unit,
+            locationId: req.body.locationId
         }
     });
     res.send(stockItem);
@@ -111,7 +112,8 @@ export const create = async (req: Request, res: Response, next: NextFunction): P
             quantity: req.body.quantity,
             frozen: req.body.frozen,
             opened: req.body.opened,
-            unit: req.body.unit
+            unit: req.body.unit,
+            locationId: req.body.locationId
         }
     });
     res.send(stockItem);

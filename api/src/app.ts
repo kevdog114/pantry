@@ -24,6 +24,7 @@ import { isAuthenticated } from "./middleware/auth";
 
 import * as LabelPrinterController from "./controllers/labelPrinterController";
 import * as EquipmentController from "./controllers/EquipmentController";
+import * as LocationController from "./controllers/LocationController";
 import cors from "cors";
 import fileUpload from "express-fileupload";
 import session from "express-session";
@@ -178,6 +179,12 @@ app.put("/tags/:id", TagsController.updateById);
 app.delete("/tags/:id", TagsController.deleteById);
 app.get("/tag-groups", TagsController.getGroups);
 app.get("/tag-groups/:group", TagsController.getAllForGroup);
+
+app.get("/locations", LocationController.getAll);
+app.get("/locations/:id", LocationController.getById);
+app.post("/locations", LocationController.create);
+app.put("/locations/:id", LocationController.updateById);
+app.delete("/locations/:id", LocationController.deleteById);
 
 app.get("/product-search", ProductSearchController.search);
 app.get("/product-search-all", ProductSearchController.getall);

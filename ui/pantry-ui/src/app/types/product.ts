@@ -16,6 +16,14 @@ export interface StockItem {
     frozen: boolean
     expirationExtensionAfterThaw: number
     openedDate?: Date
+    locationId?: number
+    location?: Location
+}
+
+export interface Location {
+    id: number
+    name: string
+    description: string
 }
 
 export interface ProductBarcode {

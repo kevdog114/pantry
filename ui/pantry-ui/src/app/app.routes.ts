@@ -129,6 +129,11 @@ export const routes: Routes = [
         component: FamilyPreferencesComponent,
         canActivate: [AuthGuard]
     },
+    {
+        path: "settings/locations",
+        loadComponent: () => import('./settings/locations/locations.component').then(m => m.LocationsComponent),
+        canActivate: [AuthGuard]
+    },
 
     {
         path: "search",

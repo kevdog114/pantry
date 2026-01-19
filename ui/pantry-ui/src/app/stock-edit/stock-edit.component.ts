@@ -1,6 +1,7 @@
 import { AfterViewInit, Component, Input } from '@angular/core';
 import { ProductListService } from '../components/product-list/product-list.service';
-import { Product, StockItem } from '../types/product';
+import { Product, StockItem, Location } from '../types/product';
+import { LocationService } from '../services/location.service';
 import { CommonModule } from '@angular/common';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { FormsModule } from '@angular/forms';
@@ -40,6 +41,7 @@ export class StockEditComponent implements AfterViewInit {
   private _stockId: number | undefined;
   public product: Product | undefined;
   public stockItem: StockItem | undefined;
+  public locations: Location[] = [];
   public get IsCreate() { return this._stockId === undefined };
 
 
@@ -56,12 +58,13 @@ export class StockEditComponent implements AfterViewInit {
   /**
    *
    */
-  constructor(private svc: ProductListService, private router: Router) {
+  constructor(private svc: ProductListService, private locationService: LocationService, private router: Router) {
   }
 
   ngAfterViewInit(): void {
-    if (this._productId !== undefined) {
+    this.locationService.getAll().subscribe(locs => this.locations = locs);
 
+    if (this._productId !== undefined) {
       this.svc.Get(this._productId).subscribe(product => {
         console.log(product);
         this.product = product;
