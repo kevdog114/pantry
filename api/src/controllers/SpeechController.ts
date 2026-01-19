@@ -75,31 +75,58 @@ export const transcribe = async (req: Request, res: Response) => {
             client.write(stopMsg);
         });
 
+        let state: 'LINE' | 'PAYLOAD' = 'LINE';
+        let payloadLength = 0;
+
         client.on('data', (data) => {
             console.log('Received data chunk from Whisper, size:', data.length);
             buffer += data.toString();
 
-            let lineEnd;
-            while ((lineEnd = buffer.indexOf('\n')) !== -1) {
-                const line = buffer.substring(0, lineEnd);
-                buffer = buffer.substring(lineEnd + 1);
+            while (true) {
+                if (state === 'LINE') {
+                    const lineEnd = buffer.indexOf('\n');
+                    if (lineEnd === -1) break;
 
-                if (!line.trim()) continue;
+                    const line = buffer.substring(0, lineEnd);
+                    buffer = buffer.substring(lineEnd + 1);
 
-                console.log('Processing line:', line);
-                try {
-                    const msg = JSON.parse(line);
-                    if (msg.type === 'transcript' || msg.event === 'transcript') {
-                        const text = msg.data?.text || msg.text;
-                        if (!responseSent) {
-                            console.log('Sending transcript to client:', text);
-                            res.json({ text: text });
-                            responseSent = true;
+                    if (!line.trim()) continue;
+
+                    console.log('Processing line:', line);
+                    try {
+                        const msg = JSON.parse(line);
+                        if (msg.type === 'transcript' || msg.event === 'transcript') {
+                            if (msg.data_length > 0) {
+                                state = 'PAYLOAD';
+                                payloadLength = msg.data_length;
+                            } else {
+                                const text = msg.data?.text || msg.text || '';
+                                if (!responseSent) {
+                                    console.log('Sending transcript to client (inline):', text);
+                                    res.json({ text: text });
+                                    responseSent = true;
+                                }
+                                client.destroy();
+                            }
                         }
-                        client.destroy();
+                    } catch (e) {
+                        console.error('Error parsing JSON from Whisper:', e);
                     }
-                } catch (e) {
-                    console.error('Error parsing JSON from Whisper:', e);
+                } else if (state === 'PAYLOAD') {
+                    if (buffer.length >= payloadLength) {
+                        const payload = buffer.substring(0, payloadLength);
+                        buffer = buffer.substring(payloadLength);
+                        state = 'LINE';
+
+                        console.log('Got payload:', payload);
+                        if (!responseSent) {
+                            res.json({ text: payload });
+                            responseSent = true;
+                            client.destroy();
+                        }
+                    } else {
+                        break;
+                    }
                 }
             }
         });
