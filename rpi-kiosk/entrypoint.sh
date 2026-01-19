@@ -16,9 +16,10 @@ TARGET_URL="${URL:-https://google.com}"
 echo "Starting Kiosk Browser pointing to: $TARGET_URL"
 
 # Disable screensaver and power management
-xset -dpms     # Disable DPMS (Energy Star) features.
 xset s off     # Disable screen saver.
 xset s noblank # Don't blank the video device.
+xset dpms 0 0 0 # Disable DPMS timers
+xset -dpms     # Disable DPMS (Energy Star) features.
 
 # Clear any previous session data (optional, ensures clean state)
 rm -f /data/SingletonSocket /data/SingletonCookie /data/SingletonLock

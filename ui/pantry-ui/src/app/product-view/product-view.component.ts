@@ -29,6 +29,7 @@ import { Router, RouterModule } from '@angular/router';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { StockItemDialogComponent } from '../components/stock-item-dialog/stock-item-dialog.component';
 import { StockAddDialogComponent } from '../components/stock-add-dialog/stock-add-dialog.component';
+import { QuantityPromptDialogComponent } from '../components/quantity-prompt-dialog/quantity-prompt-dialog.component';
 
 @Component({
   selector: 'app-product-view',
@@ -268,6 +269,32 @@ export class ProductViewComponent implements OnChanges {
   }
 
   setFrozen = (stockItem: StockItem, isFrozen: boolean) => {
+    // Partial thaw logic
+    if (!isFrozen && stockItem.quantity > 1) {
+      this.dialog.open(QuantityPromptDialogComponent, {
+        data: {
+          title: 'Thaw Quantity',
+          message: `How many units do you want to thaw? (Total: ${stockItem.quantity})`,
+          max: stockItem.quantity,
+          current: 1 // Default to 1 for thawing one item
+        },
+        width: '300px'
+      }).afterClosed().subscribe((qty: number | undefined) => {
+        if (!qty) return;
+
+        if (qty < stockItem.quantity) {
+          this.handlePartialThaw(stockItem, qty);
+        } else {
+          this.processFrozenToggle(stockItem, isFrozen);
+        }
+      });
+      return;
+    }
+
+    this.processFrozenToggle(stockItem, isFrozen);
+  }
+
+  processFrozenToggle = (stockItem: StockItem, isFrozen: boolean) => {
     if (isFrozen) {
       if (this.product?.freezerLifespanDays !== null) {
         stockItem.expirationExtensionAfterThaw = this.daysBetween(stockItem.expirationDate, new Date());
@@ -283,6 +310,34 @@ export class ProductViewComponent implements OnChanges {
     this.svc.UpdateStock(stockItem.id!, stockItem).subscribe(() => {
       this.snackbar.open("Updated stock item", "Okay", {
         duration: 5000
+      });
+    });
+  }
+
+  handlePartialThaw = (originalStock: StockItem, qtyToThaw: number) => {
+    // Deduct from original (Frozen)
+    originalStock.quantity -= qtyToThaw;
+    this.svc.UpdateStock(originalStock.id!, originalStock).subscribe(() => {
+
+      // Create new (Thawed)
+      const newStock: StockItem = { ...originalStock };
+      newStock.id = undefined;
+      newStock.quantity = qtyToThaw;
+      newStock.frozen = false;
+
+      if (newStock.expirationExtensionAfterThaw !== null) {
+        newStock.expirationDate = this.addDays(new Date(), newStock.expirationExtensionAfterThaw);
+      }
+
+      this.svc.CreateStock(newStock).subscribe(createdItem => {
+        // Add to list
+        this.product?.stockItems.push(createdItem);
+
+        // Trigger dialog
+        this._stockId = createdItem.id;
+        this.checkAndOpenStockDialog();
+
+        this.snackbar.open(`Thawed ${qtyToThaw} units`, "Okay", { duration: 3000 });
       });
     });
   }

@@ -41,6 +41,7 @@ def set_display(state):
         cmd_args = ['xset', 'dpms', 'force', 'on']
         try:
              subprocess.run(['xset', 's', 'reset'], check=False)
+             subprocess.run(['xset', 'dpms', '0', '0', '0'], check=False)
         except:
              pass
     else:
