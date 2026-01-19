@@ -303,33 +303,17 @@ export class ProductViewComponent implements OnChanges {
     const quantity = Math.floor(stockItem.quantity);
     if (quantity <= 0) return;
 
-    // We'll queue them up sequentially to avoid flooding or race conditions if the backend/printer is finicky,
-    // though parallel might work. Let's do a simple loop for now, or trigger them all.
-    // Given HTTP requests are async, we can fire them all. 
-    // Ideally the backend handles the queue.
-
-    let sent = 0;
-    const errors: any[] = [];
-
-    // Simple burst for now
-    for (let i = 0; i < quantity; i++) {
-      this.labelService.printStockLabel(stockItem.id!, size).subscribe({
-        next: () => {
-          sent++;
-          if (sent === quantity) {
-            this.snackbar.open(`Sent ${quantity} labels`, "Okay", { duration: 3000 });
-          }
-        },
-        error: (err) => {
-          errors.push(err);
-          if (sent + errors.length === quantity) {
-            this.snackbar.open(`Finished with ${errors.length} errors`, "Dismiss", { duration: 5000 });
-          }
-        }
-      });
-    }
-
     this.snackbar.open(`Sending ${quantity} labels...`, "Dismiss", { duration: 2000 });
+
+    this.labelService.printStockLabel(stockItem.id!, size, quantity).subscribe({
+      next: (res) => {
+        this.snackbar.open(res.message || `Sent ${quantity} labels`, "Okay", { duration: 3000 });
+      },
+      error: (err) => {
+        this.snackbar.open("Failed to print labels", "Dismiss", { duration: 5000 });
+        console.error(err);
+      }
+    });
   }
 
   printModifier(stockItem: StockItem, action: string) {

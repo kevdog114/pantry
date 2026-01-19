@@ -68,7 +68,7 @@ const findTargetSocket = async (io: any): Promise<any> => {
 
 export const printQuickLabel = async (req: Request, res: Response, next: NextFunction): Promise<any> => {
     try {
-        const { type, date, size } = req.body;
+        const { type, date, size, copies } = req.body;
         const io = req.app.get('io');
 
         const targetSocket = await findTargetSocket(io);
@@ -83,7 +83,8 @@ export const printQuickLabel = async (req: Request, res: Response, next: NextFun
             data: {
                 type: type || "Label",
                 date: date || new Date().toISOString().split('T')[0],
-                size: size || 'continuous'
+                size: size || 'continuous',
+                copies: copies || 1
             }
         };
 
@@ -123,7 +124,7 @@ export const printStockLabel = async (req: Request, res: Response, next: NextFun
             return;
         }
 
-        const { size } = req.body;
+        const { size, copies } = req.body;
 
         const payload = {
             type: 'STOCK_LABEL',
@@ -134,6 +135,7 @@ export const printStockLabel = async (req: Request, res: Response, next: NextFun
                 stockId: stockItem.id,
                 qrData: `S2-${stockItem.id}`,
                 size: size || 'standard',
+                copies: copies || 1,
                 frozen: stockItem.frozen,
                 opened: stockItem.opened,
                 // If opened, use openedDate.

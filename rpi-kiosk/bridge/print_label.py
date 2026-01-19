@@ -454,12 +454,25 @@ def print_label_cmd(args):
     )
     
     # Send to printer
-    send(
-        instructions=instructions, 
-        printer_identifier=args.printer, 
-        backend_identifier=args.backend, 
-        blocking=True
-    )
+    copies = 1
+    try:
+        copies = int(data.get('copies', 1))
+    except (ValueError, TypeError):
+        copies = 1
+        
+    if copies < 1: copies = 1
+    
+    logger.info(f"Printing {copies} copies...")
+
+    for i in range(copies):
+        logger.info(f"Sending copy {i+1} of {copies}")
+        send(
+            instructions=instructions, 
+            printer_identifier=args.printer, 
+            backend_identifier=args.backend, 
+            blocking=True
+        )
+            
     logger.info("Print successful")
 
 def discover_cmd(args):

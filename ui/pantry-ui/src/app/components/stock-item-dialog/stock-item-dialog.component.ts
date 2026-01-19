@@ -10,6 +10,9 @@ import { CommonModule, DatePipe } from '@angular/common';
 import { MatExpansionModule } from '@angular/material/expansion';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { Router } from '@angular/router';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInputModule } from '@angular/material/input';
+import { FormsModule } from '@angular/forms';
 
 export interface StockItemDialogData {
     stockItem: StockItem;
@@ -29,12 +32,18 @@ export interface StockItemDialogData {
         MatDividerModule,
         MatExpansionModule,
         MatSnackBarModule,
-        DatePipe
+        MatExpansionModule,
+        MatSnackBarModule,
+        DatePipe,
+        MatFormFieldModule,
+        MatInputModule,
+        FormsModule
     ],
     templateUrl: './stock-item-dialog.component.html',
     styleUrls: ['./stock-item-dialog.component.css']
 })
 export class StockItemDialogComponent {
+    copies: number = 1;
 
     constructor(
         public dialogRef: MatDialogRef<StockItemDialogComponent>,
@@ -108,8 +117,8 @@ export class StockItemDialogComponent {
     }
 
     printLabel() {
-        this.labelService.printStockLabel(this.data.stockItem.id!, this.data.labelSizeCode).subscribe({
-            next: () => this.snackBar.open("Label Sent", "Dismiss", { duration: 3000 }),
+        this.labelService.printStockLabel(this.data.stockItem.id!, this.data.labelSizeCode, this.copies).subscribe({
+            next: () => this.snackBar.open(`Sent ${this.copies} Labels`, "Dismiss", { duration: 3000 }),
             error: (err) => this.snackBar.open("Print Failed", "Dismiss", { duration: 3000 })
         });
     }

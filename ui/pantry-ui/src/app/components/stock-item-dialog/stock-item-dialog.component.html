@@ -64,6 +64,11 @@
             </mat-expansion-panel-header>
 
             <div class="d-grid gap-2">
+                <mat-form-field appearance="outline" subscriptSizing="dynamic">
+                    <mat-label>Copies</mat-label>
+                    <input matInput type="number" [(ngModel)]="copies" min="1">
+                </mat-form-field>
+
                 <button mat-stroked-button (click)="printLabel()">Print Stock Label
                     ({{data.labelSizeDescription}})</button>
                 <button mat-stroked-button *ngIf="data.stockItem.opened" (click)="printModifier('Opened')">Print

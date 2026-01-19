@@ -13,15 +13,16 @@ export class LabelService {
     this.apiUrl = this.env.apiUrl;
   }
 
-  printStockLabel(stockId: number, size: string = 'standard'): Observable<any> {
-    return this.http.post(`${this.apiUrl}/labels/stock/${stockId}`, { size });
+  printStockLabel(stockId: number, size: string = 'standard', copies: number = 1): Observable<any> {
+    return this.http.post(`${this.apiUrl}/labels/stock/${stockId}`, { size, copies });
   }
 
-  printQuickLabel(type: string, date: Date, size: string): Observable<any> {
+  printQuickLabel(type: string, date: Date, size: string, copies: number = 1): Observable<any> {
     return this.http.post(`${this.apiUrl}/labels/quick-print`, {
       type,
       date: date.toISOString().split('T')[0], // YYYY-MM-DD
-      size
+      size,
+      copies
     });
   }
 
