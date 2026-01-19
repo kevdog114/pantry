@@ -47,6 +47,11 @@ export class SmartChatInputComponent implements OnDestroy {
     private audioChunks: Blob[] = [];
     private stream: MediaStream | null = null;
 
+    // VAD variables
+    private audioContext: AudioContext | null = null;
+    private analyser: AnalyserNode | null = null;
+    private microphone: MediaStreamAudioSourceNode | null = null;
+
     constructor(
         private cd: ChangeDetectorRef,
         private ngZone: NgZone,
@@ -83,6 +88,9 @@ export class SmartChatInputComponent implements OnDestroy {
             this.mediaRecorder.start();
             this.isListening = true;
             this.cd.detectChanges();
+
+            this.initVAD(this.stream);
+
         } catch (error) {
             console.error('Error accessing microphone:', error);
             // Optionally set an error state or notify user
@@ -93,12 +101,59 @@ export class SmartChatInputComponent implements OnDestroy {
         if (this.mediaRecorder && this.isListening) {
             this.mediaRecorder.stop();
             this.isListening = false;
+
+            if (this.audioContext) {
+                this.audioContext.close();
+                this.audioContext = null;
+            }
+
             if (this.stream) {
                 this.stream.getTracks().forEach(track => track.stop());
                 this.stream = null;
             }
             this.cd.detectChanges();
         }
+    }
+
+    initVAD(stream: MediaStream) {
+        this.audioContext = new AudioContext();
+        this.analyser = this.audioContext.createAnalyser();
+        this.microphone = this.audioContext.createMediaStreamSource(stream);
+        this.microphone.connect(this.analyser);
+        this.analyser.fftSize = 2048;
+
+        const bufferLength = this.analyser.fftSize;
+        const dataArray = new Uint8Array(bufferLength);
+
+        let silenceStart = Date.now();
+        const silenceThreshold = 0.02; // RMS threshold
+        const maxSilenceDuration = 750; // 0.75 seconds
+
+        const checkSilence = () => {
+            if (!this.isListening || !this.analyser) return;
+
+            this.analyser.getByteTimeDomainData(dataArray);
+
+            let sum = 0;
+            for (let i = 0; i < bufferLength; i++) {
+                const x = (dataArray[i] - 128) / 128.0;
+                sum += x * x;
+            }
+            const rms = Math.sqrt(sum / bufferLength);
+
+            if (rms > silenceThreshold) {
+                silenceStart = Date.now();
+            } else {
+                if (Date.now() - silenceStart > maxSilenceDuration) {
+                    this.ngZone.run(() => this.stopRecording());
+                    return;
+                }
+            }
+
+            requestAnimationFrame(checkSilence);
+        };
+
+        checkSilence();
     }
 
     processAudio() {
