@@ -4,7 +4,7 @@
   <button mat-raised-button color="accent" (click)="forceReleaseScanner()">STOP CLAIM</button>
 </div>
 
-<mat-toolbar [color]="scannerClaimedBy ? 'warn' : 'primary'">
+<mat-toolbar [color]="scannerClaimedBy ? 'warn' : 'primary'" *ngIf="!isKioskMode">
   <button mat-icon-button (click)="sidenav.toggle()">
     <mat-icon>menu</mat-icon>
   </button>

@@ -1,0 +1,178 @@
+.kiosk-container {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 9999;
+    /* Cover existing UI */
+    background-color: #1e1e1e;
+    /* Dark background */
+    color: #ffffff;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    font-family: 'Roboto', sans-serif;
+}
+
+/* Status Section */
+.status-section {
+    flex: 1;
+    /* Takes up 50% roughly */
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: linear-gradient(180deg, #2c3e50 0%, #000000 100%);
+    transition: background 0.3s ease;
+}
+
+.status-section.scanning {
+    background: linear-gradient(180deg, #1a237e 0%, #000000 100%);
+    /* Blueish for scanning */
+}
+
+.status-text {
+    font-size: 4rem;
+    font-weight: 300;
+    margin: 0;
+    text-align: center;
+    letter-spacing: 2px;
+}
+
+.pulse-icon {
+    font-size: 6rem;
+    width: 6rem;
+    height: 6rem;
+    margin-top: 20px;
+    animation: pulse 2s infinite;
+    color: #64ffda;
+}
+
+@keyframes pulse {
+    0% {
+        transform: scale(1);
+        opacity: 0.8;
+    }
+
+    50% {
+        transform: scale(1.1);
+        opacity: 1;
+        text-shadow: 0 0 20px #64ffda;
+    }
+
+    100% {
+        transform: scale(1);
+        opacity: 0.8;
+    }
+}
+
+/* Action Section */
+.action-section {
+    flex: 1;
+    /* Takes up other 50% */
+    padding: 20px;
+    background-color: #121212;
+}
+
+.button-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 1fr 1fr;
+    /* 2 rows default */
+    gap: 20px;
+    height: 100%;
+    width: 100%;
+}
+
+.compact-grid {
+    /* For 5 buttons, maybe custom layout */
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: auto auto auto;
+    /* We have 5 items. Back button can be full width? */
+}
+
+.full-width {
+    grid-column: 1 / -1;
+}
+
+.large-btn {
+    height: 100% !important;
+    font-size: 24px !important;
+    border-radius: 16px !important;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+    transition: transform 0.1s;
+}
+
+.large-btn:active {
+    transform: scale(0.98);
+}
+
+.active-mode {
+    border: 4px solid #64ffda !important;
+    box-shadow: 0 0 20px rgba(100, 255, 218, 0.6) !important;
+    background-color: #004d40 !important;
+    /* Darker teal to match border */
+    color: #64ffda !important;
+    position: relative;
+    z-index: 10;
+}
+
+.btn-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+}
+
+.btn-content mat-icon {
+    font-size: 48px;
+    width: 48px;
+    height: 48px;
+}
+
+.utility-btn .btn-content mat-icon {
+    color: #b0bec5;
+}
+
+.utility-btn {
+    background-color: #37474f !important;
+    color: white !important;
+}
+
+.back-btn {
+    border-color: rgba(255, 255, 255, 0.3) !important;
+    color: rgba(255, 255, 255, 0.8) !important;
+}
+
+/* Footer */
+.footer {
+    height: 60px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 30px;
+    background-color: #000000;
+    color: #757575;
+    font-size: 1.1rem;
+    border-top: 1px solid #333;
+}
+
+.pantry-name {
+    font-weight: 500;
+}
+
+.footer-end {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+}
+
+.exit-btn {
+    color: #424242 !important;
+    font-size: 0.8rem !important;
+}
+
+.exit-btn:hover {
+    color: #e0e0e0 !important;
+}

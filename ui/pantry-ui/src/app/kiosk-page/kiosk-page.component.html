@@ -1,0 +1,125 @@
+<div class="kiosk-container">
+    <!-- Status Section (Top 50%) -->
+    <div class="status-section" [class.scanning]="activeMode !== 'NONE'">
+        <h1 class="status-text">{{ status }}</h1>
+        <mat-icon *ngIf="activeMode !== 'NONE'" class="pulse-icon">qr_code_scanner</mat-icon>
+    </div>
+
+    <!-- Action Section (Bottom 50%) -->
+    <div class="action-section">
+
+        <!-- MAIN VIEW -->
+        <div *ngIf="viewState === 'MAIN'" class="button-grid">
+            <button mat-flat-button color="primary" class="large-btn" [class.active-mode]="activeMode === 'RESTOCK'"
+                (click)="setMode('RESTOCK')">
+                <div class="btn-content">
+                    <mat-icon>inventory_2</mat-icon>
+                    <span>RESTOCK</span>
+                </div>
+            </button>
+
+            <button mat-flat-button color="primary" class="large-btn" [class.active-mode]="activeMode === 'CONSUME'"
+                (click)="setMode('CONSUME')">
+                <div class="btn-content">
+                    <mat-icon>restaurant</mat-icon>
+                    <span>CONSUME</span>
+                </div>
+            </button>
+
+            <button mat-flat-button color="accent" class="large-btn" (click)="goToMealPlan()">
+                <div class="btn-content">
+                    <mat-icon>menu_book</mat-icon>
+                    <span>COOK</span>
+                </div>
+            </button>
+
+            <button mat-flat-button class="large-btn utility-btn" (click)="openUtilities()">
+                <div class="btn-content">
+                    <mat-icon>build</mat-icon>
+                    <span>UTILITIES</span>
+                </div>
+            </button>
+        </div>
+
+        <!-- UTILITIES VIEW -->
+        <div *ngIf="viewState === 'UTILITIES'" class="button-grid">
+            <button mat-stroked-button class="large-btn back-btn" (click)="closeUtilities()">
+                <div class="btn-content">
+                    <mat-icon>arrow_back</mat-icon>
+                    <span>MAIN MENU</span>
+                </div>
+            </button>
+
+            <button mat-flat-button color="primary" class="large-btn" (click)="openPrintLabels()">
+                <div class="btn-content">
+                    <mat-icon>print</mat-icon>
+                    <span>PRINT LABELS</span>
+                </div>
+            </button>
+
+            <button mat-flat-button color="primary" class="large-btn" (click)="scaleAction()">
+                <div class="btn-content">
+                    <mat-icon>scale</mat-icon>
+                    <span>SCALE</span>
+                </div>
+            </button>
+
+            <button mat-flat-button color="primary" class="large-btn" (click)="printShoppingList()">
+                <div class="btn-content">
+                    <mat-icon>list_alt</mat-icon>
+                    <span>PRINT LIST</span>
+                </div>
+            </button>
+        </div>
+
+        <!-- PRINT LABELS VIEW -->
+        <!-- 5 Buttons: Back + 4 Options. Maybe 3 cols? Or list? 
+           User said "Large buttons". 2 columns is safe. -->
+        <div *ngIf="viewState === 'PRINT_LABELS'" class="button-grid compact-grid">
+            <button mat-stroked-button class="large-btn back-btn full-width" (click)="openUtilities()">
+                <div class="btn-content">
+                    <mat-icon>arrow_back</mat-icon>
+                    <span>BACK</span>
+                </div>
+            </button>
+
+            <button mat-flat-button color="accent" class="large-btn" (click)="printLabel('Opened', 0)">
+                <div class="btn-content">
+                    <mat-icon>calendar_today</mat-icon>
+                    <span>OPENED TODAY</span>
+                </div>
+            </button>
+
+            <button mat-flat-button color="warn" class="large-btn" (click)="printLabel('Expires', 3)">
+                <div class="btn-content">
+                    <mat-icon>timer</mat-icon>
+                    <span>EXP +3 DAYS (Meat)</span>
+                </div>
+            </button>
+
+            <button mat-flat-button color="warn" class="large-btn" (click)="printLabel('Expires', 7)">
+                <div class="btn-content">
+                    <mat-icon>timer</mat-icon>
+                    <span>EXP +7 DAYS (Deli)</span>
+                </div>
+            </button>
+
+            <button mat-flat-button color="warn" class="large-btn" (click)="printLabel('Expires', 30)">
+                <div class="btn-content">
+                    <mat-icon>timer</mat-icon>
+                    <span>EXP +1 MONTH</span>
+                </div>
+            </button>
+        </div>
+
+    </div>
+
+    <!-- Footer -->
+    <div class="footer">
+        <span class="pantry-name">{{ pantryName }}</span>
+        <div class="footer-end">
+            <span class="current-date">{{ currentDate | date:'fullDate' }}</span>
+            <button mat-button class="exit-btn" (click)="exitKiosk()">EXIT</button>
+        </div>
+    </div>
+</div>

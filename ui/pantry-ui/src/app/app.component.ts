@@ -40,6 +40,8 @@ export class AppComponent implements OnInit {
   /**
    *
    */
+  isKioskMode = false;
+
   constructor(
     private hardwareScanner: HardwareBarcodeScannerService,
     iconRegistry: MatIconRegistry,
@@ -58,7 +60,8 @@ export class AppComponent implements OnInit {
     this.router.events.pipe(
       filter(event => event instanceof NavigationEnd)
     ).subscribe((event: NavigationEnd) => {
-      this.isFullWidth = event.urlAfterRedirects.includes('/gemini-chat') || event.urlAfterRedirects.includes('/home');
+      this.isKioskMode = event.urlAfterRedirects.includes('/kiosk-mode');
+      this.isFullWidth = this.isKioskMode || event.urlAfterRedirects.includes('/gemini-chat') || event.urlAfterRedirects.includes('/home');
     });
   }
 
