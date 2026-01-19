@@ -37,10 +37,12 @@ export const transcribe = async (req: Request, res: Response) => {
         let transcript = '';
         let errorString = '';
 
+        let buffer = '';
         let responseSent = false;
 
         client.connect(WHISPER_PORT, WHISPER_HOST, () => {
-            // ... code to send audio ...
+            console.log('Connected to Whisper service');
+            // ... (rest of writing logic is unchanged, but implied we don't touch it here)
             // Send Audio Start
             const startMsg = JSON.stringify({
                 type: 'audio-start',
@@ -74,20 +76,30 @@ export const transcribe = async (req: Request, res: Response) => {
         });
 
         client.on('data', (data) => {
-            const lines = data.toString().split('\n');
-            for (const line of lines) {
+            console.log('Received data chunk from Whisper, size:', data.length);
+            buffer += data.toString();
+
+            let lineEnd;
+            while ((lineEnd = buffer.indexOf('\n')) !== -1) {
+                const line = buffer.substring(0, lineEnd);
+                buffer = buffer.substring(lineEnd + 1);
+
                 if (!line.trim()) continue;
+
+                console.log('Processing line:', line);
                 try {
                     const msg = JSON.parse(line);
-                    if (msg.type === 'transcript') {
+                    if (msg.type === 'transcript' || msg.event === 'transcript') {
+                        const text = msg.data?.text || msg.text;
                         if (!responseSent) {
-                            res.json({ text: msg.data.text });
+                            console.log('Sending transcript to client:', text);
+                            res.json({ text: text });
                             responseSent = true;
                         }
                         client.destroy();
                     }
                 } catch (e) {
-                    // Ignore non-JSON or partial lines
+                    console.error('Error parsing JSON from Whisper:', e);
                 }
             }
         });
