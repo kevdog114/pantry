@@ -3,7 +3,7 @@ FROM node:22-alpine
 ARG TARGETARCH
 ENV PRISMA_SKIP_POSTINSTALL_GENERATE=true
 
-RUN apk add --no-cache python3 py3-setuptools make g++ openssl openssl-dev
+RUN apk add --no-cache python3 py3-setuptools make g++ openssl openssl-dev ffmpeg
 
 RUN mkdir /app
 RUN mkdir /app/data

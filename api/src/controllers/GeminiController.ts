@@ -6,6 +6,7 @@ import { UploadedFile } from "express-fileupload";
 import * as fs from "fs";
 import * as path from "path";
 import { storeFile, UPLOAD_DIR } from "../lib/FileStorage";
+import { intentEngine } from "../lib/IntentEngine";
 
 dotenv.config();
 
@@ -216,6 +217,123 @@ export const post = async (req: Request, res: Response) => {
     if (sessionId) {
       sessionId = parseInt(sessionId as string, 10);
     }
+
+    // --- SMART CHAT LOCAL INTENT PROCESSING ---
+    try {
+      const intentRes = await intentEngine.process(prompt);
+      // Threshold 0.8 to be safe
+      if (intentRes.intent === 'shopping.add' && intentRes.score > 0.8) {
+        console.log(`[SmartChat] Detected local intent: ${intentRes.intent}`);
+
+        // Extract Item Name (Regex Fallback as NLP entities not fully trained)
+        let itemToAdd = null;
+        const patterns = [
+          /add (.*) to (?:the |my )?shopping list/i,
+          /add (.*) to (?:the |my )?list/i,
+          /put (.*) on (?:the |my )?shopping list/i,
+          /put (.*) on (?:the |my )?list/i,
+          /^buy (.*)$/i,
+          /^need (.*)$/i,
+          /remind me to buy (.*)/i
+        ];
+
+        for (const p of patterns) {
+          const match = prompt.match(p);
+          if (match && match[1]) {
+            itemToAdd = match[1].trim();
+            // Clean up common suffix punctuation if user typed "buy milk."
+            itemToAdd = itemToAdd.replace(/[.!?]$/, '');
+            break;
+          }
+        }
+
+        if (itemToAdd) {
+          // Verify session exists or create one to maintain chat history appearance
+          if (!sessionId) {
+            const session = await prisma.chatSession.create({
+              data: {
+                title: prompt.substring(0, 50) + (prompt.length > 50 ? '...' : ''),
+                entityType: entityType || null,
+                entityId: entityId ? parseInt(entityId.toString(), 10) : null
+              }
+            });
+            sessionId = session.id;
+          } else {
+            await prisma.chatSession.update({
+              where: { id: sessionId as number },
+              data: { updatedAt: new Date() }
+            });
+          }
+
+          // Save User Message
+          await prisma.chatMessage.create({
+            data: {
+              sessionId: sessionId as number,
+              sender: 'user',
+              type: 'chat',
+              content: prompt
+            }
+          });
+
+          // Logic: Add to Shopping List
+          let shoppingList = await prisma.shoppingList.findFirst();
+          if (!shoppingList) {
+            shoppingList = await prisma.shoppingList.create({ data: { name: "My Shopping List" } });
+          }
+
+          const existingItem = await prisma.shoppingListItem.findFirst({
+            where: {
+              shoppingListId: shoppingList.id,
+              name: itemToAdd
+            }
+          });
+
+          if (existingItem) {
+            await prisma.shoppingListItem.update({
+              where: { id: existingItem.id },
+              data: { quantity: (existingItem.quantity || 1) + 1 }
+            });
+          } else {
+            await prisma.shoppingListItem.create({
+              data: {
+                shoppingListId: shoppingList.id,
+                name: itemToAdd,
+                quantity: 1
+              }
+            });
+          }
+
+          const botResponseText = `I've added **${itemToAdd}** to your shopping list.`;
+
+          // Save Bot Message
+          await prisma.chatMessage.create({
+            data: {
+              sessionId: sessionId as number,
+              sender: 'model', // Use 'model' to appear as the AI
+              type: 'chat',
+              content: botResponseText
+            }
+          });
+
+          // Return JSON response format
+          return res.json({
+            message: "success",
+            sessionId: sessionId,
+            result: {
+              items: [
+                {
+                  type: 'chat',
+                  content: botResponseText
+                }
+              ]
+            }
+          });
+        }
+      }
+    } catch (err) {
+      console.warn("Intent engine processing failed, falling back to Gemini", err);
+    }
+    // --- END SMART CHAT LOCAL PROCESSING ---
 
     // Handle Image Upload
     let imageFilename: string | null = null;

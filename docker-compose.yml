@@ -26,5 +26,14 @@ services:
       - /etc/localtime:/etc/localtime:ro
       - /etc/timezone:/etc/timezone:ro
 
+  wyoming-whisper:
+    image: rhasspy/wyoming-whisper
+    ports:
+      - 10300:10300
+    volumes:
+      - pantry_whisper:/data
+    command: --model tiny --language en
+
 volumes:
   pantry_data:
+  pantry_whisper:

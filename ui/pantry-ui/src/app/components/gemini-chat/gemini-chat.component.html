@@ -23,7 +23,7 @@
   <main class="main-chat" *ngIf="!showSidebar || !isMobile">
     <div *ngIf="isMobile" class="mobile-header">
       <button class="back-btn" (click)="backToSessions()">← Back</button>
-      <span class="mobile-title">Chat</span>
+      <span class="mobile-title">Smart Chat</span>
     </div>
 
     <app-chat-interface [messages]="messages" [isLoading]="isLoading" [showWelcomeMessage]="true"

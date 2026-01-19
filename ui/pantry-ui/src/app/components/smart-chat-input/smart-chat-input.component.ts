@@ -1,4 +1,3 @@
-
 import { Component, EventEmitter, Input, Output, OnDestroy, ChangeDetectorRef, NgZone, ViewChild, ElementRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatButtonModule } from '@angular/material/button';
@@ -7,6 +6,8 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { FormsModule } from '@angular/forms';
+import { HttpClient } from '@angular/common/http';
+import { EnvironmentService } from '../../services/environment.service';
 
 @Component({
     selector: 'app-smart-chat-input',
@@ -37,72 +38,104 @@ export class SmartChatInputComponent implements OnDestroy {
     @ViewChild('inputField') inputField!: ElementRef<HTMLInputElement>;
 
     isListening = false;
+    isProcessingAudio = false;
     selectedImage: File | null = null;
     selectedImagePreview: string | ArrayBuffer | null = null;
-    recognition: any;
 
-    constructor(private cd: ChangeDetectorRef, private ngZone: NgZone) {
-        this.initSpeechRecognition();
-    }
+    // Audio recording variables
+    private mediaRecorder: MediaRecorder | null = null;
+    private audioChunks: Blob[] = [];
+    private stream: MediaStream | null = null;
+
+    constructor(
+        private cd: ChangeDetectorRef,
+        private ngZone: NgZone,
+        private http: HttpClient,
+        private env: EnvironmentService
+    ) { }
 
     ngOnDestroy() {
-        if (this.recognition) {
-            this.recognition.abort();
-            this.recognition.stop();
-        }
-        this.isListening = false;
+        this.stopRecording();
     }
 
-    initSpeechRecognition() {
-        const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-        if (SpeechRecognition) {
-            this.recognition = new SpeechRecognition();
-            this.recognition.continuous = false;
-            this.recognition.lang = 'en-US';
-            this.recognition.onresult = (event: any) => {
-                this.ngZone.run(() => {
-                    const text = event.results[0][0].transcript;
-                    this._text = text;
-                    this.isListening = false;
-                    this.cd.detectChanges();
-
-                    if (this.autoSendAudio && text.trim()) {
-                        this.sendMessage();
-                    } else {
-                        // Only focus back if we didn't just auto-send, otherwise we might lose focus on new elements
-                        setTimeout(() => {
-                            if (this.inputField) this.inputField.nativeElement.focus();
-                        });
-                    }
-                });
-            };
-            this.recognition.onend = () => {
-                this.ngZone.run(() => {
-                    this.isListening = false;
-                    this.cd.detectChanges();
-                });
-            };
-            // ...
-            this.recognition.onerror = (event: any) => {
-                this.ngZone.run(() => {
-                    console.error("Speech recognition error", event);
-                    this.isListening = false;
-                    this.cd.detectChanges();
-                });
-            };
-        }
-    }
-
-    toggleListening() {
+    async toggleListening() {
         if (this.isListening) {
-            this.recognition.stop();
-            this.isListening = false;
+            this.stopRecording();
         } else {
-            if (this.recognition) {
-                this.isListening = true;
-                this.recognition.start();
-            }
+            await this.startRecording();
         }
+    }
+
+    async startRecording() {
+        try {
+            this.stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            this.mediaRecorder = new MediaRecorder(this.stream);
+            this.audioChunks = [];
+
+            this.mediaRecorder.ondataavailable = (event) => {
+                this.audioChunks.push(event.data);
+            };
+
+            this.mediaRecorder.onstop = () => {
+                this.processAudio();
+            };
+
+            this.mediaRecorder.start();
+            this.isListening = true;
+            this.cd.detectChanges();
+        } catch (error) {
+            console.error('Error accessing microphone:', error);
+            // Optionally set an error state or notify user
+        }
+    }
+
+    stopRecording() {
+        if (this.mediaRecorder && this.isListening) {
+            this.mediaRecorder.stop();
+            this.isListening = false;
+            if (this.stream) {
+                this.stream.getTracks().forEach(track => track.stop());
+                this.stream = null;
+            }
+            this.cd.detectChanges();
+        }
+    }
+
+    processAudio() {
+        if (this.audioChunks.length === 0) return;
+
+        this.isProcessingAudio = true;
+        this.cd.detectChanges();
+
+        const audioBlob = new Blob(this.audioChunks, { type: 'audio/webm' }); // Use webm or wav depending on browser, generally webm is default
+        const formData = new FormData();
+        formData.append('audio', audioBlob, 'recording.webm');
+
+        this.http.post<{ text: string }>(`${this.env.apiUrl}/speech/transcribe`, formData)
+            .subscribe({
+                next: (response) => {
+                    this.ngZone.run(() => {
+                        this._text = response.text || '';
+                        this.isProcessingAudio = false;
+                        this.cd.detectChanges();
+
+                        if (this.autoSendAudio && this._text.trim()) {
+                            this.sendMessage();
+                        } else {
+                            setTimeout(() => {
+                                if (this.inputField) this.inputField.nativeElement.focus();
+                            });
+                        }
+                    });
+                },
+                error: (error) => {
+                    this.ngZone.run(() => {
+                        console.error('Transcription failed:', error);
+                        this.isProcessingAudio = false;
+                        this.cd.detectChanges();
+                    });
+                }
+            });
     }
 
     onImageSelected(event: any) {
@@ -129,7 +162,7 @@ export class SmartChatInputComponent implements OnDestroy {
                 text: this.text,
                 image: this.selectedImage || undefined
             });
-            this.text = ''; // Clear input but keep image? No usually clear both
+            this.text = '';
             this.clearImage();
         }
     }

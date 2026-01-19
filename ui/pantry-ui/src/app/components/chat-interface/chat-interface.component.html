@@ -8,7 +8,7 @@
         <div *ngFor="let message of messages" class="message" [class.user-message]="message.sender === 'You'"
             [class.bot-message]="message.sender !== 'You'">
 
-            <span class="sender-label" *ngIf="message.sender !== 'You'">Gemini</span>
+            <span class="sender-label" *ngIf="message.sender !== 'You'">Smart Chat</span>
 
             <div class="message-content-group">
                 <div *ngFor="let item of message.contents" class="message-item">
@@ -40,7 +40,7 @@
 
         <!-- Loading Indicator -->
         <div *ngIf="isLoading" class="message bot-message">
-            <span class="sender-label">Gemini</span>
+            <span class="sender-label">Smart Chat</span>
             <div class="typing-indicator">
                 <span class="dot"></span>
                 <span class="dot"></span>
