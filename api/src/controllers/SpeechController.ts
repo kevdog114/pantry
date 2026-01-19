@@ -120,7 +120,16 @@ export const transcribe = async (req: Request, res: Response) => {
 
                         console.log('Got payload:', payload);
                         if (!responseSent) {
-                            res.json({ text: payload });
+                            let text = payload;
+                            try {
+                                const payloadJson = JSON.parse(payload);
+                                if (payloadJson.text) {
+                                    text = payloadJson.text;
+                                }
+                            } catch (e) {
+                                // Payload might be raw text
+                            }
+                            res.json({ text: text });
                             responseSent = true;
                             client.destroy();
                         }
