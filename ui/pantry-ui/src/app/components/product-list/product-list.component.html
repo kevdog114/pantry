@@ -35,13 +35,11 @@
         <!-- Area Dropdown (Preserving existing UI even if logic was missing) -->
         <mat-form-field appearance="outline" subscriptSizing="dynamic" class="dense-form-field" style="width: 150px;">
             <mat-label>Area</mat-label>
-            <mat-select>
-                <mat-option>-- None --</mat-option>
-                <mat-option value="0">All</mat-option>
-                <mat-divider></mat-divider>
-                <mat-option value="1">Pantry</mat-option>
-                <mat-option value="2">Freezer</mat-option>
-                <mat-option value="3">Refrigerator</mat-option>
+            <mat-select [(ngModel)]="selectedLocationId" (selectionChange)="refreshList()">
+                <mat-option [value]="undefined">-- All --</mat-option>
+                <mat-option *ngFor="let loc of locations" [value]="loc.id">
+                    {{loc.name}}
+                </mat-option>
             </mat-select>
         </mat-form-field>
 

@@ -1,14 +1,21 @@
 import { NextFunction, Response, Request } from "express";
 import prisma from '../lib/prisma';
 
-export const search = async(req: Request, res: Response, next: NextFunction): Promise<any> => {
+export const search = async (req: Request, res: Response, next: NextFunction): Promise<any> => {
     const query = req.query.q as string;
-    
+
     const products = await prisma.product.findMany({
         where: {
             title: {
                 contains: query
-            }
+            },
+            ...(req.query.locationId ? {
+                stockItems: {
+                    some: {
+                        locationId: parseInt(req.query.locationId as string)
+                    }
+                }
+            } : {})
         },
         include: {
             stockItems: true,
@@ -25,10 +32,10 @@ export const search = async(req: Request, res: Response, next: NextFunction): Pr
     res.send(products);
 }
 
-export const getall = async(req: Request, res: Response, next: NextFunction): Promise<any> => {
+export const getall = async (req: Request, res: Response, next: NextFunction): Promise<any> => {
     const products = await prisma.product.findMany({
         include: {
-            stockItems: true,
+            stockItems: { include: { location: true } },
             files: true,
             barcodes: {
                 include: {

@@ -77,6 +77,13 @@ export const deleteById = async (req: Request, res: Response, next: NextFunction
 
 export const getAll = async (req: Request, res: Response, next: NextFunction): Promise<any> => {
     const products = await prisma.product.findMany({
+        where: req.query.locationId ? {
+            stockItems: {
+                some: {
+                    locationId: parseInt(req.query.locationId as string)
+                }
+            }
+        } : undefined,
         include: {
             stockItems: { include: { location: true } },
             files: true,

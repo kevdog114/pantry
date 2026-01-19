@@ -1,6 +1,7 @@
 import { AfterViewInit, Component } from "@angular/core";
 import { ProductListService } from "./product-list.service";
-import { Product } from "../../types/product";
+import { Product, Location } from "../../types/product";
+import { LocationService } from "../../services/location.service";
 import { CommonModule } from "@angular/common";
 import { FormsModule } from "@angular/forms";
 import { RouterModule } from "@angular/router";
@@ -12,6 +13,7 @@ import { MatDividerModule } from "@angular/material/divider";
 import { MatSelectModule } from "@angular/material/select";
 import { MatButtonToggleModule } from "@angular/material/button-toggle";
 import { MatIconModule } from "@angular/material/icon";
+import { MatOptionModule } from "@angular/material/core";
 import { LocalStorageService } from "../../local-storage.service";
 import { MatListModule } from "@angular/material/list";
 import { MatInputModule } from "@angular/material/input";
@@ -45,11 +47,14 @@ type SortOption = "alphabetical" | "expire";
         MatInputModule,
         PhotoUploadComponent,
         MatBottomSheetModule,
-        MatTooltipModule
+        MatTooltipModule,
+        MatOptionModule
     ]
 })
 export class ProductListComponent implements AfterViewInit {
     public products: Product[] = [];
+    public locations: Location[] = [];
+    public selectedLocationId: number | undefined;
     public set DisplayMode(val: DisplayModeOption) {
         this.localStorage.setItem("product-list-display-mode", val);
     }
@@ -57,16 +62,15 @@ export class ProductListComponent implements AfterViewInit {
         return this.localStorage.getItem("product-list-display-mode");
     }
 
-    constructor(private svc: ProductListService, private localStorage: LocalStorageService, private dialog: MatDialog, private bottomSheet: MatBottomSheet, private env: EnvironmentService) {
+    constructor(private svc: ProductListService, private locationService: LocationService, private localStorage: LocalStorageService, private dialog: MatDialog, private bottomSheet: MatBottomSheet, private env: EnvironmentService) {
         console.log("display mode", this.DisplayMode);
         if (this.DisplayMode === null)
             this.DisplayMode = "grid";
     }
 
     ngAfterViewInit(): void {
-        this.svc.GetAll().subscribe(res => {
-            this.products = res;
-        });
+        this.locationService.getAll().subscribe(locs => this.locations = locs);
+        this.refreshList();
     }
 
     public searchTerm: string = "";
@@ -82,12 +86,12 @@ export class ProductListComponent implements AfterViewInit {
 
     public refreshList = () => {
         if (this.searchTerm !== null && this.searchTerm !== undefined && this.searchTerm.length > 0) {
-            this.svc.searchProducts(this.searchTerm).subscribe(a => {
+            this.svc.searchProducts(this.searchTerm, this.selectedLocationId).subscribe(a => {
                 this.products = a;
             });
         }
         else {
-            this.svc.GetAll().subscribe(res => {
+            this.svc.GetAll(this.selectedLocationId).subscribe(res => {
                 this.products = res;
             });
         }

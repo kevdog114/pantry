@@ -17,12 +17,20 @@ export class ProductListService {
         return this.env.apiUrl + b;
     }
 
-    public searchProducts = (searchQuery: string): Observable<Product[]> => {
-        return this.http.get<Product[]>(this.a(`/product-search?q=${encodeURIComponent(searchQuery)}`));
+    public searchProducts = (searchQuery: string, locationId?: number): Observable<Product[]> => {
+        let url = `/product-search?q=${encodeURIComponent(searchQuery)}`;
+        if (locationId) {
+            url += `&locationId=${locationId}`;
+        }
+        return this.http.get<Product[]>(this.a(url));
     }
 
-    public GetAll = (): Observable<Product[]> => {
-        return this.http.get<Product[]>(this.a("/products"))
+    public GetAll = (locationId?: number): Observable<Product[]> => {
+        let url = "/products";
+        if (locationId) {
+            url += `?locationId=${locationId}`;
+        }
+        return this.http.get<Product[]>(this.a(url))
     }
 
     public Get = (id: number): Observable<Product> => {
