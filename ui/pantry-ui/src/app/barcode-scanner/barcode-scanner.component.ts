@@ -15,7 +15,7 @@ import { EnvironmentService } from '../services/environment.service';
   styleUrl: './barcode-scanner.component.css'
 })
 export class BarcodeScannerComponent implements OnInit, OnDestroy {
-  scanMethod: 'camera' | 'manual' | 'remote' = 'camera';
+  scanMethod: 'camera' | 'manual' = 'camera';
   cameras: Array<{ id: string; label: string }> = [];
   selectedCameraId: string = '';
   manualBarcodeInput: string = '';
@@ -23,10 +23,6 @@ export class BarcodeScannerComponent implements OnInit, OnDestroy {
   isScanning = false;
   cameraError: string | null = null;
 
-  // Remote Scanner Properties
-  availableScanners: { id: number, name: string }[] = [];
-  claimedScannerId: number | null = null;
-  claimedScannerName: string | null = null;
   isKioskMode = false;
 
   constructor(
@@ -39,7 +35,7 @@ export class BarcodeScannerComponent implements OnInit, OnDestroy {
   async ngOnInit() {
     // Load preferences
     const savedMethod = localStorage.getItem('barcode_scan_method');
-    if (savedMethod === 'camera' || savedMethod === 'manual' || savedMethod === 'remote') {
+    if (savedMethod === 'camera' || savedMethod === 'manual') {
       this.scanMethod = savedMethod;
     }
 
@@ -53,63 +49,13 @@ export class BarcodeScannerComponent implements OnInit, OnDestroy {
     }
 
     this.isKioskMode = localStorage.getItem('kiosk_mode') === 'true';
-    if (!this.isKioskMode) {
-      // Refresh immediately
-      this.refreshScanners();
-    }
-  }
-
-  refreshScanners() {
-    this.http.get<any[]>(`${this.env.apiUrl}/kiosk/scanners`).subscribe({
-      next: (scanners) => {
-        console.log("Received scanners via API:", scanners);
-        this.availableScanners = scanners;
-      },
-      error: (err) => {
-        console.error("Failed to fetch scanners:", err);
-      }
-    });
-  }
-
-  claimScanner(scanner: any) {
-    this.socketService.emit('claim_scanner', scanner.id, (res: any) => {
-      if (res.success) {
-        this.claimedScannerId = scanner.id;
-        this.claimedScannerName = scanner.name;
-        this.onMethodChange('remote');
-      } else {
-        alert('Failed to claim scanner: ' + res.error);
-        this.refreshScanners();
-      }
-    });
-  }
-
-  stopClaim() {
-    if (this.claimedScannerId) {
-      this.socketService.emit('release_scanner', this.claimedScannerId);
-      this.claimedScannerId = null;
-      this.claimedScannerName = null;
-      this.refreshScanners();
-      if (this.scanMethod === 'remote') {
-        this.onMethodChange('camera');
-      }
-    }
   }
 
   ngOnDestroy() {
     this.stopScanner();
-    // Auto-release on navigate away? Maybe not, user might want to browse while having claimed scanner.
-    // The requirement says "after the web socket connection closes".
-    // If we destroy this component, we don't close the socket.
-    // So modifying the user flow:
-    // "In order to support "claiming" ... option on the barcode scan page... When this is clicked... web socket connection... inputs should behave like..."
-    // If I leave the page, do I keep the claim?
-    // "On the kiosk... change the header color indicating scanner is claimed... stop claim button".
-    // This implies the claim persists while navigating.
-    // So I should NOT release in ngOnDestroy.
   }
 
-  async onMethodChange(method: 'camera' | 'manual' | 'remote') {
+  async onMethodChange(method: 'camera' | 'manual') {
     this.scanMethod = method;
     localStorage.setItem('barcode_scan_method', method);
 

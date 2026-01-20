@@ -282,36 +282,4 @@ export const updateDeviceConfig = async (req: Request, res: Response) => {
     }
 };
 
-export const getAvailableScanners = async (req: Request, res: Response) => {
-    try {
-        const activeKiosks = req.app.get('activeKiosks') as Map<string, { kioskId: number, name: string, hasScanner: boolean }>;
-        const claimedScanners = req.app.get('claimedScanners') as Map<number, { claimerSocketId: string, claimerName: string }>;
 
-        if (!activeKiosks) {
-            res.json([]);
-            return;
-        }
-
-        const available = [];
-        // Map iterates insertion order
-        for (const [sId, data] of activeKiosks.entries()) {
-            // Check if claimed
-            const isClaimed = claimedScanners ? claimedScanners.has(data.kioskId) : false;
-
-            if (!isClaimed) {
-                // Avoid duplicates
-                if (!available.find((k: any) => k.id === data.kioskId)) {
-                    available.push({
-                        id: data.kioskId,
-                        name: data.name
-                    });
-                }
-            }
-        }
-
-        res.json(available);
-    } catch (error) {
-        console.error("Error getting available scanners:", error);
-        res.status(500).json({ message: "Failed to get scanners" });
-    }
-};

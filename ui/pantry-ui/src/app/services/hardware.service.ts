@@ -33,4 +33,13 @@ export class HardwareService {
             })
         );
     }
+
+    logBarcode(barcode: string): Observable<any> {
+        return this.http.post(`${this.localBridgeUrl}/barcode`, { barcode }).pipe(
+            catchError(err => {
+                console.error('Failed to log barcode to bridge', err);
+                return of({ success: false, error: err });
+            })
+        );
+    }
 }

@@ -64,47 +64,7 @@
                 </div>
             </div>
 
-            <!-- Remote Scanner Section -->
-            <div *ngIf="!isKioskMode" class="card shadow-sm mt-4">
-                <div class="card-header bg-info text-white text-center">
-                    <h5 class="mb-0">Remote Kiosk Scanner</h5>
-                </div>
-                <div class="card-body">
-                    <div *ngIf="claimedScannerId">
-                        <div class="alert alert-success text-center">
-                            <i class="bi bi-link-45deg fs-1"></i><br>
-                            <strong>Connected to: {{claimedScannerName}}</strong>
-                            <p class="mb-0">Scans from this kiosk will open directly on this device.</p>
-                        </div>
-                        <button class="btn btn-danger w-100" (click)="stopClaim()">
-                            Disconnect
-                        </button>
-                    </div>
 
-                    <div *ngIf="!claimedScannerId">
-                        <p class="text-muted small mb-2">Connect to a kiosk to use its barcode scanner remotely.</p>
-
-                        <div *ngIf="availableScanners.length === 0" class="text-center py-3 text-muted">
-                            <em>No available scanners found.</em>
-                        </div>
-
-                        <div class="list-group mb-3">
-                            <button *ngFor="let scanner of availableScanners"
-                                class="list-group-item list-group-item-action d-flex justify-content-between align-items-center"
-                                (click)="claimScanner(scanner)">
-                                <span><i class="bi bi-upc-scan me-2"></i>{{scanner.name}}</span>
-                                <span class="badge bg-primary rounded-pill">Connect</span>
-                            </button>
-                        </div>
-
-                        <div class="text-center">
-                            <button class="btn btn-sm btn-outline-secondary" (click)="refreshScanners()">
-                                <i class="bi bi-arrow-clockwise me-1"></i>Refresh List
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
         </div>
     </div>
 </div>

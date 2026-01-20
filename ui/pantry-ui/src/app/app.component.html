@@ -1,10 +1,4 @@
-<div *ngIf="scannerClaimedBy"
-  style="background-color: #f44336; color: white; padding: 10px; display: flex; justify-content: space-between; align-items: center;">
-  <span><strong>SCANNER CLAIMED BY: {{scannerClaimedBy}}</strong></span>
-  <button mat-raised-button color="accent" (click)="forceReleaseScanner()">STOP CLAIM</button>
-</div>
-
-<mat-toolbar [color]="scannerClaimedBy ? 'warn' : 'primary'" *ngIf="!isKioskMode">
+<mat-toolbar color="primary" *ngIf="!isKioskMode">
   <button mat-icon-button (click)="sidenav.toggle()">
     <mat-icon>menu</mat-icon>
   </button>

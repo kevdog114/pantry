@@ -65,14 +65,13 @@ export class AppComponent implements OnInit {
     });
   }
 
-  scannerClaimedBy: string | null = null; // Property for UI
   isSocketConnected$: Observable<boolean>; // Property for UI
 
   ngOnInit() {
     // Subscribe to claimed status
-    this.hardwareScanner.claimedBy$.subscribe(claimer => {
-      this.scannerClaimedBy = claimer;
-    });
+    // this.hardwareScanner.claimedBy$.subscribe(claimer => {
+    //   this.scannerClaimedBy = claimer;
+    // });
 
     // If we are a Kiosk, refresh settings and identify regardless of current auth state
     const kioskToken = localStorage.getItem('kiosk_auth_token');
@@ -90,9 +89,9 @@ export class AppComponent implements OnInit {
             this.hardwareScanner.setEnabled(res.kioskSettings.hasKeyboardScanner);
 
             isScannerKiosk = res.kioskSettings.hasKeyboardScanner;
-            if (isScannerKiosk) {
-              this.socketService.emit('identify_kiosk_scanner');
-            }
+            // if (isScannerKiosk) {
+            //   this.socketService.emit('identify_kiosk_scanner');
+            // }
 
             // Update Bridge with new settings
             this.hardwareService.connectBridge(kioskToken, kioskName || undefined, res.kioskSettings.hasKeyboardScanner).subscribe();
@@ -107,7 +106,7 @@ export class AppComponent implements OnInit {
       ).subscribe(() => {
         if (isScannerKiosk) {
           console.log("Socket reconnected, re-identifying as scanner...");
-          this.socketService.emit('identify_kiosk_scanner');
+          // this.socketService.emit('identify_kiosk_scanner');
         }
       });
 
@@ -119,9 +118,9 @@ export class AppComponent implements OnInit {
           this.hardwareScanner.setEnabled(settings.hasKeyboardScanner);
           isScannerKiosk = settings.hasKeyboardScanner;
 
-          if (isScannerKiosk) {
-            this.socketService.emit('identify_kiosk_scanner');
-          }
+          // if (isScannerKiosk) {
+          //   this.socketService.emit('identify_kiosk_scanner');
+          // }
 
           // Update Bridge
           this.hardwareService.connectBridge(kioskToken, kioskName || undefined, settings.hasKeyboardScanner).subscribe();
@@ -143,9 +142,9 @@ export class AppComponent implements OnInit {
                 this.hardwareScanner.setEnabled(res.kioskSettings.hasKeyboardScanner);
 
                 // Identify as scanner to backend
-                if (res.kioskSettings.hasKeyboardScanner) {
-                  this.socketService.emit('identify_kiosk_scanner');
-                }
+                // if (res.kioskSettings.hasKeyboardScanner) {
+                //   // this.socketService.emit('identify_kiosk_scanner'); 
+                // }
               }
               if (this.router.url === '/login' || this.router.url === '/kiosk-login') {
                 this.router.navigate(['/']);
@@ -174,8 +173,6 @@ export class AppComponent implements OnInit {
       this.isAuthenticated = of(false);
     });
   }
-
-  forceReleaseScanner() {
-    this.hardwareScanner.forceReleaseScanner();
-  }
 }
+
+

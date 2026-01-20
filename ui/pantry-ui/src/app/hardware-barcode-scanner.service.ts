@@ -4,7 +4,8 @@ import { BehaviorSubject } from 'rxjs';
 import { EnvironmentService } from './services/environment.service';
 import { ProductBarcode, Product } from './types/product';
 import { Router } from '@angular/router';
-import { SocketService } from './services/socket.service';
+
+import { HardwareService } from './services/hardware.service';
 
 @Injectable({
   providedIn: 'root'
@@ -13,31 +14,7 @@ export class HardwareBarcodeScannerService {
 
   public BarcodeSearch = new BehaviorSubject<string | null>(null);
 
-  // Track if this kiosk's scanner is claimed by another device
-  public claimedBySubject = new BehaviorSubject<string | null>(null);
-  public claimedBy$ = this.claimedBySubject.asObservable();
-
-  constructor(private http: HttpClient, private router: Router, private socketService: SocketService, private env: EnvironmentService) {
-    // Listen for events indicating our scanner has been claimed/released
-    this.socketService.on('scanner_claimed', (data: { by: string }) => {
-      console.log("Scanner claimed by:", data.by);
-      this.claimedBySubject.next(data.by);
-    });
-
-    this.socketService.on('scanner_released', () => {
-      console.log("Scanner released");
-      this.claimedBySubject.next(null);
-    });
-
-    // Listen for incoming barcode scans (if we are the one who claimed another scanner)
-    this.socketService.on('barcode_scan', (data: { barcode: string }) => {
-      console.log("Received remote barcode scan:", data.barcode);
-      if (this.customHandler) {
-        this.customHandler(data.barcode);
-      } else {
-        this.searchForBarcode(data.barcode);
-      }
-    });
+  constructor(private http: HttpClient, private router: Router, private env: EnvironmentService, private hardwareService: HardwareService) {
   }
 
   private currentBarcode: string = "";
@@ -51,10 +28,6 @@ export class HardwareBarcodeScannerService {
 
   public setEnabled(enabled: boolean) {
     this.isEnabled = enabled;
-  }
-
-  public forceReleaseScanner() {
-    this.socketService.emit('force_release_scanner');
   }
 
   public searchForBarcode = (barcode: string) => {
@@ -155,41 +128,35 @@ export class HardwareBarcodeScannerService {
       else if (this.isScanning && event.key.toLowerCase() == "enter") {
         this.isScanning = false;
 
-        // Check if we are claimed
-        if (this.claimedBySubject.value) {
-          console.log("Forwarding scan to owner:", this.claimedBySubject.value);
-          this.socketService.emit('barcode_scan', { barcode: this.currentBarcode });
-        } else if (this.customHandler) {
-          this.customHandler(this.currentBarcode);
-        } else {
-          this.BarcodeSearch.next(this.currentBarcode);
-          console.log("Search for", this.currentBarcode);
-          this.searchForBarcode(this.currentBarcode);
-        }
+        // Check bridge first
+        this.hardwareService.checkBridge().subscribe(bridgeStatus => {
+          if (bridgeStatus && bridgeStatus.status === 'ok') {
+            console.log("Bridge active, logging barcode to bridge:", this.currentBarcode);
+            this.hardwareService.logBarcode(this.currentBarcode).subscribe({
+              next: () => console.log("Logged to bridge"),
+              error: (e) => console.error("Error logging to bridge", e)
+            });
+          } else {
+            // Not using bridge -> proceed normally
+            this.handleScannedBarcode(this.currentBarcode);
+          }
+        });
       }
       else if (this.isScanning) {
         if (event.key.length === 1) {
           this.currentBarcode = this.currentBarcode + event.key;
         }
       }
-      /*if(event.key == '/' && (event.target == null || event.target.tagName.toLowerCase() != 'input'))
-      {
-          var inp = document.createElement("input");
-          //inp.style.display = "none";
-          document.body.append(inp);
-          inp.focus();
-          inp.addEventListener("keydown", function(e) {
-              if(e.code == 'Enter')
-              {
-                  var barcodeValue = inp.value;
-                  if(barcodeValue.startsWith("/"))
-                      barcodeValue = barcodeValue.substring(1);
-  
-                  searchByBarcode(barcodeValue);
-                  inp.remove();
-              }
-          });
-      }*/
     });
+  }
+
+  private handleScannedBarcode(barcode: string) {
+    if (this.customHandler) {
+      this.customHandler(barcode);
+    } else {
+      this.BarcodeSearch.next(barcode);
+      console.log("Search for", barcode);
+      this.searchForBarcode(barcode);
+    }
   }
 }

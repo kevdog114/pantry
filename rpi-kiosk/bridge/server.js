@@ -425,6 +425,24 @@ function checkDevices() {
 // Poll devices every 30 seconds
 setInterval(checkDevices, 30000);
 
+// Log barcode API
+app.post('/barcode', (req, res) => {
+    const { barcode } = req.body;
+    if (!barcode) return res.status(400).json({ error: 'Barcode required' });
+
+    const fs = require('fs');
+    const logEntry = `${new Date().toISOString()} - ${barcode}\n`;
+
+    fs.appendFile('bridge.log', logEntry, (err) => {
+        if (err) {
+            console.error('Error writing to bridge.log:', err);
+            return res.status(500).json({ error: 'Failed to write log' });
+        }
+        console.log('Logged barcode:', barcode);
+        res.json({ success: true });
+    });
+});
+
 // Run initial check
 checkDevices();
 
