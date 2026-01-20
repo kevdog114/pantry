@@ -201,6 +201,20 @@
     font-weight: 500;
 }
 
+.connection-status {
+    margin-left: 20px;
+    font-size: 1.2rem;
+    color: #4CAF50;
+    /* Green for Online */
+    font-weight: 500;
+    opacity: 0.8;
+}
+
+.connection-status.offline {
+    color: #f44336;
+    /* Red for Offline */
+}
+
 .footer-end {
     display: flex;
     align-items: center;

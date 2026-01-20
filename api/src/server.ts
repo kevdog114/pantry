@@ -167,6 +167,14 @@ io.on("connection", (socket) => {
         }
     });
 
+    socket.on("barcode_scan", (data) => {
+        if (kioskId) {
+            console.log(`Received barcode_scan from Kiosk ${kioskId}: ${data.barcode}`);
+            // Broadcast to all clients in the kiosk room (UI and other devices)
+            io.to(`kiosk_device_${kioskId}`).emit("barcode_scan", data);
+        }
+    });
+
     socket.on("disconnect", () => {
         // console.log("Socket disconnected:", socket.id);
     });

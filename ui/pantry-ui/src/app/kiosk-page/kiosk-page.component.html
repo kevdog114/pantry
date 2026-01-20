@@ -151,6 +151,7 @@
     <!-- Footer -->
     <div class="footer">
         <span class="pantry-name">{{ pantryName }}</span>
+        <span class="connection-status" [class.offline]="!isOnline">{{ isOnline ? 'Online' : 'Offline' }}</span>
         <div class="footer-end">
             <span class="current-date">{{ currentDate | date:'fullDate' }}</span>
             <button mat-button class="exit-btn" (click)="exitKiosk()">EXIT</button>

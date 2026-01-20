@@ -17,6 +17,8 @@ import { firstValueFrom } from 'rxjs';
 
 type ViewState = 'MAIN' | 'UTILITIES' | 'PRINT_LABELS';
 
+import { SocketService } from '../services/socket.service';
+
 @Component({
     selector: 'app-kiosk-page',
     standalone: true,
@@ -36,6 +38,7 @@ export class KioskPageComponent implements OnInit, OnDestroy {
     status: string = 'Ready';
     statusSubtext: string = '';
     activeMode: 'NONE' | 'RESTOCK' | 'CONSUME' | 'INVENTORY' = 'NONE';
+    isOnline: boolean = false;
 
     // View State
     viewState: ViewState = 'MAIN';
@@ -56,6 +59,7 @@ export class KioskPageComponent implements OnInit, OnDestroy {
         private env: EnvironmentService,
         private hardwareScanner: HardwareBarcodeScannerService,
         private http: HttpClient,
+        private socketService: SocketService,
 
         private productService: ProductListService,
         private tagsService: TagsService
@@ -63,6 +67,10 @@ export class KioskPageComponent implements OnInit, OnDestroy {
 
     ngOnInit(): void {
         this.pantryName = this.env.siteName;
+
+        this.socketService.connected$.subscribe(connected => {
+            this.isOnline = connected;
+        });
 
         // Timer for date update
         this.timer = setInterval(() => {

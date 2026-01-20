@@ -2,6 +2,7 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable } from '@angular/core';
 import { BehaviorSubject } from 'rxjs';
 import { EnvironmentService } from './services/environment.service';
+import { SocketService } from './services/socket.service';
 import { ProductBarcode, Product } from './types/product';
 import { Router } from '@angular/router';
 
@@ -14,7 +15,13 @@ export class HardwareBarcodeScannerService {
 
   public BarcodeSearch = new BehaviorSubject<string | null>(null);
 
-  constructor(private http: HttpClient, private router: Router, private env: EnvironmentService, private hardwareService: HardwareService) {
+  constructor(private http: HttpClient, private router: Router, private env: EnvironmentService, private hardwareService: HardwareService, private socketService: SocketService) {
+    this.socketService.on('barcode_scan', (data: any) => {
+      if (data && data.barcode) {
+        console.log("Received barcode from bridge:", data.barcode);
+        this.handleScannedBarcode(data.barcode);
+      }
+    });
   }
 
   private currentBarcode: string = "";
