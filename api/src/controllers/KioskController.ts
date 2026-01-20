@@ -282,4 +282,21 @@ export const updateDeviceConfig = async (req: Request, res: Response) => {
     }
 };
 
+export const getAvailableScanners = async (req: Request, res: Response) => {
+    try {
+        const userId = (req.user as any).id;
+        const devices = await prisma.hardwareDevice.findMany({
+            where: {
+                type: 'SCANNER',
+                kiosk: { userId }
+            },
+            include: { kiosk: true }
+        });
+        res.json(devices);
+    } catch (error) {
+        console.error("Error fetching scanners:", error);
+        res.status(500).json({ message: "Failed to fetch scanners" });
+    }
+};
+
 
