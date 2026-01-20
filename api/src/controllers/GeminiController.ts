@@ -1541,7 +1541,10 @@ export const postBarcodeDetails = async (req: Request, res: Response) => {
         2. Extract/Validate the **Brand**.
         3. Create a **Short Description** for this specific barcode variant (e.g. "15oz Can", "Family Size", "Spicy variety").
         4. Suggest **Tags** (e.g. "Breakfast", "Snack").
-        5. Estimate **Shelf Life** in days (Pantry, Fridge, Freezer, Opened).
+        6. Suggest **Tracking Method** ('quantity' or 'weight').
+        7. Suggest **Auto Print Label** (boolean).
+           - True for items that need individual dates/tracking on the package (e.g. Meat, Leftovers, Frozen items repackaged, Items kept in freezer).
+           - False for shelf-stable items, widely recognized packaging, or items with own dates (Cans, Boxes, Bottles).
         
         Return JSON keys:
         - title (string)
@@ -1552,6 +1555,8 @@ export const postBarcodeDetails = async (req: Request, res: Response) => {
         - refrigeratorLifespanDays (number or null)
         - freezerLifespanDays (number or null)
         - openedLifespanDays (number or null)
+        - trackCountBy (string: "quantity" or "weight")
+        - autoPrintLabel (boolean)
         `;
 
     const schema = {
@@ -1564,7 +1569,9 @@ export const postBarcodeDetails = async (req: Request, res: Response) => {
         pantryLifespanDays: { type: FunctionDeclarationSchemaType.NUMBER, nullable: true },
         refrigeratorLifespanDays: { type: FunctionDeclarationSchemaType.NUMBER, nullable: true },
         freezerLifespanDays: { type: FunctionDeclarationSchemaType.NUMBER, nullable: true },
-        openedLifespanDays: { type: FunctionDeclarationSchemaType.NUMBER, nullable: true }
+        openedLifespanDays: { type: FunctionDeclarationSchemaType.NUMBER, nullable: true },
+        trackCountBy: { type: FunctionDeclarationSchemaType.STRING, enum: ["quantity", "weight"] },
+        autoPrintLabel: { type: FunctionDeclarationSchemaType.BOOLEAN }
       },
       required: ["title", "brand", "description", "tags"]
     } as any;

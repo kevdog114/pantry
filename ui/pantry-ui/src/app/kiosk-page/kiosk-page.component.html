@@ -29,8 +29,18 @@
             </button>
         </div>
 
+        <!-- INVENTORY VIEW -->
+        <div *ngIf="activeMode === 'INVENTORY'" class="button-grid single-action-grid">
+            <button mat-stroked-button class="large-btn back-btn" (click)="finishAction()">
+                <div class="btn-content">
+                    <mat-icon>arrow_back</mat-icon>
+                    <span>BACK</span>
+                </div>
+            </button>
+        </div>
+
         <!-- MAIN VIEW -->
-        <div *ngIf="viewState === 'MAIN' && activeMode === 'NONE'" class="button-grid">
+        <div *ngIf="viewState === 'MAIN' && activeMode === 'NONE'" class="button-grid compact-grid">
             <button mat-flat-button color="primary" class="large-btn" (click)="setMode('RESTOCK')">
                 <div class="btn-content">
                     <mat-icon>inventory_2</mat-icon>
@@ -49,6 +59,13 @@
                 <div class="btn-content">
                     <mat-icon>menu_book</mat-icon>
                     <span>COOK</span>
+                </div>
+            </button>
+
+            <button mat-flat-button color="accent" class="large-btn inventory-btn" (click)="setMode('INVENTORY')">
+                <div class="btn-content">
+                    <mat-icon>inventory</mat-icon>
+                    <span>INVENTORY</span>
                 </div>
             </button>
 

@@ -35,13 +35,13 @@ export class KioskPageComponent implements OnInit, OnDestroy {
     // Status Section
     status: string = 'Ready';
     statusSubtext: string = '';
-    activeMode: 'NONE' | 'RESTOCK' | 'CONSUME' = 'NONE';
+    activeMode: 'NONE' | 'RESTOCK' | 'CONSUME' | 'INVENTORY' = 'NONE';
 
     // View State
     viewState: ViewState = 'MAIN';
 
     // Info Footer
-    pantryName = 'Kevin\'s Pantry'; // Hardcoded for now or fetch from config?
+    pantryName = ''; // Hardcoded for now or fetch from config?
     currentDate: Date = new Date();
     private timer: any;
 
@@ -114,15 +114,17 @@ export class KioskPageComponent implements OnInit, OnDestroy {
     }
 
     // Actions
-    setMode(mode: 'RESTOCK' | 'CONSUME') {
+    setMode(mode: 'RESTOCK' | 'CONSUME' | 'INVENTORY') {
         this.activeMode = mode;
         this.status = 'Scan Barcode...';
         this.statusSubtext = '';
 
         if (mode === 'RESTOCK') {
             this.hardwareScanner.setCustomHandler(this.handleRestockBarcode.bind(this));
-        } else {
+        } else if (mode === 'CONSUME') {
             this.hardwareScanner.setCustomHandler(this.handleConsumeBarcode.bind(this));
+        } else if (mode === 'INVENTORY') {
+            this.hardwareScanner.setCustomHandler(this.handleInventoryBarcode.bind(this));
         }
     }
 
@@ -212,6 +214,59 @@ export class KioskPageComponent implements OnInit, OnDestroy {
                 this.status = "Product Not Found";
                 this.statusSubtext = "Try adding it in Restock";
                 this.showTempStatus("Product Not Found", "Try adding it in Restock", 3000);
+            }
+        } catch (err) {
+            console.error("Scan Error", err);
+            this.status = "Error processing scan.";
+            setTimeout(() => this.status = "Scan Barcode...", 3000);
+        }
+    }
+
+    async handleInventoryBarcode(barcode: string) {
+        if (!barcode) return;
+        this.status = "Checking Stock...";
+        this.statusSubtext = "";
+
+        try {
+            // Check Local DB
+            let product: Product | null = null;
+            try {
+                product = await firstValueFrom(this.http.get<Product>(this.env.apiUrl + "/barcodes/products?barcode=" + barcode));
+            } catch (e) { product = null; }
+
+            if (product) {
+                this.status = product.title;
+
+                let totalQty = 0;
+                let nextExp: Date | null = null;
+
+                if (product.stockItems) {
+                    for (const item of product.stockItems) {
+                        totalQty += item.quantity;
+                        if (item.expirationDate) {
+                            const d = new Date(item.expirationDate);
+                            if (!nextExp || d < nextExp) {
+                                nextExp = d;
+                            }
+                        }
+                    }
+                }
+
+                if (totalQty === 0) {
+                    this.statusSubtext = "Out of Stock";
+                } else {
+                    let expStr = "No Expiry";
+                    if (nextExp) {
+                        expStr = new Date(nextExp).toLocaleDateString();
+                    }
+                    this.statusSubtext = `In Stock: ${totalQty} | Next Exp: ${expStr}`;
+                }
+
+                // We do NOT call showTempStatus because we want this info to stay until next scan or exit
+            } else {
+                this.status = "Product Not Found";
+                this.statusSubtext = "";
+                this.showTempStatus("Product Not Found", "", 3000);
             }
         } catch (err) {
             console.error("Scan Error", err);
@@ -315,8 +370,8 @@ export class KioskPageComponent implements OnInit, OnDestroy {
                     refrigeratorLifespanDays: details.refrigeratorLifespanDays,
                     freezerLifespanDays: details.freezerLifespanDays,
                     openedLifespanDays: details.openedLifespanDays,
-                    // If pantry lifespan is provided, maybe track it? Field not in standard Product interface shown?
-                    // Assuming standard fields.
+                    trackCountBy: details.trackCountBy || 'quantity', // Use AI suggestion
+                    autoPrintLabel: details.autoPrintLabel || false,
                 };
 
                 const createdProduct = await firstValueFrom(this.productService.Create(newProductPayload));
@@ -364,7 +419,7 @@ export class KioskPageComponent implements OnInit, OnDestroy {
         // We set the status immediately before calling this.
 
         setTimeout(() => {
-            if (this.activeMode === 'RESTOCK' || this.activeMode === 'CONSUME') {
+            if (this.activeMode === 'RESTOCK' || this.activeMode === 'CONSUME' || this.activeMode === 'INVENTORY') {
                 this.status = "Scan Barcode...";
                 this.statusSubtext = "";
             }

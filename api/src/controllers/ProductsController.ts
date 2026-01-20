@@ -28,6 +28,7 @@ export const create = async (req: Request, res: Response, next: NextFunction): P
             openedLifespanDays: req.body.openedLifespanDays,
             refrigeratorLifespanDays: req.body.refrigeratorLifespanDays,
             trackCountBy: req.body.trackCountBy,
+            autoPrintLabel: req.body.autoPrintLabel,
             barcodes: {
                 create: (req.body.barcodes || []).map((barcode: any) => ({
                     barcode: barcode.barcode,
@@ -122,6 +123,7 @@ export const updateById = async (req: Request, res: Response, next: NextFunction
             openedLifespanDays: req.body.openedLifespanDays,
             refrigeratorLifespanDays: req.body.refrigeratorLifespanDays,
             trackCountBy: req.body.trackCountBy,
+            autoPrintLabel: req.body.autoPrintLabel,
             ...(req.body.fileIds && {
                 files: {
                     set: req.body.fileIds.map((id: number) => ({ id }))

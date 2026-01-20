@@ -38,6 +38,7 @@ model Product {
   isLeftover             Boolean    @default(false)
   leftoverRecipeId       Int?
   leftoverRecipe         Recipe?    @relation("RecipeLeftovers", fields: [leftoverRecipeId], references: [id])
+  autoPrintLabel         Boolean    @default(false)
 }
 
 model File {

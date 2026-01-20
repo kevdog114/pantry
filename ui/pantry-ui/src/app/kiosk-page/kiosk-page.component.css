@@ -145,6 +145,11 @@
     /* Cyan-ish for consume or maybe keep green? Let's do distinct color */
 }
 
+.inventory-btn {
+    background-color: #4527a0 !important;
+    color: white !important;
+}
+
 .finish-btn .btn-content mat-icon {
     font-size: 64px;
     width: 64px;
