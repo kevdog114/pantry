@@ -446,6 +446,34 @@ app.post('/barcode', (req, res) => {
 // Run initial check
 checkDevices();
 
+// Initialize Hardware Scanner Service
+try {
+    const ScannerService = require('./scanner_service');
+    const scanner = new ScannerService();
+
+    scanner.on('scan', (barcode) => {
+        console.log('Hardware Scanner Scan:', barcode);
+
+        // Log to bridge.log
+        const fs = require('fs');
+        const logEntry = `${new Date().toISOString()} - ${barcode}\n`;
+
+        fs.appendFile('bridge.log', logEntry, (err) => {
+            if (err) console.error('Error writing to bridge.log:', err);
+        });
+
+        // Emit to backend
+        if (socket && socket.connected) {
+            console.log('Emitting barcode to backend');
+            socket.emit('barcode_scan', { barcode });
+        } else {
+            console.log('Socket not connected, generic barcode scan not sent');
+        }
+    });
+} catch (e) {
+    console.error('Failed to initialize ScannerService:', e);
+}
+
 const PORT = 8080;
 app.listen(PORT, () => {
     console.log(`Bridge running on port ${PORT}`);

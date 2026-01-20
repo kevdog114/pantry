@@ -7,6 +7,8 @@ RUN apt-get update && apt-get install -y \
     python3 \
     python3-venv \
     python3-pip \
+    build-essential \
+    python3-dev \
     --no-install-recommends
 
 # Setup Node modules
@@ -17,7 +19,7 @@ RUN npm install --omit=dev
 # Setup Python Venv
 RUN python3 -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
-RUN pip install --no-cache-dir brother-ql-inventree Pillow qrcode[pil] pyusb paho-mqtt
+RUN pip install --no-cache-dir brother-ql-inventree Pillow qrcode[pil] pyusb paho-mqtt evdev
 
 # Stage 2: Runtime
 #FROM debian:bookworm-slim
@@ -52,6 +54,8 @@ COPY --from=builder /opt/venv /opt/venv
 WORKDIR /bridge
 COPY bridge/package.json .
 COPY bridge/server.js .
+COPY bridge/scanner_service.js .
+COPY bridge/scanner_bridge.py .
 COPY bridge/print_label.py .
 COPY bridge/mqtt_bridge.py .
 
