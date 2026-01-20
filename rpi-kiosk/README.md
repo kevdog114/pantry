@@ -79,11 +79,13 @@ xhost +local:root
 # --ipc=host: Recommended for Chrome in Docker to avoid shared memory crashes
 # -v /tmp/.X11-unix:/tmp/.X11-unix: Share the display socket
 # --privileged: Required for direct access to USB devices (Label Printer)
-# -v /dev/bus/usb:/dev/bus/usb: Share USB devices
+# -v /dev/bus/usb:/dev/bus/usb: Share USB devices for receipt/label printers
+# -v /dev/input:/dev/input: Share input devices for barcode scanner support (bridge scans directly)
 docker run --rm \
   --name pantry-kiosk \
   -v /tmp/.X11-unix:/tmp/.X11-unix \
   -v /dev/bus/usb:/dev/bus/usb \
+  -v /dev/input:/dev/input \
   -v pantry_data:/data \
   -v /etc/localtime:/etc/localtime:ro \
   -v /etc/timezone:/etc/timezone:ro \

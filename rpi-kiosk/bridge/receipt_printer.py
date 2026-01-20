@@ -14,80 +14,135 @@ logger = logging.getLogger(__name__)
 BROTHER_VENDOR_ID = 0x04f9
 BROTHER_PRODUCT_ID = 0x20c0 # QL-600
 
-def get_usb_printers():
-    """Find all USB printers excluding the known Brother label printer."""
-    printers = []
-    try:
-        # Find all devices with Printer Interface Class (7)
-        # This is a bit broad, so we might want to iterate devices and check interfaces
-        all_devs = usb.core.find(find_all=True)
-        
-        for dev in all_devs:
-            # Check if it's the specific Brother QL-600 we already handle
-            if dev.idVendor == BROTHER_VENDOR_ID and dev.idProduct == BROTHER_PRODUCT_ID:
-                continue
-                
-            is_printer = False
-            # Check interfaces for Printer Class (7)
-            for cfg in dev:
-                for intf in cfg:
-                    if intf.bInterfaceClass == 7:
-                        is_printer = True
-                        break
-                if is_printer: break
-            
-            if is_printer:
-                printers.append({
-                    'vendor_id': dev.idVendor,
-                    'product_id': dev.idProduct,
-                    'bus': dev.bus,
-                    'address': dev.address
-                })
-                
-    except Exception as e:
-        logger.error(f"Error scanning USB devices: {e}")
-        
-    return printers
-
-def get_lsusb_map():
-    mapping = {}
+def get_lsusb_info():
+    """Returns a list of dicts with VID, PID, Bus, Address, Name from lsusb."""
+    devices = []
     try:
         output = subprocess.check_output(['lsusb'], text=True)
         for line in output.splitlines():
-             # Bus 001 Device 002: ID 8087:0024 Intel Corp. Integrated Rate Matching Hub
+             # Bus 001 Device 005: ID 04b8:0202 EPSON TM-T88V
              parts = line.strip().split()
              
-             # Basic validation
-             if len(parts) >= 6 and parts[0] == 'Bus' and parts[2] == 'Device':
+             if len(parts) >= 6 and parts[0] == 'Bus' and parts[2] == 'Device' and 'ID' in parts:
                  try:
                      bus = int(parts[1])
-                     dev = int(parts[3].rstrip(':'))
+                     dev_addr = int(parts[3].rstrip(':'))
                      
-                     if 'ID' in parts:
-                         id_idx = parts.index('ID')
+                     id_idx = parts.index('ID')
+                     vid_pid = parts[id_idx+1].split(':')
+                     if len(vid_pid) == 2:
+                         vid = int(vid_pid[0], 16)
+                         pid = int(vid_pid[1], 16)
+                         
+                         name = 'Generic USB Device'
                          if len(parts) > id_idx + 2:
                              name = ' '.join(parts[id_idx+2:])
-                             mapping[(bus, dev)] = name
-                 except: pass
+                             
+                         devices.append({
+                             'vendor_id': vid,
+                             'product_id': pid,
+                             'bus': bus,
+                             'address': dev_addr,
+                             'name': name
+                         })
+                 except Exception:
+                     pass
     except Exception as e:
         logger.error(f"lsusb failed: {e}")
-    return mapping
+    return devices
+
+def get_usb_printers():
+    """Find all USB printers using both usb.core (Class 7) and lsusb keywords."""
+    printers = []
+    seen_ids = set()
+
+    # 1. Try usb.core for Class 7 (Printer)
+    try:
+        all_devs = usb.core.find(find_all=True)
+        if all_devs:
+            for dev in all_devs:
+                try:
+                    # Exclude Brother QL (handled separately)
+                    if dev.idVendor == BROTHER_VENDOR_ID and dev.idProduct == BROTHER_PRODUCT_ID:
+                        continue
+                        
+                    is_printer = False
+                    # Check interfaces for Printer Class (7)
+                    if dev.bDeviceClass == 7:
+                        is_printer = True
+                    else:
+                        for cfg in dev:
+                            for intf in cfg:
+                                if intf.bInterfaceClass == 7:
+                                    is_printer = True
+                                    break
+                            if is_printer: break
+                    
+                    if is_printer:
+                        vid = dev.idVendor
+                        pid = dev.idProduct
+                        printers.append({
+                            'vendor_id': vid,
+                            'product_id': pid,
+                            'bus': dev.bus,
+                            'address': dev.address,
+                            'source': 'usb_class'
+                        })
+                        seen_ids.add((vid, pid))
+                except Exception as e:
+                    # Ignore per-device errors
+                    pass
+    except Exception as e:
+        logger.error(f"Error scanning with usb.core: {e}")
+
+    # 2. Try lsusb for keywords (Fallback/Augment)
+    # This helps if permissions blocked reading config/interfaces in step 1 but lsusb allows listing
+    lsusb_devs = get_lsusb_info()
+    
+    # Keywords to identify printers if class detection failed
+    keywords = ['epson', 'printer', 'receipt', 'tm-t', 'star micr']
+    
+    for dev in lsusb_devs:
+        # Exclude Brother QL
+        if dev['vendor_id'] == BROTHER_VENDOR_ID and dev['product_id'] == BROTHER_PRODUCT_ID:
+            continue
+
+        # If already found via class, just update name if missing
+        if (dev['vendor_id'], dev['product_id']) in seen_ids:
+            continue
+            
+        # Check name against keywords
+        name_lower = dev['name'].lower()
+        if any(k in name_lower for k in keywords):
+            printers.append({
+                'vendor_id': dev['vendor_id'],
+                'product_id': dev['product_id'],
+                'bus': dev['bus'],
+                'address': dev['address'],
+                'name': dev['name'],
+                'source': 'lsusb_keyword'
+            })
+            seen_ids.add((dev['vendor_id'], dev['product_id']))
+
+    return printers, lsusb_devs
 
 def discover_cmd(args):
-    printers = get_usb_printers()
-    lsusb_map = get_lsusb_map()
+    printers, lsusb_devs = get_usb_printers()
+    
+    # Create lookup for names from lsusb
+    lsusb_map = {(d['bus'], d['address']): d['name'] for d in lsusb_devs}
+    
     output = []
     
     for p in printers:
-        # Construct a simplified identifier: usb:vendor:product
-        # or hex: usb:0x0000:0x0000
         vid = f"0x{p['vendor_id']:04x}"
         pid = f"0x{p['product_id']:04x}"
         identifier = f"usb:{vid}:{pid}"
         
-        name = "Generic Receipt Printer"
-        if (p['bus'], p['address']) in lsusb_map:
-            name = lsusb_map[(p['bus'], p['address'])]
+        # Determine best name
+        name = p.get('name')
+        if not name:
+            name = lsusb_map.get((p['bus'], p['address']), 'Generic Receipt Printer')
         
         output.append({
             'identifier': identifier,
