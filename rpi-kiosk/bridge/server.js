@@ -237,6 +237,62 @@ function connectSocket() {
     socket.on('print_label', (payload) => {
         console.log('Received print command:', payload);
 
+        // Handle Receipt Printing
+        if (payload.type === 'RECEIPT') {
+            const dataObj = payload.data || {};
+            const requestId = payload.requestId;
+
+            // Find a printer
+            let printerId = payload.printerId;
+            if (!printerId) {
+                const keys = Object.keys(knownReceiptPrinters);
+                if (keys.length > 0) printerId = keys[0];
+            }
+
+            if (!printerId) {
+                console.error("No receipt printer available for print job");
+                if (requestId) {
+                    socket.emit('print_complete', {
+                        requestId, success: false, message: "No receipt printer available"
+                    });
+                }
+                return;
+            }
+
+            const fs = require('fs');
+            const tmpFile = `/tmp/receipt_${requestId || Date.now()}.json`;
+
+            try {
+                fs.writeFileSync(tmpFile, JSON.stringify(dataObj));
+                const receiptCmd = `/opt/venv/bin/python3 receipt_printer.py print "${tmpFile}" --printer "${printerId}"`;
+
+                console.log("Executing receipt print...");
+                const { exec } = require('child_process');
+                exec(receiptCmd, (err, stdout, stderr) => {
+                    let success = true;
+                    let message = 'Receipt Printed';
+
+                    if (err) {
+                        console.error('Receipt Print Error:', err);
+                        success = false;
+                        message = stderr || err.message;
+                    } else {
+                        console.log('Receipt Print Output:', stdout);
+                    }
+
+                    if (requestId) {
+                        socket.emit('print_complete', {
+                            requestId, success, message
+                        });
+                    }
+                    try { fs.unlinkSync(tmpFile); } catch (e) { }
+                });
+            } catch (e) {
+                console.error("Error processing receipt:", e);
+            }
+            return;
+        }
+
         if (payload.type === 'STOCK_LABEL' || payload.type === 'SAMPLE_LABEL' || payload.type === 'MODIFIER_LABEL' || payload.type === 'RECIPE_LABEL' || payload.type === 'QUICK_LABEL') {
 
             // Start with data from payload
@@ -333,6 +389,7 @@ function connectSocket() {
 
 // Check devices
 const knownPrinters = {};
+const knownReceiptPrinters = {};
 
 function checkDevices() {
     const pythonCmd = '/opt/venv/bin/python3 print_label.py';
@@ -363,63 +420,101 @@ function checkDevices() {
     exec(`${pythonCmd} discover`, (err, stdout) => {
         if (err) {
             console.error('Discover error:', err);
+            // Don't return, allow other checks
+        } else { // Proceed if no error
+            try {
+                const devices = JSON.parse(stdout);
+                console.log("Discovered devices:", devices);
+
+                if (devices.length > 0) {
+                    // Check status for each found device
+                    devices.forEach(device => {
+                        exec(`${pythonCmd} status --printer "${device.identifier}"`, (err, stdout, stderr) => {
+                            let statusInfo = { status: 'ONLINE', media: 'Unknown', errors: [] };
+
+                            if (stderr) {
+                                console.error(`Status stderr for ${device.identifier}:`, stderr);
+                            }
+
+                            if (!err) {
+                                try {
+                                    statusInfo = JSON.parse(stdout);
+
+                                    // Cache status globally
+                                    knownPrinters[device.identifier] = statusInfo;
+
+                                } catch (e) {
+                                    console.error("Error parsing status output", e);
+                                    console.error("Stdout was:", stdout);
+                                }
+                            } else {
+                                console.error("Status check error:", err);
+                            }
+
+                            if (socket && socket.connected) {
+                                console.log('Emitting device_register for', device.identifier);
+                                socket.emit('device_register', {
+                                    name: 'Brother QL-600', // Hardcode name as requested or derived
+                                    type: 'PRINTER',
+                                    status: statusInfo.status,
+                                    details: JSON.stringify({
+                                        identifier: device.identifier,
+                                        media: statusInfo.media,
+                                        detected_label: statusInfo.detected_label,
+                                        config: statusInfo.config,
+                                        errors: statusInfo.errors
+                                    })
+                                });
+                            }
+                        });
+                    });
+                } else {
+                    // No devices found
+                    console.log("No devices found via discovery.");
+                }
+            } catch (e) {
+                console.error("Error parsing discover output:", e, stdout);
+            }
+        } // End else
+    });
+
+    // Check for Receipt Printers
+    const receiptCmd = '/opt/venv/bin/python3 receipt_printer.py';
+    exec(`${receiptCmd} discover`, (err, stdout) => {
+        if (err) {
+            // Only log valid errors, ignore if script missing or failing silently
+            if (!err.message.includes('No such file'))
+                console.error('Receipt Discover warning:', err.message);
             return;
         }
 
         try {
             const devices = JSON.parse(stdout);
-            console.log("Discovered devices:", devices);
-
             if (devices.length > 0) {
-                // Check status for each found device
                 devices.forEach(device => {
-                    exec(`${pythonCmd} status --printer "${device.identifier}"`, (err, stdout, stderr) => {
-                        let statusInfo = { status: 'ONLINE', media: 'Unknown', errors: [] };
+                    // Cache
+                    knownReceiptPrinters[device.identifier] = device;
 
-                        if (stderr) {
-                            console.error(`Status stderr for ${device.identifier}:`, stderr);
-                        }
-
-                        if (!err) {
-                            try {
-                                statusInfo = JSON.parse(stdout);
-
-                                // Cache status globally
-                                knownPrinters[device.identifier] = statusInfo;
-
-                            } catch (e) {
-                                console.error("Error parsing status output", e);
-                                console.error("Stdout was:", stdout);
-                            }
-                        } else {
-                            console.error("Status check error:", err);
-                        }
-
-                        if (socket && socket.connected) {
-                            console.log('Emitting device_register for', device.identifier);
-                            socket.emit('device_register', {
-                                name: 'Brother QL-600', // Hardcode name as requested or derived
-                                type: 'PRINTER',
-                                status: statusInfo.status,
-                                details: JSON.stringify({
-                                    identifier: device.identifier,
-                                    media: statusInfo.media,
-                                    detected_label: statusInfo.detected_label,
-                                    config: statusInfo.config,
-                                    errors: statusInfo.errors
-                                })
-                            });
-                        }
-                    });
+                    if (socket && socket.connected) {
+                        socket.emit('device_register', {
+                            name: device.model || 'Receipt Printer',
+                            type: 'RECEIPT_PRINTER',
+                            status: device.connected ? 'ONLINE' : 'OFFLINE',
+                            details: JSON.stringify({
+                                identifier: device.identifier,
+                                description: device.model,
+                                vendorId: device.vendorId,
+                                productId: device.productId
+                            })
+                        });
+                    }
                 });
-            } else {
-                // No devices found
-                console.log("No devices found via discovery.");
             }
         } catch (e) {
-            console.error("Error parsing discover output:", e, stdout);
+            console.error("Error parsing receipt discover output:", e);
         }
     });
+
 }
 
 // Poll devices every 30 seconds

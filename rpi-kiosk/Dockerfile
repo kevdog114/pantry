@@ -19,7 +19,7 @@ RUN npm install --omit=dev
 # Setup Python Venv
 RUN python3 -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
-RUN pip install --no-cache-dir brother-ql-inventree Pillow qrcode[pil] pyusb paho-mqtt evdev
+RUN pip install --no-cache-dir brother-ql-inventree Pillow qrcode[pil] pyusb paho-mqtt evdev python-escpos
 
 # Stage 2: Runtime
 #FROM debian:bookworm-slim
@@ -38,6 +38,7 @@ RUN apt-get update && apt-get install -y \
     python3 \
     libopenjp2-7 \
     curl \
+    libusb-1.0-0 \
     x11-xserver-utils \
     --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
@@ -57,6 +58,7 @@ COPY bridge/server.js .
 COPY bridge/scanner_service.js .
 COPY bridge/scanner_bridge.py .
 COPY bridge/print_label.py .
+COPY bridge/receipt_printer.py .
 COPY bridge/mqtt_bridge.py .
 
 # Setup Entrypoint
