@@ -128,19 +128,7 @@ export class HardwareBarcodeScannerService {
       else if (this.isScanning && event.key.toLowerCase() == "enter") {
         this.isScanning = false;
 
-        // Check bridge first
-        this.hardwareService.checkBridge().subscribe(bridgeStatus => {
-          if (bridgeStatus && bridgeStatus.status === 'ok') {
-            console.log("Bridge active, logging barcode to bridge:", this.currentBarcode);
-            this.hardwareService.logBarcode(this.currentBarcode).subscribe({
-              next: () => console.log("Logged to bridge"),
-              error: (e) => console.error("Error logging to bridge", e)
-            });
-          } else {
-            // Not using bridge -> proceed normally
-            this.handleScannedBarcode(this.currentBarcode);
-          }
-        });
+        this.handleScannedBarcode(this.currentBarcode);
       }
       else if (this.isScanning) {
         if (event.key.length === 1) {
