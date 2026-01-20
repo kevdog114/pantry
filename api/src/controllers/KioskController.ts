@@ -300,3 +300,63 @@ export const getAvailableScanners = async (req: Request, res: Response) => {
 };
 
 
+
+export const testReceiptPrinter = async (req: Request, res: Response) => {
+    try {
+        const kioskId = parseInt(req.params.id); // :id in route matches kioskId
+        const deviceId = parseInt(req.params.deviceId);
+        const userId = (req.user as any).id;
+
+        const kiosk = await prisma.kiosk.findFirst({
+            where: { id: kioskId, userId },
+            include: { devices: true }
+        });
+
+        if (!kiosk) {
+            res.status(404).json({ message: "Kiosk not found" });
+            return;
+        }
+
+        const device = kiosk.devices.find(d => d.id === deviceId);
+        if (!device) {
+            res.status(404).json({ message: "Device not found" });
+            return;
+        }
+
+        // Parse details to get identifier
+        let identifier = "";
+        try {
+            const d = JSON.parse(device.details || '{}');
+            identifier = d.identifier;
+        } catch { }
+
+        const io = req.app.get("io");
+        if (io) {
+            console.log(`Sending test receipt to Kiosk ${kioskId}, Device ${identifier}`);
+
+            // Check if kiosk is connected to a socket room
+            // The room is `kiosk_device_${kioskId}`
+
+            io.to(`kiosk_device_${kioskId}`).emit('print_label', {
+                type: 'RECEIPT',
+                printerId: identifier,
+                requestId: `test-${Date.now()}`,
+                data: {
+                    title: 'Test Receipt',
+                    text: 'This is a test print from Pantry Kiosk.',
+                    items: [
+                        { name: 'Test Item 1', quantity: 1 },
+                        { name: 'Test Item 2', quantity: 2 }
+                    ],
+                    qrData: 'TEST-PRINT',
+                    footer: 'System Test'
+                }
+            });
+        }
+
+        res.json({ success: true, message: "Test print sent" });
+    } catch (error) {
+        console.error("Error sending test receipt:", error);
+        res.status(500).json({ message: "Failed to send test receipt" });
+    }
+};

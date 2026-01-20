@@ -70,4 +70,8 @@ export class KioskService {
     updateDeviceConfig(kioskId: number, deviceId: number, config: any): Observable<any> {
         return this.http.put(`${this.apiUrl}/kiosk/${kioskId}/devices/${deviceId}/config`, config);
     }
+
+    testReceiptPrinter(kioskId: number, deviceId: number): Observable<any> {
+        return this.http.post(`${this.apiUrl}/kiosk/${kioskId}/devices/${deviceId}/test-print`, {});
+    }
 }

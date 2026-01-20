@@ -74,8 +74,18 @@ export class HardwareListComponent implements OnInit {
             });
     }
 
-    printTestLabel(device: any) {
-        if (device.type === 'PRINTER' && (device.status === 'ONLINE' || device.status === 'READY')) {
+    printTestLabel(device: any, kioskId: number) {
+        if (device.type === 'RECEIPT_PRINTER') {
+            this.kioskService.testReceiptPrinter(kioskId, device.id).subscribe({
+                next: () => this.snackBar.open('Test receipt sent', 'Close', { duration: 3000 }),
+                error: (err) => {
+                    console.error('Test print failed', err);
+                    this.snackBar.open('Failed to send test receipt', 'Close', { duration: 3000 });
+                }
+            });
+        } else if (device.type === 'PRINTER' && (device.status === 'ONLINE' || device.status === 'READY')) {
+            // Label Printer (Legacy/Global logic via labelService which finds ANY printer)
+            // TODO: Update labelService to target specific printer if needed, but for now it works as "print to any available label printer"
             this.labelService.printQuickLabel('TEST', new Date(), 'continuous').subscribe({
                 next: (res) => {
                     this.snackBar.open('Test label sent to printer', 'Close', { duration: 3000 });

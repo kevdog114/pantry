@@ -252,6 +252,7 @@ app.get("/kiosk", KioskController.getKiosks);
 app.delete("/kiosk/:id", KioskController.deleteKiosk);
 app.put("/kiosk/:id/settings", KioskController.updateKioskSettings);
 app.put("/kiosk/:kioskId/devices/:deviceId/config", KioskController.updateDeviceConfig);
+app.post("/kiosk/:id/devices/:deviceId/test-print", KioskController.testReceiptPrinter);
 app.get("/kiosk/scanners", KioskController.getAvailableScanners);
 
 app.get("/shopping-list", ShoppingListController.getShoppingList);

@@ -25,7 +25,8 @@
                         <mat-list-item role="listitem" *ngFor="let device of kiosk.devices"
                             class="hover:bg-gray-50 dark:hover:bg-zinc-700/30 transition-colors">
                             <mat-icon matListItemIcon class="text-gray-400">
-                                {{ device.type === 'PRINTER' ? 'print' : 'usb' }}
+                                {{ device.type === 'PRINTER' ? 'print' : (device.type === 'RECEIPT_PRINTER' ? 'receipt'
+                                : 'usb') }}
                             </mat-icon>
                             <div matListItemTitle class="font-medium">{{ device.name }}</div>
                             <div matListItemLine class="flex items-center gap-2">
@@ -53,8 +54,8 @@
                                 </span>
                             </div>
                             <div matListItemMeta
-                                *ngIf="device.type === 'PRINTER' && (device.status === 'ONLINE' || device.status === 'READY')">
-                                <button mat-icon-button color="primary" (click)="printTestLabel(device)"
+                                *ngIf="(device.type === 'PRINTER' || device.type === 'RECEIPT_PRINTER') && (device.status === 'ONLINE' || device.status === 'READY')">
+                                <button mat-icon-button color="primary" (click)="printTestLabel(device, kiosk.id)"
                                     matTooltip="Print Test Label">
                                     <mat-icon>print</mat-icon>
                                 </button>
