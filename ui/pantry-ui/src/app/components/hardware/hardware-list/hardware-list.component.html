@@ -12,7 +12,12 @@
                     <h3 class="text-xl font-medium m-0">{{ kiosk.name }}</h3>
                     <p class="text-sm text-gray-500 m-0">Last Active: {{ kiosk.lastActive | date:'short' }}</p>
                 </div>
-                <div>
+                <div class="flex items-center">
+                    <button mat-stroked-button color="primary" class="mr-4" (click)="claimScanner(kiosk.id)"
+                        matTooltip="Route scanner events to this device">
+                        <mat-icon>qr_code_scanner</mat-icon>
+                        Claim Scanner
+                    </button>
                     <mat-slide-toggle [checked]="!!kiosk.hasKeyboardScanner" (change)="toggleScanner(kiosk)"
                         color="primary">
                         Keyboard Scanner

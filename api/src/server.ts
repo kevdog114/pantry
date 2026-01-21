@@ -78,6 +78,8 @@ io.use(async (socket, next) => {
     next();
 });
 
+const scannerClaims = new Map<number, string>();
+
 io.on("connection", (socket) => {
     console.log("New socket connection:", socket.id);
     const pat = (socket as any).pat;
@@ -193,16 +195,79 @@ io.on("connection", (socket) => {
         }
     });
 
+    // Track scanner claims: KioskId -> SocketId
+    // Moving this map outside connection handler would be better if we want persistence across connections, but for now passing it in or scoping it globally.
+    // Actually, declaring it outside is better. But since I am editing the file, I will add it at top level if possible, or right here.
+    // Using a file-level variable is safest if I can't edit top of file easily. But I can access top context.
+    // I will put it inside connection but that resets per connection? No.
+    // I will add it to `app.set` or just use a module-level variable but I can only safe edit this block.
+    // I'll assume I can add it before `io.on`? No, the tool replaces inside the block usually or I replace the whole block.
+    // I will replace the whole `io.on` block to encompass the variable or just start using a global declared variable (which implies I need to declare it).
+    // I will declare it at the top of the file using a separate tool call first? No, replace_file_content works on chunks. 
+    // I'll declare it locally in the scope of the module by adding it before `io.on` in a separate edit or just inside `server` object?
+    // server.ts is an ES module.
+
+    // Let's modify the file to add the variable at the top level first, then use it.
+    // Actually, I can just modify `io.on` and assume I can place the var before it or inside `app`.
+    // Let's place it on `app.locals` or just a generic var at top.
+
+    // Wait, I can try to replace the `io.on` line to include the variable definition before it.
+
+    socket.on("claim_scanner", async (kioskId) => {
+        if (!pat) return;
+        try {
+            // Verify ownership
+            const kiosk = await prisma.kiosk.findFirst({
+                where: {
+                    id: kioskId,
+                    userId: pat.userId
+                }
+            });
+
+            if (kiosk) {
+                const currentClaimant = scannerClaims.get(kioskId);
+                if (currentClaimant && currentClaimant !== socket.id) {
+                    io.to(currentClaimant).emit('scanner_released');
+                }
+
+                scannerClaims.set(kioskId, socket.id);
+                console.log(`Socket ${socket.id} claimed scanner for Kiosk ${kioskId}`);
+                socket.emit('scanner_claimed', { success: true, kioskId });
+            }
+        } catch (e) { console.error("Claim error", e); }
+    });
+
+    socket.on("release_scanner", (kioskId) => {
+        if (scannerClaims.get(kioskId) === socket.id) {
+            scannerClaims.delete(kioskId);
+            console.log(`Socket ${socket.id} released scanner for Kiosk ${kioskId}`);
+            socket.emit('scanner_released');
+        }
+    });
+
     socket.on("barcode_scan", (data) => {
         if (kioskId) {
             console.log(`Received barcode_scan from Kiosk ${kioskId}: ${data.barcode}`);
-            // Broadcast to all clients in the kiosk room (UI and other devices)
-            io.to(`kiosk_device_${kioskId}`).emit("barcode_scan", data);
+
+            const claimant = scannerClaims.get(kioskId);
+            if (claimant) {
+                console.log(`Routing scan to claimant ${claimant}`);
+                io.to(claimant).emit("barcode_scan", data);
+            } else {
+                // Broadcast to all clients in the kiosk room (UI and other devices)
+                io.to(`kiosk_device_${kioskId}`).emit("barcode_scan", data);
+            }
         }
     });
 
     socket.on("disconnect", () => {
-        // console.log("Socket disconnected:", socket.id);
+        // Remove any claims by this socket
+        for (const [kId, sId] of scannerClaims.entries()) {
+            if (sId === socket.id) {
+                scannerClaims.delete(kId);
+                console.log(`Auto-releasing scanner claim for Kiosk ${kId} due to disconnect`);
+            }
+        }
     });
 });
 

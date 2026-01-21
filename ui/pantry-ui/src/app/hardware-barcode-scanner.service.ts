@@ -15,6 +15,10 @@ export class HardwareBarcodeScannerService {
 
   public BarcodeSearch = new BehaviorSubject<string | null>(null);
 
+  // Track if this kiosk's scanner is claimed by another device
+  public claimedBySubject = new BehaviorSubject<string | null>(null);
+  public claimedBy$ = this.claimedBySubject.asObservable();
+
   constructor(private http: HttpClient, private router: Router, private env: EnvironmentService, private hardwareService: HardwareService, private socketService: SocketService) {
     console.log("Starting barcode scanner service");
     this.socketService.on('barcode_scan', (data: any) => {
@@ -23,6 +27,27 @@ export class HardwareBarcodeScannerService {
         this.handleScannedBarcode(data.barcode);
       }
     });
+
+    this.socketService.on('scanner_claimed', (data: any) => {
+      console.log('Scanner claimed event:', data);
+      if (data.success) {
+        // We successfully claimed it
+        this.claimedBySubject.next("Me");
+      }
+    });
+
+    this.socketService.on('scanner_released', () => {
+      console.log('Scanner released event');
+      this.claimedBySubject.next(null);
+    });
+  }
+
+  public claimScanner(kioskId: number) {
+    this.socketService.emit('claim_scanner', kioskId);
+  }
+
+  public releaseScanner(kioskId: number) {
+    this.socketService.emit('release_scanner', kioskId);
   }
 
   private currentBarcode: string = "";

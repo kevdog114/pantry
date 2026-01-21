@@ -13,6 +13,7 @@ import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { DeviceConfigDialogComponent } from '../device-config-dialog/device-config-dialog.component';
 import { HardwareService } from '../../../services/hardware.service';
+import { HardwareBarcodeScannerService } from '../../../hardware-barcode-scanner.service';
 
 @Component({
     selector: 'app-hardware-list',
@@ -29,7 +30,8 @@ export class HardwareListComponent implements OnInit {
         private labelService: LabelService,
         private snackBar: MatSnackBar,
         private dialog: MatDialog,
-        private hardwareService: HardwareService
+        private hardwareService: HardwareService,
+        private barcodeService: HardwareBarcodeScannerService
     ) { }
 
     ngOnInit() {
@@ -141,5 +143,10 @@ export class HardwareListComponent implements OnInit {
                 });
             }
         });
+    }
+
+    claimScanner(kioskId: number) {
+        this.barcodeService.claimScanner(kioskId);
+        this.snackBar.open('Scanner claimed! Events will be sent to this device.', 'Close', { duration: 3000 });
     }
 }
