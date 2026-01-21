@@ -203,6 +203,31 @@ def print_receipt_cmd(args):
         if 'text' in data:
             p.text(f"{data['text']}\n")
             
+        # Recipe Steps
+        if 'steps' in data and isinstance(data['steps'], list):
+            p.text("-" * 32 + "\n")
+            p.text("INSTRUCTIONS:\n")
+            for step in data['steps']:
+                # Step object: action, text, note
+                action = step.get('action', '').upper()
+                text = step.get('text', '')
+                note = step.get('note', '')
+                
+                if action:
+                    p.set(bold=True)
+                    p.text(f"{action} ")
+                    p.set(bold=False)
+                
+                p.text(f"{text}\n")
+                
+                if note:
+                    p.set(font='b') # Smaller font if supported, or just distinct
+                    p.text(f"  Note: {note}\n")
+                    p.set(font='a')
+                
+                p.text("\n")
+            p.text("-" * 32 + "\n")
+
         # Key-Value pairs if provided
         if 'items' in data and isinstance(data['items'], list):
             p.text("-" * 32 + "\n")

@@ -45,7 +45,12 @@ const findTargetSocket = async (io: any, deviceType: string = 'PRINTER'): Promis
 
     for (const socket of connectedSockets) {
         const pat = (socket as any).pat;
+        const clientType = (socket as any).clientType;
+
         if (!pat) continue;
+
+        // Only target bridge connections, not frontend browser sessions
+        if (clientType !== 'bridge') continue;
 
         if (pat.description && pat.description.startsWith('Kiosk Login - ')) {
             const kioskName = pat.description.substring('Kiosk Login - '.length);

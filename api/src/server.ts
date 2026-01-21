@@ -54,6 +54,7 @@ io.use(async (socket, next) => {
             if (pat) {
                 console.log(`Socket ${socket.id} authenticated as user ${pat.user.username}`);
                 (socket as any).pat = pat;
+                (socket as any).clientType = socket.handshake.query.clientType;
 
                 // Attempt to identify Kiosk
                 if (pat.description && pat.description.startsWith('Kiosk Login - ')) {

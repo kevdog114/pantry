@@ -127,6 +127,7 @@ function connectSocket() {
         socket = io(origin, {
             path: socketPath,
             auth: { token: state.token },
+            query: { clientType: 'bridge' },
             transports: ['polling', 'websocket'], // Start with polling (curl verified this works)
             reconnection: true,
             reconnectionDelay: 5000
@@ -268,7 +269,7 @@ function connectSocket() {
 
                 console.log("Executing receipt print...");
                 const { exec } = require('child_process');
-                exec(receiptCmd, (err, stdout, stderr) => {
+                exec(receiptCmd, { timeout: 15000 }, (err, stdout, stderr) => { // Timeout 15s to catch hangs
                     let success = true;
                     let message = 'Receipt Printed';
 
@@ -276,6 +277,9 @@ function connectSocket() {
                         console.error('Receipt Print Error:', err);
                         success = false;
                         message = stderr || err.message;
+                        if (err.signal === 'SIGTERM') {
+                            message = "Printer script timed out (hung). Check hardware connection.";
+                        }
                     } else {
                         console.log('Receipt Print Output:', stdout);
                     }
@@ -289,6 +293,11 @@ function connectSocket() {
                 });
             } catch (e) {
                 console.error("Error processing receipt:", e);
+                if (requestId) {
+                    socket.emit('print_complete', {
+                        requestId, success: false, message: "Bridge Error: " + e.message
+                    });
+                }
             }
             return;
         }
@@ -346,7 +355,7 @@ function connectSocket() {
                 // Use the venv python
                 const pythonCmd = '/opt/venv/bin/python3 print_label.py print ' + tmpFile;
 
-                exec(pythonCmd, (err, stdout, stderr) => {
+                exec(pythonCmd, { timeout: 15000 }, (err, stdout, stderr) => { // 15s Timeout
                     let success = true;
                     let message = 'Print successful';
 
@@ -355,8 +364,12 @@ function connectSocket() {
                         console.error('Stderr:', stderr);
                         success = false;
                         message = stderr || err.message || 'Unknown print error';
+                        if (err.signal === 'SIGTERM') {
+                            message = "Printer script timed out (hung). Check hardware connection.";
+                        }
                     } else {
                         console.log('Print Output:', stdout);
+                        // Also check for library-level errors logged to standard output/error but with exit code 0 if any
                     }
 
                     // Send result back to backend
