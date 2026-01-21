@@ -89,10 +89,36 @@ io.on("connection", (socket) => {
         socket.join(room);
     }
 
+
     socket.on("join_kiosk", (token) => {
         console.log(`Socket ${socket.id} joining kiosk room ${token}`);
         socket.join(`kiosk_${token}`);
     });
+
+    socket.on("bind_to_kiosk", async (kioskId) => {
+        if (!pat) return;
+        console.log(`Socket ${socket.id} requesting bind to kiosk ${kioskId}`);
+        try {
+            // Check if user owns the kiosk
+            const kiosk = await prisma.kiosk.findFirst({
+                where: {
+                    id: kioskId,
+                    userId: pat.userId
+                }
+            });
+
+            if (kiosk) {
+                const room = `kiosk_device_${kiosk.id}`;
+                console.log(`Socket ${socket.id} binding to room ${room}`);
+                socket.join(room);
+            } else {
+                console.warn(`Socket ${socket.id} failed to bind to kiosk ${kioskId}: Not found or unauthorized`);
+            }
+        } catch (e) {
+            console.error("Error binding to kiosk", e);
+        }
+    });
+
 
     socket.on("device_register", async (data: any) => {
         console.log(`Received device_register from socket ${socket.id}`, data);

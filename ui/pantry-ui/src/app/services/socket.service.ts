@@ -51,7 +51,32 @@ export class SocketService {
             options.auth = { token };
         }
 
-        this.socket = io(this.env.apiUrl, options);
+        let origin = '';
+        let pathname = '';
+
+        try {
+            const url = new URL(this.env.apiUrl);
+            origin = url.origin;
+            pathname = url.pathname;
+        } catch (e) {
+            // Fallback for relative URLs or errors
+            origin = window.location.origin;
+            pathname = this.env.apiUrl;
+        }
+
+        // Ensure pathname ends with / before appending socket.io
+        // Also handle if pathname is just '/' or empty to avoid `//socket.io` if desired, though socket.io usually handles it.
+        if (!pathname.endsWith('/')) {
+            pathname += '/';
+        }
+
+        // Clean up double slashes if any (though URL parsing usually handles this)
+        const socketPath = `${pathname}socket.io`.replace('//', '/');
+
+        options.path = socketPath;
+
+        console.log(`SocketService: Connecting to ${origin} with path ${socketPath}`);
+        this.socket = io(origin, options);
 
         this.socket.on('connect', () => {
             console.log('SocketService: Connected');

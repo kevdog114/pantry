@@ -16,6 +16,7 @@ export class HardwareBarcodeScannerService {
   public BarcodeSearch = new BehaviorSubject<string | null>(null);
 
   constructor(private http: HttpClient, private router: Router, private env: EnvironmentService, private hardwareService: HardwareService, private socketService: SocketService) {
+    console.log("Starting barcode scanner service");
     this.socketService.on('barcode_scan', (data: any) => {
       if (data && data.barcode) {
         console.log("Received barcode from bridge:", data.barcode);

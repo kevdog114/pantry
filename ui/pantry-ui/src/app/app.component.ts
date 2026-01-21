@@ -104,6 +104,12 @@ export class AppComponent implements OnInit {
       this.socketService.connected$.pipe(
         filter(connected => connected === true)
       ).subscribe(() => {
+        const storedKioskId = localStorage.getItem('kiosk_id');
+        if (storedKioskId) {
+          console.log("Binding to kiosk", storedKioskId);
+          this.socketService.emit('bind_to_kiosk', parseInt(storedKioskId));
+        }
+
         if (isScannerKiosk) {
           console.log("Socket reconnected, re-identifying as scanner...");
           // this.socketService.emit('identify_kiosk_scanner');
