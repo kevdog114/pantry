@@ -321,6 +321,7 @@ export const printReceipt = async (req: Request, res: Response, next: NextFuncti
         receiptData.title = recipe.name;
         // Include minimal other metadata if useful?
         receiptData.yield = recipe.yield;
+        receiptData.qrData = `R-${recipe.id}`;
 
         const payload = {
             type: 'RECEIPT',
