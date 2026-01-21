@@ -128,7 +128,7 @@ function connectSocket() {
             path: socketPath,
             auth: { token: state.token },
             query: { clientType: 'bridge' },
-            transports: ['websocket', 'polling'], // Start with polling (curl verified this works)
+            transports: ['polling', 'websocket'], // Start with polling (curl verified this works)
             reconnection: true,
             reconnectionDelay: 5000
         });
