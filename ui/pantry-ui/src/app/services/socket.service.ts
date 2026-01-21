@@ -38,10 +38,12 @@ export class SocketService {
 
     private connect(token: string | null) {
         if (this.socket && this.socket.connected) {
+            console.log('SocketService: Already connected');
             this.connected$.next(true);
             return;
         }
 
+        console.log('SocketService: Connecting with token', token);
         const options: any = {
             transports: ['polling', 'websocket'],
             reconnection: true,
@@ -108,6 +110,11 @@ export class SocketService {
     }
 
     public emit(eventName: string, data?: any, callback?: Function) {
+        console.log(`SocketService: Emitting event ${eventName}`, {
+            data: data,
+            socket: this.socket
+        });
+
         if (this.socket) {
             if (callback) {
                 this.socket.emit(eventName, data, callback);
@@ -118,12 +125,14 @@ export class SocketService {
     }
 
     public on(eventName: string, callback: (data: any) => void) {
+        console.log(`SocketService: Registering listener for event ${eventName}`, this.socket);
         if (this.socket) {
             this.socket.on(eventName, callback);
         }
     }
 
     public removeListener(eventName: string) {
+        console.log(`SocketService: Removing listener for event ${eventName}`, this.socket);
         if (this.socket) {
             this.socket.off(eventName);
         }

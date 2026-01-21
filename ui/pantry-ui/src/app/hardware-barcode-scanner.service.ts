@@ -22,8 +22,8 @@ export class HardwareBarcodeScannerService {
   constructor(private http: HttpClient, private router: Router, private env: EnvironmentService, private hardwareService: HardwareService, private socketService: SocketService) {
     console.log("Starting barcode scanner service");
     this.socketService.on('barcode_scan', (data: any) => {
+      console.log("Received barcode from bridge:", data);
       if (data && data.barcode) {
-        console.log("Received barcode from bridge:", data.barcode);
         this.handleScannedBarcode(data.barcode);
       }
     });
@@ -172,6 +172,7 @@ export class HardwareBarcodeScannerService {
   }
 
   private handleScannedBarcode(barcode: string) {
+    console.log("Scanned barcode:", barcode);
     // strip the leading slash if it exists
     if (barcode != null && barcode.startsWith("/")) {
       barcode = barcode.substring(1);
