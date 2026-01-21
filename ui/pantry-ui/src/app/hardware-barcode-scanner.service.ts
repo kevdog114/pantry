@@ -147,6 +147,10 @@ export class HardwareBarcodeScannerService {
   }
 
   private handleScannedBarcode(barcode: string) {
+    // strip the leading slash if it exists
+    if (barcode != null && barcode.startsWith("/")) {
+      barcode = barcode.substring(1);
+    }
     if (this.customHandler) {
       this.customHandler(barcode);
     } else {
