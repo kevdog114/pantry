@@ -10,6 +10,7 @@ import { AuthService } from './auth';
 export class SocketService {
     private socket: Socket | undefined;
     public connected$ = new BehaviorSubject<boolean>(false);
+    private listeners = new Map<string, Array<(data: any) => void>>();
 
     constructor(private authService: AuthService, private env: EnvironmentService) {
         this.initSocket();
@@ -85,6 +86,13 @@ export class SocketService {
         console.log(`SocketService: Connecting to ${origin} with path ${socketPath}`);
         this.socket = io(origin, options);
 
+        // Re-attach pending listeners
+        this.listeners.forEach((callbacks, eventName) => {
+            callbacks.forEach(cb => {
+                this.socket?.on(eventName, cb);
+            });
+        });
+
         this.socket.on('connect', () => {
             console.log('SocketService: Connected');
             this.connected$.next(true);
@@ -126,6 +134,12 @@ export class SocketService {
 
     public on(eventName: string, callback: (data: any) => void) {
         console.log(`SocketService: Registering listener for event ${eventName}`, this.socket);
+
+        if (!this.listeners.has(eventName)) {
+            this.listeners.set(eventName, []);
+        }
+        this.listeners.get(eventName)?.push(callback);
+
         if (this.socket) {
             this.socket.on(eventName, callback);
         }
@@ -133,6 +147,9 @@ export class SocketService {
 
     public removeListener(eventName: string) {
         console.log(`SocketService: Removing listener for event ${eventName}`, this.socket);
+
+        this.listeners.delete(eventName);
+
         if (this.socket) {
             this.socket.off(eventName);
         }
