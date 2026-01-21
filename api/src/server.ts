@@ -233,6 +233,13 @@ io.on("connection", (socket) => {
                 scannerClaims.set(kioskId, socket.id);
                 console.log(`Socket ${socket.id} claimed scanner for Kiosk ${kioskId}`);
                 socket.emit('scanner_claimed', { success: true, kioskId });
+
+                // Notify Kiosk and other listeners that scanner is claimed
+                // We send the claimant info (obfuscated or just ID/name if available)
+                io.to(`kiosk_device_${kioskId}`).emit('scanner_status_changed', {
+                    claimed: true,
+                    claimedBy: pat.user.username || 'Remote User'
+                });
             }
         } catch (e) { console.error("Claim error", e); }
     });
@@ -242,6 +249,24 @@ io.on("connection", (socket) => {
             scannerClaims.delete(kioskId);
             console.log(`Socket ${socket.id} released scanner for Kiosk ${kioskId}`);
             socket.emit('scanner_released');
+
+            io.to(`kiosk_device_${kioskId}`).emit('scanner_status_changed', {
+                claimed: false,
+                claimedBy: null
+            });
+        }
+    });
+
+    socket.on("get_scanner_status", async (kioskId) => {
+        // Allow checking status
+        const claimantSocketId = scannerClaims.get(kioskId);
+        if (claimantSocketId) {
+            // Find who owns it? 
+            // Ideally we store more than just socketId in map, or lookup socket.
+            // For now just say it is claimed.
+            socket.emit('scanner_status_changed', { claimed: true, claimedBy: 'Remote User' });
+        } else {
+            socket.emit('scanner_status_changed', { claimed: false, claimedBy: null });
         }
     });
 
@@ -260,14 +285,16 @@ io.on("connection", (socket) => {
         }
     });
 
-
-
     socket.on("disconnect", () => {
         // Remove any claims by this socket
         for (const [kId, sId] of scannerClaims.entries()) {
             if (sId === socket.id) {
                 scannerClaims.delete(kId);
                 console.log(`Auto-releasing scanner claim for Kiosk ${kId} due to disconnect`);
+                io.to(`kiosk_device_${kId}`).emit('scanner_status_changed', {
+                    claimed: false,
+                    claimedBy: null
+                });
             }
         }
     });

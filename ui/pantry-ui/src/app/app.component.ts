@@ -112,6 +112,7 @@ export class AppComponent implements OnInit {
         if (storedKioskId) {
           console.log("Binding to kiosk", storedKioskId);
           this.socketService.emit('bind_to_kiosk', parseInt(storedKioskId));
+          this.hardwareScanner.checkClaimStatus(parseInt(storedKioskId));
         }
 
         if (isScannerKiosk) {

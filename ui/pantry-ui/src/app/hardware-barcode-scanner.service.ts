@@ -40,6 +40,15 @@ export class HardwareBarcodeScannerService {
       console.log('Scanner released event');
       this.claimedBySubject.next(null);
     });
+
+    this.socketService.on('scanner_status_changed', (data: any) => {
+      console.log("Scanner status changed", data);
+      if (data.claimed) {
+        this.claimedBySubject.next(data.claimedBy || "External");
+      } else {
+        this.claimedBySubject.next(null);
+      }
+    });
   }
 
   public claimScanner(kioskId: number) {
@@ -134,6 +143,10 @@ export class HardwareBarcodeScannerService {
         }
       }, missingBarcodeRedir);
     }
+  }
+
+  public checkClaimStatus(kioskId: number) {
+    this.socketService.emit('get_scanner_status', kioskId);
   }
 
   public ListenForScanner = () => {
