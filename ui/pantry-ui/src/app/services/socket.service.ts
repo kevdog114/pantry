@@ -1,7 +1,8 @@
+import { HttpClient } from '@angular/common/http';
 import { Injectable } from '@angular/core';
 import { io, Socket } from 'socket.io-client';
 import { EnvironmentService } from './environment.service';
-import { Observable, Subject, BehaviorSubject } from 'rxjs';
+import { Observable, Subject, BehaviorSubject, firstValueFrom } from 'rxjs';
 import { AuthService } from './auth';
 
 @Injectable({
@@ -12,7 +13,7 @@ export class SocketService {
     public connected$ = new BehaviorSubject<boolean>(false);
     private listeners = new Map<string, Array<(data: any) => void>>();
 
-    constructor(private authService: AuthService, private env: EnvironmentService) {
+    constructor(private authService: AuthService, private env: EnvironmentService, private http: HttpClient) {
         this.initSocket();
     }
 
@@ -157,5 +158,9 @@ export class SocketService {
 
     public isConnected(): boolean {
         return !!(this.socket && this.socket.connected);
+    }
+
+    public getConnectedClients(): Promise<any[]> {
+        return firstValueFrom(this.http.get<any[]>(`${this.env.apiUrl}/diagnostics/clients`));
     }
 }

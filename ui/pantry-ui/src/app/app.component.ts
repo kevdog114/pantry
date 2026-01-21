@@ -66,12 +66,16 @@ export class AppComponent implements OnInit {
   }
 
   isSocketConnected$: Observable<boolean>; // Property for UI
+  scannerClaimedBy: string | null = null;
+  amIClaiming: boolean = false;
 
   ngOnInit() {
     // Subscribe to claimed status
-    // this.hardwareScanner.claimedBy$.subscribe(claimer => {
-    //   this.scannerClaimedBy = claimer;
-    // });
+    // Subscribe to claimed status
+    this.hardwareScanner.claimedBy$.subscribe(claimer => {
+      this.scannerClaimedBy = claimer;
+      this.amIClaiming = claimer === 'Me';
+    });
 
     // If we are a Kiosk, refresh settings and identify regardless of current auth state
     const kioskToken = localStorage.getItem('kiosk_auth_token');

@@ -151,7 +151,11 @@
     <!-- Footer -->
     <div class="footer">
         <span class="pantry-name">{{ pantryName }}</span>
-        <span class="connection-status" [class.offline]="!isOnline">{{ isOnline ? 'Online' : 'Offline' }}</span>
+        <span class="connection-status">
+            <mat-icon *ngIf="scannerClaimedBy && !amIClaiming" class="text-red-500 mr-2"
+                style="vertical-align: bottom;">qr_code_scanner</mat-icon>
+            <span [class.offline]="!isOnline">{{ isOnline ? 'Online' : 'Offline' }}</span>
+        </span>
         <div class="footer-end">
             <span class="current-date">{{ currentDate | date:'fullDate' }}</span>
             <button mat-button class="exit-btn" (click)="exitKiosk()">EXIT</button>

@@ -128,6 +128,7 @@ model Recipe {
   tasks          MealTask[]
   leftovers      Product[]    @relation("RecipeLeftovers")
   files          File[]       @relation("RecipeToFile")
+  receiptSteps   String?      // JSON string for receipt printer optimized steps
 }
 
 model RecipePrepTask {

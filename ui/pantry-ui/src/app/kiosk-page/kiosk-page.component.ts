@@ -51,6 +51,9 @@ export class KioskPageComponent implements OnInit, OnDestroy {
     // Printer logic
     labelSizeCode: string = 'continuous';
 
+    scannerClaimedBy: string | null = null;
+    amIClaiming: boolean = false;
+
     constructor(
         private router: Router,
         private labelService: LabelService,
@@ -83,6 +86,15 @@ export class KioskPageComponent implements OnInit, OnDestroy {
         // BLOCK default barcode behavior by default on this page
         this.hardwareScanner.setCustomHandler(() => {
             // Do nothing if scanned in main menu
+        });
+
+        this.hardwareScanner.claimedBy$.subscribe(claimer => {
+            this.scannerClaimedBy = claimer;
+            this.amIClaiming = claimer === 'Me';
+            if (this.scannerClaimedBy && !this.amIClaiming) {
+                // If scanner is claimed by someone else, we might want to update status text or block input further?
+                // For now, just tracking it for UI indicators.
+            }
         });
     }
 

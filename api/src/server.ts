@@ -260,6 +260,8 @@ io.on("connection", (socket) => {
         }
     });
 
+
+
     socket.on("disconnect", () => {
         // Remove any claims by this socket
         for (const [kId, sId] of scannerClaims.entries()) {

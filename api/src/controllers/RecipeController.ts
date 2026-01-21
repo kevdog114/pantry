@@ -1,5 +1,6 @@
 import { NextFunction, Response, Request } from "express";
 import prisma from '../lib/prisma';
+import { generateReceiptSteps } from '../services/RecipeAIService';
 
 export const getAll = async (req: Request, res: Response, next: NextFunction): Promise<any> => {
     const recipes = await prisma.recipe.findMany({
@@ -55,6 +56,22 @@ export const create = async (req: Request, res: Response, next: NextFunction): P
         }
     });
 
+    // Generate Receipt Steps
+    try {
+        const receiptSteps = await generateReceiptSteps(recipe.name, recipe.ingredients, recipe.steps);
+        if (receiptSteps) {
+            // Update the recipe with the generated steps
+            await prisma.recipe.update({
+                where: { id: recipe.id },
+                data: { receiptSteps }
+            });
+            // Attach to response object manually since we aren't re-fetching
+            (recipe as any).receiptSteps = receiptSteps;
+        }
+    } catch (genError) {
+        console.error("Failed to generate receipt steps on create", genError);
+    }
+
     res.send(mapToResponse(recipe));
 }
 
@@ -92,9 +109,11 @@ export const getById = async (req: Request, res: Response, next: NextFunction): 
     res.send(mapToResponse(recipe));
 }
 
+
+
 export const update = async (req: Request, res: Response, next: NextFunction): Promise<any> => {
     try {
-        const recipe = await prisma.recipe.update({
+        let recipe = await prisma.recipe.update({
             where: {
                 id: parseInt(req.params.id)
             },
@@ -144,6 +163,25 @@ export const update = async (req: Request, res: Response, next: NextFunction): P
             }
         });
 
+        // Generate Receipt Steps (Async but we wait to ensure it's saved)
+        try {
+            const receiptSteps = await generateReceiptSteps(recipe.name, recipe.ingredients, recipe.steps);
+            if (receiptSteps) {
+                recipe = await prisma.recipe.update({
+                    where: { id: recipe.id },
+                    data: { receiptSteps },
+                    include: {
+                        steps: { orderBy: { stepNumber: 'asc' } },
+                        ingredients: { include: { product: true } },
+                        prepTasks: true,
+                        files: true
+                    }
+                });
+            }
+        } catch (genError) {
+            console.error("Failed to generate receipt steps on update", genError);
+        }
+
         res.send(mapToResponse(recipe));
     } catch (error) {
         console.error(error);
@@ -170,6 +208,7 @@ const mapToResponse = (recipe: any) => {
         prepTasks: recipe.prepTasks || [],
         thawInstructions: recipe.thawInstructions,
         customPrepInstructions: recipe.customPrepInstructions,
-        files: recipe.files || []
+        files: recipe.files || [],
+        receiptSteps: recipe.receiptSteps
     };
 }

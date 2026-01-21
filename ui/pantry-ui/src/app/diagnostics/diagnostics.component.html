@@ -1,0 +1,64 @@
+<div class="diagnostics-container">
+    <div class="header">
+        <h1><span class="icon">🔌</span> Network Diagnostics</h1>
+        <button (click)="refresh()" class="refresh-btn" [class.loading]="loading">
+            <span *ngIf="!loading">Refresh</span>
+            <span *ngIf="loading">Refreshing...</span>
+        </button>
+    </div>
+
+    <div *ngIf="error" class="error-banner">
+        {{ error }}
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <h2>Connected Clients ({{clients.length}})</h2>
+        </div>
+        <div class="table-container">
+            <table class="clients-table">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Type</th>
+                        <th>Address</th>
+                        <th>Identity</th>
+                        <th>Details</th>
+                        <th>Connected</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr *ngFor="let client of clients" class="client-row">
+                        <td><span class="info-pill id-pill" title="{{client.id}}">{{ client.id | slice:0:6 }}...</span>
+                        </td>
+                        <td>
+                            <span class="status-badge" [class.secure]="client.transport === 'websocket'">
+                                {{ client.transport }}
+                            </span>
+                        </td>
+                        <td>{{ client.ip }}</td>
+                        <td>
+                            <div class="identity-cell">
+                                <span *ngIf="client.user" class="user-badge">{{ client.user }}</span>
+                                <span *ngIf="client.kioskId" class="kiosk-badge">Kiosk {{ client.kioskId }}</span>
+                                <span *ngIf="!client.user && !client.kioskId" class="guest-badge">Guest</span>
+                                <div *ngIf="client.description" class="sub-text">{{ client.description }}</div>
+                            </div>
+                        </td>
+                        <td>
+                            <div class="details-cell" title="{{client.userAgent}}">
+                                {{ client.userAgent }}
+                            </div>
+                        </td>
+                        <td>
+                            {{ client.connectedAt | date:'mediumTime' }}
+                        </td>
+                    </tr>
+                    <tr *ngIf="clients.length === 0 && !loading">
+                        <td colspan="6" class="empty-state">No clients connected.</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>

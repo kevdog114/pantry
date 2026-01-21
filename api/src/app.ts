@@ -26,6 +26,7 @@ import { isAuthenticated } from "./middleware/auth";
 import * as LabelPrinterController from "./controllers/labelPrinterController";
 import * as EquipmentController from "./controllers/EquipmentController";
 import * as LocationController from "./controllers/LocationController";
+import * as DiagnosticsController from "./controllers/DiagnosticsController";
 import cors from "cors";
 import fileUpload from "express-fileupload";
 import session from "express-session";
@@ -275,6 +276,8 @@ app.post("/equipment", EquipmentController.create);
 app.put("/equipment/:id", EquipmentController.update);
 app.delete("/equipment/:id", EquipmentController.deleteById);
 app.post("/equipment/:id/files", EquipmentController.uploadFile);
+
+app.get("/diagnostics/clients", DiagnosticsController.getConnectedClients);
 
 app.get('/*', (req: Request, res: Response) => {
     res.sendFile('index.html', { root: '../ui/pantry-ui/dist/pantry-ui' });

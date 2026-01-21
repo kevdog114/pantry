@@ -195,6 +195,11 @@ export const routes: Routes = [
         canActivate: [AuthGuard]
     },
     {
+        path: "diagnostics",
+        loadComponent: () => import('./diagnostics/diagnostics.component').then(m => m.DiagnosticsComponent),
+        canActivate: [AuthGuard]
+    },
+    {
         path: "**",
         redirectTo: "home"
     }
