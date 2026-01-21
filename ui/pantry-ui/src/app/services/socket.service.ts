@@ -47,7 +47,7 @@ export class SocketService {
 
         console.log('SocketService: Connecting with token', token);
         const options: any = {
-            transports: ['polling', 'websocket'],
+            transports: ['websocket', 'polling'],
             reconnection: true,
             reconnectionDelay: 5000
         };
