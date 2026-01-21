@@ -33,4 +33,8 @@ export class LabelService {
   printRecipeLabel(recipeId: number, size: string): Observable<any> {
     return this.http.post(`${this.apiUrl}/labels/recipe/${recipeId}`, { size });
   }
+
+  printReceipt(recipeId: number): Observable<any> {
+    return this.http.post(`${this.apiUrl}/labels/receipt/${recipeId}`, {});
+  }
 }

@@ -267,6 +267,7 @@ app.post("/labels/quick-print", LabelPrinterController.printQuickLabel);
 app.post("/labels/stock/:id", LabelPrinterController.printStockLabel);
 app.post("/labels/modifier", LabelPrinterController.printModifierLabel);
 app.post("/labels/recipe/:id", LabelPrinterController.printRecipeLabel);
+app.post("/labels/receipt/:id", LabelPrinterController.printReceipt);
 app.post("/labels/asset/:id", LabelPrinterController.printAssetLabel);
 
 

@@ -152,8 +152,8 @@
     <div class="footer">
         <span class="pantry-name">{{ pantryName }}</span>
         <span class="connection-status">
-            <mat-icon *ngIf="scannerClaimedBy && !amIClaiming" class="text-red-500 mr-2"
-                style="vertical-align: bottom;">qr_code_scanner</mat-icon>
+            <mat-icon *ngIf="scannerClaimedBy && !amIClaiming" class="mr-2"
+                style="vertical-align: bottom; color: #f44336 !important;">qr_code_scanner</mat-icon>
             <span [class.offline]="!isOnline">{{ isOnline ? 'Online' : 'Offline' }}</span>
         </span>
         <div class="footer-end">

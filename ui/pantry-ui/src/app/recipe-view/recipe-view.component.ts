@@ -140,6 +140,14 @@ export class RecipeViewComponent implements OnInit {
         window.print();
     }
 
+    printReceipt() {
+        if (!this.recipe) return;
+        this.labelService.printReceipt(this.recipe.id).subscribe({
+            next: (res) => this.snackBar.open(res.message, 'Close', { duration: 3000 }),
+            error: (err) => this.snackBar.open('Failed to print receipt', 'Close', { duration: 3000 })
+        });
+    }
+
     downloadPdf() {
         if (this.recipe) {
             this.pdfService.generateFromRecipe(this.recipe);

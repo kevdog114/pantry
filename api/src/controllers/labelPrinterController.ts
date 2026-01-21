@@ -40,7 +40,7 @@ const sendPrintCommandAndWait = async (targetSocket: any, payload: any): Promise
 };
 
 // Helper to find target socket
-const findTargetSocket = async (io: any): Promise<any> => {
+const findTargetSocket = async (io: any, deviceType: string = 'PRINTER'): Promise<any> => {
     const connectedSockets = await io.fetchSockets();
 
     for (const socket of connectedSockets) {
@@ -55,7 +55,7 @@ const findTargetSocket = async (io: any): Promise<any> => {
             });
 
             if (kiosk) {
-                const printer = kiosk.devices.find(d => d.type === 'PRINTER' && (d.status === 'ONLINE' || d.status === 'READY'));
+                const printer = kiosk.devices.find(d => d.type === deviceType && (d.status === 'ONLINE' || d.status === 'READY'));
                 if (printer) {
                     return socket;
                 }
@@ -278,5 +278,60 @@ export const printAssetLabel = async (req: Request, res: Response, next: NextFun
     } catch (e) {
         console.error('Error printing asset label', e);
         res.status(500).json({ message: "Failed to print asset label" });
+    }
+}
+
+export const printReceipt = async (req: Request, res: Response, next: NextFunction): Promise<any> => {
+    try {
+        const recipeId = parseInt(req.params.id);
+
+        const recipe = await prisma.recipe.findUnique({
+            where: { id: recipeId }
+        });
+
+        if (!recipe) {
+            res.status(404).json({ message: "Recipe not found" });
+            return;
+        }
+
+        const io = req.app.get('io');
+        // Find receipt printer
+        const targetSocket = await findTargetSocket(io, 'RECEIPT_PRINTER');
+
+        if (!targetSocket) {
+            res.status(503).json({ message: "No online receipt printers found." });
+            return;
+        }
+
+        let receiptData: any = { steps: [] };
+        if (recipe.receiptSteps) {
+            try {
+                receiptData = JSON.parse(recipe.receiptSteps);
+            } catch (e) {
+                console.warn("Invalid JSOn in receiptSteps, using defaults");
+            }
+        }
+
+        // Ensure title is present
+        receiptData.title = recipe.name;
+        // Include minimal other metadata if useful?
+        receiptData.yield = recipe.yield;
+
+        const payload = {
+            type: 'RECEIPT',
+            data: receiptData
+        };
+
+        const result = await sendPrintCommandAndWait(targetSocket, payload);
+
+        if (result.success) {
+            res.json({ success: true, message: "Receipt sent to printer." });
+        } else {
+            res.status(500).json({ success: false, message: "Print failed: " + result.message });
+        }
+
+    } catch (e) {
+        console.error('Error printing receipt', e);
+        res.status(500).json({ message: "Failed to print receipt" });
     }
 }

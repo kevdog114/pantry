@@ -226,6 +226,20 @@
     font-size: 0.8rem !important;
 }
 
+/* Utility Colors */
+.text-red-500 {
+    color: #f44336 !important;
+}
+
+.text-green-500 {
+    color: #4CAF50 !important;
+}
+
+.connection-status .offline {
+    color: #f44336;
+    font-weight: bold;
+}
+
 .exit-btn:hover {
     color: #e0e0e0 !important;
 }

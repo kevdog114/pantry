@@ -28,6 +28,9 @@
                     <mat-icon>picture_as_pdf</mat-icon> Download PDF
                 </button>
                 <mat-divider></mat-divider>
+                <button mat-menu-item (click)="printReceipt()">
+                    <mat-icon>receipt</mat-icon> Print Receipt
+                </button>
                 <!-- Automatic / Detected -->
                 <button mat-menu-item (click)="printRecipeLabel()">
                     <mat-icon>smart_button</mat-icon> Print Label ({{ labelSizeDescription }})
