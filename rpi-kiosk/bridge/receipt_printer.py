@@ -199,7 +199,8 @@ def print_receipt_cmd(args):
             p.text(f"{data['title']}\n")
             p.text("\n")
             
-        p.set(align='left', normal_text=True)
+        # Reset to normal text
+        p.set(align='left', font='a', width=1, height=1)
         
         # Body Text
         if 'text' in data:
