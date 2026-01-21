@@ -282,6 +282,7 @@ function connectSocket() {
                         }
                     } else {
                         console.log('Receipt Print Output:', stdout);
+                        if (stderr) console.error('Receipt Print Stderr:', stderr);
                     }
 
                     if (requestId) {

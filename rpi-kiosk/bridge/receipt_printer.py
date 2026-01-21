@@ -194,6 +194,7 @@ def print_receipt_cmd(args):
         
         # Header
         if 'title' in data:
+            print("Printing Title...")
             p.set(align='center', double_height=True, double_width=True)
             p.text(f"{data['title']}\n")
             p.text("\n")
@@ -202,13 +203,16 @@ def print_receipt_cmd(args):
         
         # Body Text
         if 'text' in data:
+            print("Printing Text Body...")
             p.text(f"{data['text']}\n")
             
         # Recipe Steps
         if 'steps' in data and isinstance(data['steps'], list):
+            print(f"Printing {len(data['steps'])} steps...")
             p.text("-" * 32 + "\n")
             p.text("INSTRUCTIONS:\n")
-            for step in data['steps']:
+            for i, step in enumerate(data['steps']):
+                print(f"Printing step {i+1}...")
                 # Step object: action, text, note
                 action = step.get('action', '').upper()
                 text = step.get('text', '')
@@ -219,11 +223,14 @@ def print_receipt_cmd(args):
                     p.text(f"{action} ")
                     p.set(bold=False)
                 
-                p.text(f"{text}\n")
+                # Sanitize text
+                safe_text = text.encode('ascii', 'replace').decode()
+                p.text(f"{safe_text}\n")
                 
                 if note:
-                    p.set(font='b') # Smaller font if supported, or just distinct
-                    p.text(f"  Note: {note}\n")
+                    p.set(font='b')
+                    safe_note = note.encode('ascii', 'replace').decode()
+                    p.text(f"  Note: {safe_note}\n")
                     p.set(font='a')
                 
                 p.text("\n")
@@ -231,9 +238,9 @@ def print_receipt_cmd(args):
 
         # Key-Value pairs if provided
         if 'items' in data and isinstance(data['items'], list):
+            print("Printing Items...")
             p.text("-" * 32 + "\n")
             for item in data['items']:
-                # Assume item is dict or string
                 if isinstance(item, dict):
                     name = item.get('name', '')
                     qty = item.get('quantity', '')
@@ -244,21 +251,29 @@ def print_receipt_cmd(args):
 
         # QR Code
         if 'qrData' in data:
+            print("Printing QR...")
             p.set(align='center')
-            p.qr(data['qrData'], size=8)
+            try:
+                p.qr(data['qrData'], size=8)
+            except Exception as qr_err:
+                 print(f"QR Error: {qr_err}")
             p.text("\n")
 
         # Footer
+        print("Printing Footer...")
         p.text("\n")
         p.set(align='center')
         p.text(f"{data.get('footer', 'Pantry Kiosk')}\n")
         
         # Cut
+        print("Cutting...")
         p.cut()
+        print("Done.")
         
     except Exception as e:
         logger.error(f"Print failed: {e}")
-        # We might not crash but log it
+        print(f"CRITICAL ERROR: {e}") 
+        sys.exit(1)
     
 def status_cmd(args):
     # Just check if we can find it via USB scanning
