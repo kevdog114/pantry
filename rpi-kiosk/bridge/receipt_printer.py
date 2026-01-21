@@ -164,6 +164,7 @@ def print_receipt_cmd(args):
     try:
         with open(args.input_file, 'r') as f:
             data = json.load(f)
+            logger.info(f"Receipt Data: {data}")
     except Exception as e:
         logger.error(f"Failed to load input file: {e}")
         return
