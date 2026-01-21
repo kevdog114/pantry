@@ -43,7 +43,7 @@ export class SocketService {
         }
 
         const options: any = {
-            transports: ['websocket', 'polling'],
+            transports: ['polling', 'websocket'],
             reconnection: true,
             reconnectionDelay: 5000
         };
@@ -71,7 +71,12 @@ export class SocketService {
         }
 
         // Clean up double slashes if any (though URL parsing usually handles this)
-        const socketPath = `${pathname}socket.io`.replace('//', '/');
+        let socketPath = `${pathname}socket.io`.replace('//', '/');
+
+        // Ensure socketPath has a trailing slash, matching the bridge server logic
+        if (!socketPath.endsWith('/')) {
+            socketPath += '/';
+        }
 
         options.path = socketPath;
 
