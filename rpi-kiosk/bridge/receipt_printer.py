@@ -6,6 +6,7 @@ import logging
 import usb.core
 import usb.util
 import subprocess
+import textwrap
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -228,12 +229,16 @@ def print_receipt_cmd(args):
                 
                 # Sanitize text
                 safe_text = text.encode('ascii', 'replace').decode()
-                p.text(f"{safe_text}\n")
+                # Wrap text to 42 chars (safe standard for 80mm receipts, typically 42-48 depending on font)
+                wrapped_text = textwrap.fill(safe_text, width=42)
+                p.text(f"{wrapped_text}\n")
                 
                 if note:
                     p.set(font='b')
                     safe_note = note.encode('ascii', 'replace').decode()
-                    p.text(f"  Note: {safe_note}\n")
+                    # Font B is usually smaller, so we can wrap at a wider width (e.g., 56)
+                    wrapped_note = textwrap.fill(safe_note, width=56) 
+                    p.text(f"  Note: {wrapped_note}\n")
                     p.set(font='a')
                 
                 p.text("\n")
