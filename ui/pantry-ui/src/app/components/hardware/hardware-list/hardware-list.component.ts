@@ -14,6 +14,7 @@ import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { DeviceConfigDialogComponent } from '../device-config-dialog/device-config-dialog.component';
 import { HardwareService } from '../../../services/hardware.service';
 import { HardwareBarcodeScannerService } from '../../../hardware-barcode-scanner.service';
+import { SocketService } from '../../../services/socket.service';
 
 @Component({
     selector: 'app-hardware-list',
@@ -31,7 +32,8 @@ export class HardwareListComponent implements OnInit {
         private snackBar: MatSnackBar,
         private dialog: MatDialog,
         private hardwareService: HardwareService,
-        private barcodeService: HardwareBarcodeScannerService
+        private barcodeService: HardwareBarcodeScannerService,
+        private socketService: SocketService
     ) { }
 
     ngOnInit() {
@@ -148,5 +150,30 @@ export class HardwareListComponent implements OnInit {
     claimScanner(kioskId: number) {
         this.barcodeService.claimScanner(kioskId);
         this.snackBar.open('Scanner claimed! Events will be sent to this device.', 'Close', { duration: 3000 });
+    }
+
+    readWeight(device: any, kioskId: number) {
+        const requestId = `${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+        this.snackBar.open('Reading scale...', 'Cancel', { duration: 5000 });
+
+        const cleanup = () => {
+            this.socketService.removeListener('scale_reading');
+        };
+
+        const handler = (data: any) => {
+            if (data.requestId === requestId) {
+                cleanup();
+                if (data.success) {
+                    const weight = data.data?.weight;
+                    const unit = data.data?.unit || 'g';
+                    this.snackBar.open(`Weight: ${weight} ${unit}`, 'Close', { duration: 5000 });
+                } else {
+                    this.snackBar.open(`Error: ${data.message}`, 'Close', { duration: 5000 });
+                }
+            }
+        };
+
+        this.socketService.on('scale_reading', handler);
+        this.socketService.emit('read_scale', { kioskId, requestId });
     }
 }

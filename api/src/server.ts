@@ -80,6 +80,7 @@ io.use(async (socket, next) => {
 });
 
 const scannerClaims = new Map<number, string>();
+const scaleRequests = new Map<string, string>(); // requestId -> socketId
 
 io.on("connection", (socket) => {
     console.log("New socket connection:", socket.id);
@@ -282,6 +283,46 @@ io.on("connection", (socket) => {
             } else {
                 // Broadcast to all clients in the kiosk room (UI and other devices)
                 io.to(`kiosk_device_${kioskId}`).emit("barcode_scan", data);
+            }
+        }
+    });
+
+    socket.on("read_scale", async (data) => {
+        // UI Requesting Weight
+        const targetKioskId = data.kioskId;
+        const requestId = data.requestId;
+
+        if (requestId) {
+            scaleRequests.set(requestId, socket.id);
+            // Auto cleanup after 30 seconds
+            setTimeout(() => scaleRequests.delete(requestId), 30000);
+        }
+
+        console.log(`Routing read_scale to Kiosk ${targetKioskId}`, data);
+        // Find the bridge socket(s) for this kiosk? 
+        // We identify bridges by their 'kioskId' property which is set on connection if they are a kiosk.
+        // But we didn't store them in a map explicitly, just joined 'kiosk_device_{id}' room.
+        // However, if we emit to room, BOTH UI and Bridge get it. 
+        // We need to differentiate or the Bridge needs to handle it and UI ignore it.
+        // The Bridge listens for 'read_scale'. The UI sends it. 
+        // If we emit to the room, the Bridge receives it.
+        io.to(`kiosk_device_${targetKioskId}`).emit('read_scale', data);
+    });
+
+    socket.on("scale_reading", (data) => {
+        // Bridge reporting weight
+        if (kioskId) {
+            console.log(`Received scale_reading from Kiosk ${kioskId}`, data);
+
+            const requestId = data.requestId;
+            const requesterSocketId = scaleRequests.get(requestId);
+
+            if (requesterSocketId) {
+                io.to(requesterSocketId).emit('scale_reading', data);
+                scaleRequests.delete(requestId);
+            } else {
+                // Fallback to room
+                io.to(`kiosk_device_${kioskId}`).emit('scale_reading', data);
             }
         }
     });

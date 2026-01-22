@@ -399,11 +399,61 @@ function connectSocket() {
         }
     });
 
+    socket.on('read_scale', (payload) => {
+        console.log('Received read_scale command:', payload);
+        const requestId = payload.requestId;
+
+        // Find a scale
+        const keys = Object.keys(knownScales);
+        if (keys.length === 0) {
+            if (requestId) {
+                socket.emit('scale_reading', {
+                    requestId, success: false, message: "No scale available"
+                });
+            }
+            return;
+        }
+
+        const port = keys[0]; // proper logic might select by ID if provided
+        const scaleCmd = `/opt/venv/bin/python3 scale_bridge.py read --port "${port}"`;
+
+        const { exec } = require('child_process');
+        exec(scaleCmd, { timeout: 5000 }, (err, stdout, stderr) => {
+            let success = true;
+            let data = null;
+            let message = '';
+
+            if (err) {
+                console.error('Scale Read Error:', err);
+                success = false;
+                message = stderr || err.message;
+            } else {
+                try {
+                    data = JSON.parse(stdout);
+                    if (data.error) {
+                        success = false;
+                        message = data.error;
+                    }
+                } catch (e) {
+                    success = false;
+                    message = "Failed to parse scale output";
+                }
+            }
+
+            if (requestId) {
+                socket.emit('scale_reading', {
+                    requestId, success, data, message
+                });
+            }
+        });
+    });
+
 }
 
 // Check devices
 const knownPrinters = {};
 const knownReceiptPrinters = {};
+const knownScales = {};
 
 function checkDevices() {
     const pythonCmd = '/opt/venv/bin/python3 print_label.py';
@@ -528,6 +578,42 @@ function checkDevices() {
             console.error("Error parsing receipt discover output:", e);
         }
     });
+
+} catch (e) {
+    console.error("Error parsing receipt discover output:", e);
+}
+    });
+
+// Check for Scales
+const scaleCmd = '/opt/venv/bin/python3 scale_bridge.py';
+exec(`${scaleCmd} discover`, (err, stdout) => {
+    if (err) {
+        // Check if file exists/runnable? Just ignore silent fails
+        return;
+    }
+    try {
+        const devices = JSON.parse(stdout);
+        if (devices.length > 0) {
+            devices.forEach(device => {
+                knownScales[device.identifier] = device;
+
+                if (socket && socket.connected) {
+                    socket.emit('device_register', {
+                        name: device.model || 'Kitchen Scale',
+                        type: 'SCALE',
+                        status: device.connected ? 'ONLINE' : 'OFFLINE',
+                        details: JSON.stringify(device)
+                    });
+                }
+            });
+        } else {
+            // If no scales found, maybe clear knownScales? 
+            // For now, we just don't register.
+        }
+    } catch (e) {
+        console.error("Error parsing scale discover output:", e);
+    }
+});
 
 }
 

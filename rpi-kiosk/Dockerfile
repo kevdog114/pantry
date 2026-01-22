@@ -19,7 +19,7 @@ RUN npm install --omit=dev
 # Setup Python Venv
 RUN python3 -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
-RUN pip install --no-cache-dir brother-ql-inventree Pillow qrcode[pil] pyusb paho-mqtt evdev python-escpos
+RUN pip install --no-cache-dir brother-ql-inventree Pillow qrcode[pil] pyusb paho-mqtt evdev python-escpos pyserial
 
 # Stage 2: Runtime
 #FROM debian:bookworm-slim
@@ -60,6 +60,7 @@ COPY bridge/scanner_bridge.py .
 COPY bridge/print_label.py .
 COPY bridge/receipt_printer.py .
 COPY bridge/mqtt_bridge.py .
+COPY bridge/scale_bridge.py .
 
 # Setup Entrypoint
 COPY entrypoint.sh /entrypoint.sh

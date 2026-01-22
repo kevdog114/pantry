@@ -31,7 +31,7 @@
                             class="hover:bg-gray-50 dark:hover:bg-zinc-700/30 transition-colors">
                             <mat-icon matListItemIcon class="text-gray-400">
                                 {{ device.type === 'PRINTER' ? 'print' : (device.type === 'RECEIPT_PRINTER' ? 'receipt'
-                                : 'usb') }}
+                                : (device.type === 'SCALE' ? 'linear_scale' : 'usb')) }}
                             </mat-icon>
                             <div matListItemTitle class="font-medium">{{ device.name }}</div>
                             <div matListItemLine class="flex items-center gap-2">
@@ -58,16 +58,24 @@
                                     {{ details.config.model }}
                                 </span>
                             </div>
-                            <div matListItemMeta
-                                *ngIf="(device.type === 'PRINTER' || device.type === 'RECEIPT_PRINTER') && (device.status === 'ONLINE' || device.status === 'READY')">
-                                <button mat-icon-button color="primary" (click)="printTestLabel(device, kiosk.id)"
-                                    matTooltip="Print Test Label">
-                                    <mat-icon>print</mat-icon>
-                                </button>
-                                <button mat-icon-button (click)="configureDevice(device, kiosk.id)"
-                                    matTooltip="Configuration">
-                                    <mat-icon>settings</mat-icon>
-                                </button>
+                            <div matListItemMeta>
+                                <div
+                                    *ngIf="(device.type === 'PRINTER' || device.type === 'RECEIPT_PRINTER') && (device.status === 'ONLINE' || device.status === 'READY')">
+                                    <button mat-icon-button color="primary" (click)="printTestLabel(device, kiosk.id)"
+                                        matTooltip="Print Test Label">
+                                        <mat-icon>print</mat-icon>
+                                    </button>
+                                    <button mat-icon-button (click)="configureDevice(device, kiosk.id)"
+                                        matTooltip="Configuration">
+                                        <mat-icon>settings</mat-icon>
+                                    </button>
+                                </div>
+                                <div *ngIf="device.type === 'SCALE' && (device.status === 'ONLINE')">
+                                    <button mat-flat-button color="primary" (click)="readWeight(device, kiosk.id)"
+                                        class="h-8 px-4 text-xs">
+                                        Read Weight
+                                    </button>
+                                </div>
                             </div>
                         </mat-list-item>
                     </div>
