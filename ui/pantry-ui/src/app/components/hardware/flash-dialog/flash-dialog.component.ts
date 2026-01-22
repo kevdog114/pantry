@@ -6,23 +6,25 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { FormsModule } from '@angular/forms';
 import { SocketService } from '../../../services/socket.service';
 
 @Component({
-    selector: 'app-flash-dialog',
-    standalone: true,
-    imports: [
-        CommonModule,
-        MatDialogModule,
-        MatButtonModule,
-        MatSelectModule,
-        MatFormFieldModule,
-        MatIconModule,
-        MatProgressBarModule,
-        FormsModule
-    ],
-    template: `
+  selector: 'app-flash-dialog',
+  standalone: true,
+  imports: [
+    CommonModule,
+    MatDialogModule,
+    MatButtonModule,
+    MatSelectModule,
+    MatFormFieldModule,
+    MatIconModule,
+    MatProgressBarModule,
+    MatProgressSpinnerModule,
+    FormsModule
+  ],
+  template: `
     <h2 mat-dialog-title>Flash Firmware</h2>
     <mat-dialog-content>
       <div *ngIf="loadingPorts" class="flex flex-col items-center justify-center p-4">
@@ -81,92 +83,92 @@ import { SocketService } from '../../../services/socket.service';
       </button>
     </mat-dialog-actions>
   `,
-    styles: [`
+  styles: [`
     mat-form-field { width: 100%; }
   `]
 })
 export class FlashDialogComponent implements OnInit {
-    loadingPorts = true;
-    ports: any[] = [];
-    selectedPort: string = '';
-    selectedSketch: string = 'scale/scale.ino';
-    flashing = false;
-    error: string | null = null;
-    flashResult: any = null;
+  loadingPorts = true;
+  ports: any[] = [];
+  selectedPort: string = '';
+  selectedSketch: string = 'scale/scale.ino';
+  flashing = false;
+  error: string | null = null;
+  flashResult: any = null;
 
-    private requestId: string;
+  private requestId: string;
 
-    constructor(
-        public dialogRef: MatDialogRef<FlashDialogComponent>,
-        @Inject(MAT_DIALOG_DATA) public data: { kioskId: number },
-        private socketService: SocketService
-    ) {
-        this.requestId = `req_${Date.now()}`;
-    }
+  constructor(
+    public dialogRef: MatDialogRef<FlashDialogComponent>,
+    @Inject(MAT_DIALOG_DATA) public data: { kioskId: number },
+    private socketService: SocketService
+  ) {
+    this.requestId = `req_${Date.now()}`;
+  }
 
-    ngOnInit() {
-        this.scanPorts();
-    }
+  ngOnInit() {
+    this.scanPorts();
+  }
 
-    scanPorts() {
-        this.loadingPorts = true;
-        this.error = null;
+  scanPorts() {
+    this.loadingPorts = true;
+    this.error = null;
 
-        const handler = (res: any) => {
-            if (res.requestId === this.requestId) {
-                this.loadingPorts = false;
-                this.socketService.removeListener('serial_ports_list');
-                if (res.success) {
-                    this.ports = res.ports || [];
-                    if (this.ports.length === 1) {
-                        this.selectedPort = this.ports[0].device;
-                    }
-                } else {
-                    this.error = res.message || 'Failed to scan ports';
-                }
-            }
-        };
+    const handler = (res: any) => {
+      if (res.requestId === this.requestId) {
+        this.loadingPorts = false;
+        this.socketService.removeListener('serial_ports_list');
+        if (res.success) {
+          this.ports = res.ports || [];
+          if (this.ports.length === 1) {
+            this.selectedPort = this.ports[0].device;
+          }
+        } else {
+          this.error = res.message || 'Failed to scan ports';
+        }
+      }
+    };
 
-        this.socketService.on('serial_ports_list', handler);
-        this.socketService.emit('get_serial_ports', {
-            kioskId: this.data.kioskId,
-            requestId: this.requestId
-        });
+    this.socketService.on('serial_ports_list', handler);
+    this.socketService.emit('get_serial_ports', {
+      kioskId: this.data.kioskId,
+      requestId: this.requestId
+    });
 
-        // Timeout fallback
-        setTimeout(() => {
-            if (this.loadingPorts) {
-                this.loadingPorts = false;
-                this.error = "Scan timed out. Is the kiosk online?";
-                this.socketService.removeListener('serial_ports_list');
-            }
-        }, 10000);
-    }
+    // Timeout fallback
+    setTimeout(() => {
+      if (this.loadingPorts) {
+        this.loadingPorts = false;
+        this.error = "Scan timed out. Is the kiosk online?";
+        this.socketService.removeListener('serial_ports_list');
+      }
+    }, 10000);
+  }
 
-    flash() {
-        if (!this.selectedPort) return;
+  flash() {
+    if (!this.selectedPort) return;
 
-        this.flashing = true;
-        this.error = null;
+    this.flashing = true;
+    this.error = null;
 
-        const handler = (res: any) => {
-            if (res.requestId === this.requestId) {
-                this.flashing = false;
-                this.socketService.removeListener('flash_complete');
-                this.flashResult = res;
-            }
-        };
+    const handler = (res: any) => {
+      if (res.requestId === this.requestId) {
+        this.flashing = false;
+        this.socketService.removeListener('flash_complete');
+        this.flashResult = res;
+      }
+    };
 
-        this.socketService.on('flash_complete', handler);
-        this.socketService.emit('flash_firmware', {
-            kioskId: this.data.kioskId,
-            port: this.selectedPort,
-            sketch: this.selectedSketch,
-            requestId: this.requestId
-        });
-    }
+    this.socketService.on('flash_complete', handler);
+    this.socketService.emit('flash_firmware', {
+      kioskId: this.data.kioskId,
+      port: this.selectedPort,
+      sketch: this.selectedSketch,
+      requestId: this.requestId
+    });
+  }
 
-    close() {
-        this.dialogRef.close(this.flashResult?.success);
-    }
+  close() {
+    this.dialogRef.close(this.flashResult?.success);
+  }
 }

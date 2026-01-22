@@ -40,6 +40,7 @@ RUN apt-get update && apt-get install -y \
     curl \
     libusb-1.0-0 \
     x11-xserver-utils \
+    ca-certificates \
     --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
@@ -52,7 +53,7 @@ COPY --from=builder /bridge/node_modules /bridge/node_modules
 COPY --from=builder /opt/venv /opt/venv
 
 # Install Arduino CLI
-RUN curl -fsSL https://raw.githubusercontent.com/arduino/arduino-cli/master/install.sh | sh
+RUN curl -fsSL https://raw.githubusercontent.com/arduino/arduino-cli/master/install.sh | sh -s -- -b /usr/local/bin
 RUN arduino-cli config init
 RUN arduino-cli core update-index
 RUN arduino-cli core install arduino:avr
