@@ -327,6 +327,33 @@ io.on("connection", (socket) => {
         }
     });
 
+    // Flashing / Serial Ports
+    socket.on("get_serial_ports", (data) => {
+        const targetKioskId = data.kioskId;
+        console.log(`Routing get_serial_ports to Kiosk ${targetKioskId}`, data);
+        io.to(`kiosk_device_${targetKioskId}`).emit('get_serial_ports', data);
+    });
+
+    socket.on("serial_ports_list", (data) => {
+        if (kioskId) {
+            console.log(`Received serial_ports_list from Kiosk ${kioskId}`);
+            io.to(`kiosk_device_${kioskId}`).emit('serial_ports_list', data);
+        }
+    });
+
+    socket.on("flash_firmware", (data) => {
+        const targetKioskId = data.kioskId;
+        console.log(`Routing flash_firmware to Kiosk ${targetKioskId}`, data);
+        io.to(`kiosk_device_${targetKioskId}`).emit('flash_firmware', data);
+    });
+
+    socket.on("flash_complete", (data) => {
+        if (kioskId) {
+            console.log(`Received flash_complete from Kiosk ${kioskId}`, data);
+            io.to(`kiosk_device_${kioskId}`).emit('flash_complete', data);
+        }
+    });
+
     socket.on("disconnect", () => {
         // Remove any claims by this socket
         for (const [kId, sId] of scannerClaims.entries()) {

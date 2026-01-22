@@ -51,6 +51,13 @@ COPY --from=builder /usr/local/bin/node /usr/local/bin/node
 COPY --from=builder /bridge/node_modules /bridge/node_modules
 COPY --from=builder /opt/venv /opt/venv
 
+# Install Arduino CLI
+RUN curl -fsSL https://raw.githubusercontent.com/arduino/arduino-cli/master/install.sh | sh
+RUN arduino-cli config init
+RUN arduino-cli core update-index
+RUN arduino-cli core install arduino:avr
+RUN arduino-cli lib install "HX711"
+
 # Setup App
 WORKDIR /bridge
 COPY bridge/package.json .
@@ -61,6 +68,10 @@ COPY bridge/print_label.py .
 COPY bridge/receipt_printer.py .
 COPY bridge/mqtt_bridge.py .
 COPY bridge/scale_bridge.py .
+COPY bridge/flash_tool.py .
+
+# Copy Firmware (requires context to include arduino folder)
+COPY arduino /bridge/firmware
 
 # Setup Entrypoint
 COPY entrypoint.sh /entrypoint.sh

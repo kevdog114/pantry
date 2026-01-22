@@ -448,6 +448,58 @@ function connectSocket() {
         });
     });
 
+    socket.on('get_serial_ports', (payload) => {
+        console.log('Received get_serial_ports request', payload);
+        const requestId = payload.requestId;
+        const cmd = `/opt/venv/bin/python3 flash_tool.py list`;
+
+        const { exec } = require('child_process');
+        exec(cmd, (err, stdout, stderr) => {
+            if (err) {
+                console.error('List Ports Error:', err);
+                socket.emit('serial_ports_list', { requestId, success: false, message: stderr });
+            } else {
+                try {
+                    const ports = JSON.parse(stdout);
+                    socket.emit('serial_ports_list', { requestId, success: true, ports });
+                } catch (e) {
+                    socket.emit('serial_ports_list', { requestId, success: false, message: "Parse error" });
+                }
+            }
+        });
+    });
+
+    socket.on('flash_firmware', (payload) => {
+        console.log('Received flash_firmware request', payload);
+        const requestId = payload.requestId;
+        const { port, sketch } = payload;
+        const cmd = `/opt/venv/bin/python3 flash_tool.py flash --port "${port}" --sketch "${sketch}"`;
+
+        const { exec } = require('child_process');
+        // Longer timeout for compilation and flashing
+        exec(cmd, { timeout: 120000 }, (err, stdout, stderr) => {
+            // stderr contains progress
+            if (err) {
+                console.error('Flash Error:', err);
+                socket.emit('flash_complete', { requestId, success: false, message: stderr || err.message });
+            } else {
+                try {
+                    const res = JSON.parse(stdout);
+                    if (res.error) {
+                        socket.emit('flash_complete', { requestId, success: false, message: res.error, details: res.details });
+                    } else {
+                        socket.emit('flash_complete', { requestId, success: true, message: "Flashing Complete" });
+                    }
+                } catch (e) {
+                    // If stdout isn't JSON, maybe it was just text? 
+                    // flash_tool prints JSON at end, but maybe mixed output.
+                    // Actually flash_tool prints to stderr for progress, stdout for result.
+                    socket.emit('flash_complete', { requestId, success: false, message: "Invalid output from flash tool", raw: stdout });
+                }
+            }
+        });
+    });
+
 }
 
 // Check devices
@@ -579,41 +631,38 @@ function checkDevices() {
         }
     });
 
-} catch (e) {
-    console.error("Error parsing receipt discover output:", e);
-}
-    });
 
-// Check for Scales
-const scaleCmd = '/opt/venv/bin/python3 scale_bridge.py';
-exec(`${scaleCmd} discover`, (err, stdout) => {
-    if (err) {
-        // Check if file exists/runnable? Just ignore silent fails
-        return;
-    }
-    try {
-        const devices = JSON.parse(stdout);
-        if (devices.length > 0) {
-            devices.forEach(device => {
-                knownScales[device.identifier] = device;
 
-                if (socket && socket.connected) {
-                    socket.emit('device_register', {
-                        name: device.model || 'Kitchen Scale',
-                        type: 'SCALE',
-                        status: device.connected ? 'ONLINE' : 'OFFLINE',
-                        details: JSON.stringify(device)
-                    });
-                }
-            });
-        } else {
-            // If no scales found, maybe clear knownScales? 
-            // For now, we just don't register.
+    // Check for Scales
+    const scaleCmd = '/opt/venv/bin/python3 scale_bridge.py';
+    exec(`${scaleCmd} discover`, (err, stdout) => {
+        if (err) {
+            // Check if file exists/runnable? Just ignore silent fails
+            return;
         }
-    } catch (e) {
-        console.error("Error parsing scale discover output:", e);
-    }
-});
+        try {
+            const devices = JSON.parse(stdout);
+            if (devices.length > 0) {
+                devices.forEach(device => {
+                    knownScales[device.identifier] = device;
+
+                    if (socket && socket.connected) {
+                        socket.emit('device_register', {
+                            name: device.model || 'Kitchen Scale',
+                            type: 'SCALE',
+                            status: device.connected ? 'ONLINE' : 'OFFLINE',
+                            details: JSON.stringify(device)
+                        });
+                    }
+                });
+            } else {
+                // If no scales found, maybe clear knownScales? 
+                // For now, we just don't register.
+            }
+        } catch (e) {
+            console.error("Error parsing scale discover output:", e);
+        }
+    });
 
 }
 

@@ -18,6 +18,11 @@
                         <mat-icon>qr_code_scanner</mat-icon>
                         Claim Scanner
                     </button>
+                    <button mat-stroked-button color="accent" class="mr-4" (click)="openFlashDialog(kiosk.id)"
+                        matTooltip="Flash Arduino Firmware">
+                        <mat-icon>developer_board</mat-icon>
+                        Flash Firmware
+                    </button>
                     <mat-slide-toggle [checked]="!!kiosk.hasKeyboardScanner" (change)="toggleScanner(kiosk)"
                         color="primary">
                         Keyboard Scanner

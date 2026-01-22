@@ -15,6 +15,7 @@ import { DeviceConfigDialogComponent } from '../device-config-dialog/device-conf
 import { HardwareService } from '../../../services/hardware.service';
 import { HardwareBarcodeScannerService } from '../../../hardware-barcode-scanner.service';
 import { SocketService } from '../../../services/socket.service';
+import { FlashDialogComponent } from '../flash-dialog/flash-dialog.component';
 
 @Component({
     selector: 'app-hardware-list',
@@ -175,5 +176,13 @@ export class HardwareListComponent implements OnInit {
 
         this.socketService.on('scale_reading', handler);
         this.socketService.emit('read_scale', { kioskId, requestId });
+    }
+
+    openFlashDialog(kioskId: number) {
+        this.dialog.open(FlashDialogComponent, {
+            data: { kioskId },
+            width: '500px',
+            disableClose: true
+        });
     }
 }
