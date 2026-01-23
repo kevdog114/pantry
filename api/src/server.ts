@@ -292,6 +292,9 @@ io.on("connection", (socket) => {
         const targetKioskId = data.kioskId;
         const requestId = data.requestId;
 
+        const username = pat?.user?.username || 'Unknown User';
+        console.log(`User ${username} requested scale weight for Kiosk ${targetKioskId}`);
+
         if (requestId) {
             scaleRequests.set(requestId, socket.id);
             // Auto cleanup after 30 seconds
@@ -317,7 +320,7 @@ io.on("connection", (socket) => {
     socket.on("scale_reading", (data) => {
         // Bridge reporting weight
         if (kioskId) {
-            // console.log(`Received scale_reading from Kiosk ${kioskId}`, data); // Verbose
+            console.log(`Received scale_reading from Kiosk ${kioskId}`, data); // Verbose
 
             const requestId = data.requestId;
 

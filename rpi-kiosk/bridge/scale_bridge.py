@@ -153,25 +153,55 @@ def calibrate_scale(port, known_weight):
         print(json.dumps({"error": "Failed to read for calibration"}))
 
 def monitor(port):
-    # Monitor mode for debugging or continuous stream
     if not port:
         print("ERROR: Port required for monitor", file=sys.stderr)
         return
 
     print(f"Scale Monitor Started on {port} (Ctrl+C to stop)", file=sys.stderr)
+    
+    ser = None
+    
     while True:
-        raw = read_raw(port)
-        if raw is not None:
-            config = get_device_config(port)
-            tare = config.get("tare_offset", 0)
-            cal = config.get("calibration_factor", 420.0)
-            if cal == 0: cal = 1
+        try:
+            if ser is None:
+                ser = serial.Serial(port, 9600, timeout=2)
+                time.sleep(2) # Wait for auto-reset on connect
+                ser.reset_input_buffer()
             
-            weight = (raw - tare) / cal
-            print(f"WEIGHT:{weight:.2f} (Raw: {raw})")
-        else:
-            print("Error reading scale")
-        time.sleep(0.5)
+            # Request weight
+            ser.write(b'R')
+            line = ser.readline().decode('utf-8').strip()
+            
+            if line:
+                try:
+                    raw = int(line)
+                    config = get_device_config(port)
+                    tare = config.get("tare_offset", 0)
+                    cal = config.get("calibration_factor", 420.0)
+                    if cal == 0: cal = 1
+                    
+                    weight = (raw - tare) / cal
+                    # Flush stdout to ensure real-time piping
+                    print(f"WEIGHT:{weight:.2f} (Raw: {raw})")
+                    sys.stdout.flush()
+                except ValueError:
+                    # Ignore partial lines or garbage
+                    pass
+            else:
+                # No response often means timeout, maybe lost connection or just waiting
+                pass
+
+            time.sleep(0.5)
+
+        except Exception as e:
+            print(f"Error reading scale: {e}", file=sys.stderr)
+            if ser:
+                try:
+                    ser.close()
+                except:
+                    pass
+                ser = None
+            time.sleep(2) # Wait before reconnect attempt
 
 if __name__ == '__main__':
     args = get_args()

@@ -178,6 +178,9 @@ export class HardwareListComponent implements OnInit {
         this.currentScaleDevice = device;
         this.isReadingScale = true;
 
+        // Emit start signal for logging purposes (and potential wake-up)
+        this.socketService.emit('read_scale', { kioskId, requestId: 'init' });
+
         // Subscribe to socket events for scale readings (broadcasted or directed)
         // The bridge emits 'scale_reading' with requestId='poll' for continuous updates
         // OR we could just listen generally.
