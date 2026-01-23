@@ -63,41 +63,39 @@
                                     {{ details.config.model }}
                                 </span>
                             </div>
-                            <div matListItemMeta>
-                                <div
-                                    *ngIf="(device.type === 'PRINTER' || device.type === 'RECEIPT_PRINTER') && (device.status === 'ONLINE' || device.status === 'READY')">
-                                    <button mat-icon-button color="primary" (click)="printTestLabel(device, kiosk.id)"
-                                        matTooltip="Print Test Label">
-                                        <mat-icon>print</mat-icon>
-                                    </button>
-                                    <button mat-icon-button (click)="configureDevice(device, kiosk.id)"
-                                        matTooltip="Configuration">
-                                        <mat-icon>settings</mat-icon>
-                                    </button>
-                                </div>
-                                <div *ngIf="device.type === 'SCALE' && (device.status === 'ONLINE')">
-                                    <div class="flex flex-col gap-2 scale-controls"
-                                        *ngIf="isReadingScale && currentScaleDevice?.id === device.id; else startScaleBtn">
-                                        <div
-                                            class="text-2xl font-mono p-2 bg-gray-100 dark:bg-zinc-900 rounded text-center border dark:border-zinc-600">
-                                            {{ currentWeight }} {{ currentUnit }}
-                                        </div>
-                                        <div class="flex gap-2 justify-center">
-                                            <button mat-stroked-button color="warn"
-                                                (click)="tareScale(device, kiosk.id)">Tare</button>
-                                            <button mat-stroked-button
-                                                (click)="calibrateScale(device, kiosk.id)">Calibrate</button>
-                                            <button mat-flat-button color="warn"
-                                                (click)="toggleScaleRead(device, kiosk.id)">Stop</button>
-                                        </div>
+                            <div matListItemMeta
+                                *ngIf="(device.type === 'PRINTER' || device.type === 'RECEIPT_PRINTER') && (device.status === 'ONLINE' || device.status === 'READY')">
+                                <button mat-icon-button color="primary" (click)="printTestLabel(device, kiosk.id)"
+                                    matTooltip="Print Test Label">
+                                    <mat-icon>print</mat-icon>
+                                </button>
+                                <button mat-icon-button (click)="configureDevice(device, kiosk.id)"
+                                    matTooltip="Configuration">
+                                    <mat-icon>settings</mat-icon>
+                                </button>
+                            </div>
+                            <div matListItemMeta *ngIf="device.type === 'SCALE' && (device.status === 'ONLINE')">
+                                <div class="flex flex-col gap-2 scale-controls"
+                                    *ngIf="isReadingScale && currentScaleDevice?.id === device.id; else startScaleBtn">
+                                    <div
+                                        class="text-2xl font-mono p-2 bg-gray-100 dark:bg-zinc-900 rounded text-center border dark:border-zinc-600">
+                                        {{ currentWeight }} {{ currentUnit }}
                                     </div>
-                                    <ng-template #startScaleBtn>
-                                        <button mat-flat-button color="primary"
-                                            (click)="toggleScaleRead(device, kiosk.id)" class="h-8 px-4 text-xs">
-                                            Read Weight
-                                        </button>
-                                    </ng-template>
+                                    <div class="flex gap-2 justify-center">
+                                        <button mat-stroked-button color="warn"
+                                            (click)="tareScale(device, kiosk.id)">Tare</button>
+                                        <button mat-stroked-button
+                                            (click)="calibrateScale(device, kiosk.id)">Calibrate</button>
+                                        <button mat-flat-button color="warn"
+                                            (click)="toggleScaleRead(device, kiosk.id)">Stop</button>
+                                    </div>
                                 </div>
+                                <ng-template #startScaleBtn>
+                                    <button mat-flat-button color="primary" (click)="toggleScaleRead(device, kiosk.id)"
+                                        class="h-8 px-4 text-xs">
+                                        Read Weight
+                                    </button>
+                                </ng-template>
                             </div>
                         </mat-list-item>
                     </div>
