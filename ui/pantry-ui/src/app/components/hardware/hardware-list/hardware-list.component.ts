@@ -179,6 +179,9 @@ export class HardwareListComponent implements OnInit, OnDestroy {
         this.currentScaleDevice = device;
         this.isReadingScale = true;
 
+        // Join the kiosk room to receive broadcasts
+        this.socketService.emit('bind_to_kiosk', kioskId);
+
         // Emit start signal for logging purposes (and potential wake-up)
         this.socketService.emit('read_scale', { kioskId, requestId: 'init' });
 
