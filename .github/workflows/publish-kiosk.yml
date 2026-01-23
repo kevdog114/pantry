@@ -27,7 +27,7 @@ jobs:
 
       - name: Install Arduino Core and Libs
         run: |
-          arduino-cli config init
+          arduino-cli config init --overwrite
           arduino-cli core update-index
           arduino-cli core install arduino:avr
           arduino-cli lib install "HX711"

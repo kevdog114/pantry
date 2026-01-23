@@ -56,7 +56,7 @@ COPY --from=builder /opt/venv /opt/venv
 RUN curl -L -o arduino-cli.tar.gz https://downloads.arduino.cc/arduino-cli/arduino-cli_0.35.0_Linux_ARM64.tar.gz && \
     tar -xf arduino-cli.tar.gz -C /usr/local/bin arduino-cli && \
     rm arduino-cli.tar.gz
-RUN arduino-cli config init
+RUN arduino-cli config init --overwrite
 RUN arduino-cli core update-index
 RUN arduino-cli core install arduino:avr
 
