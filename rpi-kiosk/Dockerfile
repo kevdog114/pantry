@@ -53,7 +53,9 @@ COPY --from=builder /bridge/node_modules /bridge/node_modules
 COPY --from=builder /opt/venv /opt/venv
 
 # Install Arduino CLI
-RUN curl -fsSL https://raw.githubusercontent.com/arduino/arduino-cli/master/install.sh | sh -s -- -b /usr/local/bin
+RUN curl -L -o arduino-cli.tar.gz https://downloads.arduino.cc/arduino-cli/arduino-cli_0.35.0_Linux_ARM64.tar.gz && \
+    tar -xf arduino-cli.tar.gz -C /usr/local/bin arduino-cli && \
+    rm arduino-cli.tar.gz
 RUN arduino-cli config init
 RUN arduino-cli core update-index
 RUN arduino-cli core install arduino:avr
