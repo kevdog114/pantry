@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, NgZone, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { KioskService, Kiosk } from '../../../services/kiosk.service';
 import { MatCardModule } from '@angular/material/card';
@@ -24,8 +24,16 @@ import { FlashDialogComponent } from '../flash-dialog/flash-dialog.component';
     templateUrl: './hardware-list.component.html',
     styleUrls: ['./hardware-list.component.css']
 })
-export class HardwareListComponent implements OnInit {
+export class HardwareListComponent implements OnInit, OnDestroy {
     kiosks: Kiosk[] = [];
+
+    // Scale Logic
+    scaleStreamSub: any = null;
+    currentWeight: number = 0;
+    currentUnit: string = 'g';
+    isReadingScale = false;
+    currentScaleKioskId: number | null = null;
+    currentScaleDevice: any = null;
 
     constructor(
         private kioskService: KioskService,
@@ -34,7 +42,8 @@ export class HardwareListComponent implements OnInit {
         private dialog: MatDialog,
         private hardwareService: HardwareService,
         private barcodeService: HardwareBarcodeScannerService,
-        private socketService: SocketService
+        private socketService: SocketService,
+        private ngZone: NgZone
     ) { }
 
     ngOnInit() {
@@ -153,14 +162,6 @@ export class HardwareListComponent implements OnInit {
         this.snackBar.open('Scanner claimed! Events will be sent to this device.', 'Close', { duration: 3000 });
     }
 
-    // Scale Logic
-    scaleStreamSub: any = null;
-    currentWeight: number = 0;
-    currentUnit: string = 'g';
-    isReadingScale = false;
-    currentScaleKioskId: number | null = null;
-    currentScaleDevice: any = null;
-
     toggleScaleRead(device: any, kioskId: number) {
         if (this.currentScaleKioskId === kioskId && this.currentScaleDevice?.id === device.id) {
             // Stop reading
@@ -181,17 +182,12 @@ export class HardwareListComponent implements OnInit {
         // Emit start signal for logging purposes (and potential wake-up)
         this.socketService.emit('read_scale', { kioskId, requestId: 'init' });
 
-        // Subscribe to socket events for scale readings (broadcasted or directed)
-        // The bridge emits 'scale_reading' with requestId='poll' for continuous updates
-        // OR we could just listen generally.
-
         const handler = (data: any) => {
-            // Check if it's from our kiosk/device? Bridge doesn't send kioskId in payload usually, 
-            // but backend forwarding might.
-            // If we assume 1 active scale read at a time for the user:
             if (data.success && data.data) {
-                this.currentWeight = data.data.weight;
-                this.currentUnit = data.data.unit;
+                this.ngZone.run(() => {
+                    this.currentWeight = data.data.weight;
+                    this.currentUnit = data.data.unit || 'g';
+                });
             }
         };
 
@@ -207,7 +203,7 @@ export class HardwareListComponent implements OnInit {
         this.currentScaleKioskId = null;
         this.currentScaleDevice = null;
         this.isReadingScale = false;
-        this.currentWeight = 0;
+        this.currentScaleDevice = null; // Clear state
     }
 
     tareScale(device: any, kioskId: number) {
