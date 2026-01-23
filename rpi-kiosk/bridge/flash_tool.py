@@ -45,17 +45,22 @@ def flash(port, sketch_path):
     # Actually, let's use a standard list of boards if we can, but for now Hardcode Uno/Nano.
     
     fqbn = "arduino:avr:uno" 
-    # Attempt to compile
-    compile_cmd = ["arduino-cli", "compile", "--fqbn", fqbn, full_path]
+    fqbn = "arduino:avr:uno" 
     
+    # Construct path to the pre-compiled hex file
+    # We expect the binaries to be in a 'build' subdirectory relative to the sketch file
+    sketch_dir = os.path.dirname(full_path)
+    hex_path = os.path.join(sketch_dir, "build", "scale.ino.hex")
+
+    if not os.path.exists(hex_path):
+        print(json.dumps({"error": f"Compiled firmware not found at {hex_path}. Ensure it was built during the container build process."}))
+        return
+
     try:
-        # Compile
-        print(f"Compiling {sketch_path} for {fqbn}...", file=sys.stderr)
-        subprocess.check_call(compile_cmd, stdout=sys.stderr, stderr=sys.stderr)
-        
         # Upload
         print(f"Uploading to {port}...", file=sys.stderr)
-        upload_cmd = ["arduino-cli", "upload", "-p", port, "--fqbn", fqbn, full_path]
+        # Using --input-file to flash the pre-compiled binary
+        upload_cmd = ["arduino-cli", "upload", "-p", port, "--fqbn", fqbn, "--input-file", hex_path]
         subprocess.check_call(upload_cmd, stdout=sys.stderr, stderr=sys.stderr)
         
         print(json.dumps({"success": True, "message": "Flashed successfully"}))

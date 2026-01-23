@@ -76,10 +76,27 @@
                                     </button>
                                 </div>
                                 <div *ngIf="device.type === 'SCALE' && (device.status === 'ONLINE')">
-                                    <button mat-flat-button color="primary" (click)="readWeight(device, kiosk.id)"
-                                        class="h-8 px-4 text-xs">
-                                        Read Weight
-                                    </button>
+                                    <div class="flex flex-col gap-2 scale-controls"
+                                        *ngIf="isReadingScale && currentScaleDevice?.id === device.id; else startScaleBtn">
+                                        <div
+                                            class="text-2xl font-mono p-2 bg-gray-100 dark:bg-zinc-900 rounded text-center border dark:border-zinc-600">
+                                            {{ currentWeight }} {{ currentUnit }}
+                                        </div>
+                                        <div class="flex gap-2 justify-center">
+                                            <button mat-stroked-button color="warn"
+                                                (click)="tareScale(device, kiosk.id)">Tare</button>
+                                            <button mat-stroked-button
+                                                (click)="calibrateScale(device, kiosk.id)">Calibrate</button>
+                                            <button mat-flat-button color="warn"
+                                                (click)="toggleScaleRead(device, kiosk.id)">Stop</button>
+                                        </div>
+                                    </div>
+                                    <ng-template #startScaleBtn>
+                                        <button mat-flat-button color="primary"
+                                            (click)="toggleScaleRead(device, kiosk.id)" class="h-8 px-4 text-xs">
+                                            Read Weight
+                                        </button>
+                                    </ng-template>
                                 </div>
                             </div>
                         </mat-list-item>

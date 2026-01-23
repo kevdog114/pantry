@@ -500,6 +500,65 @@ function connectSocket() {
         });
     });
 
+    socket.on('tare_scale', (payload) => {
+        console.log('Received tare_scale command:', payload);
+        const requestId = payload.requestId;
+
+        const keys = Object.keys(knownScales);
+        if (keys.length === 0) {
+            if (requestId) socket.emit('tare_complete', { requestId, success: false, message: "No scale found" });
+            return;
+        }
+        const port = keys[0]; // Logic for multiple scales could be added later
+
+        const cmd = `/opt/venv/bin/python3 scale_bridge.py tare --port "${port}"`;
+        const { exec } = require('child_process');
+        exec(cmd, { timeout: 5000 }, (err, stdout, stderr) => {
+            if (err) {
+                socket.emit('tare_complete', { requestId, success: false, message: stderr || err.message });
+            } else {
+                try {
+                    const res = JSON.parse(stdout);
+                    socket.emit('tare_complete', { requestId, success: true, message: "Tare successful", data: res });
+                } catch (e) {
+                    socket.emit('tare_complete', { requestId, success: false, message: "Invalid output" });
+                }
+            }
+        });
+    });
+
+    socket.on('calibrate_scale', (payload) => {
+        console.log('Received calibrate_scale command:', payload);
+        const requestId = payload.requestId;
+        const { weight } = payload;
+
+        const keys = Object.keys(knownScales);
+        if (keys.length === 0) {
+            if (requestId) socket.emit('calibration_complete', { requestId, success: false, message: "No scale found" });
+            return;
+        }
+        const port = keys[0];
+
+        const cmd = `/opt/venv/bin/python3 scale_bridge.py calibrate --port "${port}" --weight ${weight}`;
+        const { exec } = require('child_process');
+        exec(cmd, { timeout: 5000 }, (err, stdout, stderr) => {
+            if (err) {
+                socket.emit('calibration_complete', { requestId, success: false, message: stderr || err.message });
+            } else {
+                try {
+                    const res = JSON.parse(stdout);
+                    if (res.error) {
+                        socket.emit('calibration_complete', { requestId, success: false, message: res.error });
+                    } else {
+                        socket.emit('calibration_complete', { requestId, success: true, message: "Calibration successful", data: res });
+                    }
+                } catch (e) {
+                    socket.emit('calibration_complete', { requestId, success: false, message: "Invalid output" });
+                }
+            }
+        });
+    });
+
 }
 
 // Check devices
@@ -655,9 +714,6 @@ function checkDevices() {
                         });
                     }
                 });
-            } else {
-                // If no scales found, maybe clear knownScales? 
-                // For now, we just don't register.
             }
         } catch (e) {
             console.error("Error parsing scale discover output:", e);
@@ -668,6 +724,53 @@ function checkDevices() {
 
 // Poll devices every 30 seconds
 setInterval(checkDevices, 30000);
+
+// Scale Polling Loop (1s)
+let lastScaleReadings = {}; // Map of port -> { weight: number, timestamp: number }
+
+setInterval(() => {
+    const scalePorts = Object.keys(knownScales);
+    if (scalePorts.length === 0) return;
+
+    scalePorts.forEach(port => {
+        const cmd = `/opt/venv/bin/python3 scale_bridge.py read --port "${port}"`;
+        const { exec } = require('child_process');
+
+        exec(cmd, { timeout: 800 }, (err, stdout) => {
+            if (!err) {
+                try {
+                    const data = JSON.parse(stdout);
+                    if (data && data.weight !== undefined) {
+                        const currentWeight = parseFloat(data.weight);
+                        const now = Date.now();
+                        const last = lastScaleReadings[port] || { weight: null, timestamp: 0 };
+
+                        // Check logic: 
+                        // 1. Weight changed (>= 0.1g diff)
+                        // 2. Or 10s elapsed since last send
+
+                        const weightChanged = last.weight === null || Math.abs(currentWeight - last.weight) >= 0.1;
+                        const timeElapsed = (now - last.timestamp) >= 10000;
+
+                        if (weightChanged || timeElapsed) {
+                            if (socket && socket.connected) {
+                                socket.emit('scale_reading', {
+                                    requestId: 'poll', // Special ID for polling updates
+                                    success: true,
+                                    data: data
+                                });
+                                // Update state
+                                lastScaleReadings[port] = { weight: currentWeight, timestamp: now };
+                            }
+                        }
+                    }
+                } catch (e) {
+                    // silent ignore parse error during poll
+                }
+            }
+        });
+    });
+}, 1000);
 
 
 

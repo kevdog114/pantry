@@ -57,7 +57,6 @@ RUN curl -fsSL https://raw.githubusercontent.com/arduino/arduino-cli/master/inst
 RUN arduino-cli config init
 RUN arduino-cli core update-index
 RUN arduino-cli core install arduino:avr
-RUN arduino-cli lib install "HX711"
 
 # Setup App
 WORKDIR /bridge

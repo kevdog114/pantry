@@ -1,67 +1,36 @@
-/*
- * Scale Firmware for Pantry Kiosk
- * 
- * Hardware:
- * - Arduino Nano/Uno or compatible
- * - HX711 Load Cell Amplifier
- * 
- * Pin Connections:
- * - HX711 DOUT -> Pin 2
- * - HX711 SCK  -> Pin 3
- * - VCC        -> 5V
- * - GND        -> GND
- * 
- * Protocol (Serial 9600 baud, newline terminated):
- * - Command: "IDENTIFY" -> Response: "SCALE_V1"
- * - Command: "WEIGHT"   -> Response: "<float_weight>" (e.g., "123.45")
- * - Command: "TARE"     -> Response: "OK"
- * 
- * Dependencies:
- * - HX711 library by Bogdan Necula (install via Arduino Library Manager)
- */
-
 #include "HX711.h"
 
-// Pin Definitions
-#define LOADCELL_DOUT_PIN  2
-#define LOADCELL_SCK_PIN   3
+#define DOUT_PIN 10
+#define SCK_PIN 9
+#define FIRMWARE_VERSION "SCALE_FW_1.1"
 
 HX711 scale;
 
-// Calibration factor - value obtained by calibrating the scale with known weights
-// Start with 1.0, measure known weight, then new_factor = current_reading / known_weight
-// For now we use a default placeholder.
-float calibration_factor = 420.0; 
-
 void setup() {
   Serial.begin(9600);
-  
-  // Initialize Scale
-  scale.begin(LOADCELL_DOUT_PIN, LOADCELL_SCK_PIN);
-  scale.set_scale(calibration_factor);
-  scale.tare(); // Assume empty on boot
+  scale.begin(DOUT_PIN, SCK_PIN);
+  // Startup message (optional, but good for debugging)
+  Serial.println("BOOT_OK");
 }
 
 void loop() {
   if (Serial.available() > 0) {
-    String command = Serial.readStringUntil('\n');
-    command.trim(); // Remove whitespace/newlines
+    char command = Serial.read();
 
-    if (command == "IDENTIFY") {
-      Serial.println("SCALE_V1");
-    } 
-    else if (command == "WEIGHT") {
-      // Get units (average of 5 readings)
+    // --- COMMAND HANDLERS ---
+
+    // 'R' = Read Raw Data
+    if (command == 'R') {
       if (scale.wait_ready_timeout(1000)) {
-        float weight = scale.get_units(5);
-        Serial.println(weight);
+        long raw_reading = scale.read_average(5);
+        Serial.println(raw_reading);
       } else {
-        Serial.println("ERROR_NOT_READY");
+        Serial.println("ERR_TIMEOUT");
       }
-    } 
-    else if (command == "TARE") {
-      scale.tare();
-      Serial.println("OK");
+    }
+    // 'V' = Version Check
+    else if (command == 'V') {
+      Serial.println(FIRMWARE_VERSION);
     }
   }
 }

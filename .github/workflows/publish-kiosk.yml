@@ -22,6 +22,20 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
+      - name: Install Arduino CLI
+        uses: arduino/setup-arduino-cli@v1.1.2
+
+      - name: Install Arduino Core and Libs
+        run: |
+          arduino-cli config init
+          arduino-cli core update-index
+          arduino-cli core install arduino:avr
+          arduino-cli lib install "HX711"
+
+      - name: Compile Scale Firmware
+        run: |
+          arduino-cli compile --fqbn arduino:avr:uno --output-dir rpi-kiosk/arduino/scale/build rpi-kiosk/arduino/scale/scale.ino
+
       - name: Login to Docker Hub
         uses: docker/login-action@v3
         with:

@@ -153,29 +153,106 @@ export class HardwareListComponent implements OnInit {
         this.snackBar.open('Scanner claimed! Events will be sent to this device.', 'Close', { duration: 3000 });
     }
 
-    readWeight(device: any, kioskId: number) {
-        const requestId = `${Date.now()}-${Math.floor(Math.random() * 1000)}`;
-        this.snackBar.open('Reading scale...', 'Cancel', { duration: 5000 });
+    // Scale Logic
+    scaleStreamSub: any = null;
+    currentWeight: number = 0;
+    currentUnit: string = 'g';
+    isReadingScale = false;
+    currentScaleKioskId: number | null = null;
+    currentScaleDevice: any = null;
 
-        const cleanup = () => {
-            this.socketService.removeListener('scale_reading');
-        };
+    toggleScaleRead(device: any, kioskId: number) {
+        if (this.currentScaleKioskId === kioskId && this.currentScaleDevice?.id === device.id) {
+            // Stop reading
+            this.stopScaleRead();
+        } else {
+            // Start reading
+            this.startScaleRead(device, kioskId);
+        }
+    }
+
+    startScaleRead(device: any, kioskId: number) {
+        this.stopScaleRead(); // Stop any existing
+
+        this.currentScaleKioskId = kioskId;
+        this.currentScaleDevice = device;
+        this.isReadingScale = true;
+
+        // Subscribe to socket events for scale readings (broadcasted or directed)
+        // The bridge emits 'scale_reading' with requestId='poll' for continuous updates
+        // OR we could just listen generally.
 
         const handler = (data: any) => {
-            if (data.requestId === requestId) {
-                cleanup();
-                if (data.success) {
-                    const weight = data.data?.weight;
-                    const unit = data.data?.unit || 'g';
-                    this.snackBar.open(`Weight: ${weight} ${unit}`, 'Close', { duration: 5000 });
-                } else {
-                    this.snackBar.open(`Error: ${data.message}`, 'Close', { duration: 5000 });
-                }
+            // Check if it's from our kiosk/device? Bridge doesn't send kioskId in payload usually, 
+            // but backend forwarding might.
+            // If we assume 1 active scale read at a time for the user:
+            if (data.success && data.data) {
+                this.currentWeight = data.data.weight;
+                this.currentUnit = data.data.unit;
             }
         };
 
         this.socketService.on('scale_reading', handler);
-        this.socketService.emit('read_scale', { kioskId, requestId });
+        this.scaleStreamSub = handler; // store ref to remove later
+    }
+
+    stopScaleRead() {
+        if (this.scaleStreamSub) {
+            this.socketService.removeListener('scale_reading');
+            this.scaleStreamSub = null;
+        }
+        this.currentScaleKioskId = null;
+        this.currentScaleDevice = null;
+        this.isReadingScale = false;
+        this.currentWeight = 0;
+    }
+
+    tareScale(device: any, kioskId: number) {
+        const requestId = `tare_${Date.now()}`;
+        this.snackBar.open('Taring...', 'Close', { duration: 2000 });
+
+        const handler = (data: any) => {
+            if (data.requestId === requestId) {
+                this.socketService.removeListener('tare_complete');
+                if (data.success) {
+                    this.snackBar.open('Tare successful', 'Close', { duration: 3000 });
+                } else {
+                    this.snackBar.open('Tare failed: ' + data.message, 'Close', { duration: 3000 });
+                }
+            }
+        };
+
+        this.socketService.on('tare_complete', handler);
+        this.socketService.emit('tare_scale', { kioskId, requestId });
+    }
+
+    calibrateScale(device: any, kioskId: number) {
+        // Simple prompt for now, or use a dialog
+        const weightStr = prompt("Enter known weight in grams (e.g. 100):");
+        if (!weightStr) return;
+
+        const weight = parseFloat(weightStr);
+        if (isNaN(weight) || weight <= 0) {
+            alert("Invalid weight");
+            return;
+        }
+
+        const requestId = `cal_${Date.now()}`;
+        this.snackBar.open('Calibrating...', 'Close', { duration: 2000 });
+
+        const handler = (data: any) => {
+            if (data.requestId === requestId) {
+                this.socketService.removeListener('calibration_complete');
+                if (data.success) {
+                    this.snackBar.open('Calibration successful', 'Close', { duration: 3000 });
+                } else {
+                    this.snackBar.open('Calibration failed: ' + data.message, 'Close', { duration: 3000 });
+                }
+            }
+        };
+
+        this.socketService.on('calibration_complete', handler);
+        this.socketService.emit('calibrate_scale', { kioskId, requestId, weight });
     }
 
     openFlashDialog(kioskId: number) {
@@ -184,5 +261,9 @@ export class HardwareListComponent implements OnInit {
             width: '500px',
             disableClose: true
         });
+    }
+
+    ngOnDestroy() {
+        this.stopScaleRead();
     }
 }
