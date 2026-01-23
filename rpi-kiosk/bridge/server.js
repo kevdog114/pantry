@@ -500,6 +500,12 @@ function connectSocket() {
         });
     });
 
+    // Remove or disable explicit read_scale handler that spawns processes
+    // functionality is covered by the continuous monitor
+    socket.on('read_scale', (payload) => {
+        // Log but do nothing, rely on monitor
+        // console.log("Received read_scale, ignoring in favor of monitor", payload);
+    });
     socket.on('tare_scale', (payload) => {
         console.log('Received tare_scale command:', payload);
         const requestId = payload.requestId;
