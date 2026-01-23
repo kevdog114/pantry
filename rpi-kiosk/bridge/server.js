@@ -722,55 +722,93 @@ function checkDevices() {
 
 }
 
-// Poll devices every 30 seconds
-setInterval(checkDevices, 30000);
+// Scale Monitor Process Management
+let scaleMonitorProcess = null;
+let currentScalePort = null;
 
-// Scale Polling Loop (1s)
-let lastScaleReadings = {}; // Map of port -> { weight: number, timestamp: number }
+function startScaleMonitor(port) {
+    if (scaleMonitorProcess && currentScalePort === port) return; // Already running
 
-setInterval(() => {
-    const scalePorts = Object.keys(knownScales);
-    if (scalePorts.length === 0) return;
+    if (scaleMonitorProcess) {
+        console.log("Stopping previous scale monitor...");
+        scaleMonitorProcess.kill();
+        scaleMonitorProcess = null;
+    }
 
-    scalePorts.forEach(port => {
-        const cmd = `/opt/venv/bin/python3 scale_bridge.py read --port "${port}"`;
-        const { exec } = require('child_process');
+    console.log(`Starting Scale Monitor on ${port}...`);
+    currentScalePort = port;
+    const { spawn } = require('child_process');
+    // use spawn instead of exec to get a stream
+    scaleMonitorProcess = spawn('/opt/venv/bin/python3', ['scale_bridge.py', 'monitor', '--port', port], {
+        cwd: __dirname
+    });
 
-        exec(cmd, { timeout: 800 }, (err, stdout) => {
-            if (!err) {
-                try {
-                    const data = JSON.parse(stdout);
-                    if (data && data.weight !== undefined) {
-                        const currentWeight = parseFloat(data.weight);
-                        const now = Date.now();
-                        const last = lastScaleReadings[port] || { weight: null, timestamp: 0 };
+    scaleMonitorProcess.stdout.on('data', (data) => {
+        const lines = data.toString().split('\n');
+        lines.forEach(line => {
+            line = line.trim();
+            if (line.startsWith('WEIGHT:')) {
+                const parts = line.split(' ');
+                const weightVal = parts[0].substring(7); // "WEIGHT:1.23" -> "1.23"
+                // There might be raw suffix like "(Raw: 123)"
 
-                        // Check logic: 
-                        // 1. Weight changed (>= 0.1g diff)
-                        // 2. Or 10s elapsed since last send
+                const weight = parseFloat(weightVal);
 
-                        const weightChanged = last.weight === null || Math.abs(currentWeight - last.weight) >= 0.1;
-                        const timeElapsed = (now - last.timestamp) >= 10000;
-
-                        if (weightChanged || timeElapsed) {
-                            if (socket && socket.connected) {
-                                socket.emit('scale_reading', {
-                                    requestId: 'poll', // Special ID for polling updates
-                                    success: true,
-                                    data: data
-                                });
-                                // Update state
-                                lastScaleReadings[port] = { weight: currentWeight, timestamp: now };
-                            }
-                        }
-                    }
-                } catch (e) {
-                    // silent ignore parse error during poll
+                // Process weight update
+                if (!isNaN(weight)) {
+                    handleWeightUpdate(port, weight);
                 }
             }
         });
     });
-}, 1000);
+
+    scaleMonitorProcess.stderr.on('data', (data) => {
+        // console.error(`Scale Monitor Error: ${data}`); // verbose
+    });
+
+    scaleMonitorProcess.on('close', (code) => {
+        console.log(`Scale Monitor exited with code ${code}`);
+        scaleMonitorProcess = null;
+        currentScalePort = null;
+    });
+}
+
+// Logic to handle weight updates and debounce/throttle
+let lastScaleState = { weight: null, timestamp: 0 };
+
+function handleWeightUpdate(port, currentWeight) {
+    const now = Date.now();
+    const last = lastScaleState;
+
+    const weightChanged = last.weight === null || Math.abs(currentWeight - last.weight) >= 0.1;
+    const timeElapsed = (now - last.timestamp) >= 10000; // 10s heartbeat
+
+    if (weightChanged || timeElapsed) {
+        if (socket && socket.connected) {
+            socket.emit('scale_reading', {
+                requestId: 'poll',
+                success: true,
+                data: { weight: currentWeight, unit: 'g' }
+            });
+            lastScaleState = { weight: currentWeight, timestamp: now };
+        }
+    }
+}
+
+
+// Poll devices every 30 seconds
+setInterval(() => {
+    checkDevices();
+
+    // Also ensure monitor is running if we have a scale
+    const keys = Object.keys(knownScales);
+    if (keys.length > 0) {
+        const port = keys[0];
+        if (!scaleMonitorProcess || currentScalePort !== port) {
+            startScaleMonitor(port);
+        }
+    }
+}, 30000);
 
 
 
