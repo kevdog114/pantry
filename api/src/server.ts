@@ -299,31 +299,55 @@ io.on("connection", (socket) => {
         }
 
         console.log(`Routing read_scale to Kiosk ${targetKioskId}`, data);
-        // Find the bridge socket(s) for this kiosk? 
-        // We identify bridges by their 'kioskId' property which is set on connection if they are a kiosk.
-        // But we didn't store them in a map explicitly, just joined 'kiosk_device_{id}' room.
-        // However, if we emit to room, BOTH UI and Bridge get it. 
-        // We need to differentiate or the Bridge needs to handle it and UI ignore it.
-        // The Bridge listens for 'read_scale'. The UI sends it. 
-        // If we emit to the room, the Bridge receives it.
         io.to(`kiosk_device_${targetKioskId}`).emit('read_scale', data);
+    });
+
+    socket.on("tare_scale", (data) => {
+        const targetKioskId = data.kioskId;
+        console.log(`Routing tare_scale to Kiosk ${targetKioskId}`, data);
+        io.to(`kiosk_device_${targetKioskId}`).emit('tare_scale', data);
+    });
+
+    socket.on("calibrate_scale", (data) => {
+        const targetKioskId = data.kioskId;
+        console.log(`Routing calibrate_scale to Kiosk ${targetKioskId}`, data);
+        io.to(`kiosk_device_${targetKioskId}`).emit('calibrate_scale', data);
     });
 
     socket.on("scale_reading", (data) => {
         // Bridge reporting weight
         if (kioskId) {
-            console.log(`Received scale_reading from Kiosk ${kioskId}`, data);
+            // console.log(`Received scale_reading from Kiosk ${kioskId}`, data); // Verbose
 
             const requestId = data.requestId;
-            const requesterSocketId = scaleRequests.get(requestId);
 
-            if (requesterSocketId) {
-                io.to(requesterSocketId).emit('scale_reading', data);
-                scaleRequests.delete(requestId);
-            } else {
-                // Fallback to room
+            if (requestId === 'poll') {
+                // Broadcast to all (UI)
                 io.to(`kiosk_device_${kioskId}`).emit('scale_reading', data);
+            } else {
+                const requesterSocketId = scaleRequests.get(requestId);
+                if (requesterSocketId) {
+                    io.to(requesterSocketId).emit('scale_reading', data);
+                    scaleRequests.delete(requestId);
+                } else {
+                    // Fallback to room
+                    io.to(`kiosk_device_${kioskId}`).emit('scale_reading', data);
+                }
             }
+        }
+    });
+
+    socket.on("tare_complete", (data) => {
+        if (kioskId) {
+            console.log(`Received tare_complete from Kiosk ${kioskId}`, data);
+            io.to(`kiosk_device_${kioskId}`).emit('tare_complete', data);
+        }
+    });
+
+    socket.on("calibration_complete", (data) => {
+        if (kioskId) {
+            console.log(`Received calibration_complete from Kiosk ${kioskId}`, data);
+            io.to(`kiosk_device_${kioskId}`).emit('calibration_complete', data);
         }
     });
 
