@@ -1,4 +1,4 @@
-import { Component, OnDestroy, OnInit } from '@angular/core';
+import { Component, OnDestroy, OnInit, NgZone } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule, Router } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
@@ -15,7 +15,7 @@ import { TagsService } from '../tags.service';
 import { Product, ProductTags } from '../types/product';
 import { firstValueFrom } from 'rxjs';
 
-type ViewState = 'MAIN' | 'UTILITIES' | 'PRINT_LABELS';
+type ViewState = 'MAIN' | 'UTILITIES' | 'PRINT_LABELS' | 'SCALE';
 
 import { SocketService } from '../services/socket.service';
 
@@ -44,7 +44,7 @@ export class KioskPageComponent implements OnInit, OnDestroy {
     viewState: ViewState = 'MAIN';
 
     // Info Footer
-    pantryName = ''; // Hardcoded for now or fetch from config?
+    pantryName = '';
     currentDate: Date = new Date();
     private timer: any;
 
@@ -63,9 +63,9 @@ export class KioskPageComponent implements OnInit, OnDestroy {
         private hardwareScanner: HardwareBarcodeScannerService,
         private http: HttpClient,
         private socketService: SocketService,
-
         private productService: ProductListService,
-        private tagsService: TagsService
+        private tagsService: TagsService,
+        private ngZone: NgZone
     ) { }
 
     ngOnInit(): void {
@@ -471,6 +471,119 @@ export class KioskPageComponent implements OnInit, OnDestroy {
         this.status = 'Print Labels';
     }
 
+    scaleAction() {
+        this.viewState = 'SCALE';
+        this.status = 'Scale';
+        this.startScaleRead();
+    }
+
+    closeScale() {
+        this.stopScaleRead();
+        this.openUtilities();
+    }
+
+    // Scale Logic
+    scaleStreamSub: any = null;
+    currentWeight: number = 0;
+    currentUnit: string = 'g'; // from stream, but we might toggle display
+    displayUnitMode: 'g' | 'oz' | 'lbs' = 'g';
+
+    get displayWeight(): number {
+        if (this.displayUnitMode === 'g') return this.currentWeight;
+        if (this.displayUnitMode === 'oz') return this.currentWeight * 0.035274;
+        if (this.displayUnitMode === 'lbs') return this.currentWeight * 0.00220462;
+        return this.currentWeight;
+    }
+
+    startScaleRead() {
+        // Assume kiosk ID is known or current context
+        // KioskPage usually runs on a "Kiosk" which might not know its ID easily unless stored?
+        // KioskService usually stores 'kiosk_id' in localStorage
+        const kIdStr = localStorage.getItem('kiosk_id');
+        if (!kIdStr) {
+            this.snackBar.open("Kiosk ID not found", "Close");
+            return;
+        }
+        const kioskId = parseInt(kIdStr);
+
+        this.stopScaleRead();
+
+        // Join room
+        this.socketService.emit('bind_to_kiosk', kioskId);
+        // Start polling
+        this.socketService.emit('read_scale', { kioskId, requestId: 'init' });
+
+        const handler = (data: any) => {
+            if (data.success && data.data) {
+                this.ngZone.run(() => {
+                    this.currentWeight = data.data.weight;
+                    // We ignore data.unit for display mode logic, assuming input is always grams from bridge
+                    // But if bridge sends something else, we might need to normalize.
+                    // For now assume bridge sends 'g'.
+                });
+            }
+        };
+
+        this.socketService.on('scale_reading', handler);
+        this.scaleStreamSub = handler;
+    }
+
+    stopScaleRead() {
+        if (this.scaleStreamSub) {
+            this.socketService.removeListener('scale_reading');
+            this.scaleStreamSub = null;
+        }
+    }
+
+    tareScale() {
+        const kIdStr = localStorage.getItem('kiosk_id');
+        if (!kIdStr) return;
+        const kioskId = parseInt(kIdStr);
+        const requestId = `tare_kiosk_${Date.now()}`;
+
+        this.snackBar.open('Taring...', 'Close', { duration: 2000 });
+
+        const handler = (data: any) => {
+            if (data.requestId === requestId) {
+                this.socketService.removeListener('tare_complete');
+                if (data.success) {
+                    this.snackBar.open('Tare successful', 'Close', { duration: 3000 });
+                } else {
+                    this.snackBar.open('Tare failed: ' + data.message, 'Close', { duration: 3000 });
+                }
+            }
+        };
+        this.socketService.on('tare_complete', handler);
+        this.socketService.emit('tare_scale', { kioskId, requestId });
+    }
+
+    toggleUnit() {
+        if (this.currentUnit === 'g') {
+            this.currentUnit = 'oz'; // switching logic for UI button text primarily
+            this.displayUnitMode = 'oz'; // defaulting next state
+        } else {
+            this.currentUnit = 'g';
+            this.displayUnitMode = 'g';
+        }
+
+        // Cycle: g -> oz -> lbs -> g
+        // Actually button text says "TO GRAMS" or "TO OZ/LBS"
+        // Let's implement cycle
+    }
+
+    // Override toggleUnit for cycle behavior
+    overrideToggleUnit() {
+        if (this.displayUnitMode === 'g') this.displayUnitMode = 'oz';
+        else if (this.displayUnitMode === 'oz') this.displayUnitMode = 'lbs';
+        else this.displayUnitMode = 'g';
+
+        this.currentUnit = this.displayUnitMode; // sync for button text logic
+    }
+
+    printShoppingList() {
+        this.snackBar.open('Printing shopping list... (Not implemented)', 'Close', { duration: 2000 });
+    }
+
     printLabel(type: 'Opened' | 'Expires', daysFromNow: number) {
         const date = new Date();
         date.setDate(date.getDate() + daysFromNow);
@@ -484,15 +597,6 @@ export class KioskPageComponent implements OnInit, OnDestroy {
                 this.snackBar.open('Failed to print', 'Close', { duration: 2000 });
             }
         });
-    }
-
-    scaleAction() {
-        // Non-functional
-        this.snackBar.open('Scale implementation pending', 'Close', { duration: 1000 });
-    }
-
-    printShoppingList() {
-        this.snackBar.open('Printing shopping list... (Not implemented)', 'Close', { duration: 2000 });
     }
 
     exitKiosk() {

@@ -146,6 +146,39 @@
             </button>
         </div>
 
+        <!-- SCALE VIEW -->
+        <div *ngIf="viewState === 'SCALE'" class="button-grid">
+            <button mat-stroked-button class="large-btn back-btn full-width" (click)="closeScale()">
+                <div class="btn-content">
+                    <mat-icon>arrow_back</mat-icon>
+                    <span>BACK</span>
+                </div>
+            </button>
+
+            <!-- Large Weight Display -->
+            <div class="weight-display-card">
+                <div class="weight-value">{{ displayWeight | number:'1.1-2' }}</div>
+                <div class="weight-unit">{{ currentUnit === 'g' ? 'GRAMS' : (currentUnit === 'oz' ? 'OUNCES' : 'LBS') }}
+                </div>
+            </div>
+
+            <div class="scale-controls">
+                <button mat-flat-button color="primary" class="large-btn" (click)="tareScale()">
+                    <div class="btn-content">
+                        <mat-icon>restart_alt</mat-icon>
+                        <span>TARE</span>
+                    </div>
+                </button>
+
+                <button mat-flat-button color="accent" class="large-btn" (click)="toggleUnit()">
+                    <div class="btn-content">
+                        <mat-icon>swap_vert</mat-icon>
+                        <span>{{ currentUnit === 'g' ? 'TO OZ/LBS' : 'TO GRAMS' }}</span>
+                    </div>
+                </button>
+            </div>
+        </div>
+
     </div>
 
     <!-- Footer -->

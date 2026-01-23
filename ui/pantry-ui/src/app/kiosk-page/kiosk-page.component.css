@@ -1,3 +1,4 @@
+/* Main Container */
 .kiosk-container {
     position: fixed;
     top: 0;
@@ -99,7 +100,6 @@
     grid-template-rows: 1fr;
 }
 
-
 .compact-grid {
     /* For 5 buttons, maybe custom layout */
     grid-template-columns: 1fr 1fr;
@@ -155,7 +155,6 @@
     width: 64px;
     height: 64px;
 }
-
 
 .btn-content {
     display: flex;
@@ -226,20 +225,44 @@
     font-size: 0.8rem !important;
 }
 
-/* Utility Colors */
-.text-red-500 {
-    color: #f44336 !important;
-}
-
-.text-green-500 {
-    color: #4CAF50 !important;
-}
-
-.connection-status .offline {
-    color: #f44336;
-    font-weight: bold;
-}
-
 .exit-btn:hover {
     color: #e0e0e0 !important;
+}
+
+/* Scale View specific */
+.weight-display-card {
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 12px;
+    padding: 20px;
+    text-align: center;
+    margin: 20px 0;
+    border: 2px solid rgba(255, 255, 255, 0.1);
+    grid-column: 1 / -1;
+    /* Ensure it takes full width in grid if placed there */
+}
+
+.weight-value {
+    font-size: 5rem;
+    font-weight: 800;
+    color: #fff;
+    line-height: 1;
+}
+
+.weight-unit {
+    font-size: 1.5rem;
+    color: rgba(255, 255, 255, 0.6);
+    margin-top: 10px;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+}
+
+.scale-controls {
+    display: flex;
+    gap: 20px;
+    justify-content: center;
+    grid-column: 1 / -1;
+}
+
+.scale-controls button {
+    flex: 1;
 }
