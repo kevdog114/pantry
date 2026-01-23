@@ -500,20 +500,6 @@ function connectSocket() {
         });
     });
 
-    function stopMonitorForOperation(port, callback) {
-        if (scaleMonitorProcess && currentScalePort === port) {
-            console.log("Stopping monitor for exclusive operation...");
-            scaleMonitorProcess.removeAllListeners('close'); // Prevent auto-restart logic if any
-            scaleMonitorProcess.kill();
-            scaleMonitorProcess = null;
-            currentScalePort = null;
-            // Give it a moment to release lock
-            setTimeout(callback, 500);
-        } else {
-            callback();
-        }
-    }
-
     socket.on('tare_scale', (payload) => {
         console.log('Received tare_scale command:', payload);
         const requestId = payload.requestId;
@@ -525,25 +511,19 @@ function connectSocket() {
         }
         const port = keys[0];
 
-        stopMonitorForOperation(port, () => {
-            const cmd = `/opt/venv/bin/python3 scale_bridge.py tare --port "${port}"`;
-            const { exec } = require('child_process');
-            exec(cmd, { timeout: 5000 }, (err, stdout, stderr) => {
-                // Restart monitor immediately
-                startScaleMonitor(port);
-
-                if (err) {
-                    socket.emit('tare_complete', { requestId, success: false, message: stderr || err.message });
-                } else {
-                    try {
-                        const res = JSON.parse(stdout);
-                        socket.emit('tare_complete', { requestId, success: true, message: "Tare successful", data: res });
-                    } catch (e) {
-                        socket.emit('tare_complete', { requestId, success: false, message: "Invalid output" });
-                    }
-                }
-            });
-        });
+        // Send command to running monitor
+        if (scaleMonitorProcess && currentScalePort === port) {
+            const cmd = JSON.stringify({ cmd: 'tare', requestId: requestId }) + "\n";
+            try {
+                scaleMonitorProcess.stdin.write(cmd);
+            } catch (e) {
+                socket.emit('tare_complete', { requestId, success: false, message: "Monitor write failed" });
+            }
+        } else {
+            // Monitor not running? Should be. Try starting it or fail.
+            socket.emit('tare_complete', { requestId, success: false, message: "Scale monitor not active" });
+            // Optionally trigger checkDevices to restart it?
+        }
     });
 
     socket.on('calibrate_scale', (payload) => {
@@ -558,29 +538,16 @@ function connectSocket() {
         }
         const port = keys[0];
 
-        stopMonitorForOperation(port, () => {
-            const cmd = `/opt/venv/bin/python3 scale_bridge.py calibrate --port "${port}" --weight ${weight}`;
-            const { exec } = require('child_process');
-            exec(cmd, { timeout: 5000 }, (err, stdout, stderr) => {
-                // Restart monitor immediately
-                startScaleMonitor(port);
-
-                if (err) {
-                    socket.emit('calibration_complete', { requestId, success: false, message: stderr || err.message });
-                } else {
-                    try {
-                        const res = JSON.parse(stdout);
-                        if (res.error) {
-                            socket.emit('calibration_complete', { requestId, success: false, message: res.error });
-                        } else {
-                            socket.emit('calibration_complete', { requestId, success: true, message: "Calibration successful", data: res });
-                        }
-                    } catch (e) {
-                        socket.emit('calibration_complete', { requestId, success: false, message: "Invalid output" });
-                    }
-                }
-            });
-        });
+        if (scaleMonitorProcess && currentScalePort === port) {
+            const cmd = JSON.stringify({ cmd: 'calibrate', weight: weight, requestId: requestId }) + "\n";
+            try {
+                scaleMonitorProcess.stdin.write(cmd);
+            } catch (e) {
+                socket.emit('calibration_complete', { requestId, success: false, message: "Monitor write failed" });
+            }
+        } else {
+            socket.emit('calibration_complete', { requestId, success: false, message: "Scale monitor not active" });
+        }
     });
 
 }
@@ -781,6 +748,28 @@ function startScaleMonitor(port) {
                 // Process weight update
                 if (!isNaN(weight)) {
                     handleWeightUpdate(port, weight);
+                }
+            } else if (line.startsWith('{')) {
+                // Potential JSON response
+                try {
+                    const msg = JSON.parse(line);
+                    if (msg.type === 'tare_complete') {
+                        socket.emit('tare_complete', {
+                            requestId: msg.requestId,
+                            success: msg.success,
+                            message: msg.message,
+                            data: msg.data
+                        });
+                    } else if (msg.type === 'calibration_complete') {
+                        socket.emit('calibration_complete', {
+                            requestId: msg.requestId,
+                            success: msg.success,
+                            message: msg.message,
+                            data: msg.data
+                        });
+                    }
+                } catch (e) {
+                    // Ignore invalid JSON
                 }
             }
         });

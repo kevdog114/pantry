@@ -153,6 +153,8 @@ def calibrate_scale(port, known_weight):
         print(json.dumps({"error": "Failed to read for calibration"}))
 
 def monitor(port):
+    import select
+    
     if not port:
         print("ERROR: Port required for monitor", file=sys.stderr)
         return
@@ -160,37 +162,128 @@ def monitor(port):
     print(f"Scale Monitor Started on {port} (Ctrl+C to stop)", file=sys.stderr)
     
     ser = None
+    config = get_device_config(port)
     
     while True:
         try:
+            # 1. Manage Connection
             if ser is None:
                 ser = serial.Serial(port, 9600, timeout=2)
                 time.sleep(2) # Wait for auto-reset on connect
                 ser.reset_input_buffer()
             
-            # Request weight
+            # 2. Check for Incoming Commands (Stdin)
+            # Non-blocking check
+            if sys.stdin in select.select([sys.stdin], [], [], 0)[0]:
+                line = sys.stdin.readline()
+                if line:
+                    try:
+                        cmd_req = json.loads(line)
+                        cmd = cmd_req.get('cmd')
+                        req_id = cmd_req.get('requestId')
+                        
+                        if cmd == 'tare':
+                            # Perform Tare: Read RAW specifically for this? 
+                            # We can just do a read right now.
+                            ser.reset_input_buffer()
+                            ser.write(b'R')
+                            resp = ser.readline().decode('utf-8').strip()
+                            if resp:
+                                try:
+                                    raw_val = int(resp)
+                                    config['tare_offset'] = raw_val
+                                    save_config({port: config}) # Current logic saves entire file, need to be careful? 
+                                    # actually save_config expects full config object? 
+                                    # The helper update_device_config loads file, updates, saves.
+                                    # We should just call update_device_config logic but efficiently.
+                                    # Re-using local helper for safety:
+                                    update_device_config(port, "tare_offset", raw_val)
+                                    
+                                    # Reload local config variable
+                                    config = get_device_config(port)
+                                    
+                                    print(json.dumps({
+                                        "type": "tare_complete",
+                                        "requestId": req_id,
+                                        "success": True,
+                                        "data": {"value": raw_val}
+                                    }))
+                                except Exception as e:
+                                    print(json.dumps({
+                                        "type": "tare_complete",
+                                        "requestId": req_id,
+                                        "success": False,
+                                        "message": str(e)
+                                    }))
+                            else:
+                                print(json.dumps({
+                                    "type": "tare_complete",
+                                    "requestId": req_id,
+                                    "success": False,
+                                    "message": "No response from scale"
+                                }))
+                                
+                        elif cmd == 'calibrate':
+                            weight = float(cmd_req.get('weight', 0))
+                            if weight <= 0:
+                                print(json.dumps({
+                                        "type": "calibration_complete",
+                                        "requestId": req_id,
+                                        "success": False,
+                                        "message": "Invalid weight"
+                                }))
+                            else:
+                                ser.reset_input_buffer()
+                                ser.write(b'R')
+                                resp = ser.readline().decode('utf-8').strip()
+                                if resp:
+                                    try:
+                                        raw_val = int(resp)
+                                        tare = config.get("tare_offset", 0)
+                                        factor = (raw_val - tare) / weight
+                                        
+                                        update_device_config(port, "calibration_factor", factor)
+                                        config = get_device_config(port)
+                                        
+                                        print(json.dumps({
+                                            "type": "calibration_complete",
+                                            "requestId": req_id,
+                                            "success": True,
+                                            "data": {"factor": factor}
+                                        }))
+                                    except Exception as e:
+                                        print(json.dumps({
+                                            "type": "calibration_complete",
+                                            "requestId": req_id,
+                                            "success": False,
+                                            "message": str(e)
+                                        }))
+                        
+                        sys.stdout.flush()
+                        
+                    except Exception as e:
+                        print(f"Error processing command: {e}", file=sys.stderr)
+
+            # 3. Regular Polling
             ser.write(b'R')
             line = ser.readline().decode('utf-8').strip()
             
             if line:
                 try:
                     raw = int(line)
-                    config = get_device_config(port)
+                    # Use current in-memory config
                     tare = config.get("tare_offset", 0)
                     cal = config.get("calibration_factor", 420.0)
                     if cal == 0: cal = 1
                     
                     weight = (raw - tare) / cal
-                    # Flush stdout to ensure real-time piping
+                    
+                    # Output weight
                     print(f"WEIGHT:{weight:.2f} (Raw: {raw})")
                     sys.stdout.flush()
                 except ValueError:
-                    # Ignore partial lines or garbage
                     pass
-            else:
-                # No response often means timeout, maybe lost connection or just waiting
-                pass
-
+            
             time.sleep(0.5)
 
         except Exception as e:
