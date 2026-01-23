@@ -500,6 +500,20 @@ function connectSocket() {
         });
     });
 
+    function stopMonitorForOperation(port, callback) {
+        if (scaleMonitorProcess && currentScalePort === port) {
+            console.log("Stopping monitor for exclusive operation...");
+            scaleMonitorProcess.removeAllListeners('close'); // Prevent auto-restart logic if any
+            scaleMonitorProcess.kill();
+            scaleMonitorProcess = null;
+            currentScalePort = null;
+            // Give it a moment to release lock
+            setTimeout(callback, 500);
+        } else {
+            callback();
+        }
+    }
+
     socket.on('tare_scale', (payload) => {
         console.log('Received tare_scale command:', payload);
         const requestId = payload.requestId;
@@ -509,21 +523,26 @@ function connectSocket() {
             if (requestId) socket.emit('tare_complete', { requestId, success: false, message: "No scale found" });
             return;
         }
-        const port = keys[0]; // Logic for multiple scales could be added later
+        const port = keys[0];
 
-        const cmd = `/opt/venv/bin/python3 scale_bridge.py tare --port "${port}"`;
-        const { exec } = require('child_process');
-        exec(cmd, { timeout: 5000 }, (err, stdout, stderr) => {
-            if (err) {
-                socket.emit('tare_complete', { requestId, success: false, message: stderr || err.message });
-            } else {
-                try {
-                    const res = JSON.parse(stdout);
-                    socket.emit('tare_complete', { requestId, success: true, message: "Tare successful", data: res });
-                } catch (e) {
-                    socket.emit('tare_complete', { requestId, success: false, message: "Invalid output" });
+        stopMonitorForOperation(port, () => {
+            const cmd = `/opt/venv/bin/python3 scale_bridge.py tare --port "${port}"`;
+            const { exec } = require('child_process');
+            exec(cmd, { timeout: 5000 }, (err, stdout, stderr) => {
+                // Restart monitor immediately
+                startScaleMonitor(port);
+
+                if (err) {
+                    socket.emit('tare_complete', { requestId, success: false, message: stderr || err.message });
+                } else {
+                    try {
+                        const res = JSON.parse(stdout);
+                        socket.emit('tare_complete', { requestId, success: true, message: "Tare successful", data: res });
+                    } catch (e) {
+                        socket.emit('tare_complete', { requestId, success: false, message: "Invalid output" });
+                    }
                 }
-            }
+            });
         });
     });
 
@@ -539,23 +558,28 @@ function connectSocket() {
         }
         const port = keys[0];
 
-        const cmd = `/opt/venv/bin/python3 scale_bridge.py calibrate --port "${port}" --weight ${weight}`;
-        const { exec } = require('child_process');
-        exec(cmd, { timeout: 5000 }, (err, stdout, stderr) => {
-            if (err) {
-                socket.emit('calibration_complete', { requestId, success: false, message: stderr || err.message });
-            } else {
-                try {
-                    const res = JSON.parse(stdout);
-                    if (res.error) {
-                        socket.emit('calibration_complete', { requestId, success: false, message: res.error });
-                    } else {
-                        socket.emit('calibration_complete', { requestId, success: true, message: "Calibration successful", data: res });
+        stopMonitorForOperation(port, () => {
+            const cmd = `/opt/venv/bin/python3 scale_bridge.py calibrate --port "${port}" --weight ${weight}`;
+            const { exec } = require('child_process');
+            exec(cmd, { timeout: 5000 }, (err, stdout, stderr) => {
+                // Restart monitor immediately
+                startScaleMonitor(port);
+
+                if (err) {
+                    socket.emit('calibration_complete', { requestId, success: false, message: stderr || err.message });
+                } else {
+                    try {
+                        const res = JSON.parse(stdout);
+                        if (res.error) {
+                            socket.emit('calibration_complete', { requestId, success: false, message: res.error });
+                        } else {
+                            socket.emit('calibration_complete', { requestId, success: true, message: "Calibration successful", data: res });
+                        }
+                    } catch (e) {
+                        socket.emit('calibration_complete', { requestId, success: false, message: "Invalid output" });
                     }
-                } catch (e) {
-                    socket.emit('calibration_complete', { requestId, success: false, message: "Invalid output" });
                 }
-            }
+            });
         });
     });
 
