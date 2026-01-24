@@ -12,8 +12,9 @@ import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatListModule } from '@angular/material/list';
 import { MatTabsModule } from '@angular/material/tabs';
 
-import { KioskService } from '../../services/kiosk.service';
+import { KioskService, Kiosk } from '../../services/kiosk.service';
 import { SipService, SipConfig } from '../../services/sip.service';
+import { Observable, of } from 'rxjs';
 
 @Component({
     selector: 'app-pbx-settings',
@@ -35,7 +36,7 @@ import { SipService, SipConfig } from '../../services/sip.service';
     styleUrls: ['./pbx-settings.component.css']
 })
 export class PbxSettingsComponent implements OnInit {
-    kiosks$: any;
+    kiosks$: Observable<Kiosk[]> = of([]);
     selectedKioskId: number | null = null;
     configForm: FormGroup;
     statusMessage: string = '';
