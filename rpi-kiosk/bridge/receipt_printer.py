@@ -197,7 +197,9 @@ def print_receipt_cmd(args):
         if 'title' in data:
             print("Printing Title...")
             p.set(align='center', double_height=True, double_width=True)
-            p.text(f"{data['title']}\n")
+            safe_title = data['title'].encode('ascii', 'replace').decode()
+            wrapped_title = textwrap.fill(safe_title, width=20)
+            p.text(f"{wrapped_title}\n")
             p.text("\n")
             
         # Reset to normal text (Force Clear)
