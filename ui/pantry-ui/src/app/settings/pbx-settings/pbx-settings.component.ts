@@ -35,7 +35,7 @@ import { SipService, SipConfig } from '../../services/sip.service';
     styleUrls: ['./pbx-settings.component.css']
 })
 export class PbxSettingsComponent implements OnInit {
-    kiosks$ = this.kioskService.getKiosks();
+    kiosks$: any;
     selectedKioskId: number | null = null;
     configForm: FormGroup;
     statusMessage: string = '';
@@ -55,6 +55,8 @@ export class PbxSettingsComponent implements OnInit {
     }
 
     ngOnInit() {
+        this.kiosks$ = this.kioskService.getKiosks();
+
         // Listen for config updates
         this.sipService.config$.subscribe(config => {
             if (config && this.selectedKioskId) {
