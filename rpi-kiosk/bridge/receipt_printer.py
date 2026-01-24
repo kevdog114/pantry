@@ -208,7 +208,9 @@ def print_receipt_cmd(args):
         # Body Text
         if 'text' in data:
             print("Printing Text Body...")
-            p.text(f"{data['text']}\n")
+            safe_text = data['text'].encode('ascii', 'replace').decode()
+            wrapped_text = textwrap.fill(safe_text, width=42)
+            p.text(f"{wrapped_text}\n")
             
         # Recipe Steps
         if 'steps' in data and isinstance(data['steps'], list):
