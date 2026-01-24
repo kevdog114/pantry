@@ -223,17 +223,42 @@ def print_receipt_cmd(args):
                 action = step.get('action', '').upper()
                 text = step.get('text', '')
                 note = step.get('note', '')
-                
-                if action:
-                    p.set(bold=True)
-                    p.text(f"{action} ")
-                    p.set(bold=False)
-                
+
                 # Sanitize text
                 safe_text = text.encode('ascii', 'replace').decode()
-                # Wrap text to 42 chars (safe standard for 80mm receipts, typically 42-48 depending on font)
-                wrapped_text = textwrap.fill(safe_text, width=42)
-                p.text(f"{wrapped_text}\n")
+                
+                if action:
+                    indent = f"{action} "
+                    # Wrap with the action as indentation for the first line
+                    lines = textwrap.wrap(safe_text, width=42, initial_indent=indent)
+                    
+                    # Print first line carefully to bold the action
+                    if lines:
+                        first_line = lines[0]
+                        # Just to be safe, ensure it starts with what we expect
+                        if first_line.startswith(indent):
+                            p.set(bold=True)
+                            p.text(f"{action} ")
+                            p.set(bold=False)
+                            p.text(f"{first_line[len(indent):]}\n")
+                        else:
+                            # Fallback if textwrap did something unexpected
+                            p.text(f"{first_line}\n")
+                            
+                        # Print remaining lines
+                        for line in lines[1:]:
+                            p.text(f"{line}\n")
+                    else:
+                        # Case where text is empty but action exists
+                        p.set(bold=True)
+                        p.text(f"{action}\n")
+                        p.set(bold=False)
+
+                else:
+                    # No action, just wrap normally
+                    lines = textwrap.wrap(safe_text, width=42)
+                    for line in lines:
+                        p.text(f"{line}\n")
                 
                 if note:
                     p.set(font='b')
