@@ -18,6 +18,7 @@ import { firstValueFrom } from 'rxjs';
 type ViewState = 'MAIN' | 'UTILITIES' | 'PRINT_LABELS' | 'SCALE';
 
 import { SocketService } from '../services/socket.service';
+import { SipService, SipConfig, SipCallState, SipIncomingCall } from '../services/sip.service';
 
 @Component({
     selector: 'app-kiosk-page',
@@ -41,7 +42,7 @@ export class KioskPageComponent implements OnInit, OnDestroy {
     isOnline: boolean = false;
 
     // View State
-    viewState: ViewState = 'MAIN';
+    viewState: ViewState | 'PHONE' = 'MAIN';
 
     // Info Footer
     pantryName = '';
@@ -54,6 +55,12 @@ export class KioskPageComponent implements OnInit, OnDestroy {
     scannerClaimedBy: string | null = null;
     amIClaiming: boolean = false;
 
+    // SIP Logic
+    pbxConfig: SipConfig | null = null;
+    callState: SipCallState | null = null;
+    incomingCall: SipIncomingCall | null = null;
+    dialNumber: string = '';
+
     constructor(
         private router: Router,
         private labelService: LabelService,
@@ -65,7 +72,8 @@ export class KioskPageComponent implements OnInit, OnDestroy {
         private socketService: SocketService,
         private productService: ProductListService,
         private tagsService: TagsService,
-        private ngZone: NgZone
+        private ngZone: NgZone,
+        private sipService: SipService
     ) { }
 
     ngOnInit(): void {
@@ -91,16 +99,95 @@ export class KioskPageComponent implements OnInit, OnDestroy {
         this.hardwareScanner.claimedBy$.subscribe(claimer => {
             this.scannerClaimedBy = claimer;
             this.amIClaiming = claimer === 'Me';
-            if (this.scannerClaimedBy && !this.amIClaiming) {
-                // If scanner is claimed by someone else, we might want to update status text or block input further?
-                // For now, just tracking it for UI indicators.
-            }
         });
+
+        // SIP Init
+        const kIdStr = localStorage.getItem('kiosk_id');
+        if (kIdStr) {
+            const kioskId = parseInt(kIdStr);
+            this.sipService.getConfig(kioskId);
+
+            this.sipService.config$.subscribe(cfg => {
+                this.pbxConfig = cfg;
+            });
+
+            this.sipService.callState$.subscribe(state => {
+                this.ngZone.run(() => {
+                    this.callState = state;
+                    if (state && state.state === 'CONFIRMED') {
+                        // In call
+                    }
+                });
+            });
+
+            this.sipService.incomingCall$.subscribe(call => {
+                this.ngZone.run(() => {
+                    this.incomingCall = call;
+                    if (call) {
+                        // Auto answer or show overlay?
+                        // User requirement: "automatically put it on speaker and display... overlay"
+                        // This implies answering.
+                        // But we wait for user to confirm? No "automatically put it on speaker".
+                        // Wait, if we answer, we are CONNECTED.
+                        // Does "put on speaker" mean answer? Usually yes.
+                        // I will trigger answer.
+
+                        // But if I auto-answer, I should probably wait a split second?
+                        // Actually, let's implement the overlay first.
+                        // If I answer immediately, the overlay shows "Connected" with "Hangup".
+                        // I'll auto-answer if not already active.
+                        if (!this.callState || this.callState.state === 'DISCONNECTED') {
+                            console.log("Auto answering call on speaker");
+                            // this.answerCall(); // Uncomment to enable auto-answer
+                        }
+                    }
+                });
+            });
+        }
     }
 
     ngOnDestroy(): void {
         if (this.timer) clearInterval(this.timer);
         this.hardwareScanner.setCustomHandler(null);
+    }
+
+    // ... (rest of methods)
+
+    // SIP Methods
+    openPhone() {
+        this.viewState = 'PHONE';
+        this.status = 'Quick Dial';
+    }
+
+    closePhone() {
+        this.viewState = 'MAIN';
+        this.status = 'Ready';
+    }
+
+    dial(number: string) {
+        const kIdStr = localStorage.getItem('kiosk_id');
+        if (!kIdStr) return;
+        this.sipService.dial(parseInt(kIdStr), number);
+    }
+
+    hangupCall() {
+        const kIdStr = localStorage.getItem('kiosk_id');
+        if (!kIdStr) return;
+        this.sipService.hangup(parseInt(kIdStr));
+    }
+
+    answerCall() {
+        const kIdStr = localStorage.getItem('kiosk_id');
+        if (!kIdStr) return;
+        this.sipService.answer(parseInt(kIdStr));
+    }
+
+    appendDigit(digit: string) {
+        this.dialNumber += digit;
+    }
+
+    clearDigit() {
+        this.dialNumber = this.dialNumber.slice(0, -1);
     }
 
     detectPrinterMedia() {

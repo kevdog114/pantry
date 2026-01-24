@@ -556,6 +556,54 @@ function connectSocket() {
         }
     });
 
+    socket.on('sip_configure', (config) => {
+        console.log('Received sip_configure:', config);
+        const fs = require('fs');
+        try {
+            fs.writeFileSync('sip_config.json', JSON.stringify(config));
+            if (sipBridgeProcess) {
+                const cmd = JSON.stringify({ cmd: 'configure', config: config }) + "\n";
+                sipBridgeProcess.stdin.write(cmd);
+            } else {
+                startSipBridge();
+            }
+        } catch (e) {
+            console.error("Error saving SIP config:", e);
+        }
+    });
+
+    socket.on('sip_get_config', () => {
+        const fs = require('fs');
+        try {
+            if (fs.existsSync('sip_config.json')) {
+                const config = JSON.parse(fs.readFileSync('sip_config.json', 'utf8'));
+                socket.emit('sip_config', { config });
+            } else {
+                socket.emit('sip_config', { config: {} });
+            }
+        } catch (e) {
+            socket.emit('sip_config', { config: {} });
+        }
+    });
+
+    socket.on('sip_dial', (payload) => {
+        if (!sipBridgeProcess) return;
+        const cmd = JSON.stringify({ cmd: 'dial', uri: payload.uri }) + "\n";
+        sipBridgeProcess.stdin.write(cmd);
+    });
+
+    socket.on('sip_hangup', () => {
+        if (!sipBridgeProcess) return;
+        const cmd = JSON.stringify({ cmd: 'hangup' }) + "\n";
+        sipBridgeProcess.stdin.write(cmd);
+    });
+
+    socket.on('sip_answer', () => {
+        if (!sipBridgeProcess) return;
+        const cmd = JSON.stringify({ cmd: 'answer' }) + "\n";
+        sipBridgeProcess.stdin.write(cmd);
+    });
+
 }
 
 // Check devices
@@ -564,6 +612,8 @@ const knownReceiptPrinters = {};
 const knownScales = {};
 
 function checkDevices() {
+    startSipBridge();
+
     const pythonCmd = '/opt/venv/bin/python3 print_label.py';
     const fs = require('fs');
 
@@ -795,10 +845,84 @@ function startScaleMonitor(port) {
 // Logic to handle weight updates and debounce/throttle
 let lastScaleState = { weight: null, timestamp: 0 };
 
+
+// SIP / PBX Bridge Management
+let sipBridgeProcess = null;
+
+function startSipBridge() {
+    if (sipBridgeProcess) return;
+
+    const fs = require('fs');
+    if (!fs.existsSync('sip_config.json')) {
+        console.log("No sip_config.json found, skipping SIP bridge startup.");
+        return;
+    }
+
+    console.log("Starting SIP Bridge...");
+    const { spawn } = require('child_process');
+
+    // Using system python since we used apt to install python3-pjsua
+    sipBridgeProcess = spawn('/usr/bin/python3', ['sip_bridge.py'], {
+        cwd: __dirname
+    });
+
+    sipBridgeProcess.stdout.on('data', (data) => {
+        const lines = data.toString().split('\n');
+        lines.forEach(line => {
+            line = line.trim();
+            if (!line) return;
+            try {
+                const msg = JSON.parse(line);
+                handleSipMessage(msg);
+            } catch (e) {
+                // Ignore
+            }
+        });
+    });
+
+    sipBridgeProcess.stderr.on('data', (data) => {
+        console.error(`SIP Error: ${data}`);
+    });
+
+    sipBridgeProcess.on('close', (code) => {
+        console.log(`SIP Bridge exited with code ${code}`);
+        sipBridgeProcess = null;
+        if (code !== 0) {
+            setTimeout(startSipBridge, 10000);
+        }
+    });
+
+    try {
+        const config = JSON.parse(fs.readFileSync('sip_config.json', 'utf8'));
+        if (config.enabled) {
+            const cmd = JSON.stringify({ cmd: 'configure', config: config }) + "\n";
+            sipBridgeProcess.stdin.write(cmd);
+        } else {
+            console.log("SIP config exists but disabled.");
+            if (sipBridgeProcess) {
+                sipBridgeProcess.kill();
+                sipBridgeProcess = null;
+            }
+        }
+    } catch (e) {
+        console.error("Error loading SIP config:", e);
+    }
+}
+
+function handleSipMessage(msg) {
+    if (!socket || !socket.connected) return;
+
+    if (msg.type === 'incoming_call') {
+        socket.emit('sip_incoming_call', msg.data);
+    } else if (msg.type === 'call_state') {
+        socket.emit('sip_call_state', msg.data);
+    } else if (msg.type === 'reg_state') {
+        socket.emit('sip_reg_state', msg.data);
+    }
+}
 function handleWeightUpdate(port, currentWeight) {
     const now = Date.now();
     const last = lastScaleState;
-
     const weightChanged = last.weight === null || Math.abs(currentWeight - last.weight) >= 0.1;
     const timeElapsed = (now - last.timestamp) >= 10000; // 10s heartbeat
 

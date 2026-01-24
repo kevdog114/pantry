@@ -381,6 +381,47 @@ io.on("connection", (socket) => {
         }
     });
 
+    // SIP Bridging
+    socket.on("sip_configure", (data) => {
+        const targetKioskId = data.kioskId;
+        console.log(`Routing sip_configure to Kiosk ${targetKioskId}`);
+        io.to(`kiosk_device_${targetKioskId}`).emit('sip_configure', data.config);
+    });
+
+    socket.on("sip_dial", (data) => {
+        const targetKioskId = data.kioskId;
+        console.log(`Routing sip_dial to Kiosk ${targetKioskId}`);
+        io.to(`kiosk_device_${targetKioskId}`).emit('sip_dial', data);
+    });
+
+    socket.on("sip_hangup", (data) => {
+        const targetKioskId = data.kioskId;
+        io.to(`kiosk_device_${targetKioskId}`).emit('sip_hangup', data);
+    });
+
+    socket.on("sip_answer", (data) => {
+        const targetKioskId = data.kioskId;
+        io.to(`kiosk_device_${targetKioskId}`).emit('sip_answer', data);
+    });
+
+    socket.on("sip_incoming_call", (data) => {
+        if (kioskId) {
+            io.to(`kiosk_device_${kioskId}`).emit('sip_incoming_call', data);
+        }
+    });
+
+    socket.on("sip_call_state", (data) => {
+        if (kioskId) {
+            io.to(`kiosk_device_${kioskId}`).emit('sip_call_state', data);
+        }
+    });
+
+    socket.on("sip_reg_state", (data) => {
+        if (kioskId) {
+            io.to(`kiosk_device_${kioskId}`).emit('sip_reg_state', data);
+        }
+    });
+
     socket.on("disconnect", () => {
         // Remove any claims by this socket
         for (const [kId, sId] of scannerClaims.entries()) {

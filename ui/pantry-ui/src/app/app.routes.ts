@@ -135,6 +135,11 @@ export const routes: Routes = [
         loadComponent: () => import('./settings/locations/locations.component').then(m => m.LocationsComponent),
         canActivate: [AuthGuard]
     },
+    {
+        path: "settings/pbx",
+        loadComponent: () => import('./settings/pbx-settings/pbx-settings.component').then(m => m.PbxSettingsComponent),
+        canActivate: [AuthGuard]
+    },
 
     {
         path: "search",

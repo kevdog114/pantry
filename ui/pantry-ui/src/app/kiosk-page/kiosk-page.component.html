@@ -75,6 +75,14 @@
                     <span>UTILITIES</span>
                 </div>
             </button>
+
+            <button *ngIf="pbxConfig && pbxConfig.enabled" mat-flat-button class="large-btn phone-btn"
+                (click)="openPhone()" style="background-color: #4CAF50; color: white;">
+                <div class="btn-content">
+                    <mat-icon>phone</mat-icon>
+                    <span>PHONE</span>
+                </div>
+            </button>
         </div>
 
         <!-- UTILITIES VIEW -->
@@ -154,14 +162,11 @@
                     <span>BACK</span>
                 </div>
             </button>
-
-            <!-- Large Weight Display -->
             <div class="weight-display-card">
                 <div class="weight-value">{{ displayWeight | number:'1.1-2' }}</div>
                 <div class="weight-unit">{{ currentUnit === 'g' ? 'GRAMS' : (currentUnit === 'oz' ? 'OUNCES' : 'LBS') }}
                 </div>
             </div>
-
             <div class="scale-controls">
                 <button mat-flat-button color="primary" class="large-btn" (click)="tareScale()">
                     <div class="btn-content">
@@ -169,12 +174,43 @@
                         <span>TARE</span>
                     </div>
                 </button>
-
                 <button mat-flat-button color="accent" class="large-btn" (click)="toggleUnit()">
                     <div class="btn-content">
                         <mat-icon>swap_vert</mat-icon>
                         <span>{{ currentUnit === 'g' ? 'TO OZ/LBS' : 'TO GRAMS' }}</span>
                     </div>
+                </button>
+            </div>
+        </div>
+
+        <!-- PHONE VIEW -->
+        <div *ngIf="viewState === 'PHONE'"
+            class="flex flex-col h-full bg-slate-100 dark:bg-zinc-900 p-4 rounded-t-3xl phone-view">
+            <!-- Header / Display -->
+            <div class="flex items-center justify-between mb-4">
+                <button mat-icon-button (click)="closePhone()"><mat-icon>close</mat-icon></button>
+                <div class="text-2xl font-mono">{{ dialNumber || '...' }}</div>
+                <button mat-icon-button (click)="clearDigit()"><mat-icon>backspace</mat-icon></button>
+            </div>
+
+            <!-- Quick Dials -->
+            <div class="flex gap-2 overflow-x-auto mb-4 pb-2" *ngIf="pbxConfig?.extensions?.length">
+                <button *ngFor="let ext of pbxConfig!.extensions" mat-stroked-button class="shrink-0"
+                    (click)="dial(ext.number)">
+                    <mat-icon>person</mat-icon> {{ ext.name }}
+                </button>
+            </div>
+
+            <!-- Keypad -->
+            <div class="grid grid-cols-3 gap-4 flex-1">
+                <button *ngFor="let d of ['1','2','3','4','5','6','7','8','9','*','0','#']" mat-raised-button
+                    class="h-full text-2xl font-bold" (click)="appendDigit(d)">{{d}}</button>
+            </div>
+
+            <!-- Call Button -->
+            <div class="mt-4">
+                <button mat-fab color="primary" class="w-full h-16 text-3xl" (click)="dial(dialNumber)">
+                    <mat-icon>call</mat-icon>
                 </button>
             </div>
         </div>
@@ -192,6 +228,46 @@
         <div class="footer-end">
             <span class="current-date">{{ currentDate | date:'fullDate' }}</span>
             <button mat-button class="exit-btn" (click)="exitKiosk()">EXIT</button>
+        </div>
+    </div>
+</div>
+
+<!-- CALL OVERLAY -->
+<div *ngIf="incomingCall || (callState && callState.state !== 'DISCONNECTED')"
+    class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
+    <div class="bg-white dark:bg-zinc-800 rounded-3xl p-8 shadow-2xl w-full max-w-md text-center animate-pulse-soft">
+        <div class="mb-4">
+            <div
+                class="w-24 h-24 rounded-full bg-green-100 text-green-600 flex items-center justify-center mx-auto mb-4 animate-bounce">
+                <mat-icon class="text-6xl !w-16 !h-16">phone_in_talk</mat-icon>
+            </div>
+            <h2 class="text-3xl font-bold mb-2 dark:text-white">
+                {{ incomingCall ? 'Incoming Call' : 'Active Call' }}
+            </h2>
+            <p class="text-xl text-gray-500 dark:text-gray-400">
+                {{ incomingCall?.remote_uri || callState?.state || 'Connecting...' }}
+            </p>
+            <p class="text-lg text-gray-400 dark:text-gray-500 mt-1" *ngIf="incomingCall?.remote_contact">
+                {{ incomingCall?.remote_contact }}
+            </p>
+        </div>
+
+        <div class="flex gap-4 justify-center mt-8">
+            <ng-container *ngIf="incomingCall">
+                <button mat-fab color="warn" (click)="hangupCall()" class="scale-125">
+                    <mat-icon>call_end</mat-icon>
+                </button>
+                <div class="w-8"></div>
+                <button mat-fab class="scale-125 !bg-green-500 text-white" (click)="answerCall()">
+                    <mat-icon>call</mat-icon>
+                </button>
+            </ng-container>
+
+            <ng-container *ngIf="!incomingCall">
+                <button mat-fab color="warn" (click)="hangupCall()" class="scale-150">
+                    <mat-icon>call_end</mat-icon>
+                </button>
+            </ng-container>
         </div>
     </div>
 </div>

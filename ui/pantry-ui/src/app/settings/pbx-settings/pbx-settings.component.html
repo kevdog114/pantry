@@ -1,0 +1,119 @@
+<div class="container mx-auto p-4 max-w-6xl">
+    <h1 class="text-3xl font-bold mb-6 text-gray-800 dark:text-gray-100">PBX Integration Settings</h1>
+
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <!-- Kiosk List -->
+        <div class="col-span-1">
+            <mat-card class="h-full rounded-xl shadow-md dark:bg-zinc-800">
+                <div class="p-4 border-b dark:border-zinc-700 bg-gray-50 dark:bg-zinc-700/50">
+                    <h2 class="text-xl font-medium m-0">Select Kiosk</h2>
+                </div>
+                <mat-list role="list" class="pt-0">
+                    <ng-container *ngFor="let kiosk of kiosks$ | async">
+                        <mat-list-item role="listitem" (click)="selectKiosk(kiosk.id)"
+                            [class.bg-blue-50]="selectedKioskId === kiosk.id"
+                            [class.dark:bg-blue-900]="selectedKioskId === kiosk.id"
+                            class="cursor-pointer hover:bg-gray-100 dark:hover:bg-zinc-700 transition-colors border-b dark:border-zinc-700 last:border-0">
+                            <mat-icon matListItemIcon class="text-gray-500">desktop_windows</mat-icon>
+                            <div matListItemTitle class="font-medium">{{ kiosk.name }}</div>
+                            <div matListItemLine class="text-xs text-gray-400">ID: {{ kiosk.id }}</div>
+                        </mat-list-item>
+                    </ng-container>
+                    <div *ngIf="(kiosks$ | async)?.length === 0" class="p-4 text-center text-gray-400 italic">
+                        No Kiosks Found
+                    </div>
+                </mat-list>
+            </mat-card>
+        </div>
+
+        <!-- Settings Form -->
+        <div class="col-span-2">
+            <mat-card class="h-full rounded-xl shadow-md dark:bg-zinc-800" *ngIf="selectedKioskId; else noSelection">
+                <div
+                    class="p-4 border-b dark:border-zinc-700 bg-gray-50 dark:bg-zinc-700/50 flex justify-between items-center">
+                    <h2 class="text-xl font-medium m-0">Configuration</h2>
+                    <span class="text-sm text-green-600 font-medium" *ngIf="statusMessage">{{ statusMessage }}</span>
+                </div>
+
+                <form [formGroup]="configForm" (ngSubmit)="save()" class="p-6">
+
+                    <div
+                        class="mb-6 flex items-center justify-between bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg border border-blue-100 dark:border-blue-800">
+                        <div>
+                            <h3 class="font-medium text-blue-900 dark:text-blue-100 m-0">Enable PBX Integration</h3>
+                            <p class="text-sm text-blue-700 dark:text-blue-300 m-0">Allow this kiosk to act as a SIP
+                                Phone</p>
+                        </div>
+                        <mat-slide-toggle formControlName="enabled" color="primary"></mat-slide-toggle>
+                    </div>
+
+                    <div [class.opacity-50]="!configForm.get('enabled')?.value"
+                        [class.pointer-events-none]="!configForm.get('enabled')?.value">
+                        <h3 class="text-lg font-medium mb-4 border-b pb-2 dark:border-zinc-700">SIP Account</h3>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <mat-form-field appearance="outline" class="w-full">
+                                <mat-label>SIP Domain / Server</mat-label>
+                                <input matInput formControlName="domain" placeholder="sip.example.com">
+                            </mat-form-field>
+
+                            <mat-form-field appearance="outline" class="w-full">
+                                <mat-label>Username / Extension</mat-label>
+                                <input matInput formControlName="username" placeholder="100">
+                            </mat-form-field>
+
+                            <mat-form-field appearance="outline" class="w-full">
+                                <mat-label>Password / Secret</mat-label>
+                                <input matInput formControlName="password" type="password">
+                            </mat-form-field>
+                        </div>
+
+                        <div class="mt-8">
+                            <div class="flex justify-between items-center mb-4 border-b pb-2 dark:border-zinc-700">
+                                <h3 class="text-lg font-medium m-0">Quick Dial Extensions</h3>
+                                <button mat-stroked-button type="button" (click)="addExtension()">
+                                    <mat-icon>add</mat-icon> Add Extension
+                                </button>
+                            </div>
+
+                            <div formArrayName="extensions" class="space-y-4">
+                                <div *ngFor="let ext of extensions.controls; let i=index" [formGroupName]="i"
+                                    class="flex gap-4 items-start p-3 bg-gray-50 dark:bg-zinc-700/30 rounded-lg">
+                                    <mat-form-field appearance="outline" class="flex-1">
+                                        <mat-label>Name</mat-label>
+                                        <input matInput formControlName="name" placeholder="Kitchen">
+                                    </mat-form-field>
+                                    <mat-form-field appearance="outline" class="flex-1">
+                                        <mat-label>Number</mat-label>
+                                        <input matInput formControlName="number" placeholder="101">
+                                    </mat-form-field>
+                                    <button mat-icon-button color="warn" type="button" (click)="removeExtension(i)"
+                                        class="mt-2">
+                                        <mat-icon>delete</mat-icon>
+                                    </button>
+                                </div>
+                                <div *ngIf="extensions.length === 0" class="text-center text-gray-400 py-4 italic">
+                                    No quick dial extensions defined.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mt-8 flex justify-end">
+                        <button mat-raised-button color="primary" type="submit" [disabled]="configForm.invalid"
+                            class="px-8 py-2">
+                            Save Configuration
+                        </button>
+                    </div>
+                </form>
+            </mat-card>
+
+            <ng-template #noSelection>
+                <div
+                    class="h-full flex flex-col items-center justify-center p-12 text-gray-400 border-2 border-dashed border-gray-200 dark:border-zinc-700 rounded-xl">
+                    <mat-icon class="text-6xl mb-4 text-gray-300">settings_phone</mat-icon>
+                    <p class="text-lg">Select a Kiosk to configure PBX settings.</p>
+                </div>
+            </ng-template>
+        </div>
+    </div>
+</div>

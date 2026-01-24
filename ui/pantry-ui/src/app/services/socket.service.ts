@@ -163,4 +163,29 @@ export class SocketService {
     public getConnectedClients(): Promise<any[]> {
         return firstValueFrom(this.http.get<any[]>(`${this.env.apiUrl}/diagnostics/clients`));
     }
+
+    public fromEvent<T>(eventName: string): Observable<T> {
+        return new Observable<T>((observer) => {
+            const handler = (data: T) => observer.next(data);
+            this.on(eventName, handler);
+            return () => {
+                // Warning: This removes ALL listeners for this event name due to how removeListener is implemented currently
+                // Ideally, we should remove only this handler. 
+                // But SocketService.removeListener calls socket.off(eventName) which removes all.
+                // We should assume for now that fromEvent is the primary consumer or acceptable trade-off.
+                // Or better, update removeListener to take a handler?
+                // Given the existing code, removeListener removes all.
+                // I will NOT call removeListener here to avoid breaking other subscribers.
+                // But that means leak?
+                // Actually `socket.on` allows multiple listeners.
+                // `socket.off(eventName, handler)` exists.
+                if (this.socket) {
+                    this.socket.off(eventName, handler);
+                }
+                // Also remove from local map if we tracked it precisely? 
+                // The current implementation is a bit simple. 
+                // Let's just use socket.off directly if socket exists.
+            };
+        });
+    }
 }
