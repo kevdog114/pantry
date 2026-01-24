@@ -211,8 +211,12 @@ def print_receipt_cmd(args):
         if 'text' in data:
             print("Printing Text Body...")
             safe_text = data['text'].encode('ascii', 'replace').decode()
-            wrapped_text = textwrap.fill(safe_text, width=42)
-            p.text(f"{wrapped_text}\n")
+            for line in safe_text.splitlines():
+                if line:
+                    wrapped_text = textwrap.fill(line, width=42)
+                    p.text(f"{wrapped_text}\n")
+                else:
+                    p.text("\n")
             
         # Recipe Steps
         if 'steps' in data and isinstance(data['steps'], list):
@@ -228,46 +232,70 @@ def print_receipt_cmd(args):
 
                 # Sanitize text
                 safe_text = text.encode('ascii', 'replace').decode()
-                
-                if action:
-                    indent = f"{action} "
-                    # Wrap with the action as indentation for the first line
-                    lines = textwrap.wrap(safe_text, width=42, initial_indent=indent)
-                    
-                    # Print first line carefully to bold the action
-                    if lines:
-                        first_line = lines[0]
-                        # Just to be safe, ensure it starts with what we expect
-                        if first_line.startswith(indent):
-                            p.set(bold=True)
-                            p.text(f"{action} ")
-                            p.set(bold=False)
-                            p.text(f"{first_line[len(indent):]}\n")
-                        else:
-                            # Fallback if textwrap did something unexpected
-                            p.text(f"{first_line}\n")
-                            
-                        # Print remaining lines
-                        for line in lines[1:]:
-                            p.text(f"{line}\n")
-                    else:
-                        # Case where text is empty but action exists
-                        p.set(bold=True)
-                        p.text(f"{action}\n")
-                        p.set(bold=False)
+                paragraphs = safe_text.splitlines()
 
-                else:
-                    # No action, just wrap normally
-                    lines = textwrap.wrap(safe_text, width=42)
-                    for line in lines:
-                        p.text(f"{line}\n")
+                # If we have an action but no text, we still need to print the action
+                if action and not paragraphs:
+                     p.set(bold=True)
+                     p.text(f"{action}\n")
+                     p.set(bold=False)
+
+                for i, paragraph in enumerate(paragraphs):
+                    # For the very first paragraph, if we have an action, incorporate it
+                    if action and i == 0:
+                        indent = f"{action} "
+                        # Wrap with the action as indentation for the first line
+                        lines = textwrap.wrap(paragraph, width=42, initial_indent=indent)
+                        
+                        # Print first line carefully to bold the action
+                        if lines:
+                            first_line = lines[0]
+                            # Just to be safe, ensure it starts with what we expect
+                            if first_line.startswith(indent):
+                                p.set(bold=True)
+                                p.text(f"{action} ")
+                                p.set(bold=False)
+                                p.text(f"{first_line[len(indent):]}\n")
+                            else:
+                                # Fallback if textwrap did something unexpected
+                                p.text(f"{first_line}\n")
+                                
+                            # Print remaining lines
+                            for line in lines[1:]:
+                                p.text(f"{line}\n")
+                    else:
+                        # Subsequent paragraphs or no action
+                        if paragraph:
+                            lines = textwrap.wrap(paragraph, width=42)
+                            for line in lines:
+                                p.text(f"{line}\n")
+                        else:
+                            p.text("\n")
                 
                 if note:
                     p.set(font='b')
                     safe_note = note.encode('ascii', 'replace').decode()
-                    # Font B is usually smaller, so we can wrap at a wider width (e.g., 56)
-                    wrapped_note = textwrap.fill(safe_note, width=56) 
-                    p.text(f"  Note: {wrapped_note}\n")
+                    
+                    paragraphs = safe_note.splitlines()
+                    prefix = "  Note: "
+
+                    for i, para in enumerate(paragraphs):
+                        if i == 0:
+                            if para:
+                                lines = textwrap.wrap(para, width=56, initial_indent=prefix, subsequent_indent=" " * len(prefix))
+                                for line in lines:
+                                    p.text(f"{line}\n")
+                            else:
+                                p.text(f"{prefix}\n")
+                        else:
+                            if para:
+                                indent = " " * len(prefix)
+                                lines = textwrap.wrap(para, width=56, initial_indent=indent, subsequent_indent=indent)
+                                for line in lines:
+                                    p.text(f"{line}\n")
+                            else:
+                                p.text("\n")
+                    
                     p.set(font='a')
                 
                 p.text("\n")
