@@ -12,7 +12,7 @@ import { EnvironmentService } from '../services/environment.service';
 import { HardwareBarcodeScannerService } from '../hardware-barcode-scanner.service';
 import { ProductListService } from '../components/product-list/product-list.service';
 import { TagsService } from '../tags.service';
-import { Product, ProductTags } from '../types/product';
+import { Product, ProductTags, StockItem } from '../types/product';
 import { firstValueFrom } from 'rxjs';
 
 type ViewState = 'MAIN' | 'UTILITIES' | 'PRINT_LABELS' | 'SCALE';
@@ -155,16 +155,44 @@ export class KioskPageComponent implements OnInit, OnDestroy {
         this.hardwareScanner.setCustomHandler(() => { });
     }
 
+    async resolveBarcode(rawBarcode: string): Promise<{ product: Product | null, stockItem: StockItem | null }> {
+        const lower = rawBarcode.toLowerCase();
+
+        try {
+            if (lower.startsWith('sk-') || lower.startsWith('s2-')) {
+                // Stock Item Lookup
+                const idStr = rawBarcode.substring(3);
+                try {
+                    const item = await firstValueFrom(this.http.get<StockItem>(this.env.apiUrl + "/stock-items/" + idStr));
+                    if (item && item.productId) {
+                        const product = await firstValueFrom(this.productService.Get(item.productId));
+                        return { product, stockItem: item };
+                    }
+                } catch (e) {
+                    // Stock item not found
+                    return { product: null, stockItem: null };
+                }
+            } else {
+                // Product Barcode Lookup
+                try {
+                    const product = await firstValueFrom(this.http.get<Product>(this.env.apiUrl + "/barcodes/products?barcode=" + rawBarcode));
+                    return { product, stockItem: null };
+                } catch (e) {
+                    return { product: null, stockItem: null };
+                }
+            }
+        } catch (e) {
+            console.error("Error resolving barcode", e);
+        }
+        return { product: null, stockItem: null };
+    }
+
     async handleRestockBarcode(barcode: string) {
         if (!barcode) return;
         this.status = "Looking up product...";
 
         try {
-            // 1. Check Local DB
-            let product: Product | null = null;
-            try {
-                product = await firstValueFrom(this.http.get<Product>(this.env.apiUrl + "/barcodes/products?barcode=" + barcode));
-            } catch (e) { product = null; }
+            const { product, stockItem } = await this.resolveBarcode(barcode);
 
             if (product) {
                 await this.addStock(product, 1);
@@ -172,7 +200,14 @@ export class KioskPageComponent implements OnInit, OnDestroy {
                 this.statusSubtext = product.title;
                 this.showTempStatus("1 Unit Added", product.title, 3000);
             } else {
-                // 2. Not Found - External Lookup flow
+                // Not Found - External Lookup flow?
+                // correctly handle if they scanned a stock code vs product code
+                if (barcode.toLowerCase().startsWith('sk-') || barcode.toLowerCase().startsWith('s2-')) {
+                    this.status = "Stock Item Not Found";
+                    this.showTempStatus("Stock Item Not Found", "", 3000);
+                    return;
+                }
+
                 await this.handleNewProduct(barcode);
             }
         } catch (err) {
@@ -187,18 +222,16 @@ export class KioskPageComponent implements OnInit, OnDestroy {
         this.status = "Looking up product...";
 
         try {
-            // 1. Check Local DB
-            let product: Product | null = null;
-            try {
-                // Using searchProductByBarcode logic endpoint
-                product = await firstValueFrom(this.http.get<Product>(this.env.apiUrl + "/barcodes/products?barcode=" + barcode));
-            } catch (e) { product = null; }
+            const { product, stockItem } = await this.resolveBarcode(barcode);
 
             if (product) {
                 // Find stock item
-                if (product.stockItems && product.stockItems.length > 0) {
-                    // Pick the best one - e.g. oldest opened, or oldest expiration, or just first
-                    // Sorting: Opened first, then oldest exp date
+                let targetItem: StockItem | undefined;
+
+                if (stockItem) {
+                    targetItem = stockItem;
+                } else if (product.stockItems && product.stockItems.length > 0) {
+                    // Pick the best one
                     const sorted = product.stockItems.sort((a, b) => {
                         if (a.opened && !b.opened) return -1;
                         if (!a.opened && b.opened) return 1;
@@ -206,24 +239,23 @@ export class KioskPageComponent implements OnInit, OnDestroy {
                         const db = b.expirationDate ? new Date(b.expirationDate).getTime() : 0;
                         return da - db;
                     });
+                    targetItem = sorted[0];
+                }
 
-                    const item = sorted[0];
-
-                    if (item.id) {
-                        if (item.quantity > 1) {
-                            // Decrement
-                            await firstValueFrom(this.productService.UpdateStock(item.id, {
-                                ...item,
-                                quantity: item.quantity - 1
-                            }));
-                        } else {
-                            // Delete
-                            await firstValueFrom(this.productService.DeleteStock(item.id));
-                        }
-                        this.status = "1 Unit Consumed";
-                        this.statusSubtext = product.title;
-                        this.showTempStatus("1 Unit Consumed", product.title, 3000);
+                if (targetItem && targetItem.id) {
+                    if (targetItem.quantity > 1) {
+                        // Decrement
+                        await firstValueFrom(this.productService.UpdateStock(targetItem.id, {
+                            ...targetItem,
+                            quantity: targetItem.quantity - 1
+                        }));
+                    } else {
+                        // Delete
+                        await firstValueFrom(this.productService.DeleteStock(targetItem.id));
                     }
+                    this.status = "1 Unit Consumed";
+                    this.statusSubtext = product.title;
+                    this.showTempStatus("1 Unit Consumed", product.title, 3000);
                 } else {
                     this.status = "Out of Stock";
                     this.statusSubtext = product.title;
@@ -249,10 +281,7 @@ export class KioskPageComponent implements OnInit, OnDestroy {
 
         try {
             // Check Local DB
-            let product: Product | null = null;
-            try {
-                product = await firstValueFrom(this.http.get<Product>(this.env.apiUrl + "/barcodes/products?barcode=" + barcode));
-            } catch (e) { product = null; }
+            const { product, stockItem } = await this.resolveBarcode(barcode);
 
             if (product) {
                 this.status = product.title;
@@ -279,7 +308,13 @@ export class KioskPageComponent implements OnInit, OnDestroy {
                     if (nextExp) {
                         expStr = new Date(nextExp).toLocaleDateString();
                     }
-                    this.statusSubtext = `In Stock: ${totalQty} | Next Exp: ${expStr}`;
+                    this.statusSubtext = `Total Stock: ${totalQty} | Next Exp: ${expStr}`;
+
+                    if (stockItem) {
+                        // Overwrite subtext if specific item scanned
+                        let specificExp = stockItem.expirationDate ? new Date(stockItem.expirationDate).toLocaleDateString() : 'None';
+                        this.statusSubtext = `Scanned Item: ${stockItem.quantity} unit(s) | Exp: ${specificExp}`;
+                    }
                 }
 
                 // We do NOT call showTempStatus because we want this info to stay until next scan or exit
