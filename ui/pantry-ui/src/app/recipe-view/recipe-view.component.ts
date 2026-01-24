@@ -1,4 +1,5 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, OnDestroy } from '@angular/core';
+import { Subscription } from 'rxjs';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
@@ -37,7 +38,8 @@ import { RecipePdfService } from '../services/recipe-pdf.service';
     templateUrl: './recipe-view.component.html',
     styleUrl: './recipe-view.component.scss'
 })
-export class RecipeViewComponent implements OnInit {
+export class RecipeViewComponent implements OnInit, OnDestroy {
+    private routeSub: Subscription | undefined;
     recipe: Recipe | undefined;
     parsedIngredients: any[] = [];
     qrCodeDataUrl: string = '';
@@ -58,20 +60,28 @@ export class RecipeViewComponent implements OnInit {
     ) { }
 
     ngOnInit(): void {
-        const id = this.route.snapshot.paramMap.get('id');
-        this.currentUrl = window.location.href;
-
         this.detectPrinterMedia();
 
-        if (id) {
-            this.recipeService.get(parseInt(id)).subscribe({
-                next: (r) => {
-                    this.recipe = r;
-                    this.parseIngredients();
-                    this.generateQrCode();
-                },
-                error: (err) => console.error('Failed to load recipe', err)
-            });
+        this.routeSub = this.route.paramMap.subscribe(params => {
+            const id = params.get('id');
+            this.currentUrl = window.location.href;
+
+            if (id) {
+                this.recipeService.get(parseInt(id)).subscribe({
+                    next: (r) => {
+                        this.recipe = r;
+                        this.parseIngredients();
+                        this.generateQrCode();
+                    },
+                    error: (err) => console.error('Failed to load recipe', err)
+                });
+            }
+        });
+    }
+
+    ngOnDestroy(): void {
+        if (this.routeSub) {
+            this.routeSub.unsubscribe();
         }
     }
 
