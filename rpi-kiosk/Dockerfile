@@ -41,7 +41,8 @@ RUN apt-get update && apt-get install -y \
     libusb-1.0-0 \
     x11-xserver-utils \
     ca-certificates \
-    python3-pjsua \
+    baresip \
+    python3-pexpect \
     alsa-utils \
     --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
@@ -72,6 +73,7 @@ COPY bridge/print_label.py .
 COPY bridge/receipt_printer.py .
 COPY bridge/mqtt_bridge.py .
 COPY bridge/scale_bridge.py .
+COPY bridge/sip_bridge.py .
 COPY bridge/flash_tool.py .
 
 # Copy Firmware (requires context to include arduino folder)

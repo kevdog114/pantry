@@ -1,197 +1,163 @@
+
 import sys
 import json
 import threading
 import time
 import logging
-import argparse
+import os
+import pexpect
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s', filename='sip_bridge.log')
-console = logging.StreamHandler()
-console.setLevel(logging.INFO)
-logging.getLogger().addHandler(console)
 
-# Mock PJSUA if not installed for development/syntax checking purposes, 
-# but rely on it being present in the container.
-try:
-    import pjsua as pj
-except ImportError:
-    logging.warning("PJSUA module not found. SIP functionality will not work.")
-    pj = None
-
-# Global state
-current_call = None
-lib = None
-acc = None
-transport = None
-
-class AccountCallback(pj.AccountCallback):
-    def __init__(self, account):
-        pj.AccountCallback.__init__(self, account)
-
-    def on_reg_state(self):
-        code = self.account.info().reg_status
-        reason = self.account.info().reg_reason
-        log_json("reg_state", {"code": code, "reason": reason, "active": self.account.info().reg_active})
-
-    def on_incoming_call(self, call):
-        global current_call
-        if current_call:
-            call.answer(486, "Busy")
-            return
-
-        current_call = CallCallback(call)
-        
-        # Notify Server
-        remote_uri = call.info().remote_uri
-        remote_contact = call.info().remote_contact
-        
-        log_json("incoming_call", {
-            "remote_uri": remote_uri,
-            "remote_contact": remote_contact
-        })
-
-        # Auto-answer check could be here, but we'll wait for command or do it immediately if configured
-        # User requirement: "automatically put it on speaker" -> implies answering?
-        # "display a small overlay ... with a hangup button"
-        # If we auto-answer, the call is active.
-        # We will auto-answer with 200 OK after a brief delay or immediately.
-        # Let's wait for the "auto_answer" config or default to True for this "Intercom/Kiosk" use case?
-        # User said: "if there is an incoming call, it should automatically put it on speaker"
-        
-        call.answer(200)
-
-class CallCallback(pj.CallCallback):
-    def __init__(self, call=None):
-        pj.CallCallback.__init__(self, call)
-
-    def on_state(self):
-        global current_call
-        info = self.call.info()
-        state = info.state_text
-        code = info.last_code
-        
-        log_json("call_state", {
-            "state": state,
-            "code": code,
-            "duration": info.call_time
-        })
-
-        if info.state == pj.CallState.DISCONNECTED:
-            current_call = None
-
-    def on_media_state(self):
-        if self.call.info().media_state == pj.MediaState.ACTIVE:
-            # Connect the call to sound device
-            call_slot = self.call.info().conf_slot
-            pj.Lib.instance().conf_connect(call_slot, 0)
-            pj.Lib.instance().conf_connect(0, call_slot)
-            log_json("media_active", {})
+# Global
+child = None
+current_config = None
 
 def log_json(msg_type, data):
-    # Output JSON to stdout for server.js to parse
     msg = {"type": msg_type, "data": data}
     print(json.dumps(msg))
     sys.stdout.flush()
 
-def handle_command(line):
-    global lib, acc, current_call, transport
+def create_baresip_config(config):
+    # Setup directories
+    home_dir = os.path.expanduser("~")
+    baresip_dir = os.path.join(home_dir, ".baresip")
+    os.makedirs(baresip_dir, exist_ok=True)
+
+    # 1. Accounts
+    # Format: <sip:user:password@domain;transport=udp>;regint=3600
+    if not config.get('domain') or not config.get('username'):
+        return False
+        
+    user = config['username']
+    pwd = config.get('password', '')
+    domain = config['domain']
     
+    # Simple construction
+    auth = f":{pwd}" if pwd else ""
+    account_line = f"<sip:{user}{auth}@{domain};transport=udp>;regint=3600;answermode=auto"
+    # Auto answer assumes we want it. But we can control 'answer' via command too.
+    # User requested auto-answer.
+    # baresip 'answermode=auto' handles it immediately. 
+    # But maybe we want to control it? 'answermode=manual' + sending 'a' key.
+    # Let's use manual to allow the UI to show the Incoming Call screen and user (or auto-logic) to trigger answer.
+    account_line = f"<sip:{user}{auth}@{domain};transport=udp>;regint=3600;answermode=manual"
+
+    with open(os.path.join(baresip_dir, "accounts"), "w") as f:
+        f.write(account_line + "\n")
+
+    # 2. Config
+    # Ensure audio modules are loaded.
+    # We rely on defaults mostly, but need to make sure 'std' input works.
+    with open(os.path.join(baresip_dir, "config"), "w") as f:
+        f.write("poll_method\t\tpoll\n")
+        f.write("audio_player\t\talsa,default\n")
+        f.write("audio_source\t\talsa,default\n")
+        f.write("audio_alert\t\talsa,default\n")
+        # Modules
+        f.write("module\t\t\tstdio.so\n")
+        f.write("module\t\t\talsa.so\n")
+        f.write("module\t\t\tg711.so\n")
+        f.write("module\t\t\taccount.so\n")
+        # f.write("module\t\t\tmenu.so\n") # Interactive menu
+    
+    return True
+
+def monitor_baresip():
+    global child
+    while True:
+        try:
+            if child is None or not child.isalive():
+                time.sleep(1)
+                continue
+                
+            # Read line
+            try:
+                line = child.readline().decode('utf-8').strip()
+                if not line:
+                    continue
+                
+                # logging.info(f"Baresip: {line}")
+                
+                # Parse Events
+                if "Incoming call from" in line:
+                    # Incoming call from sip:100@192.168.1.100 ...
+                    # Parse URI
+                    parts = line.split(" ")
+                    uri = "Unknown"
+                    for p in parts:
+                        if p.startswith("sip:"):
+                            uri = p
+                            break
+                    log_json("incoming_call", {"remote_uri": uri, "remote_contact": uri})
+                    
+                elif "Call established" in line:
+                    log_json("call_state", {"state": "CONFIRMED", "code": 200})
+                    
+                elif "Call closed" in line or "Session closed" in line:
+                    log_json("call_state", {"state": "DISCONNECTED", "code": 0})
+                    
+                elif "Reg: 200 OK" in line:
+                    log_json("reg_state", {"code": 200, "reason": "OK", "active": True})
+                    
+                elif "401 Unauthorized" in line or "403 Forbidden" in line:
+                    log_json("reg_state", {"code": 401, "reason": "Unauthorized", "active": False})
+                    
+            except pexpect.exceptions.TIMEOUT:
+                pass
+            except Exception as e:
+                logging.error(f"Reader error: {e}")
+                
+        except Exception as outer:
+            logging.error(f"Monitor error: {outer}")
+            time.sleep(1)
+
+def handle_command(line):
+    global child
     try:
         cmd_obj = json.loads(line)
         cmd = cmd_obj.get("cmd")
         
         if cmd == "configure":
             config = cmd_obj.get("config", {})
-            # Initialize PJSUA if not already
-            if not lib:
-                lib = pj.Lib()
-                lib.init(log_cfg = pj.LogConfig(level=0, console_level=0))
-                # Create UDP transport
-                transport = lib.create_transport(pj.TransportType.UDP, pj.TransportConfig(5060))
-                lib.start()
-                lib.set_null_snd_dev() # Disable sound initially? No, we want sound.
-                # Actually, in docker we might fail if no audio device.
-            
-            # Configure Account
-            domain = config.get("domain")
-            username = config.get("username")
-            password = config.get("password")
-            
-            if domain and username:
-                if acc:
-                    acc.delete()
-                    acc = None
+            if create_baresip_config(config):
+                # Start or Restart Baresip
+                if child and child.isalive():
+                    child.close()
                 
-                acc_cfg = pj.AccountConfig()
-                acc_cfg.id = f"sip:{username}@{domain}"
-                acc_cfg.reg_uri = f"sip:{domain}"
-                acc_cfg.auth_cred = [pj.AuthCred(domain, username, password)]
-                
-                acc = lib.create_account(acc_cfg, cb=AccountCallback(None)) # cb set later? No, constructor.
-                # The python binding might require checking the docs. 
-                # AccountCallback is passed to create_account.
-                # Re-verify pjsua python binding signature.
-                # account = lib.create_account(acc_config, set_default=True, cb=MyAccountCallback(account))
-                # Actually AccountCallback takes 'account' in constructor usually to callback properly?
-                # Using a wrapper class is cleaner.
-                
-                acc.set_callback(AccountCallback(acc))
+                # Start baresip
+                # -f to force config path? Default is ~/.baresip which we populated.
+                child = pexpect.spawn('baresip', timeout=0.1)
                 log_json("configured", {"success": True})
+            else:
+                 log_json("error", {"message": "Invalid config"})
                 
-        elif cmd == "dial":
-            if not acc:
-                log_json("error", {"message": "Account not configured"})
-                return
-                
-            uri = cmd_obj.get("uri") # e.g. sip:100@1.2.3.4
-            if not uri.startswith("sip:"):
-                # Append domain if just extension?
-                domain = acc.info().reg_uri
-                # domain is sip:1.2.3.4
-                # We need to construct sip:EXT@DOMAIN
-                # But domain might have port or transport.
-                # Let's assume input 'number' and we format it.
-                number = uri
-                domain_host = domain.replace("sip:", "")
-                uri = f"sip:{number}@{domain_host}"
-
-            log_json("dialing", {"uri": uri})
-            try:
-                curr_call = acc.make_call(uri, cb=CallCallback())
-                # make_call returns a call object. We DO NOT assign current_call here instantly
-                # The callback handles it usually? 
-                # Actually we should track it.
-                # But current_call is set in on_incoming_call logic. 
-                # For outgoing, we should set it.
-                # But wait, CallCallback is instantiated.
-                # We need to link the callback instance to current_call global if we want global tracking.
-                # Implementation detail: CallCallback should probably update global current_call
-                # For now let's hope on_state logic manages it or we trust the object reference.
-                global current_call
-                current_call = CallCallback(curr_call) # Logic mismatch. make_call takes a CallCallback *instance* usually?
-                # Pjsua python is tricky.
-                # acc.make_call(uri, cb=MyCallCallback())
-            except pj.Error as e:
-                log_json("error", {"message": str(e)})
+        if cmd == "dial":
+            if child and child.isalive():
+                uri = cmd_obj.get("uri")
+                if uri:
+                    # 'd' triggers "Dial: " prompt
+                    child.send("d")
+                    # Wait a bit or Just send URI immediately? 
+                    # Pexpect can handle it but let's just sendline.
+                    child.sendline(uri)
+                    log_json("dialing", {"uri": uri})
+            else:
+                log_json("error", {"message": "Baresip not running"})
 
         elif cmd == "hangup":
-            if current_call:
-                current_call.call.hangup()
-                log_json("hungup", {})
-            else:
-                log_json("error", {"message": "No active call"})
+            if child and child.isalive():
+                child.send("b") 
                 
         elif cmd == "answer":
-            if current_call:
-                current_call.call.answer(200)
-            else:
-                log_json("error", {"message": "No incoming call"})
+            if child and child.isalive():
+                child.send("a")
+                log_json("answered", {})
 
         elif cmd == "quit":
-            if lib:
-                lib.destroy()
-                lib = None
+            if child:
+                child.close()
             sys.exit(0)
 
     except Exception as e:
@@ -199,12 +165,10 @@ def handle_command(line):
         logging.error(f"Error: {e}")
 
 def main():
-    if not pj:
-        print(json.dumps({"type": "error", "message": "PJSUA not installed"}))
-        return
-
-    # Check for library init here or wait for configure?
-    # Better to wait.
+    # Start monitor thread
+    t = threading.Thread(target=monitor_baresip)
+    t.daemon = True
+    t.start()
     
     log_json("ready", {})
     
@@ -218,9 +182,9 @@ def main():
             break
         except Exception as e:
             logging.error(f"Main loop error: {e}")
-
-    if lib:
-        lib.destroy()
+            
+    if child:
+        child.close()
 
 if __name__ == "__main__":
     main()
