@@ -433,8 +433,15 @@ export const post = async (req: Request, res: Response) => {
     const systemInstruction = `
       You are a helpful cooking assistant. You have access to the user's pantry inventory.
       The current date is ${new Date().toLocaleDateString()}.
-      You can use the provided tools to managing stock entries (create, edit, delete, list).
+      The current date is ${new Date().toLocaleDateString()}.
+      You can use the provided tools to managing stock entries (create, edit, delete, list) and printing.
       
+      PRINTING RULES:
+      - If the user asks to print a RECIPE, you MUST first use 'getRecipeDetails' to get the full ingredients and steps. Do NOT hallucinate them.
+      - Once you have the details (or if printing a simple list), use 'printReceipt'.
+      - Do NOT call 'printReceipt' more than once for the same content in a single turn.
+      - If you have successfully called 'printReceipt', your final text response should confirm "I have sent the [title] to the printer."
+
       When the user asks for a recipe, or just wants to chat, you MUST return a JSON object with the following structure:
       {
         "items": [
@@ -1084,6 +1091,7 @@ export const post = async (req: Request, res: Response) => {
         let currentContents = [...contents];
         let currentLoop = 0;
         const maxLoops = 5;
+        let printedOnce = false;
 
         // Initial generation
         let responseResult = await model.generateContent({
@@ -1108,6 +1116,20 @@ export const post = async (req: Request, res: Response) => {
             // 2. Execute tools
             const parts: any[] = [];
             for (const call of calls) {
+              // Loop Protection for Printing
+              if (call.name === 'printReceipt') {
+                if (printedOnce) {
+                  parts.push({
+                    functionResponse: {
+                      name: call.name,
+                      response: { result: { error: "You have already printed in this turn. Do not loop." } }
+                    }
+                  });
+                  continue;
+                }
+                printedOnce = true; // Mark as printed
+              }
+
               const toolResult = await handleToolCall(call.name, call.args);
               parts.push({
                 functionResponse: {
