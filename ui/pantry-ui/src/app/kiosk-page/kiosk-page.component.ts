@@ -4,6 +4,11 @@ import { RouterModule, Router } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatCardModule } from '@angular/material/card';
+import { MatInputModule } from '@angular/material/input';
+import { MatChipsModule } from '@angular/material/chips';
+import { MatDatepickerModule } from '@angular/material/datepicker';
+import { MatNativeDateModule } from '@angular/material/core';
+import { FormsModule } from '@angular/forms';
 import { LabelService } from '../services/label.service';
 import { KioskService } from '../services/kiosk.service';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
@@ -15,7 +20,7 @@ import { TagsService } from '../tags.service';
 import { Product, ProductTags, StockItem } from '../types/product';
 import { firstValueFrom } from 'rxjs';
 
-type ViewState = 'MAIN' | 'UTILITIES' | 'PRINT_LABELS' | 'SCALE';
+type ViewState = 'MAIN' | 'UTILITIES' | 'PRINT_LABELS' | 'QUICK_LABEL' | 'SCALE';
 
 import { SocketService } from '../services/socket.service';
 import { SipService, SipConfig, SipCallState, SipIncomingCall } from '../services/sip.service';
@@ -29,7 +34,12 @@ import { SipService, SipConfig, SipCallState, SipIncomingCall } from '../service
         MatButtonModule,
         MatIconModule,
         MatCardModule,
-        MatSnackBarModule
+        MatSnackBarModule,
+        MatInputModule,
+        MatChipsModule,
+        MatDatepickerModule,
+        MatNativeDateModule,
+        FormsModule
     ],
     templateUrl: './kiosk-page.component.html',
     styleUrls: ['./kiosk-page.component.css']
@@ -51,6 +61,11 @@ export class KioskPageComponent implements OnInit, OnDestroy {
 
     // Printer logic
     labelSizeCode: string = 'continuous';
+
+    // Quick Label Logic
+    quickLabelTypes: string[] = ['Prepared', 'Expires', 'Best By', 'Opened'];
+    quickLabelSelectedType: string = 'Prepared';
+    quickLabelDate: Date = new Date();
 
     scannerClaimedBy: string | null = null;
     amIClaiming: boolean = false;
@@ -602,6 +617,46 @@ export class KioskPageComponent implements OnInit, OnDestroy {
     closeScale() {
         this.stopScaleRead();
         this.openUtilities();
+    }
+
+    // Quick Label Methods
+    openQuickLabel() {
+        this.viewState = 'QUICK_LABEL';
+        this.status = 'Quick Label';
+        this.quickLabelDate = new Date(); // Reset date to today
+        this.quickLabelSelectedType = 'Prepared'; // Default
+    }
+
+    selectQuickLabelType(type: string) {
+        this.quickLabelSelectedType = type;
+    }
+
+    getQuickLabelIcon(type: string): string {
+        switch (type) {
+            case 'Prepared': return 'restaurant';
+            case 'Expires': return 'timer';
+            case 'Best By': return 'verified';
+            case 'Opened': return 'calendar_today';
+            default: return 'label';
+        }
+    }
+
+    printCustomQuickLabel() {
+        if (!this.quickLabelSelectedType || !this.quickLabelDate) return;
+
+        this.labelService.printQuickLabel(
+            this.quickLabelSelectedType,
+            this.quickLabelDate,
+            this.labelSizeCode
+        ).subscribe({
+            next: () => {
+                this.snackBar.open('Label printed successfully', 'Close', { duration: 2000 });
+            },
+            error: (err) => {
+                console.error('Print failed', err);
+                this.snackBar.open('Failed to print label', 'Close', { duration: 2000 });
+            }
+        });
     }
 
     // Scale Logic

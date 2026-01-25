@@ -97,7 +97,14 @@
             <button mat-flat-button color="primary" class="large-btn" (click)="openPrintLabels()">
                 <div class="btn-content">
                     <mat-icon>print</mat-icon>
-                    <span>PRINT LABELS</span>
+                    <span>PRESETS</span>
+                </div>
+            </button>
+
+            <button mat-flat-button color="accent" class="large-btn" (click)="openQuickLabel()">
+                <div class="btn-content">
+                    <mat-icon>edit_note</mat-icon>
+                    <span>QUICK LABEL</span>
                 </div>
             </button>
 
@@ -152,6 +159,66 @@
                     <span>EXP +1 MONTH</span>
                 </div>
             </button>
+        </div>
+
+        <!-- QUICK LABEL VIEW -->
+        <div *ngIf="viewState === 'QUICK_LABEL'" class="flex flex-col h-full gap-4 p-4">
+            <!-- Back Button -->
+            <div class="h-20 shrink-0">
+                <button mat-stroked-button class="large-btn back-btn full-width" (click)="openUtilities()">
+                    <div class="btn-content">
+                        <mat-icon>arrow_back</mat-icon>
+                        <span>BACK</span>
+                    </div>
+                </button>
+            </div>
+
+            <!-- Content -->
+            <div class="flex-1 flex flex-col gap-4 overflow-hidden">
+                <!-- Label Type Grid -->
+                <div class="grid grid-cols-2 gap-4 h-64 shrink-0">
+                    <button *ngFor="let type of quickLabelTypes" mat-flat-button
+                        [color]="quickLabelSelectedType === type ? 'primary' : 'warn'"
+                        [style.background-color]="quickLabelSelectedType !== type ? '#37474f' : ''" class="large-btn"
+                        (click)="selectQuickLabelType(type)">
+                        <div class="btn-content">
+                            <mat-icon>{{ getQuickLabelIcon(type) }}</mat-icon>
+                            <span>{{ type | uppercase }}</span>
+                        </div>
+                    </button>
+                </div>
+
+                <!-- Date & Print Row -->
+                <div class="flex-1 grid grid-cols-2 gap-4">
+                    <!-- Date Selection Card -->
+                    <mat-card class="flex flex-col justify-center p-6 bg-slate-800 text-white rounded-2xl">
+                        <h3 class="text-2xl font-bold mb-4 text-center text-gray-300">DATE</h3>
+                        <mat-form-field appearance="outline" class="w-full text-3xl">
+                            <mat-label>Select Date</mat-label>
+                            <input matInput [matDatepicker]="picker" [(ngModel)]="quickLabelDate">
+                            <mat-datepicker-toggle matIconSuffix [for]="picker"
+                                class="scale-150"></mat-datepicker-toggle>
+                            <mat-datepicker #picker touchUi></mat-datepicker>
+                        </mat-form-field>
+                        <div class="text-center mt-4 text-gray-400 font-mono">
+                            {{ quickLabelDate | date:'fullDate' }}
+                        </div>
+                    </mat-card>
+
+                    <!-- Print Button -->
+                    <button mat-flat-button color="accent" class="large-btn finish-btn h-full"
+                        (click)="printCustomQuickLabel()" [disabled]="!quickLabelSelectedType || !quickLabelDate">
+                        <div class="btn-content">
+                            <mat-icon style="font-size: 64px; height: 64px; width: 64px;">print</mat-icon>
+                            <span>PRINT LABEL</span>
+                        </div>
+                    </button>
+                </div>
+
+                <div class="text-center text-gray-500 pb-2">
+                    Format: {{labelSizeCode === '23mm' ? '23mm Square' : 'Continuous'}}
+                </div>
+            </div>
         </div>
 
         <!-- SCALE VIEW -->
