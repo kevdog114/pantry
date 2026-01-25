@@ -6,6 +6,7 @@ import time
 import logging
 import os
 import pexpect
+import re
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s', filename='sip_bridge.log')
@@ -34,23 +35,32 @@ def create_baresip_config(config):
     pwd = config.get('password', '')
     domain = config['domain']
     
-    # Simple construction
-    auth = f":{pwd}" if pwd else ""
-    account_line = f"<sip:{user}{auth}@{domain};transport=udp>;regint=3600;answermode=auto"
-    # Auto answer assumes we want it. But we can control 'answer' via command too.
-    # User requested auto-answer.
-    # baresip 'answermode=auto' handles it immediately. 
-    # But maybe we want to control it? 'answermode=manual' + sending 'a' key.
-    # Let's use manual to allow the UI to show the Incoming Call screen and user (or auto-logic) to trigger answer.
-    account_line = f"<sip:{user}{auth}@{domain};transport=udp>;regint=3600;answermode=manual"
+    # New format requested by user
+    # <sip:user@domain>;auth_user=user;auth_pass=pwd;transport=udp;regint=3600;answermode=manual
+    account_line = f"<sip:{user}@{domain}>;auth_user={user};auth_pass={pwd};transport=udp;regint=3600;answermode=manual"
 
     with open(os.path.join(baresip_dir, "accounts"), "w") as f:
         f.write(account_line + "\n")
 
     # 2. Config
+    # Find module path
+    module_path = "/usr/lib/baresip/modules" # Default fallback
+    search_paths = [
+        "/usr/lib/baresip/modules",
+        "/usr/local/lib/baresip/modules",
+        "/usr/lib/x86_64-linux-gnu/baresip/modules",
+        "/usr/lib/aarch64-linux-gnu/baresip/modules",
+        "/usr/lib/arm-linux-gnueabihf/baresip/modules"
+    ]
+    
+    for p in search_paths:
+        if os.path.exists(p) and os.path.isdir(p):
+            module_path = p
+            break
+            
     # Ensure audio modules are loaded.
-    # We rely on defaults mostly, but need to make sure 'std' input works.
     with open(os.path.join(baresip_dir, "config"), "w") as f:
+        f.write(f"module_path\t\t{module_path}\n")
         f.write("poll_method\t\tpoll\n")
         f.write("audio_player\t\talsa,default\n")
         f.write("audio_source\t\talsa,default\n")
@@ -59,10 +69,16 @@ def create_baresip_config(config):
         f.write("module\t\t\tstdio.so\n")
         f.write("module\t\t\talsa.so\n")
         f.write("module\t\t\tg711.so\n")
+        f.write("module\t\t\tg722.so\n")
+        f.write("module\t\t\topus.so\n")
         f.write("module\t\t\taccount.so\n")
         f.write("module\t\t\tmenu.so\n") # Interactive menu
+        f.write("module\t\t\tuuid.so\n")
     
     return True
+
+# regex for ansi codes
+ansi_escape = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
 
 def monitor_baresip():
     global child
@@ -78,7 +94,9 @@ def monitor_baresip():
                 if not line:
                     continue
                 
-                # logging.info(f"Baresip: {line}")
+                # Strip ANSI codes
+                line = ansi_escape.sub('', line)
+                logging.info(f"Baresip: {line}")
                 
                 # Parse Events
                 if "Incoming call from" in line:
@@ -127,8 +145,12 @@ def handle_command(line):
                     child.close()
                 
                 # Start baresip
-                # -f to force config path? Default is ~/.baresip which we populated.
-                child = pexpect.spawn('baresip', timeout=0.1)
+                # Force config path to ~/.baresip just to be explicit/safe
+                home_dir = os.path.expanduser("~")
+                baresip_dir = os.path.join(home_dir, ".baresip")
+                
+                logging.info(f"Starting baresip with config from {baresip_dir}")
+                child = pexpect.spawn(f'baresip -f "{baresip_dir}"', timeout=0.1)
                 log_json("configured", {"success": True})
             else:
                  log_json("error", {"message": "Invalid config"})
@@ -139,8 +161,8 @@ def handle_command(line):
                 if uri:
                     # 'd' triggers "Dial: " prompt
                     child.send("d")
-                    # Wait a bit or Just send URI immediately? 
-                    # Pexpect can handle it but let's just sendline.
+                    # Wait a tiny bit for prompt?
+                    time.sleep(0.1)
                     child.sendline(uri)
                     log_json("dialing", {"uri": uri})
             else:
