@@ -140,16 +140,16 @@ const getProductContext = async (): Promise<string> => {
     const totalQuantity = product.stockItems.reduce((sum, item) => sum + item.quantity, 0);
 
     if (product.stockItems.length > 0) {
-      contextParts.push(`Product: ${product.title} (ID: ${product.id}) - Total Quantity: ${totalQuantity}`);
+      contextParts.push(`Product: ${product.title} (ID: ${product.id}) - Total Quantity: ${totalQuantity} - Track By: ${product.trackCountBy}`);
       for (const stockItem of product.stockItems) {
         contextParts.push(`  - Stock ID: ${stockItem.id}`);
-        contextParts.push(`    Quantity: ${stockItem.quantity}`);
+        contextParts.push(`    Quantity: ${stockItem.quantity} ${stockItem.unit || ''}`);
         contextParts.push(`    Expiration Date: ${stockItem.expirationDate ? stockItem.expirationDate.toISOString().split('T')[0] : 'N/A'}`);
         contextParts.push(`    Status: ${stockItem.frozen ? 'Frozen' : 'Fresh'}, ${stockItem.opened ? 'Opened' : 'Unopened'}`);
       }
     } else {
       // List products with no stock so we can add to them
-      contextParts.push(`Product: ${product.title} (ID: ${product.id}) - Total Quantity: 0`);
+      contextParts.push(`Product: ${product.title} (ID: ${product.id}) - Total Quantity: 0 - Track By: ${product.trackCountBy}`);
     }
   }
   return contextParts.join('\n');
@@ -539,6 +539,14 @@ export const post = async (req: Request, res: Response) => {
       ${await getEquipmentContext()}
 
 
+      Please pay close attention to the user's input regarding quantities and units. 
+      - If the user specifies a weight (e.g. "500 grams"), use "500" as the quantity and "grams" as the unit.
+      - If the user specifies a count (e.g. "2 pork chops"), use "2" as the quantity and "count" (or null) as the unit.
+      - If the user specifies both (e.g. "2 pork chops that weigh 500 grams"), prioritize the count "2" for the quantity if adding to stock, but note the weight in the unit if possible (e.g. unit: "grams (total 500)"). However, for Stock Items, it is better to track the usable quantity. 
+      - BETTER STRATEGY: Check the product's 'trackCountBy' setting in the inventory context.
+        - If 'trackCountBy' is 'weight', use the weight as the quantity (e.g. 500).
+        - If 'trackCountBy' is 'quantity', use the count (e.g. 2).
+      
       ${additionalContext ? `\nCONTEXT FROM USER'S CURRENT VIEW:\n${additionalContext}\n` : ''}
     `;
 
@@ -592,6 +600,7 @@ export const post = async (req: Request, res: Response) => {
               properties: {
                 productId: { type: FunctionDeclarationSchemaType.INTEGER, description: "ID of the product" },
                 quantity: { type: FunctionDeclarationSchemaType.NUMBER, description: "Quantity/Amount" },
+                unit: { type: FunctionDeclarationSchemaType.STRING, description: "Unit of measure (e.g. 'grams', 'lbs', 'count')" },
                 expirationDate: { type: FunctionDeclarationSchemaType.STRING, description: "YYYY-MM-DD" },
                 frozen: { type: FunctionDeclarationSchemaType.BOOLEAN },
                 opened: { type: FunctionDeclarationSchemaType.BOOLEAN }
@@ -607,6 +616,7 @@ export const post = async (req: Request, res: Response) => {
               properties: {
                 stockId: { type: FunctionDeclarationSchemaType.INTEGER, description: "ID of the stock item" },
                 quantity: { type: FunctionDeclarationSchemaType.NUMBER, nullable: true },
+                unit: { type: FunctionDeclarationSchemaType.STRING, nullable: true },
                 expirationDate: { type: FunctionDeclarationSchemaType.STRING, nullable: true, description: "YYYY-MM-DD or null to clear" },
                 frozen: { type: FunctionDeclarationSchemaType.BOOLEAN, nullable: true },
                 opened: { type: FunctionDeclarationSchemaType.BOOLEAN, nullable: true }
@@ -640,7 +650,8 @@ export const post = async (req: Request, res: Response) => {
               type: FunctionDeclarationSchemaType.OBJECT,
               properties: {
                 item: { type: FunctionDeclarationSchemaType.STRING, description: "Name of the item" },
-                quantity: { type: FunctionDeclarationSchemaType.NUMBER, description: "Quantity" }
+                quantity: { type: FunctionDeclarationSchemaType.NUMBER, description: "Quantity" },
+                unit: { type: FunctionDeclarationSchemaType.STRING, description: "Unit (e.g. 'pkg', 'oz')" }
               },
               required: ["item"]
             }
@@ -809,6 +820,7 @@ export const post = async (req: Request, res: Response) => {
               data: {
                 productId: args.productId,
                 quantity: args.quantity,
+                unit: args.unit || null,
                 expirationDate: args.expirationDate ? new Date(args.expirationDate.includes('T') ? args.expirationDate : args.expirationDate + 'T12:00:00') : null,
                 frozen: args.frozen || false,
                 opened: args.opened || false
@@ -825,6 +837,7 @@ export const post = async (req: Request, res: Response) => {
 
             const formattedData: any = {};
             if (args.quantity !== undefined && args.quantity !== null) formattedData.quantity = args.quantity;
+            if (args.unit !== undefined && args.unit !== null) formattedData.unit = args.unit;
 
             // Handle explicit date set
             if (args.expirationDate) {
@@ -933,7 +946,10 @@ export const post = async (req: Request, res: Response) => {
             if (existingItem) {
               const updatedItem = await prisma.shoppingListItem.update({
                 where: { id: existingItem.id },
-                data: { quantity: args.quantity || 1 }
+                data: {
+                  quantity: args.quantity || 1,
+                  unit: args.unit || existingItem.unit
+                }
               });
               return { message: "Updated shopping list item quantity", item: updatedItem };
             }
@@ -942,7 +958,8 @@ export const post = async (req: Request, res: Response) => {
               data: {
                 shoppingListId: shoppingList.id,
                 name: args.item,
-                quantity: args.quantity || 1
+                quantity: args.quantity || 1,
+                unit: args.unit || null
               }
             });
             return { message: "Added to shopping list", item: newShoppingItem };
