@@ -89,6 +89,7 @@ docker run --rm \
   -v pantry_data:/data \
   -v /etc/localtime:/etc/localtime:ro \
   -v /etc/timezone:/etc/timezone:ro \
+  --device /dev/snd \
   --privileged \
   -e DISPLAY=:0 \
   -e URL="https://pantry.yourdomain.com" \
