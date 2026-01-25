@@ -876,6 +876,7 @@ export class KioskPageComponent implements OnInit, OnDestroy {
         this.availableInstructions = [];
         this.activeTimers = [];
         this.activeMode = 'NONE';
+        this.showCookPrintMenu = false;
 
         // Handler for Recipe Barcodes
         this.hardwareScanner.setCustomHandler(this.handleCookBarcode.bind(this));
@@ -965,10 +966,37 @@ export class KioskPageComponent implements OnInit, OnDestroy {
         this.http.post<any>(`${this.env.apiUrl}/labels/receipt/${this.selectedRecipe.id}`, {}).subscribe({
             next: (res) => {
                 this.snackBar.open("Receipt Sent!", "Close", { duration: 2000 });
+                this.closeCookPrintMenu();
             },
             error: (err) => {
                 console.error(err);
                 this.snackBar.open("Print Failed", "Close", { duration: 3000 });
+            }
+        });
+    }
+
+    showCookPrintMenu: boolean = false;
+
+    openCookPrintMenu() {
+        this.showCookPrintMenu = true;
+    }
+
+    closeCookPrintMenu() {
+        this.showCookPrintMenu = false;
+    }
+
+    printRecipeLabel() {
+        if (!this.selectedRecipe) return;
+
+        this.snackBar.open("Printing Label...", "Close", { duration: 2000 });
+        this.labelService.printRecipeLabel(this.selectedRecipe.id, this.labelSizeCode).subscribe({
+            next: () => {
+                this.snackBar.open("Label Sent", "Close", { duration: 2000 });
+                this.closeCookPrintMenu();
+            },
+            error: (err) => {
+                console.error(err);
+                this.snackBar.open("Label Print Failed", "Close", { duration: 3000 });
             }
         });
     }

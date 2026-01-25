@@ -256,8 +256,9 @@
                     [color]="progressValue >= 95 && progressValue <= 105 ? 'accent' : (progressValue > 105 ? 'warn' : 'primary')"
                     style="height: 20px; border-radius: 10px;" class="mb-4"></mat-progress-bar>
                 <div class="flex justify-between items-end">
-                     <div class="text-6xl font-bold">{{ displayWeight | number:'1.0-1' }} <span class="text-2xl">{{ currentUnit }}</span></div>
-                     <div class="text-3xl text-gray-500">/ {{ targetWeight }} {{ currentUnit }}</div>
+                    <div class="text-6xl font-bold">{{ displayWeight | number:'1.0-1' }} <span class="text-2xl">{{
+                            currentUnit }}</span></div>
+                    <div class="text-3xl text-gray-500">/ {{ targetWeight }} {{ currentUnit }}</div>
                 </div>
             </div>
 
@@ -397,16 +398,16 @@
 
             <!-- Main Button Grid (When Recipe Selected and !Details) -->
             <div *ngIf="selectedRecipe && !showRecipeDetails" class="flex-1 button-grid compact-grid p-4">
-                 <!-- View Instructions -->
-                 <button mat-flat-button color="primary" class="large-btn" (click)="showRecipeDetails = true">
+                <!-- View Instructions -->
+                <button mat-flat-button color="primary" class="large-btn" (click)="showRecipeDetails = true">
                     <div class="btn-content">
                         <mat-icon>menu_book</mat-icon>
                         <span>INSTRUCTIONS</span>
                     </div>
                 </button>
 
-                 <!-- Print Recipe -->
-                 <button mat-flat-button color="accent" class="large-btn" (click)="printRecipeReceipt()">
+                <!-- Print Recipe -->
+                <button mat-flat-button color="accent" class="large-btn" (click)="printRecipeReceipt()">
                     <div class="btn-content">
                         <mat-icon>receipt_long</mat-icon>
                         <span>PRINT RECIPE</span>
@@ -415,15 +416,16 @@
 
                 <!-- Quick Actions -->
                 <ng-container *ngFor="let action of selectedRecipe.quickActions">
-                    <button mat-flat-button class="large-btn"
-                        [color]="action.type === 'weigh' ? 'warn' : 'accent'"
+                    <button mat-flat-button class="large-btn" [color]="action.type === 'weigh' ? 'warn' : 'accent'"
                         [style.background-color]="action.type === 'timer' ? '#FF9800' : ''"
                         (click)="startQuickAction(action)">
                         <div class="btn-content">
                             <mat-icon>{{ action.type === 'weigh' ? 'scale' : 'timer' }}</mat-icon>
                             <span>{{ action.name | uppercase }}</span>
                             <span class="text-sm opacity-75">
-                                {{ action.value }}<span *ngIf="!action.value.endsWith('g') && !action.value.endsWith('m')">{{ action.type === 'weigh' ? 'g' : 'm' }}</span>
+                                {{ action.value }}<span
+                                    *ngIf="!action.value.endsWith('g') && !action.value.endsWith('m')">{{ action.type
+                                    === 'weigh' ? 'g' : 'm' }}</span>
                             </span>
                         </div>
                     </button>
@@ -433,7 +435,8 @@
             <!-- Details View (When Recipe Selected and Details=True) -->
             <div *ngIf="selectedRecipe && showRecipeDetails" class="flex-1 overflow-hidden flex flex-col">
                 <div class="mb-4">
-                    <button mat-stroked-button class="large-btn back-btn full-width" (click)="showRecipeDetails = false">
+                    <button mat-stroked-button class="large-btn back-btn full-width"
+                        (click)="showRecipeDetails = false">
                         <div class="btn-content flex-row gap-4">
                             <mat-icon>arrow_back</mat-icon>
                             <span>BACK TO ACTIONS</span>
@@ -441,16 +444,48 @@
                     </button>
                 </div>
 
-                <div class="flex-1 overflow-y-auto grid grid-cols-12 gap-4">
-                     <!-- Ingredients -->
-                    <div class="col-span-4 bg-slate-800 rounded-xl p-4">
-                        <h3 class="text-lg font-bold mb-3 border-b border-slate-700 pb-2">Ingredients</h3>
-                        <ul class="space-y-2 text-sm">
-                            <li *ngFor="let ing of selectedRecipe.ingredients" class="flex justify-between">
-                                <span>{{ ing.amount }} {{ ing.unit }}</span>
-                                <span class="text-gray-300 truncate ml-2">{{ ing.name }}</span>
-                            </li>
-                        </ul>
+                <!-- Steps -->
+                <div class="col-span-4 bg-slate-800 rounded-xl p-4 overflow-y-auto">
+                    <h3 class="text-lg font-bold mb-3 border-b border-slate-700 pb-2">Method</h3>
+                    <div class="space-y-4">
+                        <div *ngFor="let step of selectedRecipe.steps" class="flex gap-3">
+                            <div
+                                class="shrink-0 w-6 h-6 rounded-full bg-primary-500 flex items-center justify-center text-xs font-bold">
+                                {{ step.stepNumber }}</div>
+                            <p class="text-sm leading-relaxed text-gray-200">{{ step.description }}</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Actions & Timers -->
+                <div class="col-span-4 flex flex-col gap-4">
+                    <!-- Main Actions -->
+                    <div class="bg-slate-800 rounded-xl p-4">
+                        <ng-container *ngIf="!showCookPrintMenu">
+                            <button mat-flat-button color="accent" class="w-full h-16 text-lg"
+                                (click)="openCookPrintMenu()">
+                                <mat-icon class="mr-2">print</mat-icon> Print Options
+                            </button>
+                        </ng-container>
+
+                        <div *ngIf="showCookPrintMenu" class="flex flex-col gap-3 animate-pulse-soft">
+                            <div class="text-center text-gray-400 font-bold uppercase tracking-wider text-xs">select
+                                print type</div>
+
+                            <button mat-flat-button class="w-full h-16 text-lg"
+                                style="background-color: #2e7d32; color: white;" (click)="printRecipeReceipt()">
+                                <mat-icon class="mr-2">receipt_long</mat-icon> Print Recipe (Full)
+                            </button>
+
+                            <button mat-flat-button color="primary" class="w-full h-16 text-lg"
+                                (click)="printRecipeLabel()">
+                                <mat-icon class="mr-2">label</mat-icon> Print Label
+                            </button>
+
+                            <button mat-stroked-button color="warn" class="w-full h-12" (click)="closeCookPrintMenu()">
+                                <mat-icon>close</mat-icon> Cancel
+                            </button>
+                        </div>
                     </div>
 
                     <!-- Steps -->
@@ -468,7 +503,7 @@
                 </div>
             </div>
 
-             <div class="bg-slate-800 rounded-xl p-4 mt-4 shrink-0" *ngIf="activeTimers.length > 0">
+            <div class="bg-slate-800 rounded-xl p-4 mt-4 shrink-0" *ngIf="activeTimers.length > 0">
                 <h3 class="text-sm font-bold mb-2 text-orange-400">Active Timers</h3>
                 <div class="flex gap-4 overflow-x-auto">
                     <div *ngFor="let timer of activeTimers"
