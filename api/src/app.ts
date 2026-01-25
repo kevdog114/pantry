@@ -3,6 +3,7 @@ import * as path from 'path';
 import * as fs from 'fs';
 import * as ProductsController from "./controllers/ProductsController";
 import * as RecipeController from "./controllers/RecipeController";
+import * as TimerController from "./controllers/TimerController";
 import * as ProductSearchController from "./controllers/ProductSearchController";
 import * as LeftoverController from "./controllers/LeftoverController";
 
@@ -280,6 +281,11 @@ app.delete("/equipment/:id", EquipmentController.deleteById);
 app.post("/equipment/:id/files", EquipmentController.uploadFile);
 
 app.get("/diagnostics/clients", DiagnosticsController.getConnectedClients);
+
+app.get("/timers", TimerController.getTimers);
+app.post("/timers", TimerController.createTimer);
+app.delete("/timers/:id", TimerController.deleteTimer);
+
 
 app.get('/*', (req: Request, res: Response) => {
     res.sendFile('index.html', { root: '../ui/pantry-ui/dist/pantry-ui' });

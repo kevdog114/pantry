@@ -205,6 +205,11 @@ export const routes: Routes = [
         canActivate: [AuthGuard]
     },
     {
+        path: "timers",
+        loadComponent: () => import('./timers/timers.component').then(m => m.TimersComponent),
+        canActivate: [AuthGuard]
+    },
+    {
         path: "**",
         redirectTo: "home"
     }

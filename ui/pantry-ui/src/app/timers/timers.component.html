@@ -1,0 +1,75 @@
+<div class="h-full flex flex-col p-4 bg-slate-50 dark:bg-zinc-900">
+    <!-- Header -->
+    <div class="flex items-center justify-between mb-6">
+        <h1 class="text-3xl font-bold dark:text-white">Timers</h1>
+        <button mat-flat-button color="primary" (click)="toggleCreateMode()">
+            <mat-icon>{{ isCreateMode ? 'close' : 'add' }}</mat-icon>
+            {{ isCreateMode ? 'CANCEL' : 'NEW TIMER' }}
+        </button>
+    </div>
+
+    <!-- Create Mode -->
+    <div *ngIf="isCreateMode" class="mb-8 p-6 bg-white dark:bg-zinc-800 rounded-xl shadow-lg animate-fade-in">
+        <h2 class="text-xl font-semibold mb-4 dark:text-gray-200">Set New Timer</h2>
+
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+            <button mat-stroked-button class="h-12" (click)="startTimer(5, '5 Minutes')">5m</button>
+            <button mat-stroked-button class="h-12" (click)="startTimer(10, '10 Minutes')">10m</button>
+            <button mat-stroked-button class="h-12" (click)="startTimer(15, '15 Minutes')">15m</button>
+            <button mat-stroked-button class="h-12" (click)="startTimer(30, '30 Minutes')">30m</button>
+            <button mat-stroked-button class="h-12" (click)="startTimer(45, '45 Minutes')">45m</button>
+            <button mat-stroked-button class="h-12" (click)="startTimer(60, '1 Hour')">1h</button>
+        </div>
+
+        <div class="flex gap-4 items-end">
+            <mat-form-field appearance="outline" class="flex-1">
+                <mat-label>Custom Minutes</mat-label>
+                <input matInput type="number" [(ngModel)]="customDuration" (keyup.enter)="startCustom()">
+            </mat-form-field>
+            <mat-form-field appearance="outline" class="flex-1">
+                <mat-label>Name (Optional)</mat-label>
+                <input matInput [(ngModel)]="customName" placeholder="e.g. Pasta" (keyup.enter)="startCustom()">
+            </mat-form-field>
+            <button mat-flat-button color="accent" class="h-[56px] mb-[22px]" (click)="startCustom()"
+                [disabled]="!customDuration || customDuration <= 0">START</button>
+        </div>
+    </div>
+
+    <!-- Active Timers Grid -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <mat-card *ngFor="let timer of activeTimers"
+            class="timer-card relative overflow-hidden transition-all hover:shadow-xl dark:bg-zinc-800">
+            <div class="absolute top-0 left-0 w-1 h-full bg-orange-500"></div>
+            <mat-card-content class="p-6">
+                <div class="flex justify-between items-start mb-2">
+                    <span class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">{{
+                        timer.name || 'Timer' }}</span>
+                    <button mat-icon-button color="warn" (click)="deleteTimer(timer.id)" matTooltip="Stop Timer">
+                        <mat-icon>delete</mat-icon>
+                    </button>
+                </div>
+
+                <div class="text-center py-4">
+                    <div class="text-5xl font-mono font-bold text-gray-800 dark:text-white mb-2">
+                        {{ formatTimer(timer.remainingSeconds) }}
+                    </div>
+
+                    <!-- Progress Bar Background -->
+                    <div class="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                        <div class="h-full bg-orange-500 transition-all duration-1000 ease-linear"
+                            [style.width.%]="(timer.remainingSeconds / timer.totalSeconds) * 100">
+                        </div>
+                    </div>
+                </div>
+            </mat-card-content>
+        </mat-card>
+
+        <!-- Empty State -->
+        <div *ngIf="activeTimers.length === 0 && !isCreateMode"
+            class="col-span-full flex flex-col items-center justify-center py-20 text-gray-400">
+            <mat-icon class="text-6xl mb-4 opacity-50">timer_off</mat-icon>
+            <p class="text-xl">No active timers</p>
+            <button mat-button color="primary" class="mt-2" (click)="toggleCreateMode()">Create Timer</button>
+        </div>
+    </div>
+</div>

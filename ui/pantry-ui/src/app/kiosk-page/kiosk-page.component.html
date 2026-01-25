@@ -3,6 +3,18 @@
     <div class="status-section" [class.scanning]="activeMode !== 'NONE'">
         <h1 class="status-text">{{ status }}</h1>
         <h2 *ngIf="statusSubtext" class="status-subtext">{{ statusSubtext }}</h2>
+        <div *ngIf="viewState === 'MAIN' && activeMode === 'NONE' && activeTimers.length > 0"
+            class="absolute top-4 right-4 flex flex-col gap-2 z-10 w-64 pointer-events-none">
+            <div *ngFor="let timer of activeTimers"
+                class="bg-slate-900/90 text-white rounded p-3 flex items-center justify-between shadow-lg border border-slate-700">
+                <div>
+                    <span class="block text-xs text-gray-400 uppercase tracking-wider">{{ timer.name || 'Timer'
+                        }}</span>
+                    <span class="block text-2xl font-mono font-bold">{{ formatTimer(timer.remainingSeconds) }}</span>
+                </div>
+                <mat-icon class="text-orange-500 animate-pulse">timer</mat-icon>
+            </div>
+        </div>
         <mat-icon *ngIf="activeMode !== 'NONE'" class="pulse-icon">qr_code_scanner</mat-icon>
     </div>
 
@@ -76,11 +88,11 @@
                 </div>
             </button>
 
-            <button *ngIf="pbxConfig && pbxConfig.enabled" mat-flat-button class="large-btn phone-btn"
-                (click)="openPhone()" style="background-color: #4CAF50; color: white;">
+            <button mat-flat-button class="large-btn timer-btn" (click)="openTimers()"
+                style="background-color: #FF9800; color: white;">
                 <div class="btn-content">
-                    <mat-icon>phone</mat-icon>
-                    <span>PHONE</span>
+                    <mat-icon>timer</mat-icon>
+                    <span>TIMERS</span>
                 </div>
             </button>
         </div>
@@ -119,6 +131,14 @@
                 <div class="btn-content">
                     <mat-icon>list_alt</mat-icon>
                     <span>PRINT LIST</span>
+                </div>
+            </button>
+
+            <button *ngIf="pbxConfig && pbxConfig.enabled" mat-flat-button class="large-btn phone-btn"
+                (click)="openPhone()" style="background-color: #4CAF50; color: white;">
+                <div class="btn-content">
+                    <mat-icon>phone</mat-icon>
+                    <span>PHONE</span>
                 </div>
             </button>
         </div>
@@ -247,6 +267,48 @@
                         <span>{{ currentUnit === 'g' ? 'TO OZ/LBS' : 'TO GRAMS' }}</span>
                     </div>
                 </button>
+            </div>
+        </div>
+
+        <!-- TIMERS VIEW -->
+        <div *ngIf="viewState === 'TIMERS'" class="flex flex-col h-full bg-slate-900 text-white p-4">
+            <div class="h-20 shrink-0 mb-4">
+                <button mat-stroked-button class="large-btn back-btn full-width" (click)="closeTimers()">
+                    <div class="btn-content">
+                        <mat-icon>arrow_back</mat-icon>
+                        <span>BACK</span>
+                    </div>
+                </button>
+            </div>
+
+            <div class="bg-slate-800 rounded-xl p-4 mb-4">
+                <h3 class="text-xl font-bold mb-4 text-gray-300">Set New Timer</h3>
+                <div class="grid grid-cols-5 gap-2">
+                    <button mat-flat-button color="primary" class="h-16 text-xl" (click)="createTimer(5)">5m</button>
+                    <button mat-flat-button color="primary" class="h-16 text-xl" (click)="createTimer(10)">10m</button>
+                    <button mat-flat-button color="primary" class="h-16 text-xl" (click)="createTimer(15)">15m</button>
+                    <button mat-flat-button color="primary" class="h-16 text-xl" (click)="createTimer(30)">30m</button>
+                    <button mat-flat-button color="primary" class="h-16 text-xl" (click)="createTimer(60)">1h</button>
+                </div>
+            </div>
+
+            <div class="flex-1 overflow-y-auto space-y-3 bg-slate-800/50 rounded-xl p-4">
+                <h3 class="text-xl font-bold mb-2 text-gray-300">Active Timers</h3>
+                <div *ngFor="let timer of activeTimers"
+                    class="bg-slate-700 rounded-xl p-4 flex items-center justify-between border-l-4 border-orange-500">
+                    <div>
+                        <div class="text-gray-300 text-sm">{{ timer.name || 'Timer' }}</div>
+                        <div class="text-4xl font-mono font-bold">{{ formatTimer(timer.remainingSeconds) }}</div>
+                    </div>
+                    <button mat-icon-button color="warn" class="scale-150 w-16 h-16" (click)="deleteTimer(timer.id)">
+                        <mat-icon>delete</mat-icon>
+                    </button>
+                </div>
+                <div *ngIf="activeTimers.length === 0"
+                    class="flex flex-col items-center justify-center h-40 text-gray-500">
+                    <mat-icon class="text-6xl text-gray-700 mb-2">timer_off</mat-icon>
+                    <span>No active timers</span>
+                </div>
             </div>
         </div>
 
