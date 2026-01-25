@@ -20,7 +20,8 @@ import { TagsService } from '../tags.service';
 import { Product, ProductTags, StockItem } from '../types/product';
 import { firstValueFrom } from 'rxjs';
 
-type ViewState = 'MAIN' | 'UTILITIES' | 'PRINT_LABELS' | 'QUICK_LABEL' | 'SCALE';
+type ViewState = 'MAIN' | 'UTILITIES' | 'PRINT_LABELS' | 'QUICK_LABEL' | 'SCALE' | 'COOK';
+import { Recipe, RecipeQuickAction } from '../types/recipe';
 
 import { SocketService } from '../services/socket.service';
 import { SipService, SipConfig, SipCallState, SipIncomingCall } from '../services/sip.service';
@@ -75,6 +76,11 @@ export class KioskPageComponent implements OnInit, OnDestroy {
     callState: SipCallState | null = null;
     incomingCall: SipIncomingCall | null = null;
     dialNumber: string = '';
+
+    // COOK Logic
+    selectedRecipe: Recipe | null = null;
+    activeTimers: { id: number, name: string, totalSeconds: number, remainingSeconds: number, interval: any, initialDisplay: string }[] = [];
+
 
     constructor(
         private router: Router,
@@ -160,9 +166,9 @@ export class KioskPageComponent implements OnInit, OnDestroy {
             });
         }
     }
-
     ngOnDestroy(): void {
         if (this.timer) clearInterval(this.timer);
+        this.activeTimers.forEach(t => clearInterval(t.interval));
         this.hardwareScanner.setCustomHandler(null);
     }
 
@@ -774,6 +780,145 @@ export class KioskPageComponent implements OnInit, OnDestroy {
                 this.snackBar.open('Failed to print', 'Close', { duration: 2000 });
             }
         });
+    }
+
+    // COOK METHODS
+    openCook() {
+        this.viewState = 'COOK';
+        this.status = 'Scan Recipe...';
+        this.statusSubtext = '';
+        this.selectedRecipe = null;
+        this.activeTimers = [];
+        this.activeMode = 'NONE';
+
+        // Handler for Recipe Barcodes
+        this.hardwareScanner.setCustomHandler(this.handleCookBarcode.bind(this));
+    }
+
+    closeCook() {
+        this.viewState = 'MAIN';
+        this.status = 'Ready';
+        this.statusSubtext = '';
+        this.selectedRecipe = null;
+        // Clean timers
+        this.activeTimers.forEach(t => clearInterval(t.interval));
+        this.activeTimers = [];
+        this.hardwareScanner.setCustomHandler(() => { });
+    }
+
+    async handleCookBarcode(barcode: string) {
+        if (!barcode) return;
+
+        // Expected format R-<ID> or recipe:<ID>
+        const lower = barcode.toLowerCase();
+        let recipeId: number | null = null;
+
+        if (lower.startsWith('r-')) {
+            recipeId = parseInt(barcode.substring(2));
+        } else if (lower.startsWith('recipe:')) {
+            recipeId = parseInt(barcode.substring(7));
+        }
+
+        if (recipeId) {
+            this.status = "Loading Recipe...";
+            try {
+                const recipe = await firstValueFrom(this.http.get<Recipe>(`${this.env.apiUrl}/recipes/${recipeId}`));
+                if (recipe) {
+                    this.selectedRecipe = recipe;
+                    this.status = recipe.title;
+                    this.statusSubtext = "Ready to Cook";
+                    this.hardwareScanner.setCustomHandler(() => { /* Maybe allow scanning ingredients? For now nothing */ });
+                } else {
+                    this.showTempStatus("Recipe Not Found", "", 3000);
+                }
+            } catch (e) {
+                console.error("Failed to load recipe", e);
+                this.showTempStatus("Error Loading Recipe", "", 3000);
+            }
+        } else {
+            this.showTempStatus("Not a Recipe Barcode", "", 3000);
+        }
+    }
+
+    printRecipeReceipt() {
+        if (!this.selectedRecipe) return;
+
+        this.snackBar.open("Printing Receipt...", "Close", { duration: 2000 });
+        this.http.post<any>(`${this.env.apiUrl}/labels/receipt/${this.selectedRecipe.id}`, {}).subscribe({
+            next: (res) => {
+                this.snackBar.open("Receipt Sent!", "Close", { duration: 2000 });
+            },
+            error: (err) => {
+                console.error(err);
+                this.snackBar.open("Print Failed", "Close", { duration: 3000 });
+            }
+        });
+    }
+
+    startQuickAction(action: RecipeQuickAction) {
+        if (action.type === 'timer') {
+            // Parse value "10" or "10-12" to get duration
+            // We'll take the max if range, or just the number
+            let minutes = 0;
+            if (action.value.includes('-')) {
+                const parts = action.value.split('-');
+                minutes = parseInt(parts[1]); // Take upper bound? Or lower? Let's take lower for safety? Or avg? 
+                // User cooks usually want the check time (lower) or finished time (upper)?
+                // Let's use the first number as the timer duration.
+                minutes = parseInt(parts[0]);
+            } else {
+                minutes = parseInt(action.value);
+            }
+
+            if (isNaN(minutes)) return;
+
+            const durationSec = minutes * 60;
+
+            const timerId = Date.now();
+            const timerObj: any = {
+                id: timerId,
+                name: action.name,
+                totalSeconds: durationSec,
+                remainingSeconds: durationSec,
+                initialDisplay: action.value + "m",
+                interval: null
+            };
+
+            timerObj.interval = setInterval(() => {
+                timerObj.remainingSeconds--;
+                if (timerObj.remainingSeconds <= 0) {
+                    clearInterval(timerObj.interval);
+                    this.playTimerAlarm();
+                    this.snackBar.open(`Timer Done: ${action.name}`, "Okay", { duration: 10000 });
+                }
+            }, 1000);
+
+            this.activeTimers.push(timerObj);
+        }
+    }
+
+    removeTimer(timer: any) {
+        clearInterval(timer.interval);
+        const idx = this.activeTimers.indexOf(timer);
+        if (idx >= 0) this.activeTimers.splice(idx, 1);
+    }
+
+    formatTimer(seconds: number): string {
+        const m = Math.floor(seconds / 60);
+        const s = seconds % 60;
+        return `${m}:${s < 10 ? '0' : ''}${s}`;
+    }
+
+    playTimerAlarm() {
+        // Play simple beep? OR audio file?
+        // Using browser Audio if possible
+        try {
+            // Simple beep sequence or use system bell?
+            // Kiosk might stick with visual only if no audio assets. 
+            // I'll try to use a simple oscillator if user interaction allows, but WebAudio requires interaction.
+            // We are in a handler (click -> interval), so obscure.
+            // Let's rely on SnackBar visual for now.
+        } catch (e) { }
     }
 
     exitKiosk() {

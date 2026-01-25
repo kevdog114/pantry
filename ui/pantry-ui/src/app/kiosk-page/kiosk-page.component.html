@@ -55,7 +55,7 @@
                 </div>
             </button>
 
-            <button mat-flat-button color="accent" class="large-btn" (click)="goToMealPlan()">
+            <button mat-flat-button color="accent" class="large-btn" (click)="openCook()">
                 <div class="btn-content">
                     <mat-icon>menu_book</mat-icon>
                     <span>COOK</span>
@@ -279,6 +279,96 @@
                 <button mat-fab color="primary" class="w-full h-16 text-3xl" (click)="dial(dialNumber)">
                     <mat-icon>call</mat-icon>
                 </button>
+            </div>
+        </div>
+
+        <!-- COOK VIEW -->
+        <div *ngIf="viewState === 'COOK'"
+            class="flex flex-col h-full bg-slate-900 text-white p-4 overflow-hidden relative">
+
+            <!-- Top Bar -->
+            <div class="flex items-center justify-between mb-4 shrink-0">
+                <button mat-stroked-button color="warn" (click)="closeCook()">
+                    <mat-icon>arrow_back</mat-icon> EXIT COOK MODE
+                </button>
+                <div *ngIf="selectedRecipe" class="text-xl font-bold truncate ml-4">{{ selectedRecipe.title }}</div>
+            </div>
+
+            <!-- Empty State -->
+            <div *ngIf="!selectedRecipe" class="flex-1 flex flex-col items-center justify-center text-gray-400">
+                <mat-icon style="font-size: 96px; width: 96px; height: 96px;"
+                    class="mb-4 opacity-50">qr_code_scanner</mat-icon>
+                <h2 class="text-3xl font-light">Scan Recipe Barcode</h2>
+            </div>
+
+            <!-- Recipe Content -->
+            <div *ngIf="selectedRecipe" class="flex-1 overflow-y-auto grid grid-cols-12 gap-4">
+                <!-- Ingredients -->
+                <div class="col-span-4 bg-slate-800 rounded-xl p-4">
+                    <h3 class="text-lg font-bold mb-3 border-b border-slate-700 pb-2">Ingredients</h3>
+                    <ul class="space-y-2 text-sm">
+                        <li *ngFor="let ing of selectedRecipe.ingredients" class="flex justify-between">
+                            <span>{{ ing.amount }} {{ ing.unit }}</span>
+                            <span class="text-gray-300 truncate ml-2">{{ ing.name }}</span>
+                        </li>
+                    </ul>
+                </div>
+
+                <!-- Steps -->
+                <div class="col-span-4 bg-slate-800 rounded-xl p-4 overflow-y-auto">
+                    <h3 class="text-lg font-bold mb-3 border-b border-slate-700 pb-2">Method</h3>
+                    <div class="space-y-4">
+                        <div *ngFor="let step of selectedRecipe.steps" class="flex gap-3">
+                            <div
+                                class="shrink-0 w-6 h-6 rounded-full bg-primary-500 flex items-center justify-center text-xs font-bold">
+                                {{ step.stepNumber }}</div>
+                            <p class="text-sm leading-relaxed text-gray-200">{{ step.description }}</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Actions & Timers -->
+                <div class="col-span-4 flex flex-col gap-4">
+                    <!-- Main Actions -->
+                    <div class="bg-slate-800 rounded-xl p-4">
+                        <button mat-flat-button color="accent" class="w-full h-16 text-lg mb-4"
+                            (click)="printRecipeReceipt()">
+                            <mat-icon class="mr-2">receipt_long</mat-icon> Print Receipt
+                        </button>
+                    </div>
+
+                    <!-- Quick Actions -->
+                    <div class="bg-slate-800 rounded-xl p-4 flex-1" *ngIf="selectedRecipe.quickActions?.length">
+                        <h3 class="text-lg font-bold mb-3 border-b border-slate-700 pb-2">Quick Actions</h3>
+                        <div class="grid grid-cols-2 gap-3">
+                            <button *ngFor="let action of selectedRecipe.quickActions" mat-stroked-button
+                                color="primary" class="h-16 !whitespace-normal !leading-tight py-2"
+                                (click)="startQuickAction(action)">
+                                <div class="flex flex-col items-center">
+                                    <mat-icon>timer</mat-icon>
+                                    <span class="text-xs">{{ action.name }}</span>
+                                    <span class="text-xs font-mono">{{ action.value }}m</span>
+                                </div>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Active Timers -->
+                    <div class="bg-slate-800 rounded-xl p-4 flex-1" *ngIf="activeTimers.length > 0">
+                        <h3 class="text-lg font-bold mb-3 border-b border-slate-700 pb-2 text-orange-400">Timers</h3>
+                        <div class="space-y-2">
+                            <div *ngFor="let timer of activeTimers"
+                                class="bg-slate-700 rounded p-3 flex items-center justify-between animate-pulse-slow">
+                                <div>
+                                    <div class="text-xs text-gray-400">{{ timer.name }}</div>
+                                    <div class="text-xl font-mono">{{ formatTimer(timer.remainingSeconds) }}</div>
+                                </div>
+                                <button mat-icon-button color="warn"
+                                    (click)="removeTimer(timer)"><mat-icon>close</mat-icon></button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
 
