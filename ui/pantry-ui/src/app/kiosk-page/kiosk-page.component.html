@@ -357,10 +357,29 @@
             </div>
 
             <!-- Empty State -->
-            <div *ngIf="!selectedRecipe" class="flex-1 flex flex-col items-center justify-center text-gray-400">
+            <div *ngIf="!selectedRecipe && availableInstructions.length === 0"
+                class="flex-1 flex flex-col items-center justify-center text-gray-400">
                 <mat-icon style="font-size: 96px; width: 96px; height: 96px;"
                     class="mb-4 opacity-50">qr_code_scanner</mat-icon>
-                <h2 class="text-3xl font-light">Scan Recipe Barcode</h2>
+                <h2 class="text-3xl font-light">Scan Recipe or Product Barcode</h2>
+            </div>
+
+            <!-- Instruction Selection -->
+            <div *ngIf="!selectedRecipe && availableInstructions.length > 0" class="flex-1 overflow-y-auto p-8">
+                <h2 class="text-3xl font-bold mb-8 text-center">Select Cooking Instructions</h2>
+                <div class="grid grid-cols-2 gap-6">
+                    <button *ngFor="let instruction of availableInstructions" mat-flat-button color="primary"
+                        class="h-32 text-xl shadow-lg transform transition active:scale-95"
+                        (click)="selectInstruction(instruction)">
+                        <div class="flex flex-col items-center gap-2">
+                            <mat-icon class="scale-150 mb-2">menu_book</mat-icon>
+                            <span>{{ instruction.name.split(' - ').pop() }}</span>
+                            <span class="text-sm font-normal opacity-75" *ngIf="instruction.totalTime">
+                                {{ instruction.totalTime }} mins
+                            </span>
+                        </div>
+                    </button>
+                </div>
             </div>
 
             <!-- Recipe Content -->

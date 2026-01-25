@@ -131,7 +131,10 @@ export const getAvailableModels = async (req: Request, res: Response) => {
 const getProductContext = async (): Promise<string> => {
   const products = await prisma.product.findMany({
     include: {
-      stockItems: true
+      stockItems: true,
+      cookingInstructions: {
+        select: { id: true, name: true, type: true }
+      }
     }
   });
 
@@ -140,7 +143,8 @@ const getProductContext = async (): Promise<string> => {
     const totalQuantity = product.stockItems.reduce((sum, item) => sum + item.quantity, 0);
 
     if (product.stockItems.length > 0) {
-      contextParts.push(`Product: ${product.title} (ID: ${product.id}) - Total Quantity: ${totalQuantity} - Track By: ${product.trackCountBy}`);
+      const instructions = (product as any).cookingInstructions?.map((i: any) => i.name).join(', ');
+      contextParts.push(`Product: ${product.title} (ID: ${product.id}) - Total Quantity: ${totalQuantity} - Track By: ${product.trackCountBy}${instructions ? ` - Saved Instructions: ${instructions}` : ''}`);
       for (const stockItem of product.stockItems) {
         contextParts.push(`  - Stock ID: ${stockItem.id}`);
         contextParts.push(`    Quantity: ${stockItem.quantity} ${stockItem.unit || ''}`);
@@ -149,7 +153,8 @@ const getProductContext = async (): Promise<string> => {
       }
     } else {
       // List products with no stock so we can add to them
-      contextParts.push(`Product: ${product.title} (ID: ${product.id}) - Total Quantity: 0 - Track By: ${product.trackCountBy}`);
+      const instructions = (product as any).cookingInstructions?.map((i: any) => i.name).join(', ');
+      contextParts.push(`Product: ${product.title} (ID: ${product.id}) - Total Quantity: 0 - Track By: ${product.trackCountBy}${instructions ? ` - Saved Instructions: ${instructions}` : ''}`);
     }
   }
   return contextParts.join('\n');
@@ -490,6 +495,11 @@ export const post = async (req: Request, res: Response) => {
       The current date is ${new Date().toLocaleDateString()}.
       You can use the provided tools to managing stock entries (create, edit, delete, list) and printing.
       
+      COOKING INSTRUCTIONS:
+      - If the user provides an image of a product package/bag and asks to save instructions, explore the image and use 'createCookingInstruction'.
+      - Create separate instructions for different methods (e.g. "Microwave", "Oven", "Air Fryer") if the package lists them.
+      - Ensure the method name includes the product name if useful for context, but the association is handled by ID.
+      
       PRINTING RULES:
       - If the user asks to print a RECIPE, you MUST first use 'getRecipeDetails' to get the full ingredients and steps. Do NOT hallucinate them.
       - Once you have the details (or if printing a simple list), use 'printReceipt'.
@@ -793,6 +803,30 @@ export const post = async (req: Request, res: Response) => {
                 footer: { type: FunctionDeclarationSchemaType.STRING, description: "Optional footer text" }
               },
               required: ["title"]
+            }
+          }
+        ]
+      },
+      {
+        functionDeclarations: [
+          {
+            name: "createCookingInstruction",
+            description: "Save specific cooking instructions for a product (e.g. Microwave vs Oven).",
+            parameters: {
+              type: FunctionDeclarationSchemaType.OBJECT,
+              properties: {
+                productId: { type: FunctionDeclarationSchemaType.INTEGER, description: "ID of the product these instructions belong to." },
+                method: { type: FunctionDeclarationSchemaType.STRING, description: "Cooking method or title (e.g. 'Microwave Instructions')" },
+                description: { type: FunctionDeclarationSchemaType.STRING, description: "Brief description of the method." },
+                steps: {
+                  type: FunctionDeclarationSchemaType.ARRAY,
+                  items: { type: FunctionDeclarationSchemaType.STRING },
+                  description: "List of instruction steps."
+                },
+                prepTime: { type: FunctionDeclarationSchemaType.NUMBER },
+                cookTime: { type: FunctionDeclarationSchemaType.NUMBER }
+              },
+              required: ["productId", "method", "steps"]
             }
           }
         ]
@@ -1184,6 +1218,31 @@ export const post = async (req: Request, res: Response) => {
           case "deleteTimer":
             await prisma.timer.delete({ where: { id: args.timerId } });
             return { message: "Timer deleted" };
+
+          case "createCookingInstruction":
+            // Verify product exists
+            const targetProd = await prisma.product.findUnique({ where: { id: args.productId } });
+            if (!targetProd) return { error: "Product not found" };
+
+            const newInstruction = await prisma.recipe.create({
+              data: {
+                name: `${targetProd.title} - ${args.method}`,
+                description: args.description || `Cooking instructions for ${targetProd.title}`,
+                type: 'instruction',
+                instructionForProductId: args.productId,
+                source: 'Gemini',
+                prepTime: args.prepTime,
+                cookTime: args.cookTime,
+                totalTime: (args.prepTime || 0) + (args.cookTime || 0),
+                steps: {
+                  create: (args.steps || []).map((step: string, idx: number) => ({
+                    stepNumber: idx + 1,
+                    instruction: step
+                  }))
+                }
+              }
+            });
+            return { message: "Created cooking instruction", type: "instruction", instructionId: newInstruction.id };
 
           default:
             return { error: "Unknown tool" };

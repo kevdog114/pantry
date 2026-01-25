@@ -79,6 +79,7 @@ export class KioskPageComponent implements OnInit, OnDestroy {
 
     // COOK Logic
     selectedRecipe: Recipe | null = null;
+    availableInstructions: Recipe[] = [];
     activeTimers: any[] = [];
 
 
@@ -855,6 +856,7 @@ export class KioskPageComponent implements OnInit, OnDestroy {
         this.status = 'Scan Recipe...';
         this.statusSubtext = '';
         this.selectedRecipe = null;
+        this.availableInstructions = [];
         this.activeTimers = [];
         this.activeMode = 'NONE';
 
@@ -867,6 +869,7 @@ export class KioskPageComponent implements OnInit, OnDestroy {
         this.status = 'Ready';
         this.statusSubtext = '';
         this.selectedRecipe = null;
+        this.availableInstructions = [];
         // Clean timers
         this.activeTimers.forEach(t => clearInterval(t.interval));
         this.activeTimers = [];
@@ -903,8 +906,38 @@ export class KioskPageComponent implements OnInit, OnDestroy {
                 this.showTempStatus("Error Loading Recipe", "", 3000);
             }
         } else {
-            this.showTempStatus("Not a Recipe Barcode", "", 3000);
+            // Try Product Lookup
+            this.status = "Looking up Product...";
+            const { product } = await this.resolveBarcode(barcode);
+
+            if (product) {
+                if (product.cookingInstructions && product.cookingInstructions.length > 0) {
+                    // Start logic for selecting instruction
+                    this.status = product.title;
+                    this.statusSubtext = "Select Instruction";
+                    this.availableInstructions = product.cookingInstructions as any[]; // Cast if needed or ensure Type matches
+
+                    // If only one, auto-select
+                    if (this.availableInstructions.length === 1) {
+                        this.selectInstruction(this.availableInstructions[0]);
+                    }
+                } else {
+                    this.showTempStatus("No Instructions Found", product.title, 3000);
+                }
+            } else {
+                this.showTempStatus("Unknown Barcode", "", 3000);
+            }
         }
+    }
+
+    selectInstruction(recipe: Recipe) {
+        this.availableInstructions = [];
+        this.selectedRecipe = recipe;
+        this.status = recipe.title;
+        this.statusSubtext = "Ready to Cook";
+        // Scan handler remains to allow rescanning another item to switch
+        // But maybe we want to pause scanning?
+        // For now, let them scan another item if they want.
     }
 
     printRecipeReceipt() {

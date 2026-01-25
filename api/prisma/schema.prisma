@@ -39,6 +39,7 @@ model Product {
   leftoverRecipeId       Int?
   leftoverRecipe         Recipe?    @relation("RecipeLeftovers", fields: [leftoverRecipeId], references: [id])
   autoPrintLabel         Boolean    @default(false)
+  cookingInstructions    Recipe[]   @relation("ProductInstructions")
 }
 
 model File {
@@ -130,6 +131,10 @@ model Recipe {
   files          File[]       @relation("RecipeToFile")
   receiptSteps   String?      // JSON string for receipt printer optimized steps
   quickActions   RecipeQuickAction[]
+  
+  type           String     @default("recipe") // "recipe", "instruction"
+  instructionForProductId Int?
+  instructionForProduct   Product? @relation("ProductInstructions", fields: [instructionForProductId], references: [id])
 }
 
 

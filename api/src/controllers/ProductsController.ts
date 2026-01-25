@@ -14,7 +14,12 @@ export const getById = async (req: Request, res: Response, next: NextFunction): 
                     tags: true
                 }
             },
-            tags: true
+            tags: true,
+            cookingInstructions: {
+                include: {
+                    steps: { orderBy: { stepNumber: 'asc' } }
+                }
+            }
         }
     });
     res.send(product);
@@ -106,7 +111,12 @@ export const getAll = async (req: Request, res: Response, next: NextFunction): P
                     tags: true
                 }
             },
-            tags: true
+            tags: true,
+            cookingInstructions: {
+                include: {
+                    steps: { orderBy: { stepNumber: 'asc' } }
+                }
+            }
         }
     });
     res.send(products);
@@ -159,7 +169,12 @@ export const updateById = async (req: Request, res: Response, next: NextFunction
                     tags: true
                 }
             },
-            tags: true
+            tags: true,
+            cookingInstructions: {
+                include: {
+                    steps: { orderBy: { stepNumber: 'asc' } }
+                }
+            }
         }
     });
     res.send(product);
@@ -185,6 +200,11 @@ export const searchProductByBarcode = async (req: Request, res: Response, next: 
                     barcodes: {
                         include: {
                             tags: true
+                        }
+                    },
+                    cookingInstructions: {
+                        include: {
+                            steps: { orderBy: { stepNumber: 'asc' } }
                         }
                     }
                 }

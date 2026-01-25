@@ -61,5 +61,13 @@ export interface Product {
     openedLifespanDays?: number | null,
     trackCountBy?: string,
     isLeftover?: boolean,
-    leftoverRecipeId?: number
+    leftoverRecipeId?: number,
+    cookingInstructions?: Array<{
+        id: number;
+        name: string;
+        description: string;
+        steps: Array<{ stepNumber: number, instruction: string }>;
+        prepTime?: number;
+        cookTime?: number;
+    }>
 }
