@@ -968,6 +968,10 @@ export class KioskPageComponent implements OnInit, OnDestroy {
             if (isNaN(minutes)) return;
 
             this.createTimer(minutes, action.name);
+        } else if (action.type === 'weigh') {
+            this.viewState = 'SCALE';
+            this.status = `Weigh ${action.name}`;
+            this.startScaleRead();
         }
     }
 

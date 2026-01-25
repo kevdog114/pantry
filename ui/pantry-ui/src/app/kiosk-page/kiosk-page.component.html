@@ -426,9 +426,9 @@
                                 color="primary" class="h-16 !whitespace-normal !leading-tight py-2"
                                 (click)="startQuickAction(action)">
                                 <div class="flex flex-col items-center">
-                                    <mat-icon>timer</mat-icon>
+                                    <mat-icon>{{ action.type === 'weigh' ? 'scale' : 'timer' }}</mat-icon>
                                     <span class="text-xs">{{ action.name }}</span>
-                                    <span class="text-xs font-mono">{{ action.value }}m</span>
+                                    <span class="text-xs font-mono">{{ action.value }}{{ action.type === 'weigh' ? 'g' : 'm' }}</span>
                                 </div>
                             </button>
                         </div>

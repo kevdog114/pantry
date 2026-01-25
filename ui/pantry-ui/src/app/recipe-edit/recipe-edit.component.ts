@@ -19,6 +19,7 @@ import { map, startWith } from 'rxjs/operators';
 import { Observable } from 'rxjs';
 import { GeminiService } from '../services/gemini.service';
 import { MatSnackBar } from '@angular/material/snack-bar';
+import { MatSelectModule } from '@angular/material/select';
 
 @Component({
   selector: 'app-recipe-edit',
@@ -31,7 +32,8 @@ import { MatSnackBar } from '@angular/material/snack-bar';
     MatIconModule,
     MatCardModule,
     MatTabsModule,
-    MatAutocompleteModule
+    MatAutocompleteModule,
+    MatSelectModule
   ],
   templateUrl: './recipe-edit.component.html',
   styleUrl: './recipe-edit.component.css'

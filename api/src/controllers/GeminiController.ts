@@ -236,9 +236,10 @@ export const extractRecipeQuickActions = async (req: Request, res: Response) => 
         Analyze the following recipe and identify "Quick Actions" that would be useful for a cook in a kiosk environment.
         Quick Action Types:
         1. "timer": Explicit cooking durations. Value should be in minutes (e.g. "10", "10-12"). 
+        2. "weigh": Weighing ingredients. Value should be in grams (e.g. "200", "500").
 
         Return ONLY a JSON array of objects with 'name', 'type', and 'value'.
-        Example: [{"name": "Simmer Sauce", "type": "timer", "value": "20"}, {"name": "Bake Chicken", "type": "timer", "value": "45-50"}]
+        Example: [{"name": "Simmer Sauce", "type": "timer", "value": "20"}, {"name": "Bake Chicken", "type": "timer", "value": "45-50"}, {"name": "Flour", "type": "weigh", "value": "500"}]
         
         Recipe:
         ${recipeText}
