@@ -749,14 +749,14 @@ export const post = async (req: Request, res: Response) => {
                 },
                 steps: {
                   type: FunctionDeclarationSchemaType.ARRAY,
-                  description: "List of instruction steps",
+                  description: "List of step-by-step instructions",
                   items: { type: FunctionDeclarationSchemaType.STRING }
                 },
                 prepTime: { type: FunctionDeclarationSchemaType.NUMBER, description: "Prep time in minutes" },
                 cookTime: { type: FunctionDeclarationSchemaType.NUMBER, description: "Cook time in minutes" },
                 yield: { type: FunctionDeclarationSchemaType.STRING, description: "Servings/Yield" }
               },
-              required: ["title", "steps", "ingredients"]
+              required: ["title", "ingredients", "steps"]
             }
           },
           {
@@ -1147,6 +1147,43 @@ export const post = async (req: Request, res: Response) => {
             });
             if (!fullRecipe) return { error: "Recipe not found" };
             return fullRecipe;
+
+          case "getTimers":
+            const activeTimers = await prisma.timer.findMany({
+              where: { status: "RUNNING" }
+            });
+            const nowTime = new Date().getTime();
+            const timersWithRemaining = activeTimers.map((t: any) => {
+              const start = new Date(t.startedAt).getTime();
+              const end = start + (t.duration * 1000);
+              const remaining = Math.max(0, Math.floor((end - nowTime) / 1000));
+              return {
+                id: t.id,
+                name: t.name,
+                durationSeconds: t.duration,
+                remainingSeconds: remaining
+              };
+            }).filter((t: any) => t.remainingSeconds > 0);
+
+            return { timers: timersWithRemaining };
+
+          case "createTimer":
+            const duration = args.durationSeconds;
+            if (!duration || duration <= 0) return { error: "Invalid duration" };
+
+            const newTimer = await prisma.timer.create({
+              data: {
+                name: args.name || "Timer",
+                duration: duration,
+                startedAt: new Date(),
+                status: "RUNNING"
+              }
+            });
+            return { message: "Timer started", timer: newTimer };
+
+          case "deleteTimer":
+            await prisma.timer.delete({ where: { id: args.timerId } });
+            return { message: "Timer deleted" };
 
           default:
             return { error: "Unknown tool" };
