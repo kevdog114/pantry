@@ -50,6 +50,7 @@ export class RecipeEditComponent implements AfterViewInit {
         if (!this.recipe.steps) this.recipe.steps = [];
         if (!this.recipe.ingredients) this.recipe.ingredients = [];
         if (!this.recipe.prepTasks) this.recipe.prepTasks = [];
+        if (!this.recipe.quickActions) this.recipe.quickActions = [];
       });
     }
     else {
@@ -61,6 +62,7 @@ export class RecipeEditComponent implements AfterViewInit {
         steps: [],
         ingredients: [],
         prepTasks: [],
+        quickActions: [],
         source: "",
         ingredientText: ""
       }
@@ -205,6 +207,44 @@ export class RecipeEditComponent implements AfterViewInit {
       error: (err) => {
         console.error(err);
         this.snackBar.open("Failed to generate advice.", "Close", { duration: 3000 });
+      }
+    });
+  }
+
+  public addQuickAction = () => {
+    if (!this.recipe!.quickActions) this.recipe!.quickActions = [];
+    this.recipe!.quickActions.push({
+      name: "",
+      type: "timer",
+      value: ""
+    });
+  }
+
+  public removeQuickAction(index: number) {
+    this.recipe!.quickActions?.splice(index, 1);
+  }
+
+  public generateQuickActions() {
+    if (!this.recipe || (!this.recipe.steps?.length && !this.recipe.ingredients?.length)) {
+      this.snackBar.open("Please add some content (ingredients/steps) first.", "Close", { duration: 3000 });
+      return;
+    }
+
+    this.snackBar.open("Consulting Gemini for quick actions...", undefined, { duration: 2000 });
+    this.geminiService.extractRecipeQuickActions(this.recipe).subscribe({
+      next: (res) => {
+        const actions = res.data || [];
+        if (actions.length > 0) {
+          if (!this.recipe!.quickActions) this.recipe!.quickActions = [];
+          this.recipe!.quickActions.push(...actions);
+          this.snackBar.open(`Added ${actions.length} quick actions!`, "Close", { duration: 3000 });
+        } else {
+          this.snackBar.open("No quick actions found.", "Close", { duration: 3000 });
+        }
+      },
+      error: (err) => {
+        console.error(err);
+        this.snackBar.open("Failed to extract actions.", "Close", { duration: 3000 });
       }
     });
   }

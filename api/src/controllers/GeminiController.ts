@@ -203,6 +203,60 @@ const getEquipmentContext = async (): Promise<string> => {
   }
 };
 
+
+export const extractRecipeQuickActions = async (req: Request, res: Response) => {
+  try {
+    const { recipeId, title, ingredients, steps } = req.body;
+    // We expect either recipeId (to fetch) or title+ingredients+steps (if editing new/unsaved)
+
+    let recipeText = "";
+    if (recipeId) {
+      const recipe = await prisma.recipe.findUnique({
+        where: { id: parseInt(recipeId) },
+        include: { steps: { orderBy: { stepNumber: 'asc' } }, ingredients: true }
+      });
+      if (recipe) {
+        recipeText = `Title: ${recipe.name}\n`;
+        recipeText += `Ingredients: ${recipe.ingredients.map(i => `${i.amount || ''} ${i.unit || ''} ${i.name}`).join(', ')}\n`;
+        recipeText += `Steps: ${recipe.steps.map(s => s.instruction).join('\n')}`;
+      }
+    } else {
+      recipeText = `Title: ${title}\n`;
+      recipeText += `Ingredients: ${ingredients?.map((i: any) => `${i.amount || ''} ${i.unit || ''} ${i.name}`).join(', ')}\n`;
+      recipeText += `Steps: ${steps?.map((s: any) => s.instruction || s.description).join('\n')}`;
+    }
+
+    const { result } = await executeWithFallback('gemini_extraction', async (model) => {
+      const prompt = `
+        Analyze the following recipe and identify "Quick Actions" that would be useful for a cook in a kiosk environment.
+        Quick Action Types:
+        1. "timer": Explicit cooking durations. Value should be in minutes (e.g. "10", "10-12"). 
+
+        Return ONLY a JSON array of objects with 'name', 'type', and 'value'.
+        Example: [{"name": "Simmer Sauce", "type": "timer", "value": "20"}, {"name": "Bake Chicken", "type": "timer", "value": "45-50"}]
+        
+        Recipe:
+        ${recipeText}
+      `;
+
+      const result = await model.generateContent(prompt);
+      const response = await result.response;
+      let text = response.text();
+      // Clean up markdown code blocks if present
+      text = text.replace(/```json/g, '').replace(/```/g, '').trim();
+      return JSON.parse(text);
+    });
+
+    res.json({
+      message: "success",
+      data: result
+    });
+  } catch (error) {
+    console.error("Error extracting quick actions:", error);
+    res.status(500).json({ error: "Failed to extract actions" });
+  }
+}
+
 export const post = async (req: Request, res: Response) => {
   try {
     let { prompt, history = [], sessionId, additionalContext, entityType, entityId } = req.body as {

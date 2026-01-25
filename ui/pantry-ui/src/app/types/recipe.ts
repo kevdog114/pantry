@@ -29,5 +29,13 @@ export interface Recipe {
         daysInAdvance: number;
     }[];
     files?: FileMeta[];
+    quickActions?: RecipeQuickAction[];
+}
+
+export interface RecipeQuickAction {
+    id?: number;
+    name: string;
+    type: string; // "timer"
+    value: string;
 }
 

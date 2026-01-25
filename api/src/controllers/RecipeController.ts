@@ -7,7 +7,8 @@ export const getAll = async (req: Request, res: Response, next: NextFunction): P
         include: {
             steps: { orderBy: { stepNumber: 'asc' } },
             ingredients: { include: { product: true } },
-            files: true
+            files: true,
+            quickActions: true
         }
     });
     res.send(recipes.map(mapToResponse));
@@ -46,13 +47,21 @@ export const create = async (req: Request, res: Response, next: NextFunction): P
             },
             files: {
                 connect: req.body.files?.map((f: any) => ({ id: f.id })) || []
+            },
+            quickActions: {
+                create: req.body.quickActions?.map((qa: any) => ({
+                    name: qa.name,
+                    type: qa.type,
+                    value: qa.value
+                })) || []
             }
         },
         include: {
             steps: { orderBy: { stepNumber: 'asc' } },
             ingredients: { include: { product: true } },
             prepTasks: true,
-            files: true
+            files: true,
+            quickActions: true
         }
     });
 
@@ -97,7 +106,8 @@ export const getById = async (req: Request, res: Response, next: NextFunction): 
             steps: { orderBy: { stepNumber: 'asc' } },
             ingredients: { include: { product: true } },
             prepTasks: true,
-            files: true
+            files: true,
+            quickActions: true
         }
     });
 
@@ -153,13 +163,22 @@ export const update = async (req: Request, res: Response, next: NextFunction): P
                 thawInstructions: req.body.thawInstructions,
                 files: {
                     set: req.body.files?.map((f: any) => ({ id: f.id })) || []
+                },
+                quickActions: {
+                    deleteMany: {},
+                    create: req.body.quickActions?.map((qa: any) => ({
+                        name: qa.name,
+                        type: qa.type,
+                        value: qa.value
+                    })) || []
                 }
             },
             include: {
                 steps: { orderBy: { stepNumber: 'asc' } },
                 ingredients: { include: { product: true } },
                 prepTasks: true,
-                files: true
+                files: true,
+                quickActions: true
             }
         });
 
@@ -174,7 +193,8 @@ export const update = async (req: Request, res: Response, next: NextFunction): P
                         steps: { orderBy: { stepNumber: 'asc' } },
                         ingredients: { include: { product: true } },
                         prepTasks: true,
-                        files: true
+                        files: true,
+                        quickActions: true
                     }
                 });
             }
@@ -209,6 +229,7 @@ const mapToResponse = (recipe: any) => {
         thawInstructions: recipe.thawInstructions,
         customPrepInstructions: recipe.customPrepInstructions,
         files: recipe.files || [],
-        receiptSteps: recipe.receiptSteps
+        receiptSteps: recipe.receiptSteps,
+        quickActions: recipe.quickActions || []
     };
 }

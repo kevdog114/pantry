@@ -129,7 +129,9 @@ model Recipe {
   leftovers      Product[]    @relation("RecipeLeftovers")
   files          File[]       @relation("RecipeToFile")
   receiptSteps   String?      // JSON string for receipt printer optimized steps
+  quickActions   RecipeQuickAction[]
 }
+
 
 model RecipePrepTask {
   id            Int     @id @default(autoincrement())
@@ -137,6 +139,17 @@ model RecipePrepTask {
   recipe        Recipe  @relation(fields: [recipeId], references: [id], onDelete: Cascade)
   description   String
   daysInAdvance Int     @default(0)
+}
+
+model RecipeQuickAction {
+  id        Int      @id @default(autoincrement())
+  recipeId  Int
+  recipe    Recipe   @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  name      String
+  type      String   // "timer" is the main one for now
+  value     String   // "10", "10-12", etc.
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 

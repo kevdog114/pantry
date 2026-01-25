@@ -72,4 +72,14 @@ export class GeminiService {
   generateRecipeImage(recipeTitle: string): Observable<any> {
     return this.http.post<any>(`${this.env.apiUrl}/gemini/generate-recipe-image`, { recipeTitle });
   }
+
+  extractRecipeQuickActions(recipe: any): Observable<any> {
+    const payload = {
+      recipeId: recipe.id,
+      title: recipe.title,
+      ingredients: recipe.ingredients,
+      steps: recipe.steps
+    };
+    return this.http.post<any>(`${this.env.apiUrl}/gemini/recipe-quick-actions`, payload);
+  }
 }
