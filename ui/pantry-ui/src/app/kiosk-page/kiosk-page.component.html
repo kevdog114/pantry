@@ -249,11 +249,24 @@
                     <span>BACK</span>
                 </div>
             </button>
-            <div class="weight-display-card">
+
+            <div *ngIf="targetWeight" class="weight-display-card" style="margin-bottom: 0; padding: 1.5rem;">
+                <div class="text-xl text-gray-400 mb-2 font-mono">TARGET: {{ targetWeight }} {{ currentUnit }}</div>
+                <mat-progress-bar mode="determinate" [value]="progressValue"
+                    [color]="progressValue >= 95 && progressValue <= 105 ? 'accent' : (progressValue > 105 ? 'warn' : 'primary')"
+                    style="height: 20px; border-radius: 10px;" class="mb-4"></mat-progress-bar>
+                <div class="flex justify-between items-end">
+                     <div class="text-6xl font-bold">{{ displayWeight | number:'1.0-1' }} <span class="text-2xl">{{ currentUnit }}</span></div>
+                     <div class="text-3xl text-gray-500">/ {{ targetWeight }} {{ currentUnit }}</div>
+                </div>
+            </div>
+
+            <div *ngIf="!targetWeight" class="weight-display-card">
                 <div class="weight-value">{{ displayWeight | number:'1.1-2' }}</div>
                 <div class="weight-unit">{{ currentUnit === 'g' ? 'GRAMS' : (currentUnit === 'oz' ? 'OUNCES' : 'LBS') }}
                 </div>
             </div>
+
             <div class="scale-controls">
                 <button mat-flat-button color="primary" class="large-btn" (click)="tareScale()">
                     <div class="btn-content">
@@ -382,72 +395,90 @@
                 </div>
             </div>
 
-            <!-- Recipe Content -->
-            <div *ngIf="selectedRecipe" class="flex-1 overflow-y-auto grid grid-cols-12 gap-4">
-                <!-- Ingredients -->
-                <div class="col-span-4 bg-slate-800 rounded-xl p-4">
-                    <h3 class="text-lg font-bold mb-3 border-b border-slate-700 pb-2">Ingredients</h3>
-                    <ul class="space-y-2 text-sm">
-                        <li *ngFor="let ing of selectedRecipe.ingredients" class="flex justify-between">
-                            <span>{{ ing.amount }} {{ ing.unit }}</span>
-                            <span class="text-gray-300 truncate ml-2">{{ ing.name }}</span>
-                        </li>
-                    </ul>
+            <!-- Main Button Grid (When Recipe Selected and !Details) -->
+            <div *ngIf="selectedRecipe && !showRecipeDetails" class="flex-1 button-grid compact-grid p-4">
+                 <!-- View Instructions -->
+                 <button mat-flat-button color="primary" class="large-btn" (click)="showRecipeDetails = true">
+                    <div class="btn-content">
+                        <mat-icon>menu_book</mat-icon>
+                        <span>INSTRUCTIONS</span>
+                    </div>
+                </button>
+
+                 <!-- Print Recipe -->
+                 <button mat-flat-button color="accent" class="large-btn" (click)="printRecipeReceipt()">
+                    <div class="btn-content">
+                        <mat-icon>receipt_long</mat-icon>
+                        <span>PRINT RECIPE</span>
+                    </div>
+                </button>
+
+                <!-- Quick Actions -->
+                <ng-container *ngFor="let action of selectedRecipe.quickActions">
+                    <button mat-flat-button class="large-btn"
+                        [color]="action.type === 'weigh' ? 'warn' : 'accent'"
+                        [style.background-color]="action.type === 'timer' ? '#FF9800' : ''"
+                        (click)="startQuickAction(action)">
+                        <div class="btn-content">
+                            <mat-icon>{{ action.type === 'weigh' ? 'scale' : 'timer' }}</mat-icon>
+                            <span>{{ action.name | uppercase }}</span>
+                            <span class="text-sm opacity-75">
+                                {{ action.value }}<span *ngIf="!action.value.endsWith('g') && !action.value.endsWith('m')">{{ action.type === 'weigh' ? 'g' : 'm' }}</span>
+                            </span>
+                        </div>
+                    </button>
+                </ng-container>
+            </div>
+
+            <!-- Details View (When Recipe Selected and Details=True) -->
+            <div *ngIf="selectedRecipe && showRecipeDetails" class="flex-1 overflow-hidden flex flex-col">
+                <div class="mb-4">
+                    <button mat-stroked-button class="large-btn back-btn full-width" (click)="showRecipeDetails = false">
+                        <div class="btn-content flex-row gap-4">
+                            <mat-icon>arrow_back</mat-icon>
+                            <span>BACK TO ACTIONS</span>
+                        </div>
+                    </button>
                 </div>
 
-                <!-- Steps -->
-                <div class="col-span-4 bg-slate-800 rounded-xl p-4 overflow-y-auto">
-                    <h3 class="text-lg font-bold mb-3 border-b border-slate-700 pb-2">Method</h3>
-                    <div class="space-y-4">
-                        <div *ngFor="let step of selectedRecipe.steps" class="flex gap-3">
-                            <div
-                                class="shrink-0 w-6 h-6 rounded-full bg-primary-500 flex items-center justify-center text-xs font-bold">
-                                {{ step.stepNumber }}</div>
-                            <p class="text-sm leading-relaxed text-gray-200">{{ step.description }}</p>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Actions & Timers -->
-                <div class="col-span-4 flex flex-col gap-4">
-                    <!-- Main Actions -->
-                    <div class="bg-slate-800 rounded-xl p-4">
-                        <button mat-flat-button color="accent" class="w-full h-16 text-lg mb-4"
-                            (click)="printRecipeReceipt()">
-                            <mat-icon class="mr-2">receipt_long</mat-icon> Print Receipt
-                        </button>
+                <div class="flex-1 overflow-y-auto grid grid-cols-12 gap-4">
+                     <!-- Ingredients -->
+                    <div class="col-span-4 bg-slate-800 rounded-xl p-4">
+                        <h3 class="text-lg font-bold mb-3 border-b border-slate-700 pb-2">Ingredients</h3>
+                        <ul class="space-y-2 text-sm">
+                            <li *ngFor="let ing of selectedRecipe.ingredients" class="flex justify-between">
+                                <span>{{ ing.amount }} {{ ing.unit }}</span>
+                                <span class="text-gray-300 truncate ml-2">{{ ing.name }}</span>
+                            </li>
+                        </ul>
                     </div>
 
-                    <!-- Quick Actions -->
-                    <div class="bg-slate-800 rounded-xl p-4 flex-1" *ngIf="selectedRecipe.quickActions?.length">
-                        <h3 class="text-lg font-bold mb-3 border-b border-slate-700 pb-2">Quick Actions</h3>
-                        <div class="grid grid-cols-2 gap-3">
-                            <button *ngFor="let action of selectedRecipe.quickActions" mat-stroked-button
-                                color="primary" class="h-16 !whitespace-normal !leading-tight py-2"
-                                (click)="startQuickAction(action)">
-                                <div class="flex flex-col items-center">
-                                    <mat-icon>{{ action.type === 'weigh' ? 'scale' : 'timer' }}</mat-icon>
-                                    <span class="text-xs">{{ action.name }}</span>
-                                    <span class="text-xs font-mono">{{ action.value }}{{ action.type === 'weigh' ? 'g' : 'm' }}</span>
-                                </div>
-                            </button>
-                        </div>
-                    </div>
-
-                    <!-- Active Timers -->
-                    <div class="bg-slate-800 rounded-xl p-4 flex-1" *ngIf="activeTimers.length > 0">
-                        <h3 class="text-lg font-bold mb-3 border-b border-slate-700 pb-2 text-orange-400">Timers</h3>
-                        <div class="space-y-2">
-                            <div *ngFor="let timer of activeTimers"
-                                class="bg-slate-700 rounded p-3 flex items-center justify-between animate-pulse-slow">
-                                <div>
-                                    <div class="text-xs text-gray-400">{{ timer.name }}</div>
-                                    <div class="text-xl font-mono">{{ formatTimer(timer.remainingSeconds) }}</div>
-                                </div>
-                                <button mat-icon-button color="warn"
-                                    (click)="removeTimer(timer)"><mat-icon>close</mat-icon></button>
+                    <!-- Steps -->
+                    <div class="col-span-8 bg-slate-800 rounded-xl p-4 overflow-y-auto">
+                        <h3 class="text-lg font-bold mb-3 border-b border-slate-700 pb-2">Method</h3>
+                        <div class="space-y-4">
+                            <div *ngFor="let step of selectedRecipe.steps" class="flex gap-3">
+                                <div
+                                    class="shrink-0 w-6 h-6 rounded-full bg-primary-500 flex items-center justify-center text-xs font-bold">
+                                    {{ step.stepNumber }}</div>
+                                <p class="text-sm leading-relaxed text-gray-200">{{ step.description }}</p>
                             </div>
                         </div>
+                    </div>
+                </div>
+            </div>
+
+             <div class="bg-slate-800 rounded-xl p-4 mt-4 shrink-0" *ngIf="activeTimers.length > 0">
+                <h3 class="text-sm font-bold mb-2 text-orange-400">Active Timers</h3>
+                <div class="flex gap-4 overflow-x-auto">
+                    <div *ngFor="let timer of activeTimers"
+                        class="bg-slate-700 rounded p-2 flex items-center gap-4 min-w-[200px]">
+                        <div>
+                            <div class="text-xs text-gray-400">{{ timer.name }}</div>
+                            <div class="text-xl font-mono">{{ formatTimer(timer.remainingSeconds) }}</div>
+                        </div>
+                        <button mat-icon-button color="warn"
+                            (click)="removeTimer(timer)"><mat-icon>close</mat-icon></button>
                     </div>
                 </div>
             </div>
