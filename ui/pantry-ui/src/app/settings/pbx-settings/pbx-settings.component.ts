@@ -14,6 +14,7 @@ import { MatTabsModule } from '@angular/material/tabs';
 
 import { KioskService, Kiosk } from '../../services/kiosk.service';
 import { SipService, SipConfig } from '../../services/sip.service';
+import { SocketService } from '../../services/socket.service';
 import { Observable, of } from 'rxjs';
 
 @Component({
@@ -44,6 +45,7 @@ export class PbxSettingsComponent implements OnInit {
     constructor(
         private kioskService: KioskService,
         private sipService: SipService,
+        private socketService: SocketService,
         private fb: FormBuilder
     ) {
         this.configForm = this.fb.group({
@@ -91,6 +93,7 @@ export class PbxSettingsComponent implements OnInit {
         this.configForm.reset({ enabled: false });
         this.extensions.clear();
 
+        this.socketService.emit('bind_to_kiosk', kioskId);
         this.sipService.getConfig(kioskId);
     }
 
