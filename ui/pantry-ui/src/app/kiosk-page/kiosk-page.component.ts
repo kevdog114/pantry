@@ -12,6 +12,7 @@ import { FormsModule } from '@angular/forms';
 import { LabelService } from '../services/label.service';
 import { KioskService } from '../services/kiosk.service';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { HttpClient } from '@angular/common/http';
 import { EnvironmentService } from '../services/environment.service';
 import { HardwareBarcodeScannerService } from '../hardware-barcode-scanner.service';
@@ -36,6 +37,7 @@ import { SipService, SipConfig, SipCallState, SipIncomingCall } from '../service
         MatIconModule,
         MatCardModule,
         MatSnackBarModule,
+        MatProgressBarModule,
         MatInputModule,
         MatChipsModule,
         MatDatepickerModule,
@@ -81,6 +83,8 @@ export class KioskPageComponent implements OnInit, OnDestroy {
     selectedRecipe: Recipe | null = null;
     availableInstructions: Recipe[] = [];
     activeTimers: any[] = [];
+    targetWeight: number | null = null;
+    showRecipeDetails: boolean = false;
 
 
     constructor(
@@ -634,7 +638,13 @@ export class KioskPageComponent implements OnInit, OnDestroy {
 
     closeScale() {
         this.stopScaleRead();
-        this.openUtilities();
+        this.targetWeight = null;
+        if (this.selectedRecipe) {
+            this.viewState = 'COOK';
+            this.status = this.selectedRecipe.title;
+        } else {
+            this.openUtilities();
+        }
     }
 
     // TIMERS
@@ -744,6 +754,12 @@ export class KioskPageComponent implements OnInit, OnDestroy {
         if (this.displayUnitMode === 'oz') return this.currentWeight * 0.035274;
         if (this.displayUnitMode === 'lbs') return this.currentWeight * 0.00220462;
         return this.currentWeight;
+    }
+
+    get progressValue(): number {
+        if (!this.targetWeight || this.targetWeight === 0) return 0;
+        const val = (this.currentWeight / this.targetWeight) * 100;
+        return Math.min(Math.max(val, 0), 100);
     }
 
     startScaleRead() {
@@ -856,6 +872,7 @@ export class KioskPageComponent implements OnInit, OnDestroy {
         this.status = 'Scan Recipe...';
         this.statusSubtext = '';
         this.selectedRecipe = null;
+        this.showRecipeDetails = false;
         this.availableInstructions = [];
         this.activeTimers = [];
         this.activeMode = 'NONE';
@@ -933,6 +950,7 @@ export class KioskPageComponent implements OnInit, OnDestroy {
     selectInstruction(recipe: Recipe) {
         this.availableInstructions = [];
         this.selectedRecipe = recipe;
+        this.showRecipeDetails = false;
         this.status = recipe.title;
         this.statusSubtext = "Ready to Cook";
         // Scan handler remains to allow rescanning another item to switch
@@ -969,8 +987,21 @@ export class KioskPageComponent implements OnInit, OnDestroy {
 
             this.createTimer(minutes, action.name);
         } else if (action.type === 'weigh') {
+            const valStr = action.value.replace(/[^0-9.-]/g, '');
+            let weight = 0;
+            if (valStr.includes('-')) {
+                 const parts = valStr.split('-');
+                 weight = parseFloat(parts[0]);
+            } else {
+                 weight = parseFloat(valStr);
+            }
+
+            if (!isNaN(weight) && weight > 0) {
+                this.targetWeight = weight;
+            }
+
             this.viewState = 'SCALE';
-            this.status = `Weigh ${action.name}`;
+            this.status = action.name;
             this.startScaleRead();
         }
     }
