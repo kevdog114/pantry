@@ -60,7 +60,7 @@ def create_baresip_config(config):
         f.write("module\t\t\talsa.so\n")
         f.write("module\t\t\tg711.so\n")
         f.write("module\t\t\taccount.so\n")
-        # f.write("module\t\t\tmenu.so\n") # Interactive menu
+        f.write("module\t\t\tmenu.so\n") # Interactive menu
     
     return True
 
