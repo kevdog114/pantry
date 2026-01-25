@@ -1,5 +1,5 @@
 
-import { Component, Input, Output, EventEmitter, ViewChild, ElementRef, AfterViewChecked, OnInit } from '@angular/core';
+import { Component, Input, Output, EventEmitter, ViewChild, ElementRef, AfterViewChecked, OnInit, OnChanges, SimpleChanges } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { SmartChatInputComponent } from '../smart-chat-input/smart-chat-input.component';
 import { RecipeCardComponent, ChatRecipe } from '../recipe-card/recipe-card.component';
@@ -27,7 +27,7 @@ export interface ChatMessage {
     standalone: true,
     imports: [CommonModule, SmartChatInputComponent, RecipeCardComponent, MarkdownModule, MatButtonModule, MatIconModule]
 })
-export class ChatInterfaceComponent implements AfterViewChecked, OnInit {
+export class ChatInterfaceComponent implements AfterViewChecked, OnInit, OnChanges {
     @Input() messages: ChatMessage[] = [];
     @Input() isLoading: boolean = false;
     @Input() placeholder: string = 'Type a message...';
@@ -43,12 +43,20 @@ export class ChatInterfaceComponent implements AfterViewChecked, OnInit {
     // Track previous message count to auto-scroll only on new messages
     private prevMessageCount = 0;
 
-    isSpeaking = false; // Internal state tracking might need to be synced from parent if strictly controlled, but for now local is okay for UI toggles if we emit events
+    isSpeaking = false;
 
     constructor() { }
 
     ngOnInit() {
         this.scrollToBottom();
+    }
+
+    ngOnChanges(changes: SimpleChanges): void {
+        if (changes['messages']) {
+            // Reset the counter when the messages array reference changes (new chat loaded)
+            this.prevMessageCount = 0;
+            // We rely on ngAfterViewChecked to do the actual scrolling once the view updates
+        }
     }
 
     ngAfterViewChecked() {
