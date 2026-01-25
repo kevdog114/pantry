@@ -382,6 +382,18 @@ io.on("connection", (socket) => {
     });
 
     // SIP Bridging
+    socket.on("sip_get_config", (data) => {
+        const targetKioskId = data.kioskId;
+        console.log(`Routing sip_get_config to Kiosk ${targetKioskId}`);
+        io.to(`kiosk_device_${targetKioskId}`).emit('sip_get_config', data);
+    });
+
+    socket.on("sip_config", (data) => {
+        if (kioskId) {
+            io.to(`kiosk_device_${kioskId}`).emit('sip_config', data);
+        }
+    });
+
     socket.on("sip_configure", (data) => {
         const targetKioskId = data.kioskId;
         console.log(`Routing sip_configure to Kiosk ${targetKioskId}`);
