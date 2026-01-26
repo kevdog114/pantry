@@ -877,6 +877,8 @@ export class KioskPageComponent implements OnInit, OnDestroy {
         this.activeTimers = [];
         this.activeMode = 'NONE';
         this.showCookPrintMenu = false;
+        this.showTimerActions = false;
+        this.showScaleActions = false;
 
         // Handler for Recipe Barcodes
         this.hardwareScanner.setCustomHandler(this.handleCookBarcode.bind(this));
@@ -1001,6 +1003,17 @@ export class KioskPageComponent implements OnInit, OnDestroy {
         });
     }
 
+    showTimerActions: boolean = false;
+    showScaleActions: boolean = false;
+
+    get timerActions() {
+        return this.selectedRecipe?.quickActions?.filter(a => a.type === 'timer') || [];
+    }
+
+    get scaleActions() {
+        return this.selectedRecipe?.quickActions?.filter(a => ['scale', 'weigh', 'weight'].includes(a.type)) || [];
+    }
+
     startQuickAction(action: RecipeQuickAction) {
         if (action.type === 'timer') {
             let minutes = 0;
@@ -1018,10 +1031,10 @@ export class KioskPageComponent implements OnInit, OnDestroy {
             const valStr = action.value.replace(/[^0-9.-]/g, '');
             let weight = 0;
             if (valStr.includes('-')) {
-                 const parts = valStr.split('-');
-                 weight = parseFloat(parts[0]);
+                const parts = valStr.split('-');
+                weight = parseFloat(parts[0]);
             } else {
-                 weight = parseFloat(valStr);
+                weight = parseFloat(valStr);
             }
 
             if (!isNaN(weight) && weight > 0) {
@@ -1032,6 +1045,23 @@ export class KioskPageComponent implements OnInit, OnDestroy {
             this.status = action.name;
             this.startScaleRead();
         }
+    }
+
+    openTimerActions() {
+        this.showTimerActions = true;
+        this.showScaleActions = false;
+        this.closeCookPrintMenu();
+    }
+
+    openScaleActions() {
+        this.showScaleActions = true;
+        this.showTimerActions = false;
+        this.closeCookPrintMenu();
+    }
+
+    closeQuickActions() {
+        this.showTimerActions = false;
+        this.showScaleActions = false;
     }
 
     formatTimer(seconds: number): string {
