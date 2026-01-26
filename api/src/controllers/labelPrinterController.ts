@@ -286,12 +286,15 @@ export const printAssetLabel = async (req: Request, res: Response, next: NextFun
     }
 }
 
+import { generateReceiptSteps } from '../services/RecipeAIService';
+
 export const printReceipt = async (req: Request, res: Response, next: NextFunction): Promise<any> => {
     try {
         const recipeId = parseInt(req.params.id);
 
         const recipe = await prisma.recipe.findUnique({
-            where: { id: recipeId }
+            where: { id: recipeId },
+            include: { steps: { orderBy: { stepNumber: 'asc' } }, ingredients: true }
         });
 
         if (!recipe) {
@@ -309,11 +312,43 @@ export const printReceipt = async (req: Request, res: Response, next: NextFuncti
         }
 
         let receiptData: any = { steps: [] };
+
+        // Load existing
         if (recipe.receiptSteps) {
             try {
                 receiptData = JSON.parse(recipe.receiptSteps);
             } catch (e) {
                 console.warn("Invalid JSOn in receiptSteps, using defaults");
+            }
+        }
+
+        // If no receipt steps found, generate them
+        if ((!receiptData.steps || receiptData.steps.length === 0) && recipe.steps && recipe.steps.length > 0) {
+            console.log(`[LabelPrinter] Generating receipt steps for recipe ${recipe.id}...`);
+            try {
+                const generatedJson = await generateReceiptSteps(recipe.name, recipe.ingredients, recipe.steps);
+
+                if (generatedJson) {
+                    // Update DB
+                    await prisma.recipe.update({
+                        where: { id: recipe.id },
+                        data: { receiptSteps: generatedJson }
+                    });
+
+                    // Parse for current print job
+                    try {
+                        const parsed = JSON.parse(generatedJson);
+                        if (parsed.steps) receiptData.steps = parsed.steps;
+                    } catch (e) { }
+                } else {
+                    // Fallback simple map
+                    receiptData.steps = recipe.steps.map(s => ({ action: "STEP", text: s.instruction }));
+                }
+
+            } catch (err) {
+                console.warn("Failed to generate receipt steps", err);
+                // Fallback
+                receiptData.steps = recipe.steps.map(s => ({ action: "STEP", text: s.instruction }));
             }
         }
 

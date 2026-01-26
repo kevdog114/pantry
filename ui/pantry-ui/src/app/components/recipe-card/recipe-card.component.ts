@@ -26,16 +26,19 @@ export interface ChatRecipe {
     };
 }
 
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+
 @Component({
     selector: 'app-recipe-card',
     templateUrl: './recipe-card.component.html',
     styleUrls: ['./recipe-card.component.scss'],
     standalone: true,
-    imports: [CommonModule, MatButtonModule, MatIconModule, MatSnackBarModule]
+    imports: [CommonModule, MatButtonModule, MatIconModule, MatSnackBarModule, MatProgressSpinnerModule]
 })
 export class RecipeCardComponent {
     @Input() recipe!: ChatRecipe;
     @Input() expanded: boolean = false;
+    isSaving: boolean = false;
 
     constructor(
         private recipeService: RecipeListService,
@@ -49,6 +52,7 @@ export class RecipeCardComponent {
 
     save(event: Event) {
         event.stopPropagation();
+        this.isSaving = true;
 
         // Parse time strings like "10 minutes" or "1 hour" to numbers
         const parseTime = (timeStr: string): number | undefined => {
@@ -83,9 +87,11 @@ export class RecipeCardComponent {
 
         this.recipeService.create(newRecipe).subscribe({
             next: (res) => {
+                this.isSaving = false;
                 this.snackBar.open('Recipe saved successfully!', 'Close', { duration: 3000 });
             },
             error: (err) => {
+                this.isSaving = false;
                 this.snackBar.open('Failed to save recipe.', 'Close', { duration: 3000 });
                 console.error(err);
             }

@@ -763,6 +763,11 @@ export const post = async (req: Request, res: Response) => {
                   description: "List of step-by-step instructions",
                   items: { type: FunctionDeclarationSchemaType.STRING }
                 },
+                printSteps: {
+                  type: FunctionDeclarationSchemaType.ARRAY,
+                  description: "Simplified, concise steps optimized for printing on a receipt printer.",
+                  items: { type: FunctionDeclarationSchemaType.STRING }
+                },
                 prepTime: { type: FunctionDeclarationSchemaType.NUMBER, description: "Prep time in minutes" },
                 cookTime: { type: FunctionDeclarationSchemaType.NUMBER, description: "Cook time in minutes" },
                 yield: { type: FunctionDeclarationSchemaType.STRING, description: "Servings/Yield" }
@@ -1081,6 +1086,7 @@ export const post = async (req: Request, res: Response) => {
                 yield: args.yield,
                 totalTime: (args.prepTime || 0) + (args.cookTime || 0),
                 ingredientText: args.ingredients.map((i: any) => `${i.amount || ''} ${i.unit || ''} ${i.name}`).join('\n'),
+                receiptSteps: args.printSteps ? JSON.stringify({ steps: args.printSteps }) : null,
                 steps: {
                   create: (args.steps || []).map((step: string, idx: number) => ({
                     stepNumber: idx + 1,

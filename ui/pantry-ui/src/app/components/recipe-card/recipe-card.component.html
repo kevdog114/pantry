@@ -8,8 +8,10 @@
             <button mat-icon-button (click)="downloadPdf($event)" title="Download PDF" class="save-btn">
                 <mat-icon>picture_as_pdf</mat-icon>
             </button>
-            <button mat-icon-button (click)="save($event)" title="Save to Cookbook" class="save-btn">
-                <mat-icon>save</mat-icon>
+            <button mat-icon-button (click)="save($event)" title="Save to Cookbook" class="save-btn"
+                [disabled]="isSaving">
+                <mat-icon *ngIf="!isSaving">save</mat-icon>
+                <mat-spinner *ngIf="isSaving" diameter="20"></mat-spinner>
             </button>
             <mat-icon class="toggle-icon">{{ expanded ? 'expand_less' : 'expand_more' }}</mat-icon>
         </div>
