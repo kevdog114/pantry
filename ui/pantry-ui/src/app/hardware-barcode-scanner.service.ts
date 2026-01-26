@@ -62,7 +62,11 @@ export class HardwareBarcodeScannerService {
     this.socketService.on('scanner_status_changed', (data: any) => {
       console.log("Scanner status changed", data);
       if (data.claimed) {
-        this.claimedBySubject.next(data.claimedBy || "External");
+        // If we currently think it is claimed by "Me", ignore external status recall
+        // to prevent overwriting "Me" with our own username or "External"
+        if (this.claimedBySubject.value !== 'Me') {
+          this.claimedBySubject.next(data.claimedBy || "External");
+        }
       } else {
         this.claimedBySubject.next(null);
       }
