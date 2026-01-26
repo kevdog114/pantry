@@ -22,9 +22,27 @@ export class HardwareBarcodeScannerService {
   constructor(private http: HttpClient, private router: Router, private env: EnvironmentService, private hardwareService: HardwareService, private socketService: SocketService) {
     console.log("Starting barcode scanner service");
     this.socketService.on('barcode_scan', (data: any) => {
-      console.log("Received barcode from bridge:", data);
-      if (data && data.barcode) {
-        this.handleScannedBarcode(data.barcode);
+      if (!this.isEnabled) return;
+
+      const claimedBy = this.claimedBySubject.value;
+      const isKiosk = this.router.url.includes('/kiosk-mode');
+
+      // logic: 
+      // 1. If I claimed it ('Me') -> Handle
+      // 2. If someone else claimed it -> Ignore (handled by server routing usually, but good to be safe)
+      // 3. If Unclaimed (null):
+      //    a. If I am the Kiosk -> Handle
+      //    b. If I am an observer (e.g. Hardware Page) -> Ignore
+
+      const shouldHandle = (claimedBy === 'Me') || (claimedBy === null && isKiosk);
+
+      if (shouldHandle) {
+        console.log("Processing barcode from bridge:", data);
+        if (data && data.barcode) {
+          this.handleScannedBarcode(data.barcode);
+        }
+      } else {
+        console.log("Ignoring barcode from bridge (Claimed: " + claimedBy + ", IsKiosk: " + isKiosk + ")");
       }
     });
 

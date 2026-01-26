@@ -87,6 +87,8 @@ export class KioskPageComponent implements OnInit, OnDestroy {
     showRecipeDetails: boolean = false;
 
 
+    upcomingMeals: any[] = [];
+
     constructor(
         private router: Router,
         private labelService: LabelService,
@@ -882,6 +884,8 @@ export class KioskPageComponent implements OnInit, OnDestroy {
 
         // Handler for Recipe Barcodes
         this.hardwareScanner.setCustomHandler(this.handleCookBarcode.bind(this));
+
+        this.fetchUpcomingMeals();
     }
 
     closeCook() {
@@ -1084,6 +1088,35 @@ export class KioskPageComponent implements OnInit, OnDestroy {
             // We are in a handler (click -> interval), so obscure.
             // Let's rely on SnackBar visual for now.
         } catch (e) { }
+    }
+
+    fetchUpcomingMeals() {
+        const start = new Date();
+        const end = new Date();
+        end.setDate(end.getDate() + 7);
+
+        const sStr = start.toISOString().split('T')[0];
+        const eStr = end.toISOString().split('T')[0];
+
+        this.http.get<any[]>(`${this.env.apiUrl}/meal-plan?startDate=${sStr}&endDate=${eStr}`).subscribe({
+            next: (meals) => {
+                // Filter out meals without recipes
+                this.upcomingMeals = meals.filter(m => m.recipe).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+            },
+            error: (e) => console.error("Failed to fetch upcoming meals", e)
+        });
+    }
+
+    getMealDateLabel(dateStr: string): string {
+        const date = new Date(dateStr);
+        const today = new Date();
+        const tomorrow = new Date();
+        tomorrow.setDate(today.getDate() + 1);
+
+        if (date.toDateString() === today.toDateString()) return 'Today';
+        if (date.toDateString() === tomorrow.toDateString()) return 'Tomorrow';
+
+        return date.toLocaleDateString('en-US', { weekday: 'short', month: 'numeric', day: 'numeric' });
     }
 
     exitKiosk() {

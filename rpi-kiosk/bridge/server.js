@@ -408,52 +408,34 @@ function connectSocket() {
     });
 
     socket.on('read_scale', (payload) => {
-        console.log('Received read_scale command:', payload);
         const requestId = payload.requestId;
 
-        // Find a scale
-        const keys = Object.keys(knownScales);
-        if (keys.length === 0) {
-            if (requestId) {
+        // Try to return info from monitor if available
+        if (requestId) {
+            // Wait a brief moment to see if monitor had something?
+            // Or just return last known state
+
+            const keys = Object.keys(knownScales);
+            if (keys.length === 0) {
                 socket.emit('scale_reading', {
                     requestId, success: false, message: "No scale available"
                 });
-            }
-            return;
-        }
-
-        const port = keys[0]; // proper logic might select by ID if provided
-        const scaleCmd = `/opt/venv/bin/python3 scale_bridge.py read --port "${port}"`;
-
-        const { exec } = require('child_process');
-        exec(scaleCmd, { timeout: 5000 }, (err, stdout, stderr) => {
-            let success = true;
-            let data = null;
-            let message = '';
-
-            if (err) {
-                console.error('Scale Read Error:', err);
-                success = false;
-                message = stderr || err.message;
-            } else {
-                try {
-                    data = JSON.parse(stdout);
-                    if (data.error) {
-                        success = false;
-                        message = data.error;
-                    }
-                } catch (e) {
-                    success = false;
-                    message = "Failed to parse scale output";
-                }
+                return;
             }
 
-            if (requestId) {
+            if (lastScaleState && lastScaleState.weight !== null) {
                 socket.emit('scale_reading', {
-                    requestId, success, data, message
+                    requestId,
+                    success: true,
+                    data: { weight: lastScaleState.weight, unit: 'g' }
+                });
+            } else {
+                // Not ready yet
+                socket.emit('scale_reading', {
+                    requestId, success: false, message: "Scale initializing..."
                 });
             }
-        });
+        }
     });
 
     socket.on('get_serial_ports', (payload) => {
@@ -510,10 +492,7 @@ function connectSocket() {
 
     // Remove or disable explicit read_scale handler that spawns processes
     // functionality is covered by the continuous monitor
-    socket.on('read_scale', (payload) => {
-        // Log but do nothing, rely on monitor
-        // console.log("Received read_scale, ignoring in favor of monitor", payload);
-    });
+
     socket.on('tare_scale', (payload) => {
         console.log('Received tare_scale command:', payload);
         const requestId = payload.requestId;
@@ -931,7 +910,12 @@ function handleSipMessage(msg) {
 function handleWeightUpdate(port, currentWeight) {
     const now = Date.now();
     const last = lastScaleState;
-    const weightChanged = last.weight === null || Math.abs(currentWeight - last.weight) >= 0.1;
+
+    // Round to nearest 0.1
+    const roundedWeight = Math.round(currentWeight * 10) / 10;
+
+    // Check for change based on rounded value
+    const weightChanged = last.weight === null || roundedWeight !== last.weight;
     const timeElapsed = (now - last.timestamp) >= 10000; // 10s heartbeat
 
     if (weightChanged || timeElapsed) {
@@ -939,9 +923,9 @@ function handleWeightUpdate(port, currentWeight) {
             socket.emit('scale_reading', {
                 requestId: 'poll',
                 success: true,
-                data: { weight: currentWeight, unit: 'g' }
+                data: { weight: roundedWeight, unit: 'g' }
             });
-            lastScaleState = { weight: currentWeight, timestamp: now };
+            lastScaleState = { weight: roundedWeight, timestamp: now };
         }
     }
 }

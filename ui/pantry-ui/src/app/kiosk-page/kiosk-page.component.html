@@ -370,12 +370,47 @@
                 <div *ngIf="selectedRecipe" class="text-xl font-bold truncate ml-4">{{ selectedRecipe.title }}</div>
             </div>
 
-            <!-- Empty State -->
+            <!-- Selection View (Scan or Meal Plan) -->
             <div *ngIf="!selectedRecipe && availableInstructions.length === 0"
-                class="flex-1 flex flex-col items-center justify-center text-gray-400">
-                <mat-icon style="font-size: 96px; width: 96px; height: 96px;"
-                    class="mb-4 opacity-50">qr_code_scanner</mat-icon>
-                <h2 class="text-3xl font-light">Scan Recipe or Product Barcode</h2>
+                class="flex-1 flex gap-4 overflow-hidden">
+
+                <!-- Scan Section -->
+                <div
+                    class="flex-1 flex flex-col items-center justify-center text-gray-400 bg-slate-800/50 rounded-xl m-4 border-2 border-dashed border-slate-600">
+                    <mat-icon style="font-size: 96px; width: 96px; height: 96px;"
+                        class="mb-4 opacity-50">qr_code_scanner</mat-icon>
+                    <h2 class="text-3xl font-light text-center">Scan Recipe or Product</h2>
+                </div>
+
+                <!-- Upcoming Meals Section -->
+                <div class="flex-1 flex flex-col bg-slate-800 rounded-xl m-4 overflow-hidden">
+                    <div class="p-4 bg-slate-700/50 border-b border-slate-700">
+                        <h3 class="text-xl font-bold text-gray-300">UPCOMING MEALS</h3>
+                    </div>
+                    <div class="flex-1 overflow-y-auto p-4 space-y-4">
+                        <button *ngFor="let meal of upcomingMeals" mat-flat-button color="primary"
+                            class="w-full h-24 text-left relative overflow-hidden shrink-0"
+                            (click)="selectInstruction(meal.recipe)">
+                            <div class="flex flex-col justify-center h-full z-10 relative">
+                                <div class="text-xs font-bold uppercase tracking-wider opacity-75 mb-1 text-orange-300">
+                                    {{ getMealDateLabel(meal.date) }}
+                                </div>
+                                <div class="text-lg font-bold leading-tight truncate pr-4">
+                                    {{ meal.recipe.title }}
+                                </div>
+                            </div>
+                            <mat-icon
+                                class="absolute right-4 top-1/2 -translate-y-1/2 text-white/10 scale-[3]">restaurant</mat-icon>
+                        </button>
+
+                        <div *ngIf="upcomingMeals.length === 0"
+                            class="flex flex-col items-center justify-center h-full text-gray-500">
+                            <mat-icon class="text-4xl mb-2">event_busy</mat-icon>
+                            <span>No upcoming meals</span>
+                        </div>
+                    </div>
+                </div>
+
             </div>
 
             <!-- Instruction Selection -->

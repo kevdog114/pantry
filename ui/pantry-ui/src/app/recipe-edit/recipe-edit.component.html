@@ -144,47 +144,50 @@
             </div>
         </mat-tab>
         <mat-tab label="Kiosk Actions">
-            <div class="row mt-3 mb-2">
-                <div class="col-12 d-flex gap-2">
-                    <button mat-raised-button color="primary" type="button" (click)="addQuickAction()">
-                        <mat-icon>add</mat-icon> Add Action
-                    </button>
-                    <button mat-stroked-button color="accent" type="button" (click)="generateQuickActions()">
-                        <mat-icon>auto_awesome</mat-icon> Auto-Detect Actions
-                    </button>
+            <ng-template matTabContent>
+                <div class="row mt-3 mb-2">
+                    <div class="col-12 d-flex gap-2">
+                        <button mat-raised-button color="primary" type="button" (click)="addQuickAction()">
+                            <mat-icon>add</mat-icon> Add Action
+                        </button>
+                        <button mat-stroked-button color="accent" type="button" (click)="generateQuickActions()">
+                            <mat-icon>auto_awesome</mat-icon> Auto-Detect Actions
+                        </button>
+                    </div>
                 </div>
-            </div>
 
-            <div *ngFor="let action of recipe.quickActions; let i = index; trackBy: trackByFn"
-                class="row align-items-center mb-2">
-                <div class="col-md-5 col-12">
-                    <mat-form-field class="w-100">
-                        <mat-label>Action Name</mat-label>
-                        <input matInput [(ngModel)]="action.name" [name]="'qa-name-' + i"
-                            placeholder="e.g. Cook Chicken">
-                    </mat-form-field>
+                <div *ngFor="let action of recipe.quickActions; let i = index; trackBy: trackByFn"
+                    class="row align-items-center mb-2">
+                    <div class="col-md-5 col-12">
+                        <mat-form-field class="w-100">
+                            <mat-label>Action Name</mat-label>
+                            <input matInput [(ngModel)]="action.name" [name]="'qa-name-' + i"
+                                placeholder="e.g. Cook Chicken">
+                        </mat-form-field>
+                    </div>
+                    <div class="col-md-3 col-6">
+                        <mat-form-field class="w-100">
+                            <mat-label>Type</mat-label>
+                            <mat-select [(ngModel)]="action.type" [name]="'qa-type-' + i">
+                                <mat-option [value]="'timer'">Timer</mat-option>
+                                <mat-option [value]="'weigh'">Weigh</mat-option>
+                            </mat-select>
+                        </mat-form-field>
+                    </div>
+                    <div class="col-md-3 col-6">
+                        <mat-form-field class="w-100">
+                            <mat-label>{{ action.type === 'weigh' ? 'Weight (Grams)' : 'Duration (Minutes)'
+                                }}</mat-label>
+                            <input matInput [(ngModel)]="action.value" [name]="'qa-value-' + i"
+                                [placeholder]="action.type === 'weigh' ? 'e.g. 200' : 'e.g. 10-12'">
+                        </mat-form-field>
+                    </div>
+                    <div class="col-md-1 col-12 text-end">
+                        <button mat-icon-button color="warn" (click)="removeQuickAction(i)"
+                            type="button"><mat-icon>delete</mat-icon></button>
+                    </div>
                 </div>
-                <div class="col-md-3 col-6">
-                    <mat-form-field class="w-100">
-                        <mat-label>Type</mat-label>
-                        <mat-select [(ngModel)]="action.type" [name]="'qa-type-' + i">
-                            <mat-option value="timer">Timer</mat-option>
-                            <mat-option value="weigh">Weigh</mat-option>
-                        </mat-select>
-                    </mat-form-field>
-                </div>
-                <div class="col-md-3 col-6">
-                    <mat-form-field class="w-100">
-                        <mat-label>{{ action.type === 'weigh' ? 'Weight (Grams)' : 'Duration (Minutes)' }}</mat-label>
-                        <input matInput [(ngModel)]="action.value" [name]="'qa-value-' + i"
-                            [placeholder]="action.type === 'weigh' ? 'e.g. 200' : 'e.g. 10-12'">
-                    </mat-form-field>
-                </div>
-                <div class="col-md-1 col-12 text-end">
-                    <button mat-icon-button color="warn" (click)="removeQuickAction(i)"
-                        type="button"><mat-icon>delete</mat-icon></button>
-                </div>
-            </div>
+            </ng-template>
         </mat-tab>
         <mat-tab label="Images">
             <div class="row align-items-center mt-3">

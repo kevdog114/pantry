@@ -5,6 +5,7 @@ import argparse
 import serial
 import serial.tools.list_ports
 import os
+from collections import deque
 
 CONFIG_FILE = "scale_config.json"
 if os.path.isdir("/data"):
@@ -165,6 +166,7 @@ def monitor(port):
     
     ser = None
     config = get_device_config(port)
+    raw_history = deque()
     
     while True:
         try:
@@ -273,20 +275,28 @@ def monitor(port):
             if line:
                 try:
                     raw = int(line)
+                    # Median Filter
+                    raw_history.append(raw)
+                    if len(raw_history) > 3: # Keep window small for responsiveness
+                         raw_history.popleft()
+                    
+                    sorted_raw = sorted(raw_history)
+                    filtered_raw = sorted_raw[len(sorted_raw) // 2]
+                    
                     # Use current in-memory config
                     tare = config.get("tare_offset", 0)
                     cal = config.get("calibration_factor", 420.0)
                     if cal == 0: cal = 1
                     
-                    weight = (raw - tare) / cal
+                    weight = (filtered_raw - tare) / cal
                     
                     # Output weight
-                    print(f"WEIGHT:{weight:.2f} (Raw: {raw})")
+                    print(f"WEIGHT:{weight:.2f} (Raw: {filtered_raw})")
                     sys.stdout.flush()
                 except ValueError:
                     pass
             
-            time.sleep(0.5)
+            time.sleep(0.05)
 
         except Exception as e:
             print(f"Error reading scale: {e}", file=sys.stderr)
