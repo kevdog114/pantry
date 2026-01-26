@@ -136,9 +136,14 @@ export class KioskPageComponent implements OnInit, OnDestroy {
         this.detectPrinterMedia();
 
         // BLOCK default barcode behavior by default on this page
-        this.hardwareScanner.setCustomHandler(() => {
-            // Do nothing if scanned in main menu
-        });
+        // Create a handler for main menu scans
+        this.hardwareScanner.setCustomHandler(this.handleMainBarcode.bind(this));
+
+        const kIdStr = localStorage.getItem('kiosk_id');
+        if (kIdStr) {
+            const kioskId = parseInt(kIdStr);
+            this.hardwareScanner.claimScanner(kioskId);
+        }
 
         this.hardwareScanner.claimedBy$.subscribe(claimer => {
             this.scannerClaimedBy = claimer;
@@ -146,7 +151,6 @@ export class KioskPageComponent implements OnInit, OnDestroy {
         });
 
         // SIP Init
-        const kIdStr = localStorage.getItem('kiosk_id');
         if (kIdStr) {
             const kioskId = parseInt(kIdStr);
             this.sipService.getConfig(kioskId);
@@ -344,6 +348,39 @@ export class KioskPageComponent implements OnInit, OnDestroy {
             console.error("Error resolving barcode", e);
         }
         return { product: null, stockItem: null };
+    }
+
+    async handleMainBarcode(barcode: string) {
+        if (!barcode) return;
+        this.status = "Analyzing...";
+
+        // RECIPE SCAN
+        if (barcode.toLowerCase().startsWith('r-')) {
+            const rId = barcode.substring(2);
+            // We need to fetch the recipe to set it as selected
+            // We can't just navigate because we want Kiosk Cook Mode
+            try {
+                // Determine if we need to fetch full details
+                // Ideally use a service
+                const recipe = await firstValueFrom(this.http.get<Recipe>(`${this.env.apiUrl}/recipes/${rId}`));
+                if (recipe) {
+                    this.selectedRecipe = recipe;
+
+                    // If recipe has instructions, we might need to load them?
+                    // Actually, let's just open Cook
+                    this.openCook();
+                    return;
+                }
+            } catch (e) {
+                console.error("Failed to load recipe", e);
+                this.status = "Recipe Not Found";
+                this.showTempStatus("Recipe Not Found", "", 2000);
+            }
+        }
+
+        // GENERIC / PRODUCT SCAN
+        // Treat like Inventory Check for now
+        await this.handleInventoryBarcode(barcode);
     }
 
     async handleRestockBarcode(barcode: string) {
