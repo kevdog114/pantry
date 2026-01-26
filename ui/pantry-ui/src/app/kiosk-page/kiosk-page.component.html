@@ -25,18 +25,92 @@
         <!-- --- MODES (Restock, Consume, Inventory) --- -->
 
         <!-- RESTOCK -->
-        <div *ngIf="activeMode === 'RESTOCK'" class="h-full flex items-center justify-center">
-            <button class="k-btn success h-[300px] w-[300px] rounded-full" (click)="finishAction()">
-                <mat-icon style="font-size: 80px; width: 80px; height: 80px;">check_circle</mat-icon>
-                <span>FINISH RESTOCK</span>
+        <div *ngIf="activeMode === 'RESTOCK'" class="h-full flex flex-col p-4 gap-4">
+            <!-- Scanned Item Display -->
+            <div
+                class="flex-1 rounded-3xl bg-white/5 border border-white/10 flex flex-col items-center justify-center relative overflow-hidden">
+                <div *ngIf="!lastScan" class="flex flex-col items-center text-gray-500 animate-pulse">
+                    <mat-icon class="text-8xl mb-4">qr_code_scanner</mat-icon>
+                    <span class="text-2xl">SCAN ITEM TO ADD</span>
+                </div>
+
+                <div *ngIf="lastScan"
+                    class="flex flex-col items-center text-center p-8 w-full animate-in fade-in zoom-in duration-300">
+                    <mat-icon *ngIf="lastScan.type === 'success'"
+                        class="text-green-500 text-8xl mb-4 scale-150">check_circle</mat-icon>
+                    <mat-icon *ngIf="lastScan.type === 'error'"
+                        class="text-red-500 text-8xl mb-4 scale-150">error</mat-icon>
+                    <mat-icon *ngIf="lastScan.type === 'info'"
+                        class="text-blue-500 text-8xl mb-4 animate-spin">sync</mat-icon>
+
+                    <h2 class="text-5xl font-bold mb-4 w-full break-words">{{ lastScan.title }}</h2>
+                    <h3 class="text-3xl text-cyan-400 font-mono">{{ lastScan.status }}</h3>
+                </div>
+
+                <!-- Session Mini Log -->
+                <div
+                    class="absolute bottom-0 left-0 right-0 h-40 bg-black/40 backdrop-blur border-t border-white/10 p-4 overflow-hidden mask-fade-bottom">
+                    <div class="text-xs text-gray-400 font-bold mb-2 uppercase tracking-wider">Recent</div>
+                    <div class="flex flex-col gap-3">
+                        <div *ngFor="let log of sessionLog | slice:0:4" class="flex items-center text-lg">
+                            <span [class.text-green-400]="log.type === 'success'"
+                                [class.text-red-400]="log.type === 'error'" class="font-mono text-sm opacity-50 mr-3">
+                                {{ log.time | date:'HH:mm:ss' }}
+                            </span>
+                            <span class="font-bold truncate">{{ log.title }}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <button class="k-btn success h-32" (click)="finishAction()">
+                <mat-icon style="transform: scale(1.5);">check</mat-icon>
+                <span class="text-2xl ml-4">DONE</span>
             </button>
         </div>
 
         <!-- CONSUME -->
-        <div *ngIf="activeMode === 'CONSUME'" class="h-full flex items-center justify-center">
-            <button class="k-btn primary h-[300px] w-[300px] rounded-full bg-cyan-900" (click)="finishAction()">
-                <mat-icon style="font-size: 80px; width: 80px; height: 80px;">check_circle</mat-icon>
-                <span>FINISH CONSUME</span>
+        <div *ngIf="activeMode === 'CONSUME'" class="h-full flex flex-col p-4 gap-4">
+            <!-- Scanned Item Display -->
+            <div
+                class="flex-1 rounded-3xl bg-white/5 border border-white/10 flex flex-col items-center justify-center relative overflow-hidden">
+                <div *ngIf="!lastScan" class="flex flex-col items-center text-gray-500 animate-pulse">
+                    <mat-icon class="text-8xl mb-4">qr_code_scanner</mat-icon>
+                    <span class="text-2xl">SCAN ITEM TO CONSUME</span>
+                </div>
+
+                <div *ngIf="lastScan"
+                    class="flex flex-col items-center text-center p-8 w-full animate-in fade-in zoom-in duration-300">
+                    <mat-icon *ngIf="lastScan.type === 'success'"
+                        class="text-orange-500 text-8xl mb-4 scale-150">restaurant</mat-icon>
+                    <mat-icon *ngIf="lastScan.type === 'error'"
+                        class="text-red-500 text-8xl mb-4 scale-150">error</mat-icon>
+                    <mat-icon *ngIf="lastScan.type === 'info'"
+                        class="text-blue-500 text-8xl mb-4 animate-spin">sync</mat-icon>
+
+                    <h2 class="text-5xl font-bold mb-4 w-full break-words">{{ lastScan.title }}</h2>
+                    <h3 class="text-3xl text-orange-400 font-mono">{{ lastScan.status }}</h3>
+                </div>
+
+                <!-- Session Mini Log -->
+                <div
+                    class="absolute bottom-0 left-0 right-0 h-40 bg-black/40 backdrop-blur border-t border-white/10 p-4 overflow-hidden mask-fade-bottom">
+                    <div class="text-xs text-gray-400 font-bold mb-2 uppercase tracking-wider">Recent</div>
+                    <div class="flex flex-col gap-3">
+                        <div *ngFor="let log of sessionLog | slice:0:4" class="flex items-center text-lg">
+                            <span [class.text-green-400]="log.type === 'success'"
+                                [class.text-red-400]="log.type === 'error'" class="font-mono text-sm opacity-50 mr-3">
+                                {{ log.time | date:'HH:mm:ss' }}
+                            </span>
+                            <span class="font-bold truncate">{{ log.title }}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <button class="k-btn primary h-32 bg-cyan-900" (click)="finishAction()">
+                <mat-icon style="transform: scale(1.5);">check</mat-icon>
+                <span class="text-2xl ml-4">DONE</span>
             </button>
         </div>
 

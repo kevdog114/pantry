@@ -296,11 +296,24 @@ export class KioskPageComponent implements OnInit, OnDestroy {
         });
     }
 
+    // Session State
+    sessionLog: { title: string, status: string, time: Date, type: 'success' | 'error' | 'info' }[] = [];
+    lastScan: { title: string, status: string, type: 'success' | 'error' | 'info' } | null = null;
+
+    private addToLog(title: string, status: string, type: 'success' | 'error' | 'info' = 'success') {
+        this.lastScan = { title, status, type };
+        this.sessionLog.unshift({ title, status, time: new Date(), type });
+        // Keep log size manageable
+        if (this.sessionLog.length > 50) this.sessionLog.pop();
+    }
+
     // Actions
     setMode(mode: 'RESTOCK' | 'CONSUME' | 'INVENTORY') {
         this.activeMode = mode;
         this.status = 'Scan Barcode...';
         this.statusSubtext = '';
+        this.sessionLog = [];
+        this.lastScan = null;
 
         if (mode === 'RESTOCK') {
             this.hardwareScanner.setCustomHandler(this.handleRestockBarcode.bind(this));
@@ -386,6 +399,7 @@ export class KioskPageComponent implements OnInit, OnDestroy {
     async handleRestockBarcode(barcode: string) {
         if (!barcode) return;
         this.status = "Looking up product...";
+        this.lastScan = { title: 'Processing...', status: 'Looking up...', type: 'info' };
 
         try {
             const { product, stockItem } = await this.resolveBarcode(barcode);
@@ -394,13 +408,13 @@ export class KioskPageComponent implements OnInit, OnDestroy {
                 await this.addStock(product, 1);
                 this.status = "1 Unit Added";
                 this.statusSubtext = product.title;
-                this.showTempStatus("1 Unit Added", product.title, 3000);
+                this.addToLog(product.title, "+1 Unit Added", 'success');
             } else {
                 // Not Found - External Lookup flow?
                 // correctly handle if they scanned a stock code vs product code
                 if (barcode.toLowerCase().startsWith('sk-') || barcode.toLowerCase().startsWith('s2-')) {
                     this.status = "Stock Item Not Found";
-                    this.showTempStatus("Stock Item Not Found", "", 3000);
+                    this.addToLog("Stock Item Not Found", "", 'error');
                     return;
                 }
 
@@ -409,6 +423,7 @@ export class KioskPageComponent implements OnInit, OnDestroy {
         } catch (err) {
             console.error("Scan Error", err);
             this.status = "Error processing scan.";
+            this.addToLog("Scan Error", "Failed to process", 'error');
             setTimeout(() => this.status = "Scan Barcode...", 3000);
         }
     }
@@ -416,6 +431,7 @@ export class KioskPageComponent implements OnInit, OnDestroy {
     async handleConsumeBarcode(barcode: string) {
         if (!barcode) return;
         this.status = "Looking up product...";
+        this.lastScan = { title: 'Processing...', status: 'Looking up...', type: 'info' };
 
         try {
             const { product, stockItem } = await this.resolveBarcode(barcode);
@@ -451,21 +467,22 @@ export class KioskPageComponent implements OnInit, OnDestroy {
                     }
                     this.status = "1 Unit Consumed";
                     this.statusSubtext = product.title;
-                    this.showTempStatus("1 Unit Consumed", product.title, 3000);
+                    this.addToLog(product.title, "-1 Consumed", 'success');
                 } else {
                     this.status = "Out of Stock";
                     this.statusSubtext = product.title;
-                    this.showTempStatus("Out of Stock", product.title, 3000);
+                    this.addToLog(product.title, "Out of Stock", 'error');
                 }
 
             } else {
                 this.status = "Product Not Found";
                 this.statusSubtext = "Try adding it in Restock";
-                this.showTempStatus("Product Not Found", "Try adding it in Restock", 3000);
+                this.addToLog("Product Not Found", "", 'error');
             }
         } catch (err) {
             console.error("Scan Error", err);
             this.status = "Error processing scan.";
+            this.addToLog("Scan Error", "Failed to process", 'error');
             setTimeout(() => this.status = "Scan Barcode...", 3000);
         }
     }
