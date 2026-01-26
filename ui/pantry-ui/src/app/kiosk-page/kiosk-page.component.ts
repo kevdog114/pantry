@@ -22,7 +22,7 @@ import { Product, ProductTags, StockItem } from '../types/product';
 import { firstValueFrom, Subscription } from 'rxjs';
 import { MarkdownModule } from 'ngx-markdown';
 
-type ViewState = 'MAIN' | 'UTILITIES' | 'PRINT_LABELS' | 'QUICK_LABEL' | 'SCALE' | 'COOK' | 'TIMERS';
+type ViewState = 'MAIN' | 'UTILITIES' | 'PRINT_LABELS' | 'QUICK_LABEL' | 'SCALE' | 'COOK' | 'TIMERS' | 'HARDWARE';
 import { Recipe, RecipeQuickAction } from '../types/recipe';
 
 import { SocketService } from '../services/socket.service';
@@ -91,6 +91,13 @@ export class KioskPageComponent implements OnInit, OnDestroy {
 
     upcomingMeals: any[] = [];
     private timersSub: Subscription | null = null;
+
+    // Hardware Test Logic
+    micStream: MediaStream | null = null;
+    micVolume: number = 0;
+    audioContext: AudioContext | null = null;
+    analyser: AnalyserNode | null = null;
+    micFrameId: number | null = null;
 
     constructor(
         private router: Router,
@@ -1199,6 +1206,127 @@ export class KioskPageComponent implements OnInit, OnDestroy {
     }
 
     isFullScreen(state: string): boolean {
-        return ['COOK', 'PHONE', 'TIMERS', 'QUICK_LABEL', 'SCALE'].includes(state);
+        return ['COOK', 'PHONE', 'TIMERS', 'QUICK_LABEL', 'SCALE', 'HARDWARE'].includes(state);
+    }
+
+    // Hardware Methods
+    openHardware() {
+        this.viewState = 'HARDWARE';
+        this.status = 'Hardware Check';
+        this.startMicTest(); // Auto start? Or wait for user? Let's auto start for convenience, or maybe not to avoid feedback.
+        // User asked for a button to show volume level.
+    }
+
+    closeHardware() {
+        this.stopMicTest();
+        this.openUtilities();
+    }
+
+    testSpeaker() {
+        try {
+            const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(440, ctx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.1);
+
+            gain.gain.setValueAtTime(0.5, ctx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.5);
+
+            osc.start();
+            osc.stop(ctx.currentTime + 0.5);
+
+            this.snackBar.open("Playing Sound...", "Close", { duration: 1000 });
+        } catch (e) {
+            console.error("Audio Play Error", e);
+            this.snackBar.open("Audio Error", "Close");
+        }
+    }
+
+    async toggleMicTest() {
+        if (this.micStream) {
+            this.stopMicTest();
+        } else {
+            await this.startMicTest();
+        }
+    }
+
+    async startMicTest() {
+        // Create context immediately on user gesture if possible, or recycle
+        if (!this.audioContext) {
+            this.audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+        }
+
+        try {
+            this.micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+
+            this.ngZone.run(() => {
+                if (this.audioContext?.state === 'suspended') {
+                    this.audioContext.resume();
+                }
+
+                if (this.audioContext) {
+                    const source = this.audioContext.createMediaStreamSource(this.micStream!);
+                    this.analyser = this.audioContext.createAnalyser();
+                    this.analyser.fftSize = 256;
+                    this.analyser.smoothingTimeConstant = 0.3; // More responsive
+
+                    source.connect(this.analyser);
+
+                    console.log("Mic Monitor Started");
+                    this.updateMicLevel();
+                }
+            });
+        } catch (e) {
+            console.error("Mic Error", e);
+            this.snackBar.open("Microphone Access Denied", "Close");
+        }
+    }
+
+    updateMicLevel() {
+        if (!this.analyser || !this.micStream) return;
+
+        const bufferLength = this.analyser.frequencyBinCount;
+        const dataArray = new Uint8Array(bufferLength);
+        this.analyser.getByteFrequencyData(dataArray);
+
+        let sum = 0;
+        for (let i = 0; i < bufferLength; i++) {
+            sum += dataArray[i];
+        }
+        const avg = sum / bufferLength;
+
+        this.ngZone.run(() => {
+            // Enhanced sensitivity: map 0-50 range to 0-100%
+            // Most speech is in lower range of FFT
+            let val = (avg / 50) * 100;
+            if (val < 5) val = 0; // noise gate
+
+            this.micVolume = Math.min(val, 100);
+        });
+
+        this.micFrameId = requestAnimationFrame(this.updateMicLevel.bind(this));
+    }
+
+    stopMicTest() {
+        if (this.micFrameId) {
+            cancelAnimationFrame(this.micFrameId);
+            this.micFrameId = null;
+        }
+        if (this.micStream) {
+            this.micStream.getTracks().forEach(t => t.stop());
+            this.micStream = null;
+        }
+        if (this.audioContext) {
+            this.audioContext.close();
+            this.audioContext = null;
+        }
+        this.analyser = null;
+        this.micVolume = 0;
     }
 }

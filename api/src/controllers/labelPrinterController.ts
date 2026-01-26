@@ -358,6 +358,30 @@ export const printReceipt = async (req: Request, res: Response, next: NextFuncti
         receiptData.yield = recipe.yield;
         receiptData.qrData = `R-${recipe.id}`;
 
+        // Add Date
+        receiptData.date = new Date().toLocaleString("en-US", {
+            timeZone: "America/Chicago",
+            dateStyle: 'medium',
+            timeStyle: 'short'
+        });
+
+        // Add ingredients to receipt data
+        if (recipe.ingredients && recipe.ingredients.length > 0) {
+            receiptData.items = recipe.ingredients.map((ing: any) => {
+                let qty = "";
+                if (ing.amount !== null && ing.amount !== undefined) {
+                    qty += ing.amount;
+                }
+                if (ing.unit) {
+                    qty += " " + ing.unit;
+                }
+                return {
+                    name: ing.name,
+                    quantity: qty.trim()
+                };
+            });
+        }
+
         const payload = {
             type: 'RECEIPT',
             data: receiptData

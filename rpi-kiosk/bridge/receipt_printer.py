@@ -206,6 +206,13 @@ def print_receipt_cmd(args):
         p._raw(b'\x1b!\x00') # ESC ! 0 (Normal Font)
         p._raw(b'\x1d!\x00') # GS ! 0 (Normal Size)
         p.set(align='left', font='a')
+
+        # Date/Time
+        if 'date' in data:
+            p.set(align='center')
+            p.text(f"{data['date']}\n")
+            p.text("\n")
+            p.set(align='left')
         
         # Body Text
         if 'text' in data:
@@ -218,10 +225,23 @@ def print_receipt_cmd(args):
                 else:
                     p.text("\n")
             
+        # Key-Value pairs if provided
+        if 'items' in data and isinstance(data['items'], list):
+            print("Printing Items...")
+            p.text("-" * 32 + "\n")
+            p.text("INGREDIENTS:\n")
+            for item in data['items']:
+                if isinstance(item, dict):
+                    name = item.get('name', '')
+                    qty = item.get('quantity', '')
+                    p.text(f"{name:<20} {str(qty):>10}\n")
+                else:
+                    p.text(f"{str(item)}\n")
+            p.text("-" * 32 + "\n")
+
         # Recipe Steps
         if 'steps' in data and isinstance(data['steps'], list):
             print(f"Printing {len(data['steps'])} steps...")
-            p.text("-" * 32 + "\n")
             p.text("INSTRUCTIONS:\n")
             for i, step in enumerate(data['steps']):
                 print(f"Printing step {i+1}...")
@@ -299,19 +319,6 @@ def print_receipt_cmd(args):
                     p.set(font='a')
                 
                 p.text("\n")
-            p.text("-" * 32 + "\n")
-
-        # Key-Value pairs if provided
-        if 'items' in data and isinstance(data['items'], list):
-            print("Printing Items...")
-            p.text("-" * 32 + "\n")
-            for item in data['items']:
-                if isinstance(item, dict):
-                    name = item.get('name', '')
-                    qty = item.get('quantity', '')
-                    p.text(f"{name:<20} {qty:>10}\n")
-                else:
-                    p.text(f"{str(item)}\n")
             p.text("-" * 32 + "\n")
 
         # QR Code

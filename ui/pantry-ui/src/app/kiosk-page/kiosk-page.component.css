@@ -63,23 +63,23 @@
 }
 
 .fs-2xl {
+    font-size: 2.25rem;
+    line-height: 2.5rem;
+}
+
+.fs-xl {
+    font-size: 1.75rem;
+    line-height: 2.25rem;
+}
+
+.fs-lg {
     font-size: 1.5rem;
     line-height: 2rem;
 }
 
-.fs-xl {
-    font-size: 1.25rem;
-    line-height: 1.75rem;
-}
-
-.fs-lg {
-    font-size: 1.125rem;
-    line-height: 1.75rem;
-}
-
 .fs-xs {
-    font-size: 0.75rem;
-    line-height: 1rem;
+    font-size: 1rem;
+    line-height: 1.25rem;
 }
 
 .fw-bold {
@@ -166,7 +166,7 @@
 
 /* Normal Status Typography */
 .status-text {
-    font-size: 2.5rem;
+    font-size: 3.5rem;
     /* Slightly smaller to save space for buttons */
     font-weight: 300;
     letter-spacing: 1px;
@@ -244,20 +244,20 @@
 
 /* Icon scaling */
 .k-btn mat-icon {
-    font-size: 56px;
+    font-size: 72px;
     /* Bigger icons */
-    width: 56px;
-    height: 56px;
-    margin-bottom: 4px;
+    width: 72px;
+    height: 72px;
+    margin-bottom: 8px;
 }
 
 /* Text scaling */
 .k-btn span {
-    font-size: 1.6rem;
+    font-size: 2.2rem;
     /* Bigger text */
     font-weight: 700;
     text-align: center;
-    line-height: 1.1;
+    line-height: 1.2;
     text-transform: uppercase;
     max-width: 90%;
 }
@@ -392,7 +392,7 @@
     background: var(--k-surface-light);
     border: 1px solid var(--k-border);
     color: var(--k-primary);
-    font-size: 1.4rem;
+    font-size: 1.8rem;
     font-weight: 900;
     display: flex;
     align-items: center;
@@ -473,7 +473,7 @@
 .cook-header {
     background: rgba(0, 0, 0, 0.3);
     padding: 16px;
-    font-size: 1.2rem;
+    font-size: 1.5rem;
     font-weight: bold;
     text-transform: uppercase;
     color: var(--k-text-dim);
@@ -547,8 +547,8 @@
 
 /* Footer - keep small */
 .footer {
-    height: 48px;
-    font-size: 0.8rem;
+    height: 64px;
+    font-size: 1.25rem;
     padding: 0 16px;
     flex-shrink: 0;
     display: flex;
@@ -557,6 +557,10 @@
     background-color: rgba(0, 0, 0, 0.5);
     border-top: 1px solid var(--k-border);
     color: var(--k-text-dim);
+}
+
+.footer button {
+    font-size: 1.25rem !important;
 }
 
 .connection-status {
@@ -742,4 +746,65 @@
     background-color: #0277bd;
     /* Light Blue 800 */
     border-color: #29b6f6;
+}
+
+/* Back button specific adjustments for smaller screens/tiles */
+.k-btn.back-btn mat-icon {
+    font-size: 56px;
+    width: 56px;
+    height: 56px;
+    margin-bottom: 4px;
+}
+
+.k-btn.back-btn span {
+    font-size: 1.5rem;
+}
+
+/* ---------------- HARDWARE / MIC TEST ---------------- */
+.hardware-panel {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid var(--k-border);
+    border-radius: 16px;
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+}
+
+.mic-level-container {
+    width: 100%;
+    height: 48px;
+    background: rgba(0, 0, 0, 0.5);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 24px;
+    position: relative;
+    overflow: hidden;
+}
+
+.mic-grid-lines {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    justify-content: space-between;
+    padding: 0 8px;
+    z-index: 10;
+    pointer-events: none;
+}
+
+.mic-grid-line {
+    width: 1px;
+    height: 100%;
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.mic-level-bar {
+    height: 100%;
+    background: linear-gradient(90deg, #00e676 0%, #ffeb3b 70%, #ff1744 100%);
+    transition: width 0.1s linear;
+    width: 0%;
 }
