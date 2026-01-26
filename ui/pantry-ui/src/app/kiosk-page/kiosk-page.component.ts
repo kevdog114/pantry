@@ -19,7 +19,8 @@ import { HardwareBarcodeScannerService } from '../hardware-barcode-scanner.servi
 import { ProductListService } from '../components/product-list/product-list.service';
 import { TagsService } from '../tags.service';
 import { Product, ProductTags, StockItem } from '../types/product';
-import { firstValueFrom } from 'rxjs';
+import { firstValueFrom, Subscription } from 'rxjs';
+import { MarkdownModule } from 'ngx-markdown';
 
 type ViewState = 'MAIN' | 'UTILITIES' | 'PRINT_LABELS' | 'QUICK_LABEL' | 'SCALE' | 'COOK' | 'TIMERS';
 import { Recipe, RecipeQuickAction } from '../types/recipe';
@@ -42,7 +43,8 @@ import { SipService, SipConfig, SipCallState, SipIncomingCall } from '../service
         MatChipsModule,
         MatDatepickerModule,
         MatNativeDateModule,
-        FormsModule
+        FormsModule,
+        MarkdownModule
     ],
     templateUrl: './kiosk-page.component.html',
     styleUrls: ['./kiosk-page.component.css']
@@ -88,6 +90,7 @@ export class KioskPageComponent implements OnInit, OnDestroy {
 
 
     upcomingMeals: any[] = [];
+    private timersSub: Subscription | null = null;
 
     constructor(
         private router: Router,
@@ -180,9 +183,12 @@ export class KioskPageComponent implements OnInit, OnDestroy {
         }
 
 
-        // Timer Polling
+        // Timer Polling - Replaced with WebSockets
         this.fetchTimers();
-        setInterval(() => this.fetchTimers(), 10000); // Sync every 10s
+        this.timersSub = this.socketService.fromEvent('timers_updated').subscribe(() => {
+            this.fetchTimers();
+        });
+
         setInterval(() => {
             // Local decrement for smoothness
             this.activeTimers.forEach(t => {
@@ -194,6 +200,7 @@ export class KioskPageComponent implements OnInit, OnDestroy {
         if (this.timer) clearInterval(this.timer);
         this.activeTimers.forEach(t => clearInterval(t.interval));
         this.hardwareScanner.setCustomHandler(null);
+        if (this.timersSub) this.timersSub.unsubscribe();
     }
 
     // ... (rest of methods)
@@ -1132,5 +1139,9 @@ export class KioskPageComponent implements OnInit, OnDestroy {
 
     exitKiosk() {
         this.router.navigate(['/']);
+    }
+
+    isFullScreen(state: string): boolean {
+        return ['COOK', 'PHONE', 'TIMERS', 'QUICK_LABEL', 'SCALE'].includes(state);
     }
 }

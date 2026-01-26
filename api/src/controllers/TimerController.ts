@@ -22,9 +22,16 @@ export const createTimer = async (req: Request, res: Response) => {
             data: {
                 name,
                 duration: Number(duration),
-                status: 'RUNNING'
+                status: 'RUNNING',
+                startedAt: new Date()
             }
         });
+
+        const io = req.app.get("io");
+        if (io) {
+            io.emit('timers_updated');
+        }
+
         res.json({ message: "success", data: timer });
     } catch (error) {
         console.error("Error creating timer:", error);
@@ -38,6 +45,12 @@ export const deleteTimer = async (req: Request, res: Response) => {
         await prisma.timer.delete({
             where: { id: Number(id) }
         });
+
+        const io = req.app.get("io");
+        if (io) {
+            io.emit('timers_updated');
+        }
+
         res.json({ message: "success" });
     } catch (error) {
         console.error("Error deleting timer:", error);

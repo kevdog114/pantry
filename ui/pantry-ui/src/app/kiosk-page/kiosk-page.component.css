@@ -1,268 +1,727 @@
+:root {
+    --k-bg: #050505;
+    --k-surface: rgba(30, 30, 30, 0.6);
+    --k-surface-light: rgba(255, 255, 255, 0.1);
+    --k-surface-lighter: rgba(255, 255, 255, 0.15);
+
+    --k-primary: #00e5ff;
+    /* Cyan */
+    --k-primary-dim: rgba(0, 229, 255, 0.2);
+    --k-primary-glow: rgba(0, 229, 255, 0.6);
+
+    --k-accent: #ff9100;
+    /* Orange */
+    --k-accent-dim: rgba(255, 145, 0, 0.2);
+
+    --k-warn: #ff1744;
+    --k-success: #00e676;
+
+    --k-border: rgba(255, 255, 255, 0.1);
+    --k-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.5);
+
+    --k-font-main: 'Roboto', sans-serif;
+    --k-radius-lg: 24px;
+    --k-radius-md: 16px;
+    --k-radius-sm: 8px;
+
+    --k-text-dim: #9aa0a6;
+}
+
+/* Utilities */
+.text-k-primary {
+    color: var(--k-primary) !important;
+}
+
+.text-k-accent {
+    color: var(--k-accent) !important;
+}
+
+.text-k-warn {
+    color: var(--k-warn) !important;
+}
+
+.text-k-dim {
+    color: var(--k-text-dim) !important;
+}
+
+.fs-2xl {
+    font-size: 1.5rem;
+    line-height: 2rem;
+}
+
+.fs-xl {
+    font-size: 1.25rem;
+    line-height: 1.75rem;
+}
+
+.fs-lg {
+    font-size: 1.125rem;
+    line-height: 1.75rem;
+}
+
+.fs-xs {
+    font-size: 0.75rem;
+    line-height: 1rem;
+}
+
+.fw-bold {
+    font-weight: 700;
+}
+
+.fw-light {
+    font-weight: 300;
+}
+
+.h-24 {
+    height: 6rem !important;
+}
+
+.h-12 {
+    height: 3rem !important;
+}
+
 /* Main Container */
 .kiosk-container {
     position: fixed;
     top: 0;
     left: 0;
-    width: 100%;
-    height: 100%;
+    width: 100vw;
+    height: 100vh;
     z-index: 9999;
-    /* Cover existing UI */
-    background-color: #1e1e1e;
-    /* Dark background */
-    color: #ffffff;
+    background-color: var(--k-bg);
+    background-image:
+        radial-gradient(circle at 10% 20%, rgba(0, 229, 255, 0.05) 0%, transparent 40%),
+        radial-gradient(circle at 90% 80%, rgba(255, 145, 0, 0.05) 0%, transparent 40%);
+    color: white;
+    font-family: var(--k-font-main);
     display: flex;
     flex-direction: column;
     overflow: hidden;
-    font-family: 'Roboto', sans-serif;
 }
 
 /* Status Section */
 .status-section {
-    flex: 1;
-    /* Takes up 50% roughly */
+    flex: 0 0 auto;
+    /* Don't flex grow, take what is needed but keep compact */
+    padding-top: 20px;
+    padding-bottom: 10px;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    background: linear-gradient(180deg, #2c3e50 0%, #000000 100%);
-    transition: background 0.3s ease;
+    transition: all 0.3s ease;
+    background: transparent;
 }
 
-.status-section.scanning {
-    background: linear-gradient(180deg, #1a237e 0%, #000000 100%);
-    /* Blueish for scanning */
+/* Minimized Status (Header Mode) */
+.status-section.minimized {
+    /* Compact header */
+    height: 60px;
+    padding: 0 16px;
+    flex-direction: row;
+    justify-content: flex-start;
+    background: rgba(0, 0, 0, 0.9);
+    border-bottom: 1px solid var(--k-border);
+    backdrop-filter: blur(10px);
 }
 
-.status-text {
-    font-size: 4rem;
-    font-weight: 300;
+.status-section.minimized .status-text {
+    font-size: 1.4rem;
+    text-align: left;
     margin: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.status-section.minimized .status-subtext {
+    display: none;
+}
+
+.status-section.minimized .pulse-icon {
+    font-size: 2rem;
+    width: 2rem;
+    height: 2rem;
+    margin: 0 12px 0 0;
+    order: -1;
+}
+
+/* Normal Status Typography */
+.status-text {
+    font-size: 2.5rem;
+    /* Slightly smaller to save space for buttons */
+    font-weight: 300;
+    letter-spacing: 1px;
+    text-transform: uppercase;
     text-align: center;
-    letter-spacing: 2px;
+    text-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+    margin: 0;
 }
 
 .status-subtext {
-    font-size: 2rem;
-    font-weight: 200;
-    margin-top: 10px;
-    text-align: center;
-    color: #b3e5fc;
-    opacity: 0.9;
+    font-size: 1.2rem;
+    color: rgba(255, 255, 255, 0.7);
+    margin-top: 4px;
+    margin-bottom: 8px;
+    /* Reduce space */
 }
 
-.pulse-icon {
-    font-size: 6rem;
-    width: 6rem;
-    height: 6rem;
-    margin-top: 20px;
-    animation: pulse 2s infinite;
-    color: #64ffda;
-}
-
-@keyframes pulse {
-    0% {
-        transform: scale(1);
-        opacity: 0.8;
-    }
-
-    50% {
-        transform: scale(1.1);
-        opacity: 1;
-        text-shadow: 0 0 20px #64ffda;
-    }
-
-    100% {
-        transform: scale(1);
-        opacity: 0.8;
-    }
-}
-
-/* Action Section */
+/* Action Section - The meat of the UI */
 .action-section {
     flex: 1;
-    /* Takes up other 50% */
-    padding: 20px;
-    background-color: #121212;
+    background: transparent;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    padding: 12px;
+    /* Reduce padding to give more width to buttons */
 }
 
-.button-grid {
+/* Grid Layouts - MAXIMIZED FOR TOUCH */
+.grid-menu {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    grid-template-rows: 1fr 1fr;
-    /* 2 rows default */
-    gap: 20px;
+    grid-template-rows: repeat(3, 1fr);
+    /* Force 3 rows to fill height */
+    gap: 16px;
+    /* Tighter gap */
     height: 100%;
     width: 100%;
 }
 
-.single-action-grid {
-    grid-template-columns: 1fr;
-    grid-template-rows: 1fr;
+.grid-menu.compact {
+    /* 2 columns, but specifically for main menu items */
+    gap: 12px;
 }
 
-.compact-grid {
-    /* For 5 buttons, maybe custom layout */
-    grid-template-columns: 1fr 1fr;
-    grid-template-rows: auto auto auto;
-    /* We have 5 items. Back button can be full width? */
+/* MASSIVE BUTTONS */
+.k-btn {
+    appearance: none;
+    border: 1px solid var(--k-border);
+    background: var(--k-surface);
+    color: white;
+    border-radius: 20px;
+    /* Slightly squarer for max area */
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    /* Tighter internal gap */
+    cursor: pointer;
+    width: 100%;
+    /* Fill container */
+    height: 100%;
+    /* Fill grid cell */
+    position: relative;
+    overflow: hidden;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
 }
 
-.full-width {
-    grid-column: 1 / -1;
-}
-
-.large-btn {
-    height: 100% !important;
-    font-size: 24px !important;
-    border-radius: 16px !important;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
-    transition: transform 0.1s;
-}
-
-.large-btn:active {
+.k-btn:active {
     transform: scale(0.98);
+    background: var(--k-surface-lighter);
 }
 
-.active-mode {
-    border: 4px solid #64ffda !important;
-    box-shadow: 0 0 20px rgba(100, 255, 218, 0.6) !important;
-    background-color: #004d40 !important;
-    /* Darker teal to match border */
-    color: #64ffda !important;
+/* Icon scaling */
+.k-btn mat-icon {
+    font-size: 56px;
+    /* Bigger icons */
+    width: 56px;
+    height: 56px;
+    margin-bottom: 4px;
+}
+
+/* Text scaling */
+.k-btn span {
+    font-size: 1.6rem;
+    /* Bigger text */
+    font-weight: 700;
+    text-align: center;
+    line-height: 1.1;
+    text-transform: uppercase;
+    max-width: 90%;
+}
+
+/* Variants */
+.k-btn.primary {
+    background: linear-gradient(135deg, rgba(0, 229, 255, 0.1) 0%, rgba(0, 229, 255, 0.05) 100%);
+    border-color: rgba(0, 229, 255, 0.3);
+}
+
+.k-btn.primary mat-icon {
+    color: var(--k-primary);
+}
+
+.k-btn.accent {
+    background: linear-gradient(135deg, rgba(255, 145, 0, 0.1) 0%, rgba(255, 145, 0, 0.05) 100%);
+    border-color: rgba(255, 145, 0, 0.3);
+}
+
+.k-btn.accent mat-icon {
+    color: var(--k-accent);
+}
+
+.k-btn.warn {
+    background: linear-gradient(135deg, rgba(255, 23, 68, 0.1) 0%, rgba(255, 23, 68, 0.05) 100%);
+    border-color: rgba(255, 23, 68, 0.3);
+}
+
+.k-btn.warn mat-icon {
+    color: var(--k-warn);
+}
+
+.k-btn.success {
+    background: linear-gradient(135deg, rgba(0, 230, 118, 0.1) 0%, rgba(0, 230, 118, 0.05) 100%);
+    border-color: rgba(0, 230, 118, 0.3);
+}
+
+.k-btn.success mat-icon {
+    color: var(--k-success);
+}
+
+
+/* Specific overrides for Utilities grid to fit more comfortably if needed */
+
+/* ---------------- PHONE ---------------- */
+.phone-layout {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    gap: 12px;
+}
+
+.phone-display {
+    padding: 8px 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 60px;
+}
+
+.phone-number {
+    font-size: 2.5rem;
+    font-family: monospace;
+    font-weight: bold;
+}
+
+.dial-pad {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    grid-template-rows: repeat(4, 1fr);
+    gap: 12px;
+    flex: 1;
+    min-height: 0;
+    /* Allow flex shrink */
+}
+
+.dial-btn {
+    width: 100%;
+    height: 100%;
+    border-radius: 16px;
+    /* Rounded rect instead of circle to use space */
+    background: var(--k-surface-light);
+    border: 1px solid var(--k-border);
+    color: white;
+    font-size: 2.5rem;
+    /* Huge numbers */
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s;
+}
+
+.dial-btn:active {
+    background: white;
+    color: black;
+}
+
+.call-btn {
+    width: 100%;
+    height: 70px;
+    background: var(--k-success);
+    border-radius: 35px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2rem;
+    box-shadow: 0 4px 12px rgba(0, 230, 118, 0.4);
+}
+
+
+/* ---------------- TIMERS ---------------- */
+.timers-layout {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    gap: 16px;
+}
+
+.timer-creation-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 8px;
+    height: 80px;
+    /* Fixed height for presets */
+    flex-shrink: 0;
+}
+
+.timer-preset {
+    height: 100%;
+    border-radius: 12px;
+    background: var(--k-surface-light);
+    border: 1px solid var(--k-border);
+    color: var(--k-primary);
+    font-size: 1.4rem;
+    font-weight: 900;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.timer-preset:active {
+    background: var(--k-primary);
+    color: black;
+}
+
+.active-timers-list {
+    flex: 1;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.timer-card {
+    background: var(--k-surface);
+    border: 1px solid var(--k-border);
+    border-left: 6px solid var(--k-accent);
+    border-radius: 12px;
+    padding: 16px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    min-height: 100px;
+}
+
+.timer-time {
+    font-family: monospace;
+    font-size: 3.5rem;
+    /* Huge timer text */
+    font-weight: bold;
+    color: white;
+    line-height: 1;
+}
+
+.timer-label {
+    font-size: 1.2rem;
+    color: var(--k-text-dim);
+    margin-bottom: 4px;
+}
+
+
+/* ---------------- QUICK LABEL ---------------- */
+.ql-type-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-gap: 16px;
+    height: 250px;
+    /* Taller area for types */
+    flex-shrink: 0;
+}
+
+/* ---------------- COOK ---------------- */
+.cook-layout {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    overflow: hidden;
+}
+
+/* cook-split-view removed */
+
+.cook-column {
+    flex: 1;
+    background: var(--k-surface);
+    border-radius: 16px;
+    border: 1px solid var(--k-border);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.cook-header {
+    background: rgba(0, 0, 0, 0.3);
+    padding: 16px;
+    font-size: 1.2rem;
+    font-weight: bold;
+    text-transform: uppercase;
+    color: var(--k-text-dim);
+    border-bottom: 1px solid var(--k-border);
+}
+
+.meal-item {
+    padding: 24px;
+    border-bottom: 1px solid var(--k-border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    min-height: 100px;
+    /* Big touch target */
+}
+
+/* Recipe Active View */
+.recipe-active-view {
+    display: flex;
+    gap: 16px;
+    flex: 1;
+    overflow: hidden;
+    margin-top: 8px;
+}
+
+.recipe-content {
+    flex: 1;
+    background: var(--k-surface);
+    border: 1px solid var(--k-border);
+    border-radius: var(--k-radius-lg);
+    padding: 24px;
+    overflow-y: auto;
+}
+
+.recipe-sidebar {
+    width: 250px;
+    /* Reduced slightly to give more room to content */
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    overflow-y: auto;
+}
+
+.recipe-sidebar .k-btn {
+    height: 100px;
+    /* Force minimum height */
+    flex-shrink: 0;
+}
+
+/* Larger Back Buttons */
+.k-icon-btn {
+    width: 64px;
+    height: 64px;
+    border-radius: 12px;
+    /* Soft square */
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.k-icon-btn mat-icon {
+    font-size: 32px;
+    width: 32px;
+    height: 32px;
+}
+
+.back-btn-row {
+    height: 70px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+/* Footer - keep small */
+.footer {
+    height: 48px;
+    font-size: 0.8rem;
+    padding: 0 16px;
+    flex-shrink: 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background-color: rgba(0, 0, 0, 0.5);
+    border-top: 1px solid var(--k-border);
+    color: var(--k-text-dim);
+}
+
+.connection-status {
+    margin-left: auto;
+    margin-right: 20px;
+    font-weight: bold;
+    color: var(--k-success);
+}
+
+
+/* ---------------- SCALE VIEW ---------------- */
+.scale-view-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    z-index: 10000;
+    background-color: #000;
+    display: flex;
+    flex-direction: column;
+}
+
+.scale-header {
+    height: 80px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    padding: 0 16px;
+    background: rgba(255, 255, 255, 0.05);
+    border-bottom: 1px solid var(--k-border);
     position: relative;
     z-index: 10;
 }
 
-.finish-btn {
-    font-size: 3rem !important;
-    background-color: #2e7d32 !important;
-    /* Green */
-    color: white !important;
-}
-
-.consume-finish {
-    background-color: #00838f !important;
-    /* Cyan-ish for consume or maybe keep green? Let's do distinct color */
-}
-
-.inventory-btn {
-    background-color: #4527a0 !important;
-    color: white !important;
-}
-
-.finish-btn .btn-content mat-icon {
-    font-size: 64px;
-    width: 64px;
-    height: 64px;
-}
-
-.btn-content {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 10px;
-}
-
-.btn-content mat-icon {
-    font-size: 48px;
-    width: 48px;
-    height: 48px;
-}
-
-.utility-btn .btn-content mat-icon {
-    color: #b0bec5;
-}
-
-.utility-btn {
-    background-color: #37474f !important;
-    color: white !important;
-}
-
-.back-btn {
-    border-color: rgba(255, 255, 255, 0.3) !important;
-    color: rgba(255, 255, 255, 0.8) !important;
-}
-
-/* Footer */
-.footer {
-    height: 60px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 0 30px;
-    background-color: #000000;
-    color: #757575;
-    font-size: 1.1rem;
-    border-top: 1px solid #333;
-}
-
-.pantry-name {
-    font-weight: 500;
-}
-
-.connection-status {
-    margin-left: 20px;
-    font-size: 1.2rem;
-    color: #4CAF50;
-    /* Green for Online */
-    font-weight: 500;
-    opacity: 0.8;
-}
-
-.connection-status.offline {
-    color: #f44336;
-    /* Red for Offline */
-}
-
-.footer-end {
-    display: flex;
-    align-items: center;
-    gap: 20px;
-}
-
-.exit-btn {
-    color: #424242 !important;
-    font-size: 0.8rem !important;
-}
-
-.exit-btn:hover {
-    color: #e0e0e0 !important;
-}
-
-/* Scale View specific */
-.weight-display-card {
-    background: rgba(0, 0, 0, 0.2);
-    border-radius: 12px;
-    padding: 20px;
-    text-align: center;
-    margin: 20px 0;
-    border: 2px solid rgba(255, 255, 255, 0.1);
-    grid-column: 1 / -1;
-    /* Ensure it takes full width in grid if placed there */
-}
-
-.weight-value {
-    font-size: 5rem;
-    font-weight: 800;
-    color: #fff;
-    line-height: 1;
-}
-
-.weight-unit {
-    font-size: 1.5rem;
-    color: rgba(255, 255, 255, 0.6);
-    margin-top: 10px;
-    text-transform: uppercase;
+.scale-header-title {
+    margin-left: 16px;
+    font-size: 2rem;
+    font-weight: bold;
+    color: var(--k-text-dim);
     letter-spacing: 2px;
 }
 
-.scale-controls {
+.scale-target-badge {
+    margin-left: auto;
+    background: rgba(0, 150, 136, 0.2);
+    border: 1px solid rgba(0, 150, 136, 0.5);
+    padding: 8px 16px;
+    border-radius: 12px;
     display: flex;
-    gap: 20px;
-    justify-content: center;
-    grid-column: 1 / -1;
+    align-items: baseline;
+    gap: 8px;
 }
 
-.scale-controls button {
+.scale-target-label {
+    font-size: 0.8rem;
+    color: var(--k-primary);
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.scale-target-value {
+    font-size: 2rem;
+    font-family: monospace;
+    font-weight: bold;
+    color: #b2ebf2;
+    /* Cyan 100 */
+    line-height: 1;
+}
+
+.scale-target-unit {
+    font-size: 1.2rem;
+    color: var(--k-primary);
+}
+
+.scale-content {
     flex: 1;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    padding-bottom: 150px;
+    /* Space for controls */
+}
+
+.scale-weight-text {
+    font-size: 8rem;
+    /* Fallback */
+    font-size: min(25vw, 8rem);
+    font-family: monospace;
+    font-weight: bold;
+    color: white;
+    text-shadow: 0 0 40px rgba(0, 0, 0, 0.5);
+    line-height: 1;
+    z-index: 2;
+}
+
+.scale-unit-text {
+    font-size: 3rem;
+    color: var(--k-text-dim);
+    font-weight: bold;
+    margin-left: 16px;
+    text-transform: uppercase;
+}
+
+.scale-progress-bar-container {
+    position: absolute;
+    bottom: 0;
+    left: 2rem;
+    right: 2rem;
+    height: 8px;
+    background: #333;
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.scale-progress-fill {
+    height: 100%;
+    background-color: var(--k-primary);
+    transition: width 0.2s ease;
+}
+
+.scale-percentage-text {
+    margin-top: 16px;
+    font-size: 2.5rem;
+    font-weight: 900;
+}
+
+.scale-controls-area {
+    position: absolute;
+    bottom: 24px;
+    left: 0;
+    right: 0;
+    display: flex;
+    justify-content: center;
+    gap: 24px;
+    z-index: 20;
+}
+
+.btn-scale-action {
+    width: 180px;
+    height: 120px;
+    border-radius: 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    background: #333;
+    border: 2px solid #555;
+    color: white;
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.5);
+    transition: transform 0.1s, background 0.2s;
+}
+
+.btn-scale-action:active {
+    transform: scale(0.95);
+}
+
+.btn-scale-action mat-icon {
+    font-size: 48px;
+    width: 48px;
+    height: 48px;
+    margin-bottom: 4px;
+}
+
+.btn-scale-action span {
+    font-size: 1.5rem;
+    font-weight: 900;
+    letter-spacing: 2px;
+}
+
+/* Specific button colors */
+.btn-scale-tare {
+    background-color: #e65100;
+    /* Orange 900 */
+    border-color: #ff9800;
+}
+
+.btn-scale-unit {
+    background-color: #0277bd;
+    /* Light Blue 800 */
+    border-color: #29b6f6;
 }
