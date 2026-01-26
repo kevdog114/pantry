@@ -656,8 +656,13 @@ export class KioskPageComponent implements OnInit, OnDestroy {
     }
 
     closeTimers() {
-        this.viewState = 'MAIN';
-        this.status = 'Ready';
+        if (this.selectedRecipe) {
+            this.viewState = 'COOK';
+            this.status = this.selectedRecipe.title;
+        } else {
+            this.viewState = 'MAIN';
+            this.status = 'Ready';
+        }
     }
 
     createTimer(minutes: number, name?: string) {

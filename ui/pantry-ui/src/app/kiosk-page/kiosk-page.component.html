@@ -431,16 +431,8 @@
                 </div>
             </div>
 
-            <!-- Main Button Grid (When Recipe Selected and !Details) -->
-            <div *ngIf="selectedRecipe && !showRecipeDetails" class="flex-1 button-grid compact-grid p-4">
-                <!-- View Instructions -->
-                <button mat-flat-button color="primary" class="large-btn" (click)="showRecipeDetails = true">
-                    <div class="btn-content">
-                        <mat-icon>menu_book</mat-icon>
-                        <span>INSTRUCTIONS</span>
-                    </div>
-                </button>
-
+            <!-- Main Button Grid (When Recipe Selected) -->
+            <div *ngIf="selectedRecipe" class="flex-1 button-grid compact-grid p-4">
                 <!-- Print Recipe -->
                 <button mat-flat-button color="accent" class="large-btn" (click)="printRecipeReceipt()">
                     <div class="btn-content">
@@ -450,6 +442,21 @@
                 </button>
 
                 <!-- Quick Actions -->
+                <button mat-flat-button class="large-btn timer-btn" (click)="openTimers()"
+                    style="background-color: #FF9800; color: white;">
+                    <div class="btn-content">
+                        <mat-icon>timer</mat-icon>
+                        <span>TIMERS</span>
+                    </div>
+                </button>
+
+                <button mat-flat-button color="primary" class="large-btn" (click)="scaleAction()">
+                    <div class="btn-content">
+                        <mat-icon>scale</mat-icon>
+                        <span>MEASURE</span>
+                    </div>
+                </button>
+
                 <ng-container *ngFor="let action of selectedRecipe.quickActions">
                     <button mat-flat-button class="large-btn" [color]="action.type === 'weigh' ? 'warn' : 'accent'"
                         [style.background-color]="action.type === 'timer' ? '#FF9800' : ''"
@@ -465,77 +472,6 @@
                         </div>
                     </button>
                 </ng-container>
-            </div>
-
-            <!-- Details View (When Recipe Selected and Details=True) -->
-            <div *ngIf="selectedRecipe && showRecipeDetails" class="flex-1 overflow-hidden flex flex-col">
-                <div class="mb-4">
-                    <button mat-stroked-button class="large-btn back-btn full-width"
-                        (click)="showRecipeDetails = false">
-                        <div class="btn-content flex-row gap-4">
-                            <mat-icon>arrow_back</mat-icon>
-                            <span>BACK TO ACTIONS</span>
-                        </div>
-                    </button>
-                </div>
-
-                <!-- Steps -->
-                <div class="col-span-4 bg-slate-800 rounded-xl p-4 overflow-y-auto">
-                    <h3 class="text-lg font-bold mb-3 border-b border-slate-700 pb-2">Method</h3>
-                    <div class="space-y-4">
-                        <div *ngFor="let step of selectedRecipe.steps" class="flex gap-3">
-                            <div
-                                class="shrink-0 w-6 h-6 rounded-full bg-primary-500 flex items-center justify-center text-xs font-bold">
-                                {{ step.stepNumber }}</div>
-                            <p class="text-sm leading-relaxed text-gray-200">{{ step.description }}</p>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Actions & Timers -->
-                <div class="col-span-4 flex flex-col gap-4">
-                    <!-- Main Actions -->
-                    <div class="bg-slate-800 rounded-xl p-4">
-                        <ng-container *ngIf="!showCookPrintMenu">
-                            <button mat-flat-button color="accent" class="w-full h-16 text-lg"
-                                (click)="openCookPrintMenu()">
-                                <mat-icon class="mr-2">print</mat-icon> Print Options
-                            </button>
-                        </ng-container>
-
-                        <div *ngIf="showCookPrintMenu" class="flex flex-col gap-3 animate-pulse-soft">
-                            <div class="text-center text-gray-400 font-bold uppercase tracking-wider text-xs">select
-                                print type</div>
-
-                            <button mat-flat-button class="w-full h-16 text-lg"
-                                style="background-color: #2e7d32; color: white;" (click)="printRecipeReceipt()">
-                                <mat-icon class="mr-2">receipt_long</mat-icon> Print Recipe (Full)
-                            </button>
-
-                            <button mat-flat-button color="primary" class="w-full h-16 text-lg"
-                                (click)="printRecipeLabel()">
-                                <mat-icon class="mr-2">label</mat-icon> Print Label
-                            </button>
-
-                            <button mat-stroked-button color="warn" class="w-full h-12" (click)="closeCookPrintMenu()">
-                                <mat-icon>close</mat-icon> Cancel
-                            </button>
-                        </div>
-                    </div>
-
-                    <!-- Steps -->
-                    <div class="col-span-8 bg-slate-800 rounded-xl p-4 overflow-y-auto">
-                        <h3 class="text-lg font-bold mb-3 border-b border-slate-700 pb-2">Method</h3>
-                        <div class="space-y-4">
-                            <div *ngFor="let step of selectedRecipe.steps" class="flex gap-3">
-                                <div
-                                    class="shrink-0 w-6 h-6 rounded-full bg-primary-500 flex items-center justify-center text-xs font-bold">
-                                    {{ step.stepNumber }}</div>
-                                <p class="text-sm leading-relaxed text-gray-200">{{ step.description }}</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
             </div>
 
             <div class="bg-slate-800 rounded-xl p-4 mt-4 shrink-0" *ngIf="activeTimers.length > 0">

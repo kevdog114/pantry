@@ -223,7 +223,8 @@ export const getMealPlan = async (req: Request, res: Response, next: NextFunctio
                             unitOfMeasure: true
                         }
                     },
-                    prepTasks: true
+                    prepTasks: true,
+                    quickActions: true
                 }
             }
         }
