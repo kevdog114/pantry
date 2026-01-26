@@ -82,3 +82,53 @@ Example Output JSON:
         return null;
     }
 }
+
+export async function determineSafeCookingTemps(ingredients: any[]): Promise<{ item: string, temperature: string }[]> {
+    if (!gemini_api_key) return [];
+
+    try {
+        const model = googleAI.getGenerativeModel({ model: MODEL_NAME });
+
+        const ingredientList = ingredients.map(i => `${i.name}`).join('\n');
+
+        const prompt = `
+You are a Food Safety Expert.
+Review the following list of ingredients and identify any that require a specific minimum internal cooking temperature for safety (primarily meats, poultry, fish, eggs).
+Return the result as a JSON array of objects, where each object has "item" (the ingredient name) and "temperature" (the safe internal temp in Fahrenheit, e.g. "165°F").
+
+If an ingredient does not require a specific safety temperature (e.g. vegetables, flour, spices), ignore it.
+If there are no such ingredients, return an empty array.
+
+Ingredients:
+${ingredientList}
+
+Example Output JSON:
+[
+  { "item": "Chicken Breast", "temperature": "165°F" },
+  { "item": "Ground Beef", "temperature": "160°F" }
+]
+`;
+
+        const result = await model.generateContent(prompt);
+        const response = result.response;
+        const text = response.text();
+
+        const jsonMatch = text.match(/```json\n([\s\S]*?)\n```/) || text.match(/```\n([\s\S]*?)\n```/);
+        let jsonString = jsonMatch ? jsonMatch[1] : text;
+
+        try {
+            const data = JSON.parse(jsonString);
+            if (Array.isArray(data)) {
+                return data;
+            }
+            return [];
+        } catch (e) {
+            console.warn("Gemini returned invalid JSON for safe temps", e);
+            return [];
+        }
+
+    } catch (error) {
+        console.error("Error determining safe temps:", error);
+        return [];
+    }
+}

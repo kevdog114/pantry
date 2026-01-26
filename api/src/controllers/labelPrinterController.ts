@@ -382,6 +382,14 @@ export const printReceipt = async (req: Request, res: Response, next: NextFuncti
             });
         }
 
+        // Add Safe Temps
+        if ((recipe as any).safeTemps && (recipe as any).safeTemps.length > 0) {
+            receiptData.safeTemps = (recipe as any).safeTemps.map((st: any) => ({
+                item: st.item,
+                temperature: st.temperature
+            }));
+        }
+
         const payload = {
             type: 'RECEIPT',
             data: receiptData

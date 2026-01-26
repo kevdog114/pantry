@@ -1,6 +1,6 @@
 import { NextFunction, Response, Request } from "express";
 import prisma from '../lib/prisma';
-import { generateReceiptSteps } from '../services/RecipeAIService';
+import { generateReceiptSteps, determineSafeCookingTemps } from '../services/RecipeAIService';
 
 export const getAll = async (req: Request, res: Response, next: NextFunction): Promise<any> => {
     const recipes = await prisma.recipe.findMany({
@@ -8,7 +8,8 @@ export const getAll = async (req: Request, res: Response, next: NextFunction): P
             steps: { orderBy: { stepNumber: 'asc' } },
             ingredients: { include: { product: true } },
             files: true,
-            quickActions: true
+            quickActions: true,
+            safeTemps: true
         }
     });
     res.send(recipes.map(mapToResponse));
@@ -61,24 +62,52 @@ export const create = async (req: Request, res: Response, next: NextFunction): P
             ingredients: { include: { product: true } },
             prepTasks: true,
             files: true,
-            quickActions: true
+            quickActions: true,
+            safeTemps: true
         }
     });
 
-    // Generate Receipt Steps
+    // Generate Receipt Steps & Safe Temps
     try {
-        const receiptSteps = await generateReceiptSteps(recipe.name, recipe.ingredients, recipe.steps);
+        const [receiptSteps, safeTemps] = await Promise.all([
+            generateReceiptSteps(recipe.name, recipe.ingredients, recipe.steps),
+            determineSafeCookingTemps(recipe.ingredients)
+        ]);
+
+        const updates: any = {};
+
         if (receiptSteps) {
-            // Update the recipe with the generated steps
-            await prisma.recipe.update({
-                where: { id: recipe.id },
-                data: { receiptSteps }
-            });
-            // Attach to response object manually since we aren't re-fetching
+            updates.receiptSteps = receiptSteps;
             (recipe as any).receiptSteps = receiptSteps;
         }
+
+        if (safeTemps && safeTemps.length > 0) {
+            updates.safeTemps = {
+                create: safeTemps.map(st => ({
+                    item: st.item,
+                    temperature: st.temperature
+                }))
+            };
+        }
+
+        if (Object.keys(updates).length > 0) {
+            await prisma.recipe.update({
+                where: { id: recipe.id },
+                data: updates
+            });
+
+            // Reload if we added relations (optional, but good for response)
+            if (updates.safeTemps) {
+                const updated = await prisma.recipe.findUnique({
+                    where: { id: recipe.id },
+                    include: { safeTemps: true }
+                });
+                if (updated) (recipe as any).safeTemps = updated.safeTemps;
+            }
+        }
+
     } catch (genError) {
-        console.error("Failed to generate receipt steps on create", genError);
+        console.error("Failed to generate AI content on create", genError);
     }
 
     res.send(mapToResponse(recipe));
@@ -107,7 +136,8 @@ export const getById = async (req: Request, res: Response, next: NextFunction): 
             ingredients: { include: { product: true } },
             prepTasks: true,
             files: true,
-            quickActions: true
+            quickActions: true,
+            safeTemps: true
         }
     });
 
@@ -171,6 +201,15 @@ export const update = async (req: Request, res: Response, next: NextFunction): P
                         type: qa.type,
                         value: qa.value
                     })) || []
+                },
+                safeTemps: {
+                    deleteMany: {} // We will regenerate them potentially, or leave them? 
+                    // The user said "use gemini to determine... save this with the recipe"
+                    // If ingredients change, safe temps might change. Safer to regenerate or allowed to be manual?
+                    // For now, let's clear and regenerate if ingredients changed. 
+                    // Actually, simpler to just always regenerate for now since this is an "update" op.
+                    // But maybe only if ingredients changed? 
+                    // The user didn't specify, but regeneration is safer to keep in sync.
                 }
             },
             include: {
@@ -178,28 +217,49 @@ export const update = async (req: Request, res: Response, next: NextFunction): P
                 ingredients: { include: { product: true } },
                 prepTasks: true,
                 files: true,
-                quickActions: true
+                quickActions: true,
+                safeTemps: true
             }
         });
 
-        // Generate Receipt Steps (Async but we wait to ensure it's saved)
+        // Generate AI Content
         try {
-            const receiptSteps = await generateReceiptSteps(recipe.name, recipe.ingredients, recipe.steps);
+            const [receiptSteps, safeTemps] = await Promise.all([
+                generateReceiptSteps(recipe.name, recipe.ingredients, recipe.steps),
+                determineSafeCookingTemps(recipe.ingredients)
+            ]);
+
+            const updates: any = {};
+
             if (receiptSteps) {
+                updates.receiptSteps = receiptSteps;
+            }
+
+            if (safeTemps && safeTemps.length > 0) {
+                updates.safeTemps = {
+                    create: safeTemps.map(st => ({
+                        item: st.item,
+                        temperature: st.temperature
+                    }))
+                };
+            }
+
+            if (Object.keys(updates).length > 0) {
                 recipe = await prisma.recipe.update({
                     where: { id: recipe.id },
-                    data: { receiptSteps },
+                    data: updates,
                     include: {
                         steps: { orderBy: { stepNumber: 'asc' } },
                         ingredients: { include: { product: true } },
                         prepTasks: true,
                         files: true,
-                        quickActions: true
+                        quickActions: true,
+                        safeTemps: true
                     }
                 });
             }
         } catch (genError) {
-            console.error("Failed to generate receipt steps on update", genError);
+            console.error("Failed to generate AI content on update", genError);
         }
 
         res.send(mapToResponse(recipe));

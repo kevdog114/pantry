@@ -321,6 +321,20 @@ def print_receipt_cmd(args):
                 p.text("\n")
             p.text("-" * 32 + "\n")
 
+            p.text("-" * 32 + "\n")
+
+        # Safe Temps
+        if 'safeTemps' in data and isinstance(data['safeTemps'], list):
+            print("Printing Safe Temps...")
+            p.text("SAFE COOKING TEMPS:\n")
+            for item in data['safeTemps']:
+                name = item.get('item', '')
+                temp = item.get('temperature', '')
+                # Truncate name if too long for the column
+                safe_name = name[:20]
+                p.text(f"{safe_name:<20} {str(temp):>10}\n")
+            p.text("-" * 32 + "\n")
+
         # QR Code
         if 'qrData' in data:
             print("Printing QR...")

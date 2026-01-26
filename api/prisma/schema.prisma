@@ -131,6 +131,7 @@ model Recipe {
   files          File[]       @relation("RecipeToFile")
   receiptSteps   String?      // JSON string for receipt printer optimized steps
   quickActions   RecipeQuickAction[]
+  safeTemps      RecipeSafeTemp[]
   
   type           String     @default("recipe") // "recipe", "instruction"
   instructionForProductId Int?
@@ -371,4 +372,14 @@ model Timer {
   duration    Int      // Duration in seconds
   startedAt   DateTime @default(now())
   status      String   @default("RUNNING") // RUNNING, PAUSED, COMPLETED
+}
+
+model RecipeSafeTemp {
+  id          Int      @id @default(autoincrement())
+  recipeId    Int
+  recipe      Recipe   @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  item        String
+  temperature String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }
