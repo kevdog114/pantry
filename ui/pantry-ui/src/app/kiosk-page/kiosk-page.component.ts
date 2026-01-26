@@ -189,10 +189,23 @@ export class KioskPageComponent implements OnInit, OnDestroy {
             this.fetchTimers();
         });
 
+        // Global interval to fetch timers periodically (backup for socket)
         setInterval(() => {
-            // Local decrement for smoothness
+            this.fetchTimers();
+        }, 10000);
+
+        setInterval(() => {
+            // Local decrement for smoothness based on calculated end time if available, or just re-calc
+            // actually fetchTimers updates the list.
+            // But we need a smooth countdown between fetches.
+            const now = Date.now();
             this.activeTimers.forEach(t => {
-                if (t.remainingSeconds > 0) t.remainingSeconds--;
+                if (t.endTimestamp) {
+                    const remaining = Math.max(0, Math.floor((t.endTimestamp - now) / 1000));
+                    t.remainingSeconds = remaining;
+                } else if (t.remainingSeconds > 0) {
+                    t.remainingSeconds--;
+                }
             });
         }, 1000);
     }
@@ -607,6 +620,10 @@ export class KioskPageComponent implements OnInit, OnDestroy {
         }));
     }
 
+    getTimerForAction(action: RecipeQuickAction): any | undefined {
+        return this.activeTimers.find(t => t.name === action.name);
+    }
+
     showTempStatus(msg: string, subtext: string, duration: number) {
         // If we want to show the specific message for duration
         // logic below was just resetting. 
@@ -645,7 +662,18 @@ export class KioskPageComponent implements OnInit, OnDestroy {
         this.status = 'Print Labels';
     }
 
+    // State for Cook Mode Scale Menu
+    showScaleOptions: boolean = false;
+
     scaleAction() {
+        if (this.selectedRecipe && this.viewState === 'COOK') {
+            this.showScaleOptions = true;
+        } else {
+            this.openFreeScale();
+        }
+    }
+
+    openFreeScale() {
         this.viewState = 'SCALE';
         this.status = 'Scale';
         this.startScaleRead();
@@ -657,6 +685,9 @@ export class KioskPageComponent implements OnInit, OnDestroy {
         if (this.selectedRecipe) {
             this.viewState = 'COOK';
             this.status = this.selectedRecipe.title;
+            // Return to scale options if we came from there? 
+            // Probably better to reset to main cook view for cleanliness
+            this.showScaleOptions = false;
         } else {
             this.openUtilities();
         }
@@ -666,6 +697,14 @@ export class KioskPageComponent implements OnInit, OnDestroy {
     openTimers() {
         this.viewState = 'TIMERS';
         this.status = 'Timers';
+    }
+
+    get recipeTimerActions(): RecipeQuickAction[] {
+        return this.selectedRecipe?.quickActions?.filter(a => a.type === 'timer') || [];
+    }
+
+    get recipeScaleActions(): RecipeQuickAction[] {
+        return this.selectedRecipe?.quickActions?.filter(a => a.type === 'weigh' || a.type === 'scale') || [];
     }
 
     closeTimers() {
@@ -714,7 +753,8 @@ export class KioskPageComponent implements OnInit, OnDestroy {
                         id: t.id,
                         name: t.name,
                         remainingSeconds: remaining,
-                        totalSeconds: t.duration
+                        totalSeconds: t.duration,
+                        endTimestamp: end // Store end time for local calc
                     };
                 }).filter((t: any) => t.remainingSeconds > 0);
             },
@@ -894,11 +934,13 @@ export class KioskPageComponent implements OnInit, OnDestroy {
         this.selectedRecipe = null;
         this.showRecipeDetails = false;
         this.availableInstructions = [];
-        this.activeTimers = [];
         this.activeMode = 'NONE';
         this.showCookPrintMenu = false;
         this.showTimerActions = false;
         this.showScaleActions = false;
+
+        // Refresh timers when entering Cook
+        this.fetchTimers();
 
         // Handler for Recipe Barcodes
         this.hardwareScanner.setCustomHandler(this.handleCookBarcode.bind(this));
@@ -913,9 +955,11 @@ export class KioskPageComponent implements OnInit, OnDestroy {
         this.selectedRecipe = null;
         this.availableInstructions = [];
         // Clean timers
-        this.activeTimers.forEach(t => clearInterval(t.interval));
-        this.activeTimers = [];
+        // Clean timers
+        // this.activeTimers.forEach(t => clearInterval(t.interval));
+        // this.activeTimers = []; // DO NOT CLEAR - PERSIST GLOBALLY
         this.hardwareScanner.setCustomHandler(() => { });
+        this.fetchTimers();
     }
 
     async handleCookBarcode(barcode: string) {
@@ -969,11 +1013,24 @@ export class KioskPageComponent implements OnInit, OnDestroy {
         }
     }
 
-    selectInstruction(recipe: Recipe) {
+    async selectInstruction(recipe: Recipe) {
         this.availableInstructions = [];
+        // Optimistically set partial data
         this.selectedRecipe = recipe;
         this.showRecipeDetails = false;
-        this.status = recipe.title;
+        this.status = recipe.title || 'Loading...';
+
+        // Fetch full details (steps, quickActions)
+        if (recipe.id) {
+            try {
+                const fullRecipe = await firstValueFrom(this.http.get<Recipe>(`${this.env.apiUrl}/recipes/${recipe.id}`));
+                this.selectedRecipe = fullRecipe;
+            } catch (e) {
+                console.error("Failed to load full recipe details", e);
+            }
+        }
+
+        this.status = this.selectedRecipe?.title || 'Cook Mode';
         this.statusSubtext = "Ready to Cook";
 
         this.autoOpenQuickActions();

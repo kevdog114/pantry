@@ -217,10 +217,47 @@
                 <button class="k-icon-btn" (click)="closeTimers()"><mat-icon>arrow_back</mat-icon></button>
             </div>
 
-            <div class="timer-creation-grid">
-                <button *ngFor="let m of [5, 10, 15, 30, 60]" class="timer-preset" (click)="createTimer(m)">
-                    {{m}}m
-                </button>
+            <!-- View Content -->
+            <div class="flex-1 overflow-y-auto px-2">
+
+                <!-- Recipe Timers Section -->
+                <ng-container *ngIf="selectedRecipe && recipeTimerActions.length > 0">
+                    <div class="text-gray-400 font-bold mb-2 fs-lg border-b border-gray-700 pb-1">RECIPE TIMERS</div>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px;"
+                        class="mb-6">
+                        <button *ngFor="let action of recipeTimerActions" class="k-btn accent"
+                            style="min-height: 180px; border-color: orange; color: orange;"
+                            (click)="startQuickAction(action)">
+                            <div class="d-flex flex-column align-items-center" style="line-height:1.2">
+                                <span class="fs-xs text-uppercase opacity-80 mb-1">{{ action.name }}</span>
+
+                                <ng-container *ngIf="getTimerForAction(action) as activeT; else staticContent">
+                                    <span class="fs-2xl fw-bold text-k-warn pulse-text"
+                                        style="font-family: monospace;">{{ formatTimer(activeT.remainingSeconds)
+                                        }}</span>
+                                    <span class="fs-xs fw-bold text-k-warn">RUNNING</span>
+                                </ng-container>
+                                <ng-template #staticContent>
+                                    <span class="fs-2xl fw-bold">{{ action.value }}</span>
+                                </ng-template>
+                            </div>
+                        </button>
+                    </div>
+                </ng-container>
+
+                <!-- Custom Timers Section -->
+                <div class="text-gray-400 font-bold mb-2 fs-lg border-b border-gray-700 pb-1">CUSTOM TIMERS</div>
+                <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px;"
+                    class="mb-6">
+                    <button *ngFor="let m of [5, 10, 15, 20, 30, 45, 60, 90]" class="timer-preset"
+                        style="min-height: 100px;" (click)="createTimer(m)">
+                        {{m}}m
+                    </button>
+                </div>
+
+                <!-- Active Timers Section -->
+                <div class="text-k-primary font-bold mb-2 fs-lg border-b border-k-primary pb-1"
+                    *ngIf="activeTimers.length > 0">ACTIVE</div>
             </div>
 
             <div class="active-timers-list">
@@ -325,48 +362,56 @@
 
             <!-- ACTIVE RECIPE -->
             <div *ngIf="selectedRecipe" class="recipe-active-view">
-                <!-- Main Content (Steps/Ingredients) -->
-                <div class="recipe-content">
-                    <!-- Placeholder for Steps Rendering - preserving existing logic structure but layout changed -->
-                    <h3 class="fs-xl text-k-primary mb-4 fw-bold border-b border-warning pb-2">INSTRUCTIONS</h3>
-                    <div class="prose prose-invert max-w-none">
-                        <!-- Steps Render -->
-                        <div *ngIf="selectedRecipe.steps && selectedRecipe.steps.length > 0; else noSteps">
-                            <div *ngFor="let step of selectedRecipe.steps" class="mb-6">
-                                <span class="text-k-primary fw-bold fs-xl mb-1 block">STEP {{ step.stepNumber
-                                    }}</span>
-                                <div class="fs-xl leading-relaxed" [innerHTML]="step.description | markdown"></div>
-                            </div>
-                        </div>
-                        <ng-template #noSteps>
-                            <div class="text-gray-500 text-xl text-center mt-10">No detailed steps available.</div>
-                        </ng-template>
+
+                <!-- MAIN COOK MENU (3 Big Buttons) -->
+                <div *ngIf="!showScaleOptions" class="recipe-content w-100"
+                    style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; align-content: center; height: 100%;">
+
+                    <button class="k-btn accent" (click)="openTimers()">
+                        <mat-icon style="font-size: 80px; width: 80px; height: 80px;">timer</mat-icon>
+                        <span class="fs-2xl mt-4">TIMERS</span>
+                    </button>
+
+                    <button class="k-btn" (click)="scaleAction()">
+                        <mat-icon style="font-size: 80px; width: 80px; height: 80px;">scale</mat-icon>
+                        <span class="fs-2xl mt-4">WEIGH</span>
+                    </button>
+
+                    <button class="k-btn" (click)="printRecipeReceipt()">
+                        <mat-icon style="font-size: 80px; width: 80px; height: 80px;">receipt_long</mat-icon>
+                        <span class="fs-2xl mt-4">PRINT</span>
+                    </button>
+
+                </div>
+
+                <!-- CALL OUT: SCALE SUB-MENU -->
+                <div *ngIf="showScaleOptions" class="recipe-content w-100 d-flex flex-column">
+                    <div class="d-flex align-items-center mb-4 border-bottom border-secondary pb-3">
+                        <button class="k-icon-btn me-4" (click)="showScaleOptions = false">
+                            <mat-icon>arrow_back</mat-icon>
+                        </button>
+                        <span class="fs-2xl fw-bold text-k-primary">WEIGH OPTIONS</span>
+                    </div>
+
+                    <div
+                        style="display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px;">
+
+                        <!-- Recipe Specific Weighs -->
+                        <button *ngFor="let action of recipeScaleActions" class="k-btn" [class.warn]="true"
+                            style="min-height: 200px;" (click)="startQuickAction(action)">
+                            <mat-icon>scale</mat-icon>
+                            <span class="fs-lg mt-2">{{ action.name }}</span>
+                            <span class="fs-2xl fw-bold">{{ action.value }}</span>
+                        </button>
+
+                        <!-- Free Scale -->
+                        <button class="k-btn primary" style="min-height: 200px;" (click)="openFreeScale()">
+                            <mat-icon>open_in_full</mat-icon>
+                            <span class="fs-2xl mt-2">FREE WEIGH</span>
+                        </button>
                     </div>
                 </div>
 
-                <!-- Side Actions -->
-                <div class="recipe-sidebar">
-                    <button class="k-btn accent h-24" (click)="openTimers()">
-                        <mat-icon>timer</mat-icon><span>TIMERS</span>
-                    </button>
-                    <button class="k-btn h-24" (click)="scaleAction()">
-                        <mat-icon>scale</mat-icon><span>WEIGH</span>
-                    </button>
-                    <button class="k-btn h-24" (click)="printRecipeReceipt()">
-                        <mat-icon>receipt_long</mat-icon><span>PRINT</span>
-                    </button>
-
-                    <!-- Quick Actions Dynamic -->
-                    <ng-container *ngFor="let action of selectedRecipe.quickActions">
-                        <button class="k-btn h-24" [class.warn]="action.type === 'weigh'"
-                            [style.border-color]="action.type === 'timer' ? 'orange' : ''"
-                            (click)="startQuickAction(action)">
-                            <mat-icon>{{ action.type === 'weigh' ? 'scale' : 'timer' }}</mat-icon>
-                            <span class="text-sm">{{ action.name }}</span>
-                            <span class="text-xs opacity-70">{{ action.value }}</span>
-                        </button>
-                    </ng-container>
-                </div>
             </div>
 
             <!-- Floating Timers in Cook Mode -->
@@ -384,44 +429,42 @@
 
         </div>
 
-    </div>
+        <!-- Footer -->
+        <div class="footer">
+            <span class="font-bold tracking-widest uppercase">{{ pantryName }}</span>
 
-    <!-- Footer -->
-    <div class="footer">
-        <span class="font-bold tracking-widest uppercase">{{ pantryName }}</span>
+            <span class="connection-status" [class.offline]="!isOnline">
+                <mat-icon *ngIf="scannerClaimedBy === 'Me'"
+                    class="align-bottom text-red-500 mr-2">qr_code_scanner</mat-icon>
+                {{ isOnline ? 'ONLINE' : 'OFFLINE' }}
+            </span>
 
-        <span class="connection-status" [class.offline]="!isOnline">
-            <mat-icon *ngIf="scannerClaimedBy === 'Me'"
-                class="align-bottom text-red-500 mr-2">qr_code_scanner</mat-icon>
-            {{ isOnline ? 'ONLINE' : 'OFFLINE' }}
-        </span>
-
-        <span class="font-mono text-gray-500">{{ currentDate | date:'shortTime' }}</span>
-        <button mat-button class="ml-4 opacity-50 hover:opacity-100" (click)="exitKiosk()">EXIT</button>
-    </div>
-</div>
-
-<!-- CALL OVERLAY (Keep mostly same but style) -->
-<div *ngIf="incomingCall || (callState && callState.state !== 'DISCONNECTED')"
-    class="position-fixed top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center"
-    style="z-index: 10000; background: rgba(0,0,0,0.9);">
-    <div
-        class="bg-gray-900 border border-white/20 rounded-3xl p-10 flex flex-col items-center gap-8 shadow-2xl animate-pulse">
-        <div class="h-32 w-32 rounded-full bg-green-500/20 flex items-center justify-center animate-bounce">
-            <mat-icon class="text-6xl text-green-500 scale-[2]">phone_in_talk</mat-icon>
-        </div>
-        <div class="text-center">
-            <h2 class="text-4xl font-bold text-white mb-2">{{ incomingCall ? 'INCOMING CALL' : 'IN CALL' }}</h2>
-            <p class="text-2xl text-cyan-400">{{ incomingCall?.remote_uri || callState?.state }}</p>
-        </div>
-
-        <div class="flex gap-8">
-            <button *ngIf="incomingCall" class="call-btn bg-green-500 scale-125" (click)="answerCall()">
-                <mat-icon>call</mat-icon>
-            </button>
-            <button class="call-btn bg-red-600 scale-125" (click)="hangupCall()">
-                <mat-icon>call_end</mat-icon>
-            </button>
+            <span class="font-mono text-gray-500">{{ currentDate | date:'shortTime' }}</span>
+            <button mat-button class="ml-4 opacity-50 hover:opacity-100" (click)="exitKiosk()">EXIT</button>
         </div>
     </div>
-</div>
+
+    <!-- CALL OVERLAY (Keep mostly same but style) -->
+    <div *ngIf="incomingCall || (callState && callState.state !== 'DISCONNECTED')"
+        class="position-fixed top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center"
+        style="z-index: 10000; background: rgba(0,0,0,0.9);">
+        <div
+            class="bg-gray-900 border border-white/20 rounded-3xl p-10 flex flex-col items-center gap-8 shadow-2xl animate-pulse">
+            <div class="h-32 w-32 rounded-full bg-green-500/20 flex items-center justify-center animate-bounce">
+                <mat-icon class="text-6xl text-green-500 scale-[2]">phone_in_talk</mat-icon>
+            </div>
+            <div class="text-center">
+                <h2 class="text-4xl font-bold text-white mb-2">{{ incomingCall ? 'INCOMING CALL' : 'IN CALL' }}</h2>
+                <p class="text-2xl text-cyan-400">{{ incomingCall?.remote_uri || callState?.state }}</p>
+            </div>
+
+            <div class="flex gap-8">
+                <button *ngIf="incomingCall" class="call-btn bg-green-500 scale-125" (click)="answerCall()">
+                    <mat-icon>call</mat-icon>
+                </button>
+                <button class="call-btn bg-red-600 scale-125" (click)="hangupCall()">
+                    <mat-icon>call_end</mat-icon>
+                </button>
+            </div>
+        </div>
+    </div>
