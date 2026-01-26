@@ -158,8 +158,12 @@
                 </mat-card-header>
                 <mat-card-content class="pt-2">
                     <div *ngFor="let instruction of product.cookingInstructions; let last = last" class="mb-4">
-                        <div class="d-flex justify-content-between align-items-baseline mb-2 bg-light p-2 rounded">
-                            <h3 class="mat-h3 m-0">{{instruction.name.split(' - ').pop()}}</h3>
+                        <div
+                            class="d-flex justify-content-between align-items-baseline mb-2 instruction-header rounded">
+                            <a [routerLink]="['/recipes', instruction.id]" class="instruction-link">
+                                <h3 class="mat-h3 m-0">{{instruction.name.split(' - ').pop()}}</h3>
+                                <mat-icon class="ms-2">open_in_new</mat-icon>
+                            </a>
                             <div class="d-flex gap-3 text-secondary small">
                                 <span *ngIf="instruction.prepTime" title="Prep Time"><mat-icon
                                         style="font-size: 16px; width: 16px; height: 16px; vertical-align: text-bottom;">timer</mat-icon>
