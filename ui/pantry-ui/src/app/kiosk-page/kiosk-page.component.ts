@@ -914,10 +914,7 @@ export class KioskPageComponent implements OnInit, OnDestroy {
             try {
                 const recipe = await firstValueFrom(this.http.get<Recipe>(`${this.env.apiUrl}/recipes/${recipeId}`));
                 if (recipe) {
-                    this.selectedRecipe = recipe;
-                    this.status = recipe.title;
-                    this.statusSubtext = "Ready to Cook";
-                    this.hardwareScanner.setCustomHandler(() => { /* Maybe allow scanning ingredients? For now nothing */ });
+                    this.selectInstruction(recipe);
                 } else {
                     this.showTempStatus("Recipe Not Found", "", 3000);
                 }
@@ -956,9 +953,16 @@ export class KioskPageComponent implements OnInit, OnDestroy {
         this.showRecipeDetails = false;
         this.status = recipe.title;
         this.statusSubtext = "Ready to Cook";
-        // Scan handler remains to allow rescanning another item to switch
-        // But maybe we want to pause scanning?
-        // For now, let them scan another item if they want.
+
+        this.autoOpenQuickActions();
+    }
+
+    autoOpenQuickActions() {
+        if (this.timerActions.length > 0) {
+            this.openTimerActions();
+        } else if (this.scaleActions.length > 0) {
+            this.openScaleActions();
+        }
     }
 
     printRecipeReceipt() {
