@@ -1,5 +1,68 @@
 #!/bin/bash
 
+# Audio Configuration
+echo "Configuring Audio..."
+
+# Function to detect valid audio card
+detect_audio_card() {
+    # Try to find a USB audio device first
+    local card=$(aplay -l | grep -i "usb" | grep "^card" | head -n 1 | awk '{print $2}' | tr -d ':')
+    if [ -n "$card" ]; then
+        echo "$card"
+        return
+    fi
+    
+    # Fallback to HDMI
+    card=$(aplay -l | grep -i "hdmi" | grep "^card" | head -n 1 | awk '{print $2}' | tr -d ':')
+    if [ -n "$card" ]; then
+        echo "$card"
+        return
+    fi
+    
+    # Fallback to any card
+    card=$(aplay -l | grep "^card" | head -n 1 | awk '{print $2}' | tr -d ':')
+    echo "$card"
+}
+
+if [ -n "$DEFAULT_AUDIO_DEVICE" ]; then
+    echo "Using configured audio device override: $DEFAULT_AUDIO_DEVICE"
+    AUDIO_CARD="$DEFAULT_AUDIO_DEVICE"
+else
+    echo "Auto-detecting audio hardware..."
+    AUDIO_CARD=$(detect_audio_card)
+fi
+
+# Default to 0 if detection failed
+if [ -z "$AUDIO_CARD" ]; then
+    echo "No audio devices detected, defaulting to card 0"
+    AUDIO_CARD=0
+fi
+
+echo "Selected Audio Card Index: $AUDIO_CARD"
+
+# Write asound.conf
+# Use 'asym' to explicitly define both Playback (Speaker) and Capture (Mic)
+# pointing to the same auto-detected card (via 'plug' for format conversion).
+cat > /etc/asound.conf <<EOF
+pcm.!default {
+    type asym
+    playback.pcm "plug:hw:$AUDIO_CARD"
+    capture.pcm "plug:hw:$AUDIO_CARD"
+}
+
+ctl.!default {
+    type hw
+    card $AUDIO_CARD
+}
+EOF
+
+echo "Generated /etc/asound.conf (Speaker & Mic configured for Card $AUDIO_CARD)"
+
+# Export ALSA variables to force applications (like Chrome) to use this card
+export ALSA_CARD=$AUDIO_CARD
+export ALSA_PCM_CARD=$AUDIO_CARD
+export ALSA_CTL_CARD=$AUDIO_CARD
+
 # Start Hardware Bridge
 echo "Starting Hardware Bridge..."
 cd /bridge

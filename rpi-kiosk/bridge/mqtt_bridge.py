@@ -13,6 +13,8 @@ logger = logging.getLogger("MQTTBridge")
 # Globals for current state
 current_display_state = "ON"
 CONFIG_FILE = "kiosk_config.json"
+if os.path.exists('/data'):
+    CONFIG_FILE = "/data/kiosk_config.json"
 
 def get_config():
     # Defaults from Env

@@ -110,11 +110,25 @@ Make it executable (optional typically, but good practice):
 chmod +x ~/.xinitrc
 ```
 
+
 ### 4. Reboot
 Now, when you reboot (`sudo reboot`), the Pi should:
 1.  Auto-login users.
 2.  Start X11.
 3.  Launch the Docker container displaying the website in full screen.
+
+## Hardware Setup
+
+### Audio Configuration
+The kiosk application includes a robust **Hardware-Agnostic Audio Layer**.
+*   **Auto-Detection**: On startup, the container automatically scans for available audio devices. It prioritizes USB audio devices, then falls back to HDMI, and finally to the default system output.
+*   **Manual Override**: If the auto-detection picks the wrong device (e.g., HDMI instead of USB speakers), you can force a specific device by setting the `DEFAULT_AUDIO_DEVICE` environment variable.
+*   **UI Settings**: (Planned) In the future, you will be able to switch between recognized audio devices directly from the Kiosk Settings UI.
+
+To manually specify an audio device, add `-e DEFAULT_AUDIO_DEVICE=1` (where 1 is the card index from `aplay -l`) to your Docker run command.
+
+### Label Printer
+Connect your Brother QL-600 series printer via USB. The system will automatically detect it and configure the backend to use it. No extra drivers are needed on the host system as the container handles the communication.
 
 ## Troubleshooting
 *   **Black Screen**: Ensure `xhost +local:root` is running. Check docker logs: `docker logs pantry-kiosk`.

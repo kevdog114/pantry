@@ -25,6 +25,14 @@ app.get('/health', (req, res) => {
 
 // API to connect to backend
 const fs = require('fs');
+const path = require('path');
+
+const DATA_DIR = '/data';
+const useDataDir = fs.existsSync(DATA_DIR);
+
+const KIOSK_CONFIG_FILE = useDataDir ? path.join(DATA_DIR, 'kiosk_config.json') : 'kiosk_config.json';
+const DEVICE_SETTINGS_FILE = useDataDir ? path.join(DATA_DIR, 'device_settings.json') : 'device_settings.json';
+const SIP_CONFIG_FILE = useDataDir ? path.join(DATA_DIR, 'sip_config.json') : 'sip_config.json';
 
 app.post('/connect', (req, res) => {
     const { token, apiUrl, kioskName, hasKeyboardScanner } = req.body;
@@ -39,7 +47,7 @@ app.post('/connect', (req, res) => {
                 device_id: kioskName.toLowerCase().replace(/[^a-z0-9]/g, '_'),
                 hasKeyboardScanner: !!hasKeyboardScanner
             };
-            fs.writeFileSync('kiosk_config.json', JSON.stringify(config));
+            fs.writeFileSync(KIOSK_CONFIG_FILE, JSON.stringify(config));
             console.log("Updated kiosk config:", config);
         } catch (e) {
             console.error("Error writing kiosk config:", e);
@@ -159,13 +167,13 @@ function connectSocket() {
             // Save settings locally to be applied to future print jobs
             try {
                 let currentSettings = {};
-                if (fs.existsSync('device_settings.json')) {
-                    currentSettings = JSON.parse(fs.readFileSync('device_settings.json', 'utf8'));
+                if (fs.existsSync(DEVICE_SETTINGS_FILE)) {
+                    currentSettings = JSON.parse(fs.readFileSync(DEVICE_SETTINGS_FILE, 'utf8'));
                 }
 
                 // Merge new config
                 const newSettings = { ...currentSettings, ...details.config };
-                fs.writeFileSync('device_settings.json', JSON.stringify(newSettings));
+                fs.writeFileSync(DEVICE_SETTINGS_FILE, JSON.stringify(newSettings));
                 console.log('Updated local device settings:', newSettings);
 
                 // Apply settings to printer hardware immediately
@@ -219,15 +227,15 @@ function connectSocket() {
         try {
             const fs = require('fs');
             let config = {};
-            if (fs.existsSync('kiosk_config.json')) {
-                config = JSON.parse(fs.readFileSync('kiosk_config.json', 'utf8'));
+            if (fs.existsSync(KIOSK_CONFIG_FILE)) {
+                config = JSON.parse(fs.readFileSync(KIOSK_CONFIG_FILE, 'utf8'));
             }
 
             if (settings.hasKeyboardScanner !== undefined) {
                 config.hasKeyboardScanner = !!settings.hasKeyboardScanner;
             }
 
-            fs.writeFileSync('kiosk_config.json', JSON.stringify(config));
+            fs.writeFileSync(KIOSK_CONFIG_FILE, JSON.stringify(config));
             console.log("Updated kiosk config:", config);
             checkDevices();
         } catch (e) {
@@ -311,8 +319,8 @@ function connectSocket() {
             // Load local overrides/settings
             try {
                 const fs = require('fs');
-                if (fs.existsSync('device_settings.json')) {
-                    const settings = JSON.parse(fs.readFileSync('device_settings.json', 'utf8'));
+                if (fs.existsSync(DEVICE_SETTINGS_FILE)) {
+                    const settings = JSON.parse(fs.readFileSync(DEVICE_SETTINGS_FILE, 'utf8'));
                     console.log('Applying device settings to print job:', settings);
 
                     // Apply mapped settings
@@ -560,7 +568,7 @@ function connectSocket() {
         console.log('Received sip_configure:', config);
         const fs = require('fs');
         try {
-            fs.writeFileSync('sip_config.json', JSON.stringify(config));
+            fs.writeFileSync(SIP_CONFIG_FILE, JSON.stringify(config));
             if (sipBridgeProcess) {
                 const cmd = JSON.stringify({ cmd: 'configure', config: config }) + "\n";
                 sipBridgeProcess.stdin.write(cmd);
@@ -575,8 +583,8 @@ function connectSocket() {
     socket.on('sip_get_config', () => {
         const fs = require('fs');
         try {
-            if (fs.existsSync('sip_config.json')) {
-                const config = JSON.parse(fs.readFileSync('sip_config.json', 'utf8'));
+            if (fs.existsSync(SIP_CONFIG_FILE)) {
+                const config = JSON.parse(fs.readFileSync(SIP_CONFIG_FILE, 'utf8'));
                 socket.emit('sip_config', { config });
             } else {
                 socket.emit('sip_config', { config: {} });
@@ -619,8 +627,8 @@ function checkDevices() {
 
     // Check for Keyboard Scanner Config
     try {
-        if (fs.existsSync('kiosk_config.json')) {
-            const config = JSON.parse(fs.readFileSync('kiosk_config.json', 'utf8'));
+        if (fs.existsSync(KIOSK_CONFIG_FILE)) {
+            const config = JSON.parse(fs.readFileSync(KIOSK_CONFIG_FILE, 'utf8'));
             if (config.hasKeyboardScanner && socket && socket.connected) {
                 console.log('Reporting Keyboard Scanner to backend...');
                 socket.emit('device_register', {
@@ -853,7 +861,7 @@ function startSipBridge() {
     if (sipBridgeProcess) return;
 
     const fs = require('fs');
-    if (!fs.existsSync('sip_config.json')) {
+    if (!fs.existsSync(SIP_CONFIG_FILE)) {
         console.log("No sip_config.json found, skipping SIP bridge startup.");
         return;
     }
@@ -893,7 +901,7 @@ function startSipBridge() {
     });
 
     try {
-        const config = JSON.parse(fs.readFileSync('sip_config.json', 'utf8'));
+        const config = JSON.parse(fs.readFileSync(SIP_CONFIG_FILE, 'utf8'));
         if (config.enabled) {
             const cmd = JSON.stringify({ cmd: 'configure', config: config }) + "\n";
             sipBridgeProcess.stdin.write(cmd);

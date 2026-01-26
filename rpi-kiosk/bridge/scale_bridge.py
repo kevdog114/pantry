@@ -7,6 +7,8 @@ import serial.tools.list_ports
 import os
 
 CONFIG_FILE = "scale_config.json"
+if os.path.isdir("/data"):
+    CONFIG_FILE = "/data/scale_config.json"
 
 def get_args():
     parser = argparse.ArgumentParser()
