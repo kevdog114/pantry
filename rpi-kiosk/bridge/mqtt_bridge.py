@@ -5,6 +5,8 @@ import time
 import subprocess
 import paho.mqtt.client as mqtt
 import socket
+import urllib.request
+import json
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -34,6 +36,17 @@ def get_config():
 
     return device_id, device_name
 
+def notify_bridge_server(state):
+    try:
+        url = "http://localhost:8080/display-state"
+        data = json.dumps({"state": state}).encode('utf-8')
+        req = urllib.request.Request(url, data=data, headers={'Content-Type': 'application/json'})
+        with urllib.request.urlopen(req) as response:
+            if response.getcode() == 200:
+                logger.info(f"Notified bridge server of display state: {state}")
+    except Exception as e:
+        logger.error(f"Failed to notify bridge server: {e}")
+
 def set_display(state):
     global current_display_state
     target = state.upper()
@@ -53,6 +66,7 @@ def set_display(state):
         subprocess.run(cmd_args, check=True)
         current_display_state = target
         logger.info(f"Display set to {target}")
+        notify_bridge_server(target)
         return True
     except Exception as e:
         logger.error(f"Failed to set display: {e}")
@@ -170,6 +184,7 @@ def run_mqtt(device_id, device_name):
                 logger.info(f"Display state sync: {current_display_state} -> {actual_state}")
                 current_display_state = actual_state
                 client.publish(topic_state, current_display_state, retain=True)
+                notify_bridge_server(current_display_state)
 
             # Simple keepalive check? loop_start handles reconnects.
             

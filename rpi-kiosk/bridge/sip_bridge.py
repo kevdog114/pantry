@@ -102,12 +102,14 @@ def monitor_baresip():
                 if "Incoming call from" in line:
                     # Incoming call from sip:100@192.168.1.100 ...
                     # Parse URI
-                    parts = line.split(" ")
-                    uri = "Unknown"
-                    for p in parts:
-                        if p.startswith("sip:"):
-                            uri = p
-                            break
+                    # Parse URI
+                    # Look for sip:user@domain or sips:user@domain
+                    match = re.search(r'(z?sips?:[^>\s"]+)', line)
+                    if match:
+                        uri = match.group(1)
+                    else:
+                        uri = "Unknown"
+
                     log_json("incoming_call", {"remote_uri": uri, "remote_contact": uri})
                     
                 elif "Call established" in line:

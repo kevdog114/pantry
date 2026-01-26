@@ -46,8 +46,29 @@ echo "Selected Audio Card Index: $AUDIO_CARD"
 cat > /etc/asound.conf <<EOF
 pcm.!default {
     type asym
-    playback.pcm "plug:hw:$AUDIO_CARD"
-    capture.pcm "plug:hw:$AUDIO_CARD"
+    playback.pcm "plug:dmix_custom"
+    capture.pcm "plug:dsnoop_custom"
+}
+
+pcm.dmix_custom {
+    type dmix
+    ipc_key 1024
+    slave {
+        pcm "hw:$AUDIO_CARD"
+        rate 48000
+        periods 128
+        period_time 0
+        period_size 1024
+        buffer_size 4096
+    }
+}
+
+pcm.dsnoop_custom {
+    type dsnoop
+    ipc_key 1025
+    slave {
+        pcm "hw:$AUDIO_CARD"
+    }
 }
 
 ctl.!default {

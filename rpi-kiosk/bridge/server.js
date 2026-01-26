@@ -62,6 +62,47 @@ app.post('/connect', (req, res) => {
     res.json({ success: true });
 });
 
+// Display State
+let isDisplayOn = true;
+
+app.post('/display-state', (req, res) => {
+    const { state: displayState } = req.body;
+    console.log(`Received display state update: ${displayState}`);
+
+    isDisplayOn = (displayState === 'ON');
+
+    if (displayState === 'OFF') {
+        // Kill scale monitor if it's running
+        if (scaleMonitorProcess) {
+            console.log("Display OFF: Stopping Scale Monitor to save resources");
+            scaleMonitorProcess.kill();
+            scaleMonitorProcess = null;
+            currentScalePort = null;
+        }
+    } else {
+        // If ON, try to start immediately if we know the scale
+        console.log("Display ON: Enabling devices check");
+        checkDevices();
+
+        const keys = Object.keys(knownScales);
+        if (keys.length > 0) {
+            const port = keys[0];
+            if (!scaleMonitorProcess || currentScalePort !== port) {
+                console.log("Display ON: Immediate scale restart");
+                startScaleMonitor(port);
+            }
+        }
+    }
+
+    if (socket && socket.connected) {
+        socket.emit('display_state', { state: displayState });
+        res.json({ success: true });
+    } else {
+        // Even if socket is down, we processed the local action
+        res.json({ success: true, socket: false });
+    }
+});
+
 function connectSocket() {
     if (socket) {
         socket.disconnect();
@@ -936,11 +977,14 @@ setInterval(() => {
     checkDevices();
 
     // Also ensure monitor is running if we have a scale
-    const keys = Object.keys(knownScales);
-    if (keys.length > 0) {
-        const port = keys[0];
-        if (!scaleMonitorProcess || currentScalePort !== port) {
-            startScaleMonitor(port);
+    // BUT only if display is ON
+    if (isDisplayOn) {
+        const keys = Object.keys(knownScales);
+        if (keys.length > 0) {
+            const port = keys[0];
+            if (!scaleMonitorProcess || currentScalePort !== port) {
+                startScaleMonitor(port);
+            }
         }
     }
 }, 30000);

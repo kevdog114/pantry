@@ -109,6 +109,12 @@ export class KioskPageComponent implements OnInit, OnDestroy {
 
         this.socketService.connected$.subscribe(connected => {
             this.isOnline = connected;
+            if (connected) {
+                const kIdStr = localStorage.getItem('kiosk_id');
+                if (kIdStr) {
+                    this.socketService.emit('bind_to_kiosk', parseInt(kIdStr));
+                }
+            }
         });
 
         // Timer for date update
