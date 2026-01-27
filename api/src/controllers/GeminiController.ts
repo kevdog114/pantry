@@ -1524,7 +1524,9 @@ export const post = async (req: Request, res: Response) => {
           }
         }
         return responseResult;
-      }
+      },
+      DEFAULT_FALLBACK_MODEL,
+      { cachedContentName }
     );
 
     // Self-healing: If we fell back, the cache might be bad. Invalidate it to force recreation next time.
