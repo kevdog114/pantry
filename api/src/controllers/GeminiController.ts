@@ -71,14 +71,14 @@ export async function getGeminiModel(
 // Reuseable execution wrapper with fallback
 export async function executeWithFallback<T>(
   featureKey: string,
-  operation: (model: any) => Promise<T>,
+  operation: (model: any, context?: { isFallback: boolean, cachedContentName?: string }) => Promise<T>,
   fallbackModelName: string = DEFAULT_FALLBACK_MODEL,
   options?: { cachedContentName?: string, overrideModelName?: string }
 ): Promise<{ result: T; warning?: string }> {
   const { model, modelName } = await getGeminiModel(featureKey, fallbackModelName, options);
 
   try {
-    const result = await operation(model);
+    const result = await operation(model, { isFallback: false, cachedContentName: options?.cachedContentName });
     return { result };
   } catch (error: any) {
     // Check for 404 or other errors indicating model unavailability
@@ -93,7 +93,7 @@ export async function executeWithFallback<T>(
         ...geminiConfig,
       });
       try {
-        const result = await operation(fallbackModel);
+        const result = await operation(fallbackModel, { isFallback: true });
         return {
           result,
           warning: `Preferred model '${modelName}' was unavailable. Fell back to '${fallbackModelName}'.`
@@ -1321,10 +1321,12 @@ export const post = async (req: Request, res: Response) => {
 
     let cachedContentName: string | undefined = undefined;
 
+    let contentHash: string | undefined;
+
     // Only attempt caching if systemInstruction allows (length checks happen at API level, but we catch errors)
     try {
       // Create a deterministic hash of the system content
-      const contentHash = createHash('md5').update(systemInstruction).digest('hex');
+      contentHash = createHash('md5').update(systemInstruction).digest('hex');
       const now = Date.now();
 
       // Check local tracker
@@ -1390,11 +1392,15 @@ export const post = async (req: Request, res: Response) => {
 
     const { result, warning } = await executeWithFallback(
       modelFeatureKey,
-      async (model) => {
+      async (model, context) => {
         let currentContents = [...contents];
 
         // precise adjustment for cache:
-        if (cachedContentName && currentContents.length > 0) {
+        // Logic: Only strip the system instruction from the payload if we are effectively using the cache.
+        // If we are in fallback mode (context.isFallback), we are NOT using the cache, so we must include the system instruction.
+        const effectivelyUsingCache = !context?.isFallback && !!context?.cachedContentName;
+
+        if (effectivelyUsingCache && currentContents.length > 0) {
           // First element was system instruction (as user message). 
           // The cache has it as system_instruction.
           // We should remove the first element if it matches.
@@ -1410,6 +1416,28 @@ export const post = async (req: Request, res: Response) => {
           }
         }
 
+        // --- DEBUG LOGGING START ---
+        const debugSetting = await prisma.systemSetting.findUnique({ where: { key: 'gemini_debug_logging' } });
+        const debugEnabled = debugSetting?.value === 'true';
+
+        if (debugEnabled) {
+          console.log("\n[GEMINI DEBUG] --- REQUEST PAYLOAD ---");
+          // Avoid dumping giant binary image parts to console, summarize them
+          const debugContents = JSON.parse(JSON.stringify(currentContents)); // Deep copy
+          debugContents.forEach((c: any) => {
+            if (c.parts) {
+              c.parts.forEach((p: any) => {
+                if (p.inlineData) {
+                  p.inlineData.data = `[BINARY IMAGE DATA (${Math.round(p.inlineData.data.length / 1024)} KB)]`;
+                }
+              });
+            }
+          });
+          console.log(JSON.stringify(debugContents, null, 2));
+          console.log("[GEMINI DEBUG] -----------------------\n");
+        }
+        // --- DEBUG LOGGING END ---
+
         let currentLoop = 0;
         const maxLoops = 5;
         let printedOnce = false;
@@ -1421,6 +1449,14 @@ export const post = async (req: Request, res: Response) => {
           // We remove explicit JSON enforcement here to allow tool calls to happen naturally
           // The system prompt still demands JSON for the final answer.
         });
+
+        if (debugEnabled) {
+          try {
+            console.log("\n[GEMINI DEBUG] --- RAW RESPONSE ---");
+            console.log(responseResult.response.text());
+            console.log("[GEMINI DEBUG] --------------------\n");
+          } catch (e) { console.log("[GEMINI DEBUG] (Response text not available or error)"); }
+        }
 
         while (currentLoop < maxLoops) {
           const response = responseResult.response;
@@ -1482,6 +1518,12 @@ export const post = async (req: Request, res: Response) => {
       }
     );
 
+    // Self-healing: If we fell back, the cache might be bad. Invalidate it to force recreation next time.
+    if (warning && cachedContentName && contentHash) {
+      console.warn(`[Gemini] Primary request with cache failed. Invalidating cache '${cachedContentName}' locally.`);
+      activeCaches.delete(contentHash);
+    }
+
     const response = result.response;
     let data;
     const responseText = response.text();
@@ -1506,15 +1548,17 @@ export const post = async (req: Request, res: Response) => {
 
       // Remove ```json ... ``` or just ``` ... ```
       let cleaned = text.trim();
-      if (cleaned.startsWith('```json')) {
-        cleaned = cleaned.substring(7);
-      } else if (cleaned.startsWith('```')) {
-        cleaned = cleaned.substring(3);
+      const codeBlockMatch = cleaned.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+      if (codeBlockMatch) {
+        cleaned = codeBlockMatch[1].trim();
       }
-      if (cleaned.endsWith('```')) {
-        cleaned = cleaned.substring(0, cleaned.length - 3);
-      }
-      return cleaned.trim();
+
+      // 2. Fallback: If it looks like it ends abruptly (Unexpected end of JSON input), 
+      // try to close the array/object to salvage it? 
+      // This is risky but better than crashing if we just want to display text.
+      // For now, we rely on the try-catch in the caller.
+
+      return cleaned;
     };
 
     try {

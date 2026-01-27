@@ -32,12 +32,14 @@ export class SettingsComponent implements OnInit {
   expirationModelKey = 'gemini_expiration_model';
   quickSnackModelKey = 'gemini_quick_snack_model';
   imageGenModelKey = 'gemini_image_generation_model';
+  debugLoggingKey = 'gemini_debug_logging';
 
   selectedChatModel: string = 'gemini-flash-latest';
   selectedVisionModel: string = 'gemini-flash-latest';
   selectedExpirationModel: string = 'gemini-flash-latest';
   selectedQuickSnackModel: string = 'gemini-flash-latest';
   selectedImageGenModel: string = 'imagen-4.0-generate-001';
+  debugLogging: boolean = false;
 
   loading = true;
   kioskMode = false;
@@ -80,6 +82,11 @@ export class SettingsComponent implements OnInit {
         if (settings[this.expirationModelKey]) this.selectedExpirationModel = settings[this.expirationModelKey];
         if (settings[this.quickSnackModelKey]) this.selectedQuickSnackModel = settings[this.quickSnackModelKey];
         if (settings[this.imageGenModelKey]) this.selectedImageGenModel = settings[this.imageGenModelKey];
+
+        if (settings[this.debugLoggingKey]) {
+          this.debugLogging = settings[this.debugLoggingKey] === 'true';
+        }
+
         this.loading = false;
       },
       error: (err) => {
@@ -97,6 +104,7 @@ export class SettingsComponent implements OnInit {
     settings[this.expirationModelKey] = this.selectedExpirationModel;
     settings[this.quickSnackModelKey] = this.selectedQuickSnackModel;
     settings[this.imageGenModelKey] = this.selectedImageGenModel;
+    settings[this.debugLoggingKey] = String(this.debugLogging);
 
     this.settingsService.updateSettings(settings).subscribe({
       next: () => {

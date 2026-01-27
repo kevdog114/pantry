@@ -90,6 +90,16 @@
                             </mat-form-field>
                         </div>
 
+                        <div class="setting-item">
+                            <div class="setting-info">
+                                <h3>Debug Logging</h3>
+                                <p>Log full API requests and responses to the server console (Docker logs).</p>
+                            </div>
+                            <mat-slide-toggle [(ngModel)]="debugLogging" color="warn">
+                                Enabled
+                            </mat-slide-toggle>
+                        </div>
+
                         <div class="actions">
                             <button mat-flat-button color="primary" (click)="saveSettings()">
                                 Save Changes
