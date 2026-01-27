@@ -136,4 +136,7 @@ chromium \
   --window-position=0,0 \
   --pull-to-refresh=1 \
   --user-data-dir="/data" \
+  --use-fake-ui-for-media-stream \
+  --autoplay-policy=no-user-gesture-required \
+  --unsafely-treat-insecure-origin-as-secure="$TARGET_URL" \
   "$TARGET_URL"
