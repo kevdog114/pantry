@@ -30,7 +30,7 @@ export class HardwareBarcodeScannerService {
     console.log("Starting barcode scanner service");
     this.socketService.on('barcode_scan', (data: any) => {
       this.ngZone.run(() => {
-        if (!this.isEnabled) return;
+
 
         const claimedBy = this.claimedBySubject.value;
         const isKiosk = this.router.url.includes('/kiosk-mode');

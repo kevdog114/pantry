@@ -109,7 +109,7 @@ export class KioskLoginComponent implements OnInit, OnDestroy {
                             next: (bridgeRes) => console.log('Hardware bridge connected', bridgeRes),
                             error: (err) => console.warn('Hardware bridge connection failed (ignore if not on Kiosk Device)', err)
                         });
-                        this.router.navigate(['/']);
+                        this.router.navigate(['/kiosk-mode']);
                     },
                     error: (err) => {
                         console.error("Login failed", err);

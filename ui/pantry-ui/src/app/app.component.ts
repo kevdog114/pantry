@@ -88,9 +88,12 @@ export class AppComponent implements OnInit {
       this.kioskService.kioskLogin(kioskToken, kioskId ? parseInt(kioskId) : undefined).subscribe({
         next: (res) => {
           console.log("Kiosk settings refreshed", res);
+          if (this.router.url === '/' || this.router.url === '/login') {
+            this.router.navigate(['/kiosk-mode']);
+          }
           if (res.kioskSettings && res.kioskSettings.hasKeyboardScanner !== undefined) {
             console.log("Setting scanner enabled:", res.kioskSettings.hasKeyboardScanner);
-            this.hardwareScanner.setEnabled(res.kioskSettings.hasKeyboardScanner);
+            // this.hardwareScanner.setEnabled(res.kioskSettings.hasKeyboardScanner);
 
             isScannerKiosk = res.kioskSettings.hasKeyboardScanner;
             // if (isScannerKiosk) {
@@ -126,7 +129,7 @@ export class AppComponent implements OnInit {
         console.log('Received remote settings update', settings);
         if (settings.hasKeyboardScanner !== undefined) {
           console.log("Applying remote scanner setting:", settings.hasKeyboardScanner);
-          this.hardwareScanner.setEnabled(settings.hasKeyboardScanner);
+          // this.hardwareScanner.setEnabled(settings.hasKeyboardScanner);
           isScannerKiosk = settings.hasKeyboardScanner;
 
           // if (isScannerKiosk) {
@@ -150,7 +153,7 @@ export class AppComponent implements OnInit {
               console.log("Kiosk auto-login successful", res);
               if (res.kioskSettings && res.kioskSettings.hasKeyboardScanner !== undefined) {
                 console.log("Setting scanner enabled:", res.kioskSettings.hasKeyboardScanner);
-                this.hardwareScanner.setEnabled(res.kioskSettings.hasKeyboardScanner);
+                // this.hardwareScanner.setEnabled(res.kioskSettings.hasKeyboardScanner);
 
                 // Identify as scanner to backend
                 // if (res.kioskSettings.hasKeyboardScanner) {
@@ -158,7 +161,7 @@ export class AppComponent implements OnInit {
                 // }
               }
               if (this.router.url === '/login' || this.router.url === '/kiosk-login') {
-                this.router.navigate(['/']);
+                this.router.navigate(['/kiosk-mode']);
               }
               return true;
             }),
