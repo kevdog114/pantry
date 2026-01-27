@@ -1395,10 +1395,20 @@ export const post = async (req: Request, res: Response) => {
       async (model, context) => {
         let currentContents = [...contents];
 
+        // --- DEBUG LOGGING CHECK ---
+        const debugSetting = await prisma.systemSetting.findUnique({ where: { key: 'gemini_debug_logging' } });
+        const debugEnabled = debugSetting?.value === 'true';
+
         // precise adjustment for cache:
         // Logic: Only strip the system instruction from the payload if we are effectively using the cache.
         // If we are in fallback mode (context.isFallback), we are NOT using the cache, so we must include the system instruction.
         const effectivelyUsingCache = !context?.isFallback && !!context?.cachedContentName;
+
+        if (debugEnabled) {
+          console.log(`[Gemini Cache Debug] Using Cache: ${effectivelyUsingCache}`);
+          console.log(`[Gemini Cache Debug] Is Fallback: ${context?.isFallback}`);
+          console.log(`[Gemini Cache Debug] Cached Name: ${context?.cachedContentName}`);
+        }
 
         if (effectivelyUsingCache && currentContents.length > 0) {
           // First element was system instruction (as user message). 
@@ -1407,7 +1417,10 @@ export const post = async (req: Request, res: Response) => {
           // Original code: contents[0] is role: user, parts: [systemInstruction]
           // We can just shift it off.
           if (currentContents[0].role === 'user' && currentContents[0].parts[0].text && currentContents[0].parts[0].text.includes("You are a helpful cooking assistant")) {
+            if (debugEnabled) console.log("[Gemini Cache Debug] Stripping System Instruction from payload (covered by cache).");
             currentContents.shift();
+          } else {
+            if (debugEnabled) console.log("[Gemini Cache Debug] First message did NOT match system instruction signature. Not stripping.");
           }
           // Also remove the "modelAck" if it was just there to acknowledge the system instruction?
           // Original: contents[1] is modelAck "Understood..."
@@ -1415,10 +1428,6 @@ export const post = async (req: Request, res: Response) => {
             currentContents.shift();
           }
         }
-
-        // --- DEBUG LOGGING START ---
-        const debugSetting = await prisma.systemSetting.findUnique({ where: { key: 'gemini_debug_logging' } });
-        const debugEnabled = debugSetting?.value === 'true';
 
         if (debugEnabled) {
           console.log("\n[GEMINI DEBUG] --- REQUEST PAYLOAD ---");
