@@ -512,79 +512,40 @@ export const post = async (req: Request, res: Response) => {
       data: { updatedAt: new Date() }
     });
 
-    const productContext = await getProductContext();
-    const systemInstruction = `
-      You are a helpful cooking assistant. You have access to the user's pantry inventory.
-      The current date is ${new Date().toLocaleDateString()}.
-      The current date is ${new Date().toLocaleDateString()}.
-      You can use the provided tools to managing stock entries (create, edit, delete, list) and printing.
-      
-      COOKING INSTRUCTIONS:
-      - If the user provides an image of a product package/bag and asks to save instructions, explore the image and use 'createCookingInstruction'.
-      - Create separate instructions for different methods (e.g. "Microwave", "Oven", "Air Fryer") if the package lists them.
-      - Ensure the method name includes the product name if useful for context, but the association is handled by ID.
-      
-      PRINTING RULES:
-      - If the user asks to print a RECIPE, you MUST first use 'getRecipeDetails' to get the full ingredients and steps. Do NOT hallucinate them.
-      - Once you have the details (or if printing a simple list), use 'printReceipt'.
-      - Do NOT call 'printReceipt' more than once for the same content in a single turn.
-      - If you have successfully called 'printReceipt', your final text response should confirm "I have sent the [title] to the printer."
+    const contextStart = Date.now();
+    const [productContext, familyContext, equipmentContext, weatherContext] = await Promise.all([
+      getProductContext(),
+      getFamilyContext(),
+      getEquipmentContext(),
+      getWeatherContext()
+    ]);
+    const contextDuration = Date.now() - contextStart;
+    console.log(`Context generation time: ${contextDuration}ms`);
 
-      When the user asks for a recipe, or just wants to chat, you MUST return a JSON object with the following structure:
+    const systemInstruction = `
+      You are a smart cooking assistant managing a pantry.
+      Date: ${new Date().toLocaleDateString()}.
+      
+      **Core Rules:**
+      1. **Response Format:** ALWAYS return a JSON object with a root 'items' array. Items can be type 'chat' (content string) or 'recipe' (structured object).
+      2. **Printing:** To print a recipe, first call 'getRecipeDetails', then 'printReceipt' (max 1 call/turn). Confirm with "Sent [title] to printer."
+      3. **Stock & Cooking Instructions:** Use provided tools. For package images, use 'createCookingInstruction' for each method (e.g., Microwave, Oven).
+      4. **Quantities:** Respect 'trackCountBy' in inventory context. If 'weight', use weight; if 'quantity', use count.
+
+      **JSON Structure:**
       {
         "items": [
-          {
-            "type": "recipe",
-            "recipe": {
-              "title": "Recipe Title",
-              "description": "Brief description",
-              "ingredients": [
-                { 
-                  "name": "Ingredient Name", 
-                  "amount": 1.5, 
-                  "unit": "cup",
-                  "productId": 123 // Optional: Only if this matches a product in the list below (use ID from context). Null if no match.
-                }
-              ],
-              "instructions": ["Step 1", "Step 2"],
-              "time": {
-                "prep": "10 mins",
-                "cook": "20 mins",
-                "total": "30 mins"
-              }
-            }
-          },
-          {
-             "type": "chat",
-             "content": "Your response here. You can use **Markdown** for formatting."
-          }
+          { "type": "chat", "content": "Markdown text..." },
+          { "type": "recipe", "recipe": { "title": "...", "ingredients": [{"name":"...", "amount":1, "productId":123}], "instructions": ["..."], "time": { "prep": "...", "cook": "..." } } }
         ]
       }
-      
-      You can return multiple items in the list. For example, a chat message followed by a recipe, or just a single chat message.
 
-      Here is the current inventory:
-      ${productContext}
-
-      Here are the family preferences and details. Please consider these when suggesting recipes or answering food questions:
-      ${await getFamilyContext()}
-
-      Here is the available cooking equipment:
-      ${await getEquipmentContext()}
-
-      Here is the weather forecast (help the user plan meals based on weather):
-      ${await getWeatherContext()}
-
-
-      Please pay close attention to the user's input regarding quantities and units. 
-      - If the user specifies a weight (e.g. "500 grams"), use "500" as the quantity and "grams" as the unit.
-      - If the user specifies a count (e.g. "2 pork chops"), use "2" as the quantity and "count" (or null) as the unit.
-      - If the user specifies both (e.g. "2 pork chops that weigh 500 grams"), prioritize the count "2" for the quantity if adding to stock, but note the weight in the unit if possible (e.g. unit: "grams (total 500)"). However, for Stock Items, it is better to track the usable quantity. 
-      - BETTER STRATEGY: Check the product's 'trackCountBy' setting in the inventory context.
-        - If 'trackCountBy' is 'weight', use the weight as the quantity (e.g. 500).
-        - If 'trackCountBy' is 'quantity', use the count (e.g. 2).
-      
-      ${additionalContext ? `\nCONTEXT FROM USER'S CURRENT VIEW:\n${additionalContext}\n` : ''}
+      **Context:**
+      Inventory: ${productContext}
+      Family: ${familyContext}
+      Equipment: ${equipmentContext}
+      Weather: ${weatherContext}
+      ${additionalContext ? `User View: ${additionalContext}` : ''}
     `;
 
 
@@ -1285,6 +1246,9 @@ export const post = async (req: Request, res: Response) => {
       }
     }
 
+    const debugSetting = await prisma.systemSetting.findUnique({ where: { key: 'gemini_debug' } });
+    const isGeminiDebug = debugSetting?.value === 'true';
+
     const { result, warning } = await executeWithFallback(
       "gemini_chat_model",
       async (model) => {
@@ -1294,6 +1258,11 @@ export const post = async (req: Request, res: Response) => {
         let printedOnce = false;
 
         // Initial generation
+        if (isGeminiDebug) {
+          console.log("--- GEMINI DEBUG CONTEXT (Initial) ---");
+          console.log(JSON.stringify(currentContents, null, 2));
+          console.log("--------------------------------------");
+        }
         let responseResult = await model.generateContent({
           contents: currentContents,
           tools: inventoryTools,
@@ -1346,6 +1315,11 @@ export const post = async (req: Request, res: Response) => {
             });
 
             // 4. Generate again
+            if (isGeminiDebug) {
+              console.log("--- GEMINI DEBUG CONTEXT (Follow-up) ---");
+              console.log(JSON.stringify(currentContents, null, 2));
+              console.log("--------------------------------------");
+            }
             responseResult = await model.generateContent({
               contents: currentContents,
               tools: inventoryTools
