@@ -94,7 +94,7 @@ export async function determineSafeCookingTemps(ingredients: any[]): Promise<{ i
         const prompt = `
 You are a Food Safety Expert.
 Review the following list of ingredients and identify any that require a specific minimum internal cooking temperature for safety (primarily meats, poultry, fish, eggs).
-Return the result as a JSON array of objects, where each object has "item" (the ingredient name) and "temperature" (the safe internal temp in Fahrenheit, e.g. "165°F").
+Return the result as a JSON array of objects, where each object has "item" (the ingredient name) and "temperature" (the safe internal temp in Fahrenheit, e.g. "165 F").
 
 If an ingredient does not require a specific safety temperature (e.g. vegetables, flour, spices), ignore it.
 If there are no such ingredients, return an empty array.
@@ -104,8 +104,8 @@ ${ingredientList}
 
 Example Output JSON:
 [
-  { "item": "Chicken Breast", "temperature": "165°F" },
-  { "item": "Ground Beef", "temperature": "160°F" }
+  { "item": "Chicken Breast", "temperature": "165 F" },
+  { "item": "Ground Beef", "temperature": "160 F" }
 ]
 `;
 

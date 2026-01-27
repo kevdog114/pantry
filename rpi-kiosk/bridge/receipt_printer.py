@@ -155,6 +155,14 @@ def discover_cmd(args):
         
     print(json.dumps(output))
 
+def sanitize_text(text):
+    if text is None:
+        return ""
+    # Replace common symbols that break ascii or look bad as '?'
+    text = str(text).replace('°', ' deg ')
+    # Encode to ascii, replace unhandled chars with '?'
+    return text.encode('ascii', 'replace').decode()
+
 def print_receipt_cmd(args):
     try:
         from escpos.printer import Usb
@@ -197,7 +205,8 @@ def print_receipt_cmd(args):
         if 'title' in data:
             print("Printing Title...")
             p.set(align='center', double_height=True, double_width=True)
-            safe_title = data['title'].encode('ascii', 'replace').decode()
+            p.set(align='center', double_height=True, double_width=True)
+            safe_title = sanitize_text(data['title'])
             wrapped_title = textwrap.fill(safe_title, width=20)
             p.text(f"{wrapped_title}\n")
             p.text("\n")
@@ -217,7 +226,9 @@ def print_receipt_cmd(args):
         # Body Text
         if 'text' in data:
             print("Printing Text Body...")
-            safe_text = data['text'].encode('ascii', 'replace').decode()
+        if 'text' in data:
+            print("Printing Text Body...")
+            safe_text = sanitize_text(data['text'])
             for line in safe_text.splitlines():
                 if line:
                     wrapped_text = textwrap.fill(line, width=42)
@@ -232,11 +243,13 @@ def print_receipt_cmd(args):
             p.text("INGREDIENTS:\n")
             for item in data['items']:
                 if isinstance(item, dict):
-                    name = item.get('name', '')
-                    qty = item.get('quantity', '')
-                    p.text(f"{name:<20} {str(qty):>10}\n")
+                    name = sanitize_text(item.get('name', ''))
+                    qty = sanitize_text(item.get('quantity', ''))
+                    # Truncate to ensure alignment
+                    name = name[:20]
+                    p.text(f"{name:<20} {qty:>10}\n")
                 else:
-                    p.text(f"{str(item)}\n")
+                    p.text(f"{sanitize_text(item)}\n")
             p.text("-" * 32 + "\n")
 
         # Recipe Steps
@@ -251,7 +264,7 @@ def print_receipt_cmd(args):
                 note = step.get('note', '')
 
                 # Sanitize text
-                safe_text = text.encode('ascii', 'replace').decode()
+                safe_text = sanitize_text(text)
                 paragraphs = safe_text.splitlines()
 
                 # If we have an action but no text, we still need to print the action
@@ -293,8 +306,9 @@ def print_receipt_cmd(args):
                             p.text("\n")
                 
                 if note:
+                if note:
                     p.set(font='b')
-                    safe_note = note.encode('ascii', 'replace').decode()
+                    safe_note = sanitize_text(note)
                     
                     paragraphs = safe_note.splitlines()
                     prefix = "  Note: "
@@ -330,9 +344,12 @@ def print_receipt_cmd(args):
             for item in data['safeTemps']:
                 name = item.get('item', '')
                 temp = item.get('temperature', '')
+                # Sanitize temp (replace degrees symbol first)
+                safe_temp = sanitize_text(temp)
+                
                 # Truncate name if too long for the column
                 safe_name = name[:20]
-                p.text(f"{safe_name:<20} {str(temp):>10}\n")
+                p.text(f"{safe_name:<20} {safe_temp:>10}\n")
             p.text("-" * 32 + "\n")
 
         # QR Code

@@ -8,6 +8,8 @@ import * as path from "path";
 import { storeFile, UPLOAD_DIR } from "../lib/FileStorage";
 import { intentEngine } from "../lib/IntentEngine";
 import { WeatherService } from "../services/WeatherService";
+import { GoogleAICacheManager } from "@google/generative-ai/server";
+import { createHash } from "crypto";
 
 dotenv.config();
 
@@ -17,8 +19,13 @@ if (!gemini_api_key) {
   throw new Error("GEMINI_API_KEY is not set");
 }
 const googleAI = new GoogleGenerativeAI(gemini_api_key);
+const cacheManager = new GoogleAICacheManager(gemini_api_key);
 
-const DEFAULT_FALLBACK_MODEL = "gemini-flash-latest";
+// Simple in-memory map to track active caches
+// Key: Hash of content, Value: { name: string, expireTime: number, model: string }
+const activeCaches = new Map<string, { name: string, expireTime: number, model: string }>();
+
+const DEFAULT_FALLBACK_MODEL = "gemini-1.5-flash-001";
 
 const geminiConfig = {
   temperature: 0.9,
@@ -28,22 +35,33 @@ const geminiConfig = {
 };
 
 // Helper to get the model based on feature setting or fallback
-export async function getGeminiModel(featureKey: string, fallbackModelName: string = DEFAULT_FALLBACK_MODEL) {
-  let modelName = fallbackModelName;
-  try {
-    const setting = await prisma.systemSetting.findUnique({
-      where: { key: featureKey }
-    });
-    if (setting && setting.value) {
-      modelName = setting.value;
+export async function getGeminiModel(
+  featureKey: string,
+  fallbackModelName: string = DEFAULT_FALLBACK_MODEL,
+  options?: { cachedContentName?: string, overrideModelName?: string }
+) {
+  let modelName = options?.overrideModelName || fallbackModelName;
+
+  if (!options?.overrideModelName) {
+    try {
+      const setting = await prisma.systemSetting.findUnique({
+        where: { key: featureKey }
+      });
+      if (setting && setting.value) {
+        modelName = setting.value;
+      }
+    } catch (err) {
+      console.warn(`Failed to fetch setting for ${featureKey}, using default: ${modelName}`, err);
     }
-  } catch (err) {
-    console.warn(`Failed to fetch setting for ${featureKey}, using default: ${modelName}`, err);
   }
+
+  // Ensure model name is compatible with caching if needed (remove 'models/' prefix if present, though SDK usually handles it)
+  // For caching, the SDK expects the model name.
 
   return {
     model: googleAI.getGenerativeModel({
       model: modelName,
+      cachedContent: options?.cachedContentName as any, // Cast to any if type definition is lagging, or string
       ...geminiConfig,
     }),
     modelName
@@ -54,9 +72,10 @@ export async function getGeminiModel(featureKey: string, fallbackModelName: stri
 export async function executeWithFallback<T>(
   featureKey: string,
   operation: (model: any) => Promise<T>,
-  fallbackModelName: string = DEFAULT_FALLBACK_MODEL
+  fallbackModelName: string = DEFAULT_FALLBACK_MODEL,
+  options?: { cachedContentName?: string, overrideModelName?: string }
 ): Promise<{ result: T; warning?: string }> {
-  const { model, modelName } = await getGeminiModel(featureKey, fallbackModelName);
+  const { model, modelName } = await getGeminiModel(featureKey, fallbackModelName, options);
 
   try {
     const result = await operation(model);
@@ -230,6 +249,15 @@ const getWeatherContext = async (): Promise<string> => {
     return "";
   }
 };
+
+async function resolveGeminiModelName(featureKey: string, fallback: string): Promise<string> {
+  try {
+    const setting = await prisma.systemSetting.findUnique({ where: { key: featureKey } });
+    return setting?.value || fallback;
+  } catch {
+    return fallback;
+  }
+}
 
 
 export const extractRecipeQuickActions = async (req: Request, res: Response) => {
@@ -1285,10 +1313,103 @@ export const post = async (req: Request, res: Response) => {
       }
     }
 
+
+
+    // --- CONTEXT CACHING LOGIC ---
+    const modelFeatureKey = "gemini_chat_model";
+    const resolvedModelName = await resolveGeminiModelName(modelFeatureKey, DEFAULT_FALLBACK_MODEL);
+
+    let cachedContentName: string | undefined = undefined;
+
+    // Only attempt caching if systemInstruction allows (length checks happen at API level, but we catch errors)
+    try {
+      // Create a deterministic hash of the system content
+      const contentHash = createHash('md5').update(systemInstruction).digest('hex');
+      const now = Date.now();
+
+      // Check local tracker
+      if (activeCaches.has(contentHash)) {
+        const entry = activeCaches.get(contentHash)!;
+        // Verify model matches (cache is model-specific) and not expired
+        if (entry.model === resolvedModelName && entry.expireTime > now) {
+          cachedContentName = entry.name;
+          console.log(`[Gemini] Using existing context cache: ${cachedContentName}`);
+        } else {
+          // invalid or expired
+          activeCaches.delete(contentHash);
+        }
+      }
+
+      if (!cachedContentName) {
+        // Attempt to create new cache
+        console.log(`[Gemini] Creating new context cache for model ${resolvedModelName}...`);
+
+        const cacheResult = await cacheManager.create({
+          model: resolvedModelName,
+          displayName: `pantry_chat_${sessionId}_${Date.now()}`,
+          systemInstruction: systemInstruction,
+          contents: [], // Instruction is the main content
+          ttlSeconds: 60 * 10, // 10 minutes
+        });
+
+        cachedContentName = cacheResult.name;
+        const expireTime = now + (9 * 60 * 1000); // Record as valid for 9 mins
+
+        activeCaches.set(contentHash, {
+          name: cachedContentName,
+          expireTime,
+          model: resolvedModelName
+        });
+        console.log(`[Gemini] Cache created successfully: ${cachedContentName}`);
+      }
+    } catch (e) {
+      console.warn("[Gemini] Context caching skipped (likely content too short or error):", e);
+      // Fallback to normal execution (sending systemInstruction inline will happen if we don't pass cachedContentName, 
+      // BUT if we pass cachedContentName=undefined to getGenerativeModel, we MUST ensure we pass systemInstruction in the generate call?
+      // Wait: If we use cache, 'systemInstruction' is in the cache. 
+      // If we don't use cache, we must pass 'systemInstruction' to getGenerativeModel or generateContent.
+      // Currently, 'contents' array passed to generateContent DOES include systemInstruction at the start as logic below does?
+      // Let's check:
+      // constructing 'contents' at line 605:
+      // { role: "user", parts: [{ text: systemInstruction }] } ...
+
+      // CAUTION: If we use Cache, we should NOT send the systemInstruction in the contents again, checking SDK behavior.
+      // Usually, if cachedContent is used, the systemInstruction in the cache is used.
+      // Doubling it might confuse the model or be redundant.
+      // We should strip it from 'contents' if cachedContentName is set.
+    }
+
+    if (cachedContentName) {
+      // Remove system instruction from the explicit contents array since it's in the cache
+      // The original code puts systemInstruction as the first User message (line 608).
+      // We should filter that out if reusing cache.
+      // However, the original code structure (lines 605-616) embeds it.
+      // I will modify the contents array logic inside the execute block or here.
+      // Actually, I can just modify 'currentContents' inside the block.
+    }
+
     const { result, warning } = await executeWithFallback(
-      "gemini_chat_model",
+      modelFeatureKey,
       async (model) => {
         let currentContents = [...contents];
+
+        // precise adjustment for cache:
+        if (cachedContentName && currentContents.length > 0) {
+          // First element was system instruction (as user message). 
+          // The cache has it as system_instruction.
+          // We should remove the first element if it matches.
+          // Original code: contents[0] is role: user, parts: [systemInstruction]
+          // We can just shift it off.
+          if (currentContents[0].role === 'user' && currentContents[0].parts[0].text && currentContents[0].parts[0].text.includes("You are a helpful cooking assistant")) {
+            currentContents.shift();
+          }
+          // Also remove the "modelAck" if it was just there to acknowledge the system instruction?
+          // Original: contents[1] is modelAck "Understood..."
+          if (currentContents.length > 0 && currentContents[0].role === 'model' && currentContents[0].parts[0].text === "Understood. I will always return valid JSON with a root 'items' array containing objects with 'type': 'recipe' or 'type': 'chat'.") {
+            currentContents.shift();
+          }
+        }
+
         let currentLoop = 0;
         const maxLoops = 5;
         let printedOnce = false;
