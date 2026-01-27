@@ -7,6 +7,7 @@ import * as fs from "fs";
 import * as path from "path";
 import { storeFile, UPLOAD_DIR } from "../lib/FileStorage";
 import { intentEngine } from "../lib/IntentEngine";
+import { WeatherService } from "../services/WeatherService";
 
 dotenv.config();
 
@@ -204,6 +205,28 @@ const getEquipmentContext = async (): Promise<string> => {
     return context;
   } catch (e) {
     console.error("Failed to fetch equipment for context", e);
+    return "";
+  }
+};
+
+const getWeatherContext = async (): Promise<string> => {
+  try {
+    const service = new WeatherService();
+    // Get forecast for today and next 4 days
+    const today = new Date();
+    const endDate = new Date();
+    endDate.setDate(today.getDate() + 4);
+
+    const forecasts = await service.getForecast(today, endDate);
+    if (!forecasts || forecasts.length === 0) return "No weather forecast available.";
+
+    let context = "Weather Forecast:\n";
+    for (const f of forecasts) {
+      context += `- ${f.date.toISOString().split('T')[0]}: ${f.condition}, High: ${f.highTemp}°F, Low: ${f.lowTemp}°F, Precip Chance: ${f.precipitationChance}%\n`;
+    }
+    return context;
+  } catch (e) {
+    console.error("Failed to fetch weather for context", e);
     return "";
   }
 };
@@ -548,6 +571,9 @@ export const post = async (req: Request, res: Response) => {
 
       Here is the available cooking equipment:
       ${await getEquipmentContext()}
+
+      Here is the weather forecast (help the user plan meals based on weather):
+      ${await getWeatherContext()}
 
 
       Please pay close attention to the user's input regarding quantities and units. 
