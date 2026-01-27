@@ -8,8 +8,6 @@ import * as path from "path";
 import { storeFile, UPLOAD_DIR } from "../lib/FileStorage";
 import { intentEngine } from "../lib/IntentEngine";
 import { WeatherService } from "../services/WeatherService";
-import { GoogleAICacheManager } from "@google/generative-ai/server";
-import { createHash } from "crypto";
 
 dotenv.config();
 
@@ -19,13 +17,8 @@ if (!gemini_api_key) {
   throw new Error("GEMINI_API_KEY is not set");
 }
 const googleAI = new GoogleGenerativeAI(gemini_api_key);
-const cacheManager = new GoogleAICacheManager(gemini_api_key);
 
-// Simple in-memory map to track active caches
-// Key: Hash of content, Value: { name: string, expireTime: number, model: string }
-const activeCaches = new Map<string, { name: string, expireTime: number, model: string }>();
-
-const DEFAULT_FALLBACK_MODEL = "gemini-1.5-flash-001";
+const DEFAULT_FALLBACK_MODEL = "gemini-flash-latest";
 
 const geminiConfig = {
   temperature: 0.9,
@@ -35,33 +28,22 @@ const geminiConfig = {
 };
 
 // Helper to get the model based on feature setting or fallback
-export async function getGeminiModel(
-  featureKey: string,
-  fallbackModelName: string = DEFAULT_FALLBACK_MODEL,
-  options?: { cachedContentName?: string, overrideModelName?: string }
-) {
-  let modelName = options?.overrideModelName || fallbackModelName;
-
-  if (!options?.overrideModelName) {
-    try {
-      const setting = await prisma.systemSetting.findUnique({
-        where: { key: featureKey }
-      });
-      if (setting && setting.value) {
-        modelName = setting.value;
-      }
-    } catch (err) {
-      console.warn(`Failed to fetch setting for ${featureKey}, using default: ${modelName}`, err);
+export async function getGeminiModel(featureKey: string, fallbackModelName: string = DEFAULT_FALLBACK_MODEL) {
+  let modelName = fallbackModelName;
+  try {
+    const setting = await prisma.systemSetting.findUnique({
+      where: { key: featureKey }
+    });
+    if (setting && setting.value) {
+      modelName = setting.value;
     }
+  } catch (err) {
+    console.warn(`Failed to fetch setting for ${featureKey}, using default: ${modelName}`, err);
   }
-
-  // Ensure model name is compatible with caching if needed (remove 'models/' prefix if present, though SDK usually handles it)
-  // For caching, the SDK expects the model name.
 
   return {
     model: googleAI.getGenerativeModel({
       model: modelName,
-      cachedContent: options?.cachedContentName as any, // Cast to any if type definition is lagging, or string
       ...geminiConfig,
     }),
     modelName
@@ -71,14 +53,13 @@ export async function getGeminiModel(
 // Reuseable execution wrapper with fallback
 export async function executeWithFallback<T>(
   featureKey: string,
-  operation: (model: any, context?: { isFallback: boolean, cachedContentName?: string }) => Promise<T>,
-  fallbackModelName: string = DEFAULT_FALLBACK_MODEL,
-  options?: { cachedContentName?: string, overrideModelName?: string }
+  operation: (model: any) => Promise<T>,
+  fallbackModelName: string = DEFAULT_FALLBACK_MODEL
 ): Promise<{ result: T; warning?: string }> {
-  const { model, modelName } = await getGeminiModel(featureKey, fallbackModelName, options);
+  const { model, modelName } = await getGeminiModel(featureKey, fallbackModelName);
 
   try {
-    const result = await operation(model, { isFallback: false, cachedContentName: options?.cachedContentName });
+    const result = await operation(model);
     return { result };
   } catch (error: any) {
     // Check for 404 or other errors indicating model unavailability
@@ -93,7 +74,7 @@ export async function executeWithFallback<T>(
         ...geminiConfig,
       });
       try {
-        const result = await operation(fallbackModel, { isFallback: true });
+        const result = await operation(fallbackModel);
         return {
           result,
           warning: `Preferred model '${modelName}' was unavailable. Fell back to '${fallbackModelName}'.`
@@ -249,15 +230,6 @@ const getWeatherContext = async (): Promise<string> => {
     return "";
   }
 };
-
-async function resolveGeminiModelName(featureKey: string, fallback: string): Promise<string> {
-  try {
-    const setting = await prisma.systemSetting.findUnique({ where: { key: featureKey } });
-    return setting?.value || fallback;
-  } catch {
-    return fallback;
-  }
-}
 
 
 export const extractRecipeQuickActions = async (req: Request, res: Response) => {
@@ -1313,140 +1285,10 @@ export const post = async (req: Request, res: Response) => {
       }
     }
 
-
-
-    // --- CONTEXT CACHING LOGIC ---
-    const modelFeatureKey = "gemini_chat_model";
-    const resolvedModelName = await resolveGeminiModelName(modelFeatureKey, DEFAULT_FALLBACK_MODEL);
-
-    let cachedContentName: string | undefined = undefined;
-
-    let contentHash: string | undefined;
-
-    // Only attempt caching if systemInstruction allows (length checks happen at API level, but we catch errors)
-    try {
-      // Create a deterministic hash of the system content
-      contentHash = createHash('md5').update(systemInstruction).digest('hex');
-      const now = Date.now();
-
-      // Check local tracker
-      if (activeCaches.has(contentHash)) {
-        const entry = activeCaches.get(contentHash)!;
-        // Verify model matches (cache is model-specific) and not expired
-        if (entry.model === resolvedModelName && entry.expireTime > now) {
-          cachedContentName = entry.name;
-          console.log(`[Gemini] Using existing context cache: ${cachedContentName}`);
-        } else {
-          // invalid or expired
-          activeCaches.delete(contentHash);
-        }
-      }
-
-      if (!cachedContentName) {
-        // Attempt to create new cache
-        console.log(`[Gemini] Creating new context cache for model ${resolvedModelName}...`);
-
-        const cacheResult = await cacheManager.create({
-          model: resolvedModelName,
-          displayName: `pantry_chat_${sessionId}_${Date.now()}`,
-          systemInstruction: systemInstruction,
-          contents: [], // Instruction is the main content
-          ttlSeconds: 60 * 10, // 10 minutes
-        });
-
-        cachedContentName = cacheResult.name;
-        const expireTime = now + (9 * 60 * 1000); // Record as valid for 9 mins
-
-        activeCaches.set(contentHash, {
-          name: cachedContentName,
-          expireTime,
-          model: resolvedModelName
-        });
-        console.log(`[Gemini] Cache created successfully: ${cachedContentName}`);
-      }
-    } catch (e) {
-      console.warn("[Gemini] Context caching skipped (likely content too short or error):", e);
-      // Fallback to normal execution (sending systemInstruction inline will happen if we don't pass cachedContentName, 
-      // BUT if we pass cachedContentName=undefined to getGenerativeModel, we MUST ensure we pass systemInstruction in the generate call?
-      // Wait: If we use cache, 'systemInstruction' is in the cache. 
-      // If we don't use cache, we must pass 'systemInstruction' to getGenerativeModel or generateContent.
-      // Currently, 'contents' array passed to generateContent DOES include systemInstruction at the start as logic below does?
-      // Let's check:
-      // constructing 'contents' at line 605:
-      // { role: "user", parts: [{ text: systemInstruction }] } ...
-
-      // CAUTION: If we use Cache, we should NOT send the systemInstruction in the contents again, checking SDK behavior.
-      // Usually, if cachedContent is used, the systemInstruction in the cache is used.
-      // Doubling it might confuse the model or be redundant.
-      // We should strip it from 'contents' if cachedContentName is set.
-    }
-
-    if (cachedContentName) {
-      // Remove system instruction from the explicit contents array since it's in the cache
-      // The original code puts systemInstruction as the first User message (line 608).
-      // We should filter that out if reusing cache.
-      // However, the original code structure (lines 605-616) embeds it.
-      // I will modify the contents array logic inside the execute block or here.
-      // Actually, I can just modify 'currentContents' inside the block.
-    }
-
     const { result, warning } = await executeWithFallback(
-      modelFeatureKey,
-      async (model, context) => {
+      "gemini_chat_model",
+      async (model) => {
         let currentContents = [...contents];
-
-        // --- DEBUG LOGGING CHECK ---
-        const debugSetting = await prisma.systemSetting.findUnique({ where: { key: 'gemini_debug_logging' } });
-        const debugEnabled = debugSetting?.value === 'true';
-
-        // precise adjustment for cache:
-        // Logic: Only strip the system instruction from the payload if we are effectively using the cache.
-        // If we are in fallback mode (context.isFallback), we are NOT using the cache, so we must include the system instruction.
-        const effectivelyUsingCache = !context?.isFallback && !!context?.cachedContentName;
-
-        if (debugEnabled) {
-          console.log(`[Gemini Cache Debug] Using Cache: ${effectivelyUsingCache}`);
-          console.log(`[Gemini Cache Debug] Is Fallback: ${context?.isFallback}`);
-          console.log(`[Gemini Cache Debug] Cached Name: ${context?.cachedContentName}`);
-        }
-
-        if (effectivelyUsingCache && currentContents.length > 0) {
-          // First element was system instruction (as user message). 
-          // The cache has it as system_instruction.
-          // We should remove the first element if it matches.
-          // Original code: contents[0] is role: user, parts: [systemInstruction]
-          // We can just shift it off.
-          if (currentContents[0].role === 'user' && currentContents[0].parts[0].text && currentContents[0].parts[0].text.includes("You are a helpful cooking assistant")) {
-            if (debugEnabled) console.log("[Gemini Cache Debug] Stripping System Instruction from payload (covered by cache).");
-            currentContents.shift();
-          } else {
-            if (debugEnabled) console.log("[Gemini Cache Debug] First message did NOT match system instruction signature. Not stripping.");
-          }
-          // Also remove the "modelAck" if it was just there to acknowledge the system instruction?
-          // Original: contents[1] is modelAck "Understood..."
-          if (currentContents.length > 0 && currentContents[0].role === 'model' && currentContents[0].parts[0].text === "Understood. I will always return valid JSON with a root 'items' array containing objects with 'type': 'recipe' or 'type': 'chat'.") {
-            currentContents.shift();
-          }
-        }
-
-        if (debugEnabled) {
-          console.log("\n[GEMINI DEBUG] --- REQUEST PAYLOAD ---");
-          // Avoid dumping giant binary image parts to console, summarize them
-          const debugContents = JSON.parse(JSON.stringify(currentContents)); // Deep copy
-          debugContents.forEach((c: any) => {
-            if (c.parts) {
-              c.parts.forEach((p: any) => {
-                if (p.inlineData) {
-                  p.inlineData.data = `[BINARY IMAGE DATA (${Math.round(p.inlineData.data.length / 1024)} KB)]`;
-                }
-              });
-            }
-          });
-          console.log(JSON.stringify(debugContents, null, 2));
-          console.log("[GEMINI DEBUG] -----------------------\n");
-        }
-        // --- DEBUG LOGGING END ---
-
         let currentLoop = 0;
         const maxLoops = 5;
         let printedOnce = false;
@@ -1458,14 +1300,6 @@ export const post = async (req: Request, res: Response) => {
           // We remove explicit JSON enforcement here to allow tool calls to happen naturally
           // The system prompt still demands JSON for the final answer.
         });
-
-        if (debugEnabled) {
-          try {
-            console.log("\n[GEMINI DEBUG] --- RAW RESPONSE ---");
-            console.log(responseResult.response.text());
-            console.log("[GEMINI DEBUG] --------------------\n");
-          } catch (e) { console.log("[GEMINI DEBUG] (Response text not available or error)"); }
-        }
 
         while (currentLoop < maxLoops) {
           const response = responseResult.response;
@@ -1524,16 +1358,8 @@ export const post = async (req: Request, res: Response) => {
           }
         }
         return responseResult;
-      },
-      DEFAULT_FALLBACK_MODEL,
-      { cachedContentName }
+      }
     );
-
-    // Self-healing: If we fell back, the cache might be bad. Invalidate it to force recreation next time.
-    if (warning && cachedContentName && contentHash) {
-      console.warn(`[Gemini] Primary request with cache failed. Invalidating cache '${cachedContentName}' locally.`);
-      activeCaches.delete(contentHash);
-    }
 
     const response = result.response;
     let data;
@@ -1559,17 +1385,15 @@ export const post = async (req: Request, res: Response) => {
 
       // Remove ```json ... ``` or just ``` ... ```
       let cleaned = text.trim();
-      const codeBlockMatch = cleaned.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
-      if (codeBlockMatch) {
-        cleaned = codeBlockMatch[1].trim();
+      if (cleaned.startsWith('```json')) {
+        cleaned = cleaned.substring(7);
+      } else if (cleaned.startsWith('```')) {
+        cleaned = cleaned.substring(3);
       }
-
-      // 2. Fallback: If it looks like it ends abruptly (Unexpected end of JSON input), 
-      // try to close the array/object to salvage it? 
-      // This is risky but better than crashing if we just want to display text.
-      // For now, we rely on the try-catch in the caller.
-
-      return cleaned;
+      if (cleaned.endsWith('```')) {
+        cleaned = cleaned.substring(0, cleaned.length - 3);
+      }
+      return cleaned.trim();
     };
 
     try {
