@@ -537,19 +537,20 @@
 
         </div>
 
-        <!-- Footer -->
-        <div class="footer">
-            <span class="font-bold tracking-widest uppercase">{{ pantryName }}</span>
+    </div>
 
-            <span class="connection-status" [class.offline]="!isOnline">
-                <mat-icon *ngIf="scannerClaimedBy === 'Me'"
-                    class="align-bottom text-red-500 mr-2">qr_code_scanner</mat-icon>
-                {{ isOnline ? 'ONLINE' : 'OFFLINE' }}
-            </span>
+    <!-- Footer -->
+    <div class="footer">
+        <span class="font-bold tracking-widest uppercase">{{ pantryName }}</span>
 
-            <span class="font-mono text-gray-500">{{ currentDate | date:'shortTime' }}</span>
-            <button mat-button class="ml-4 opacity-50 hover:opacity-100" (click)="exitKiosk()">EXIT</button>
-        </div>
+        <span class="connection-status" [class.offline]="!isOnline">
+            <mat-icon *ngIf="scannerClaimedBy === 'Me'"
+                class="align-bottom text-red-500 mr-2">qr_code_scanner</mat-icon>
+            {{ isOnline ? 'ONLINE' : 'OFFLINE' }}
+        </span>
+
+        <span class="font-mono text-gray-500">{{ currentDate | date:'MMM d, h:mm a' }}</span>
+        <button mat-button class="ml-4 opacity-50 hover:opacity-100" (click)="exitKiosk()">EXIT</button>
     </div>
 
     <!-- CALL OVERLAY (Keep mostly same but style) -->
