@@ -1,6 +1,6 @@
 import { NextFunction, Response, Request } from "express";
 import prisma from '../lib/prisma';
-import { generateReceiptSteps, determineSafeCookingTemps } from '../services/RecipeAIService';
+import { generateReceiptSteps, determineSafeCookingTemps, determineQuickActions } from '../services/RecipeAIService';
 
 export const getAll = async (req: Request, res: Response, next: NextFunction): Promise<any> => {
     const recipes = await prisma.recipe.findMany({
@@ -69,9 +69,10 @@ export const create = async (req: Request, res: Response, next: NextFunction): P
 
     // Generate Receipt Steps & Safe Temps
     try {
-        const [receiptSteps, safeTemps] = await Promise.all([
+        const [receiptSteps, safeTemps, quickActions] = await Promise.all([
             generateReceiptSteps(recipe.name, recipe.ingredients, recipe.steps),
-            determineSafeCookingTemps(recipe.ingredients)
+            determineSafeCookingTemps(recipe.ingredients),
+            determineQuickActions(recipe.name, recipe.ingredients, recipe.steps)
         ]);
 
         const updates: any = {};
@@ -86,6 +87,16 @@ export const create = async (req: Request, res: Response, next: NextFunction): P
                 create: safeTemps.map(st => ({
                     item: st.item,
                     temperature: st.temperature
+                }))
+            };
+        }
+
+        if (quickActions && quickActions.length > 0) {
+            updates.quickActions = {
+                create: quickActions.map(qa => ({
+                    name: qa.name,
+                    type: qa.type,
+                    value: qa.value
                 }))
             };
         }
@@ -224,9 +235,10 @@ export const update = async (req: Request, res: Response, next: NextFunction): P
 
         // Generate AI Content
         try {
-            const [receiptSteps, safeTemps] = await Promise.all([
+            const [receiptSteps, safeTemps, quickActions] = await Promise.all([
                 generateReceiptSteps(recipe.name, recipe.ingredients, recipe.steps),
-                determineSafeCookingTemps(recipe.ingredients)
+                determineSafeCookingTemps(recipe.ingredients),
+                determineQuickActions(recipe.name, recipe.ingredients, recipe.steps)
             ]);
 
             const updates: any = {};
@@ -240,6 +252,19 @@ export const update = async (req: Request, res: Response, next: NextFunction): P
                     create: safeTemps.map(st => ({
                         item: st.item,
                         temperature: st.temperature
+                    }))
+                };
+            }
+
+            if (quickActions && quickActions.length > 0) {
+                // If we are updating, we probably want to clear old ones and add new ones too
+                // matching safeTemps logic which assumes deleteMany was called or will be handled
+                updates.quickActions = {
+                    deleteMany: {},
+                    create: quickActions.map(qa => ({
+                        name: qa.name,
+                        type: qa.type,
+                        value: qa.value
                     }))
                 };
             }

@@ -132,3 +132,54 @@ Example Output JSON:
         return [];
     }
 }
+
+export async function determineQuickActions(recipeTitle: string, ingredients: any[], steps: any[]): Promise<{ name: string, type: string, value: string }[]> {
+    if (!gemini_api_key) return [];
+
+    try {
+        const model = googleAI.getGenerativeModel({ model: MODEL_NAME });
+
+        const ingredientList = ingredients.map(i => `${i.amount || ''} ${i.unit || ''} ${i.name}`).join('\n');
+        const stepList = steps.map(s => `${s.instruction || s.description}`).join('\n');
+
+        const prompt = `
+        Analyze the following recipe and identify "Quick Actions" that would be useful for a cook in a kiosk environment.
+        Quick Action Types:
+        1. "timer": Explicit cooking durations. Value should be in minutes (e.g. "10", "10-12"). 
+        2. "weigh": Weighing ingredients. Value should be in grams (e.g. "200", "500").
+
+        Return ONLY a JSON array of objects with 'name', 'type', and 'value'.
+        Example: [{"name": "Simmer Sauce", "type": "timer", "value": "20"}, {"name": "Bake Chicken", "type": "timer", "value": "45-50"}, {"name": "Flour", "type": "weigh", "value": "500"}]
+        
+        Recipe Title: ${recipeTitle}
+        Ingredients:
+        ${ingredientList}
+        Steps:
+        ${stepList}
+      `;
+
+        const result = await model.generateContent(prompt);
+        const response = result.response;
+        const text = response.text();
+
+        const jsonMatch = text.match(/```json\n([\s\S]*?)\n```/) || text.match(/```\n([\s\S]*?)\n```/);
+        let jsonString = jsonMatch ? jsonMatch[1] : text;
+        // Basic cleanup of potentially malformed JSON (e.g. trailing commas)
+        jsonString = jsonString.trim();
+
+        try {
+            const data = JSON.parse(jsonString);
+            if (Array.isArray(data)) {
+                return data;
+            }
+            return [];
+        } catch (e) {
+            console.warn("Gemini returned invalid JSON for quick actions", e);
+            return [];
+        }
+
+    } catch (error) {
+        console.error("Error determining quick actions:", error);
+        return [];
+    }
+}

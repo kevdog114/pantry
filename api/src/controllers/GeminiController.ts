@@ -8,6 +8,7 @@ import * as path from "path";
 import { storeFile, UPLOAD_DIR } from "../lib/FileStorage";
 import { intentEngine } from "../lib/IntentEngine";
 import { WeatherService } from "../services/WeatherService";
+import { determineQuickActions, generateReceiptSteps, determineSafeCookingTemps } from "../services/RecipeAIService";
 
 dotenv.config();
 
@@ -237,44 +238,23 @@ export const extractRecipeQuickActions = async (req: Request, res: Response) => 
     const { recipeId, title, ingredients, steps } = req.body;
     // We expect either recipeId (to fetch) or title+ingredients+steps (if editing new/unsaved)
 
-    let recipeText = "";
+    let recipeTitle = title;
+    let recipeIngredients = ingredients || [];
+    let recipeSteps = steps || [];
+
     if (recipeId) {
       const recipe = await prisma.recipe.findUnique({
         where: { id: parseInt(recipeId) },
         include: { steps: { orderBy: { stepNumber: 'asc' } }, ingredients: true }
       });
       if (recipe) {
-        recipeText = `Title: ${recipe.name}\n`;
-        recipeText += `Ingredients: ${recipe.ingredients.map(i => `${i.amount || ''} ${i.unit || ''} ${i.name}`).join(', ')}\n`;
-        recipeText += `Steps: ${recipe.steps.map(s => s.instruction).join('\n')}`;
+        recipeTitle = recipe.name;
+        recipeIngredients = recipe.ingredients;
+        recipeSteps = recipe.steps;
       }
-    } else {
-      recipeText = `Title: ${title}\n`;
-      recipeText += `Ingredients: ${ingredients?.map((i: any) => `${i.amount || ''} ${i.unit || ''} ${i.name}`).join(', ')}\n`;
-      recipeText += `Steps: ${steps?.map((s: any) => s.instruction || s.description).join('\n')}`;
     }
 
-    const { result } = await executeWithFallback('gemini_extraction', async (model) => {
-      const prompt = `
-        Analyze the following recipe and identify "Quick Actions" that would be useful for a cook in a kiosk environment.
-        Quick Action Types:
-        1. "timer": Explicit cooking durations. Value should be in minutes (e.g. "10", "10-12"). 
-        2. "weigh": Weighing ingredients. Value should be in grams (e.g. "200", "500").
-
-        Return ONLY a JSON array of objects with 'name', 'type', and 'value'.
-        Example: [{"name": "Simmer Sauce", "type": "timer", "value": "20"}, {"name": "Bake Chicken", "type": "timer", "value": "45-50"}, {"name": "Flour", "type": "weigh", "value": "500"}]
-        
-        Recipe:
-        ${recipeText}
-      `;
-
-      const result = await model.generateContent(prompt);
-      const response = await result.response;
-      let text = response.text();
-      // Clean up markdown code blocks if present
-      text = text.replace(/```json/g, '').replace(/```/g, '').trim();
-      return JSON.parse(text);
-    });
+    const result = await determineQuickActions(recipeTitle, recipeIngredients, recipeSteps);
 
     res.json({
       message: "success",
@@ -1090,6 +1070,38 @@ export const post = async (req: Request, res: Response) => {
                 }
               }
             });
+            // Trigger AI enrichment in background (or await if we want to ensure it's done)
+            // Since we are inside a tool call, waiting is safer to ensure consistency
+            try {
+              const mappedSteps = (args.steps || []).map((s: string) => ({ instruction: s }));
+              const mappedIngs = args.ingredients || [];
+
+              const [receiptSteps, safeTemps, quickActions] = await Promise.all([
+                generateReceiptSteps(newRecipe.name, mappedIngs, mappedSteps),
+                determineSafeCookingTemps(mappedIngs),
+                determineQuickActions(newRecipe.name, mappedIngs, mappedSteps)
+              ]);
+
+              const updates: any = {};
+              if (receiptSteps) updates.receiptSteps = receiptSteps;
+              if (safeTemps.length > 0) {
+                updates.safeTemps = { create: safeTemps };
+              }
+              if (quickActions.length > 0) {
+                updates.quickActions = { create: quickActions };
+              }
+
+              if (Object.keys(updates).length > 0) {
+                await prisma.recipe.update({
+                  where: { id: newRecipe.id },
+                  data: updates
+                });
+              }
+
+            } catch (err) {
+              console.error("Failed to enrich Gemini-created recipe:", err);
+            }
+
             return { message: "Recipe created successfully. ID: " + newRecipe.id, recipeId: newRecipe.id };
 
           case "printReceipt":
