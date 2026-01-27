@@ -30,6 +30,7 @@
     "@google/generative-ai": "^0.16.0",
     "@prisma/client": "^6.16.2",
     "@types/fluent-ffmpeg": "^2.1.28",
+    "@types/web-push": "^3.6.4",
     "bcryptjs": "^3.0.2",
     "connect-sqlite3": "^0.9.16",
     "cors": "^2.8.5",
@@ -43,6 +44,7 @@
     "passport": "^0.7.0",
     "passport-local": "^1.0.0",
     "sharp": "^0.33.5",
-    "socket.io": "^4.8.3"
+    "socket.io": "^4.8.3",
+    "web-push": "^3.6.7"
   }
 }

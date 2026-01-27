@@ -81,6 +81,27 @@
       </mat-card-content>
     </mat-card>
 
+    <!-- Push Notifications Section -->
+    <mat-card class="profile-section">
+      <mat-card-header>
+        <mat-card-title>Push Notifications</mat-card-title>
+      </mat-card-header>
+      <mat-card-content>
+        <p>Enable push notifications to receive alerts on this device.</p>
+        <div class="push-toggle-container">
+          <mat-slide-toggle [(ngModel)]="notificationsEnabled" (change)="toggleNotifications()">
+            Enable Notifications
+          </mat-slide-toggle>
+        </div>
+
+        <div *ngIf="notificationsEnabled" class="push-actions" style="margin-top: 10px;">
+          <button mat-stroked-button (click)="testNotification()">Test Notification</button>
+        </div>
+
+        <p *ngIf="pushMessage" class="message">{{ pushMessage }}</p>
+      </mat-card-content>
+    </mat-card>
+
     <!-- Kiosks Section -->
     <mat-card class="profile-section">
       <mat-card-header>

@@ -10,6 +10,10 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatTableModule } from '@angular/material/table';
 import { MatIconModule } from '@angular/material/icon';
 import { MatDividerModule } from '@angular/material/divider';
+import { MatSlideToggleModule } from '@angular/material/slide-toggle';
+import { SwPush } from '@angular/service-worker';
+import { HttpClient } from '@angular/common/http';
+import { EnvironmentService } from '../services/environment.service';
 
 @Component({
   selector: 'app-profile',
@@ -25,7 +29,8 @@ import { MatDividerModule } from '@angular/material/divider';
     MatButtonModule,
     MatTableModule,
     MatIconModule,
-    MatDividerModule
+    MatDividerModule,
+    MatSlideToggleModule
   ]
 })
 export class ProfileComponent implements OnInit {
@@ -41,11 +46,74 @@ export class ProfileComponent implements OnInit {
   generatedToken: string = '';
   kiosks: Kiosk[] = [];
 
-  constructor(private authService: AuthService, private kioskService: KioskService) { }
+  notificationsEnabled: boolean = false;
+  pushMessage: string = '';
+
+  constructor(
+    private authService: AuthService,
+    private kioskService: KioskService,
+    private swPush: SwPush,
+    private http: HttpClient,
+    private env: EnvironmentService
+  ) { }
 
   ngOnInit() {
     this.loadTokens();
     this.loadKiosks();
+    this.notificationsEnabled = this.swPush.isEnabled; // Simple check if enabled in browser/SW
+    // Better check: is subscribed?
+    this.swPush.subscription.subscribe(sub => {
+      this.notificationsEnabled = !!sub;
+    });
+  }
+
+  toggleNotifications() {
+    if (this.notificationsEnabled) {
+      this.subscribeToPush();
+    } else {
+      this.unsubscribeFromPush();
+    }
+  }
+
+  subscribeToPush() {
+    this.http.get<{ publicKey: string }>(`${this.env.apiUrl}/push/key`).subscribe(res => {
+      this.swPush.requestSubscription({
+        serverPublicKey: res.publicKey
+      })
+        .then(sub => {
+          this.http.post(`${this.env.apiUrl}/push/subscribe`, sub).subscribe(() => {
+            this.pushMessage = 'Notifications enabled!';
+            this.notificationsEnabled = true;
+            setTimeout(() => this.pushMessage = '', 3000);
+          });
+        })
+        .catch(err => {
+          console.error("Could not subscribe to notifications", err);
+          this.pushMessage = 'Failed to enable notifications. Blocked by browser?';
+          this.notificationsEnabled = false;
+        });
+    }, err => {
+      console.error("Could not get public key", err);
+      this.notificationsEnabled = false;
+    });
+  }
+
+  unsubscribeFromPush() {
+    this.swPush.unsubscribe().then(() => {
+      this.pushMessage = 'Notifications disabled.';
+      this.notificationsEnabled = false;
+    }).catch(err => {
+      console.error("Failed to unsubscribe", err);
+    });
+  }
+
+  testNotification() {
+    this.http.post(`${this.env.apiUrl}/push/test`, {}).subscribe(res => {
+      this.pushMessage = 'Test notification sent!';
+      setTimeout(() => this.pushMessage = '', 3000);
+    }, err => {
+      this.pushMessage = 'Failed to send test.';
+    });
   }
 
   loadKiosks() {

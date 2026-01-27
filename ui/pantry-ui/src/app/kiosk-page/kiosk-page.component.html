@@ -549,7 +549,7 @@
             {{ isOnline ? 'ONLINE' : 'OFFLINE' }}
         </span>
 
-        <span class="font-mono text-gray-500">{{ currentDate | date:'MMM d, h:mm a' }}</span>
+        <span class="font-mono text-gray-500">{{ currentDate | date:'MMM d, h:mm a':timezone }}</span>
         <button mat-button class="ml-4 opacity-50 hover:opacity-100" (click)="exitKiosk()">EXIT</button>
     </div>
 

@@ -118,6 +118,21 @@
                     <div class="settings-form">
                         <div class="setting-item">
                             <div class="setting-info">
+                                <h3>Timezone</h3>
+                                <p>Select the timezone for displaying time on the Kiosk.</p>
+                            </div>
+                            <mat-form-field appearance="outline">
+                                <mat-label>Select Timezone</mat-label>
+                                <mat-select [(ngModel)]="selectedTimezone">
+                                    <mat-option *ngFor="let tz of availableTimezones" [value]="tz">
+                                        {{tz}}
+                                    </mat-option>
+                                </mat-select>
+                            </mat-form-field>
+                        </div>
+
+                        <div class="setting-item">
+                            <div class="setting-info">
                                 <h3>Kiosk Mode</h3>
                                 <p>Increases the size of the interface for small touch screens. (Zoom 1.25x / Font 1.5x)
                                 </p>

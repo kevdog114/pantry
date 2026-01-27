@@ -285,7 +285,15 @@ app.post("/diagnostics/log", DiagnosticsController.logMessage);
 
 app.get("/timers", TimerController.getTimers);
 app.post("/timers", TimerController.createTimer);
+app.get("/timers", TimerController.getTimers);
+app.post("/timers", TimerController.createTimer);
 app.delete("/timers/:id", TimerController.deleteTimer);
+
+// Push Notifications
+import * as PushController from "./controllers/PushController";
+app.get("/push/key", PushController.getPublicKey);
+app.post("/push/subscribe", PushController.subscribe);
+app.post("/push/test", PushController.sendTestNotification);
 
 
 app.get('/*', (req: Request, res: Response) => {

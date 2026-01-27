@@ -27,6 +27,7 @@ import { Recipe, RecipeQuickAction } from '../types/recipe';
 
 import { SocketService } from '../services/socket.service';
 import { SipService, SipConfig, SipCallState, SipIncomingCall } from '../services/sip.service';
+import { SettingsService } from '../settings/settings.service';
 
 @Component({
     selector: 'app-kiosk-page',
@@ -62,6 +63,7 @@ export class KioskPageComponent implements OnInit, OnDestroy {
     // Info Footer
     pantryName = '';
     currentDate: Date = new Date();
+    timezone: string = Intl.DateTimeFormat().resolvedOptions().timeZone;
     private timer: any;
 
     // Printer logic
@@ -111,11 +113,19 @@ export class KioskPageComponent implements OnInit, OnDestroy {
         private productService: ProductListService,
         private tagsService: TagsService,
         private ngZone: NgZone,
-        private sipService: SipService
+        private sipService: SipService,
+        private settingsService: SettingsService
     ) { }
 
     ngOnInit(): void {
         this.pantryName = this.env.siteName;
+
+        // Load Timezone
+        this.settingsService.getSettings().subscribe(res => {
+            if (res.data && res.data['system_timezone']) {
+                this.timezone = res.data['system_timezone'];
+            }
+        });
 
         this.socketService.connected$.subscribe(connected => {
             this.isOnline = connected;

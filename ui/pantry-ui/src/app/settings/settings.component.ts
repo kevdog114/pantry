@@ -33,6 +33,7 @@ export class SettingsComponent implements OnInit {
   quickSnackModelKey = 'gemini_quick_snack_model';
   imageGenModelKey = 'gemini_image_generation_model';
   debugLoggingKey = 'gemini_debug_logging';
+  timezoneKey = 'system_timezone';
 
   selectedChatModel: string = 'gemini-flash-latest';
   selectedVisionModel: string = 'gemini-flash-latest';
@@ -40,6 +41,9 @@ export class SettingsComponent implements OnInit {
   selectedQuickSnackModel: string = 'gemini-flash-latest';
   selectedImageGenModel: string = 'imagen-4.0-generate-001';
   debugLogging: boolean = false;
+  selectedTimezone: string = Intl.DateTimeFormat().resolvedOptions().timeZone; // Default to system
+
+  availableTimezones: string[] = [];
 
   loading = true;
   kioskMode = false;
@@ -48,7 +52,17 @@ export class SettingsComponent implements OnInit {
     private geminiService: GeminiService,
     private settingsService: SettingsService,
     private snackBar: MatSnackBar
-  ) { }
+  ) {
+    try {
+      this.availableTimezones = Intl.supportedValuesOf('timeZone');
+    } catch (e) {
+      console.warn("Intl.supportedValuesOf not supported, using fallback");
+      this.availableTimezones = [
+        'UTC', 'US/Eastern', 'US/Central', 'US/Mountain', 'US/Pacific',
+        'Europe/London', 'Europe/Paris', 'Asia/Tokyo', 'Australia/Sydney'
+      ];
+    }
+  }
 
   ngOnInit(): void {
     // Load Kiosk Mode setting from LocalStorage
@@ -87,6 +101,10 @@ export class SettingsComponent implements OnInit {
           this.debugLogging = settings[this.debugLoggingKey] === 'true';
         }
 
+        if (settings[this.timezoneKey]) {
+          this.selectedTimezone = settings[this.timezoneKey];
+        }
+
         this.loading = false;
       },
       error: (err) => {
@@ -105,6 +123,7 @@ export class SettingsComponent implements OnInit {
     settings[this.quickSnackModelKey] = this.selectedQuickSnackModel;
     settings[this.imageGenModelKey] = this.selectedImageGenModel;
     settings[this.debugLoggingKey] = String(this.debugLogging);
+    settings[this.timezoneKey] = this.selectedTimezone;
 
     this.settingsService.updateSettings(settings).subscribe({
       next: () => {
