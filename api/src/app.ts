@@ -281,6 +281,7 @@ app.delete("/equipment/:id", EquipmentController.deleteById);
 app.post("/equipment/:id/files", EquipmentController.uploadFile);
 
 app.get("/diagnostics/clients", DiagnosticsController.getConnectedClients);
+app.post("/diagnostics/log", DiagnosticsController.logMessage);
 
 app.get("/timers", TimerController.getTimers);
 app.post("/timers", TimerController.createTimer);

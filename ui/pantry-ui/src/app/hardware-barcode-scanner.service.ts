@@ -1,5 +1,5 @@
 import { HttpClient } from '@angular/common/http';
-import { Injectable } from '@angular/core';
+import { Injectable, NgZone } from '@angular/core';
 import { BehaviorSubject } from 'rxjs';
 import { EnvironmentService } from './services/environment.service';
 import { SocketService } from './services/socket.service';
@@ -19,57 +19,75 @@ export class HardwareBarcodeScannerService {
   public claimedBySubject = new BehaviorSubject<string | null>(null);
   public claimedBy$ = this.claimedBySubject.asObservable();
 
-  constructor(private http: HttpClient, private router: Router, private env: EnvironmentService, private hardwareService: HardwareService, private socketService: SocketService) {
+  constructor(
+    private http: HttpClient,
+    private router: Router,
+    private env: EnvironmentService,
+    private hardwareService: HardwareService,
+    private socketService: SocketService,
+    private ngZone: NgZone
+  ) {
     console.log("Starting barcode scanner service");
     this.socketService.on('barcode_scan', (data: any) => {
-      if (!this.isEnabled) return;
+      this.ngZone.run(() => {
+        if (!this.isEnabled) return;
 
-      const claimedBy = this.claimedBySubject.value;
-      const isKiosk = this.router.url.includes('/kiosk-mode');
+        const claimedBy = this.claimedBySubject.value;
+        const isKiosk = this.router.url.includes('/kiosk-mode');
 
-      // logic: 
-      // 1. If I claimed it ('Me') -> Handle
-      // 2. If someone else claimed it -> Ignore (handled by server routing usually, but good to be safe)
-      // 3. If Unclaimed (null):
-      //    a. If I am the Kiosk -> Handle
-      //    b. If I am an observer (e.g. Hardware Page) -> Ignore
+        const shouldHandle = (claimedBy === 'Me') || (claimedBy === null && isKiosk);
 
-      const shouldHandle = (claimedBy === 'Me') || (claimedBy === null && isKiosk);
+        this.logToBackend('INFO', `Received barcode scan: ${data.barcode || 'unknown'}`, {
+          claimedBy,
+          isKiosk,
+          shouldHandle,
+          url: this.router.url,
+          data
+        });
 
-      if (shouldHandle) {
-        console.log("Processing barcode from bridge:", data);
-        if (data && data.barcode) {
-          this.handleScannedBarcode(data.barcode);
+        if (shouldHandle) {
+          console.log("Processing barcode from bridge:", data);
+          if (data && data.barcode) {
+            this.handleScannedBarcode(data.barcode);
+          }
+        } else {
+          const reason = claimedBy !== 'Me' && claimedBy !== null ? `Claimed by ${claimedBy}` : `Not Kiosk Mode`;
+          this.logToBackend('INFO', `Ignoring barcode: ${reason}`, { claimedBy, isKiosk });
+          console.log("Ignoring barcode from bridge (Claimed: " + claimedBy + ", IsKiosk: " + isKiosk + ")");
         }
-      } else {
-        console.log("Ignoring barcode from bridge (Claimed: " + claimedBy + ", IsKiosk: " + isKiosk + ")");
-      }
+      });
     });
 
     this.socketService.on('scanner_claimed', (data: any) => {
-      console.log('Scanner claimed event:', data);
-      if (data.success) {
-        // We successfully claimed it
-        this.claimedBySubject.next("Me");
-      }
+      this.ngZone.run(() => {
+        console.log('Scanner claimed event:', data);
+        if (data.success) {
+          // We successfully claimed it
+          this.claimedBySubject.next("Me");
+        }
+      });
     });
 
     this.socketService.on('scanner_released', () => {
-      console.log('Scanner released event');
-      this.claimedBySubject.next(null);
+      this.ngZone.run(() => {
+        console.log('Scanner released event');
+        this.claimedBySubject.next(null);
+      });
     });
 
     this.socketService.on('scanner_status_changed', (data: any) => {
-      console.log("Scanner status changed", data);
-      if (data.claimed) {
-        // If we currently think it is claimed by "Me", ignore external status recall
-        // to prevent overwriting "Me" with our own username or "External"
-        if (this.claimedBySubject.value !== 'Me') {
-          this.claimedBySubject.next(data.claimedBy || "External");
+      this.ngZone.run(() => {
+        console.log("Scanner status changed", data);
+        if (data.claimed) {
+          // If we currently think it is claimed by "Me", ignore external status recall
+          // to prevent overwriting "Me" with our own username or "External"
+          if (this.claimedBySubject.value !== 'Me') {
+            this.claimedBySubject.next(data.claimedBy || "External");
+          }
+        } else {
+          this.claimedBySubject.next(null);
         }
-      } else {
-        this.claimedBySubject.next(null);
-      }
+      });
     });
   }
 
@@ -219,5 +237,15 @@ export class HardwareBarcodeScannerService {
       console.log("Search for", barcode);
       this.searchForBarcode(barcode);
     }
+  }
+
+  private logToBackend(level: string, message: string, details?: any) {
+    this.http.post(this.env.apiUrl + '/diagnostics/log', {
+      level,
+      message,
+      details
+    }).subscribe({
+      error: (err) => console.warn("Failed to send log to backend", err)
+    });
   }
 }

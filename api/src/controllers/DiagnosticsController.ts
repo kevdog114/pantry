@@ -33,3 +33,9 @@ export const getConnectedClients = async (req: Request, res: Response) => {
         });
     }
 };
+
+export const logMessage = async (req: Request, res: Response) => {
+    const { level, message, details } = req.body;
+    console.log(`[CLIENT-LOG] [${level || 'INFO'}] ${message}`, details ? JSON.stringify(details) : '');
+    res.sendStatus(200);
+};
