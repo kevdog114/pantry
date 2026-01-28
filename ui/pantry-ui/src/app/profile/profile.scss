@@ -98,3 +98,12 @@ tr.mat-mdc-row {
     }
   }
 }
+
+.device-cell {
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.9em;
+  color: var(--mat-sys-on-surface-variant);
+}

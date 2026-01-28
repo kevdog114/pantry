@@ -69,7 +69,8 @@ export const subscribe = async (req: Request, res: Response) => {
                 where: { id: existing.id },
                 data: {
                     p256dh: subscription.keys.p256dh,
-                    auth: subscription.keys.auth
+                    auth: subscription.keys.auth,
+                    userAgent: req.headers['user-agent'] || 'Unknown Device'
                 }
             });
         } else {
@@ -78,7 +79,8 @@ export const subscribe = async (req: Request, res: Response) => {
                     userId,
                     endpoint: subscription.endpoint,
                     p256dh: subscription.keys.p256dh,
-                    auth: subscription.keys.auth
+                    auth: subscription.keys.auth,
+                    userAgent: req.headers['user-agent'] || 'Unknown Device'
                 }
             });
         }
@@ -141,5 +143,46 @@ export const sendTestNotification = async (req: Request, res: Response) => {
     } catch (error) {
         console.error("Error sending notification:", error);
         res.status(500).json({ message: "Error sending notification" });
+    }
+};
+
+export const getSubscriptions = async (req: Request, res: Response) => {
+    try {
+        const userId = (req.user as any).id;
+        const subscriptions = await prisma.pushSubscription.findMany({
+            where: { userId },
+            select: {
+                id: true,
+                userAgent: true,
+                createdAt: true,
+                endpoint: true
+            }
+        });
+        res.json(subscriptions);
+    } catch (error) {
+        console.error("Error fetching subscriptions:", error);
+        res.status(500).json({ message: "Error fetching subscriptions" });
+    }
+};
+
+export const deleteSubscription = async (req: Request, res: Response) => {
+    try {
+        const userId = (req.user as any).id;
+        const id = parseInt(req.params.id);
+
+        const sub = await prisma.pushSubscription.findFirst({
+            where: { id, userId }
+        });
+
+        if (!sub) {
+            res.status(404).json({ message: "Subscription not found" });
+            return;
+        }
+
+        await prisma.pushSubscription.delete({ where: { id } });
+        res.json({ message: "Subscription deleted" });
+    } catch (error) {
+        console.error("Error deleting subscription:", error);
+        res.status(500).json({ message: "Error deleting subscription" });
     }
 };

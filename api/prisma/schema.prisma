@@ -392,6 +392,7 @@ model PushSubscription {
   endpoint  String
   p256dh    String
   auth      String
+  userAgent String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }

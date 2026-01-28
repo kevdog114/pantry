@@ -45,6 +45,7 @@ export class ProfileComponent implements OnInit {
   newTokenName: string = '';
   generatedToken: string = '';
   kiosks: Kiosk[] = [];
+  subscriptions: any[] = [];
 
   notificationsEnabled: boolean = false;
   pushMessage: string = '';
@@ -60,6 +61,7 @@ export class ProfileComponent implements OnInit {
   ngOnInit() {
     this.loadTokens();
     this.loadKiosks();
+    this.loadSubscriptions();
     this.notificationsEnabled = this.swPush.isEnabled; // Simple check if enabled in browser/SW
     // Better check: is subscribed?
     this.swPush.subscription.subscribe(sub => {
@@ -155,5 +157,19 @@ export class ProfileComponent implements OnInit {
     }, (err) => {
       this.message = err.error.message;
     });
+  }
+
+  loadSubscriptions() {
+    this.http.get<any[]>(`${this.env.apiUrl}/push/subscriptions`).subscribe(subs => {
+      this.subscriptions = subs;
+    });
+  }
+
+  deleteSubscription(id: number) {
+    if (confirm('Are you sure you want to remove this device?')) {
+      this.http.delete(`${this.env.apiUrl}/push/subscriptions/${id}`).subscribe(() => {
+        this.loadSubscriptions();
+      });
+    }
   }
 }

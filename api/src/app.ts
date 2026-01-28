@@ -294,6 +294,8 @@ import * as PushController from "./controllers/PushController";
 app.get("/push/key", PushController.getPublicKey);
 app.post("/push/subscribe", PushController.subscribe);
 app.post("/push/test", PushController.sendTestNotification);
+app.get("/push/subscriptions", PushController.getSubscriptions);
+app.delete("/push/subscriptions/:id", PushController.deleteSubscription);
 
 
 app.get('/*', (req: Request, res: Response) => {
