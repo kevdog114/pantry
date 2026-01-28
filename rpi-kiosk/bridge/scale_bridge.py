@@ -168,6 +168,8 @@ def monitor(port):
     config = get_device_config(port)
     raw_history = deque()
     
+    stable_zero_start = None
+    
     while True:
         try:
             # 1. Manage Connection
@@ -290,6 +292,19 @@ def monitor(port):
                     
                     weight = (filtered_raw - tare) / cal
                     
+                    # Stable Zero Algorithm
+                    if abs(weight) <= 0.4:
+                        if stable_zero_start is None:
+                            stable_zero_start = time.time()
+                        elif time.time() - stable_zero_start >= 30.0:
+                            print(f"Auto-tare triggered: Weight {weight:.2f}g stable near 0 for 30s", file=sys.stderr)
+                            # Update Tare
+                            config['tare_offset'] = filtered_raw
+                            update_device_config(port, "tare_offset", filtered_raw)
+                            stable_zero_start = None
+                    else:
+                        stable_zero_start = None
+
                     # Output weight
                     print(f"WEIGHT:{weight:.2f} (Raw: {filtered_raw})")
                     sys.stdout.flush()
