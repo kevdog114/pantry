@@ -1624,7 +1624,7 @@ export const postImage = async (req: Request, res: Response) => {
 
 export const postProductDetails = async (req: Request, res: Response) => {
   try {
-    const { productTitle } = req.body as { productTitle: string };
+    const { productTitle, productId } = req.body as { productTitle: string, productId?: number };
 
     if (!productTitle) {
       res.status(400).json({ message: "Product title is required" });
@@ -1635,6 +1635,7 @@ export const postProductDetails = async (req: Request, res: Response) => {
       1. Freezer lifespan: How many days it is good in the freezer.
       2. Refrigerator lifespan: How many days it is good in the refrigerator (after thawing if frozen).
       3. Opened lifespan: How many days it is good after being opened.
+      4. Pantry/Shelf lifespan: How many days it is good on the shelf (unopened).
       
       Also, recommend the best way to track the remaining amount of this product: 'quantity' (e.g., cans, boxes) or 'weight' (e.g., flour, sugar, pasta).
 
@@ -1642,6 +1643,7 @@ export const postProductDetails = async (req: Request, res: Response) => {
       - freezerLifespanDays
       - refrigeratorLifespanDays
       - openedLifespanDays
+      - pantryLifespanDays
       - trackCountBy ('quantity' or 'weight')
       
       Use integer values for days. If unknown or if you are not sure for days, return null for that field. default trackCountBy to 'quantity' if unsure.`;
@@ -1652,6 +1654,7 @@ export const postProductDetails = async (req: Request, res: Response) => {
         freezerLifespanDays: { type: FunctionDeclarationSchemaType.INTEGER, nullable: true },
         refrigeratorLifespanDays: { type: FunctionDeclarationSchemaType.INTEGER, nullable: true },
         openedLifespanDays: { type: FunctionDeclarationSchemaType.INTEGER, nullable: true },
+        pantryLifespanDays: { type: FunctionDeclarationSchemaType.INTEGER, nullable: true },
         trackCountBy: { type: FunctionDeclarationSchemaType.STRING, enum: ["quantity", "weight"] }
       },
       required: [
@@ -1676,6 +1679,28 @@ export const postProductDetails = async (req: Request, res: Response) => {
     const response = result.response;
     const jsonString = response.text();
     const data = JSON.parse(jsonString);
+
+    // Update product if ID provided
+    if (productId) {
+      try {
+        await prisma.product.update({
+          where: { id: productId },
+          data: {
+            freezerLifespanDays: data.freezerLifespanDays,
+            refrigeratorLifespanDays: data.refrigeratorLifespanDays,
+            openedLifespanDays: data.openedLifespanDays,
+            pantryLifespanDays: data.pantryLifespanDays,
+            // Only update trackCountBy if it's currently default 'quantity' or null? 
+            // Or just trust Gemini? User might have set it manually. 
+            // Let's only update if the current product trackBy is default or we want to overwrite.
+            // For now, let's update it. If user changed it, they can change it back or we can check.
+            trackCountBy: data.trackCountBy
+          }
+        });
+      } catch (e) {
+        console.error("Failed to update product details with AI data", e);
+      }
+    }
 
     res.json({
       message: "success",

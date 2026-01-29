@@ -432,6 +432,11 @@ export class KioskPageComponent implements OnInit, OnDestroy {
     async handleRestockBarcode(barcode: string) {
         if (!barcode) return;
 
+        // If we have a pending product in OPTIONS mode, save it first!
+        if (this.restockState === 'OPTIONS' && this.pendingProduct) {
+            await this.saveCurrentPendingItem();
+        }
+
         // Reset
         this.restockState = 'SCAN';
         this.pendingProduct = null;
@@ -450,9 +455,34 @@ export class KioskPageComponent implements OnInit, OnDestroy {
                 // Intercept ALL products for Options (Weight or Quantity)
                 this.pendingProduct = product;
 
-                // Default Exp
+                // Default Exp logic with Gemini Enhancement
+                let days = product.refrigeratorLifespanDays || product.pantryLifespanDays;
+
+                if (!days) {
+                    this.status = "Consulting AI...";
+                    this.statusSubtext = "Estimating Expiry...";
+
+                    try {
+                        const geminiRes = await firstValueFrom(this.http.post<any>(this.env.apiUrl + "/gemini/product-details", {
+                            productTitle: product.title,
+                            productId: product.id
+                        }));
+                        if (geminiRes && geminiRes.data) {
+                            // We prefer refrigerator lifespan for fresh items usually
+                            const gDays = geminiRes.data.refrigeratorLifespanDays || geminiRes.data.pantryLifespanDays;
+                            if (gDays) {
+                                days = gDays;
+                                // Automatically saved to product on backend if productId was provided
+                            }
+                        }
+                    } catch (e) {
+                        console.warn("Gemini expiration lookup failed", e);
+                    }
+                }
+
+                if (!days) days = 365;
+
                 const today = new Date();
-                const days = product.refrigeratorLifespanDays || 365;
                 const defExp = new Date();
                 defExp.setDate(today.getDate() + days);
                 defExp.setHours(0, 0, 0, 0);
@@ -461,6 +491,7 @@ export class KioskPageComponent implements OnInit, OnDestroy {
                 this.restockState = 'OPTIONS';
                 this.status = "Item Options";
                 this.statusSubtext = product.title;
+                this.playSuccessSound();
                 return;
 
             } else {
@@ -522,21 +553,25 @@ export class KioskPageComponent implements OnInit, OnDestroy {
                     this.status = "1 Unit Consumed";
                     this.statusSubtext = product.title;
                     this.addToLog(product.title, "-1 Consumed", 'success');
+                    this.playSuccessSound();
                 } else {
                     this.status = "Out of Stock";
                     this.statusSubtext = product.title;
                     this.addToLog(product.title, "Out of Stock", 'error');
+                    this.playErrorSound();
                 }
 
             } else {
                 this.status = "Product Not Found";
                 this.statusSubtext = "Try adding it in Restock";
                 this.addToLog("Product Not Found", "", 'error');
+                this.playErrorSound();
             }
         } catch (err) {
             console.error("Scan Error", err);
             this.status = "Error processing scan.";
             this.addToLog("Scan Error", "Failed to process", 'error');
+            this.playErrorSound();
             setTimeout(() => this.status = "Scan Barcode...", 3000);
         }
     }
@@ -778,6 +813,16 @@ export class KioskPageComponent implements OnInit, OnDestroy {
             }
         } catch (e) { console.warn("OFF lookup failed"); }
 
+        // If OFF failed to identify the product, we stop here.
+        if (!offData || !offData.product_name) {
+            this.status = "Product Not Found";
+            this.statusSubtext = "Not in OpenFoodFacts";
+            this.addToLog("Product Not Found", "No External Data", 'error');
+            this.playErrorSound();
+            setTimeout(() => this.status = "Scan Barcode...", 3000);
+            return;
+        }
+
         this.status = "Consulting AI...";
 
         // Gemini Match Check
@@ -917,7 +962,7 @@ export class KioskPageComponent implements OnInit, OnDestroy {
         }
     }
 
-    async addStock(product: Product, quantity: number, explicitExpiration?: Date | null): Promise<StockItem> {
+    async addStock(product: Product, quantity: number, explicitExpiration?: Date | null): Promise<StockItem | null> {
         // Create stock item
         const today = new Date();
 
@@ -945,7 +990,7 @@ export class KioskPageComponent implements OnInit, OnDestroy {
             frozen: false,
             expirationExtensionAfterThaw: 0,
             unit: product.trackCountBy === 'weight' ? 'g' : 'unit'
-        }));
+        }), { defaultValue: null });
     }
 
     // RESTOCK UI HELPERS
@@ -999,10 +1044,9 @@ export class KioskPageComponent implements OnInit, OnDestroy {
         this.status = "Item Options";
     }
 
-    async confirmRestockItem() {
-        if (!this.pendingProduct) return;
+    async saveCurrentPendingItem(): Promise<boolean> {
+        if (!this.pendingProduct) return false;
 
-        // Add Quantity
         try {
             const addedItem = await this.addStock(this.pendingProduct, this.pendingQuantity, this.pendingExpiration);
 
@@ -1012,20 +1056,30 @@ export class KioskPageComponent implements OnInit, OnDestroy {
             }
 
             this.addToLog(this.pendingProduct.title, `+${this.pendingQuantity} Unit(s) Added${expStr}`, 'success');
-            this.playSuccessSound();
+            // Sound removed from here (Scan triggers sound or Label triggers sound)
 
-            // Should we clear logs or just reset state?
-            // "If scanning another product... reset"
-            // So reset state now.
-
-            this.cancelRestockItem();
             this.showTempStatus("Added " + this.pendingQuantity + " Unit(s)", this.pendingProduct.title, 2000);
+            return true;
 
         } catch (e) {
             console.error("Failed to add stock", e);
             this.snackBar.open("Failed to add stock", "Close");
             this.playErrorSound();
+            return false;
         }
+    }
+
+    async confirmRestockItem() {
+        if (await this.saveCurrentPendingItem()) {
+            this.cancelRestockItem();
+        }
+    }
+
+    async finishRestockSession() {
+        if (this.restockState === 'OPTIONS' && this.pendingProduct) {
+            await this.saveCurrentPendingItem();
+        }
+        this.finishAction();
     }
 
     setRestockExpiration(val: string) {

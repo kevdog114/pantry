@@ -27,6 +27,7 @@ model Product {
   freezerLifespanDays     Int?
   refrigeratorLifespanDays Int?
   openedLifespanDays      Int?
+  pantryLifespanDays      Int?
   stockItems              StockItem[]
   files                   File[]     @relation("ProductToFile")
   tags                    Tag[]      @relation("ProductToTag")
