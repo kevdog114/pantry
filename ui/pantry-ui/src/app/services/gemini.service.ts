@@ -61,6 +61,10 @@ export class GeminiService {
     return this.http.get<any>(`${this.env.apiUrl}/gemini/models`);
   }
 
+  planLogistics(startDate: string, endDate: string): Observable<any> {
+    return this.http.post<any>(`${this.env.apiUrl}/gemini/logistics`, { startDate, endDate });
+  }
+
   sortShoppingList(items: string[]): Observable<{ sortedItems: string[] }> {
     return this.http.post<any>(`${this.apiUrl.replace('/chat', '')}/shopping-list-sort`, { items });
   }

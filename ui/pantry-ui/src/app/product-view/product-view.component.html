@@ -38,6 +38,10 @@
                                 <span class="fw-bold fs-6">{{row.quantity}} {{row.unit}}</span>
                                 <span *ngIf="row.opened" class="status-badge badge-open">Open</span>
                                 <span *ngIf="row.frozen" class="status-badge badge-frozen">Frozen</span>
+                                <span *ngIf="getReservedAmount(row) > 0" class="status-badge badge-reserved"
+                                    style="background-color: #ff9800; color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.75rem; margin-left:8px;">
+                                    Reserved: {{ getReservedAmount(row) | number:'1.0-2' }}
+                                </span>
                             </div>
                         </td>
                     </ng-container>

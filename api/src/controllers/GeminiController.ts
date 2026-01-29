@@ -134,7 +134,9 @@ export const getAvailableModels = async (req: Request, res: Response) => {
 const getProductContext = async (): Promise<string> => {
   const products = await prisma.product.findMany({
     include: {
-      stockItems: true,
+      stockItems: {
+        include: { reservations: true }
+      },
       cookingInstructions: {
         select: { id: true, name: true, type: true }
       }
@@ -145,12 +147,18 @@ const getProductContext = async (): Promise<string> => {
   for (const product of products) {
     const totalQuantity = product.stockItems.reduce((sum, item) => sum + item.quantity, 0);
 
+    // Calculate total reserved for the product (across all its stock items)
+    const totalReserved = product.stockItems.reduce((sum, item) => {
+      return sum + item.reservations.reduce((rSum, r) => rSum + r.amount, 0);
+    }, 0);
+
     if (product.stockItems.length > 0) {
       const instructions = (product as any).cookingInstructions?.map((i: any) => i.name).join(', ');
-      contextParts.push(`Product: ${product.title} (ID: ${product.id}) - Total Quantity: ${totalQuantity} - Track By: ${product.trackCountBy}${instructions ? ` - Saved Instructions: ${instructions}` : ''}`);
+      contextParts.push(`Product: ${product.title} (ID: ${product.id}) - Total Quantity: ${totalQuantity} (Reserved: ${totalReserved}) - Track By: ${product.trackCountBy}${instructions ? ` - Saved Instructions: ${instructions}` : ''}`);
       for (const stockItem of product.stockItems) {
+        const itemReserved = stockItem.reservations.reduce((sum, r) => sum + r.amount, 0);
         contextParts.push(`  - Stock ID: ${stockItem.id}`);
-        contextParts.push(`    Quantity: ${stockItem.quantity} ${stockItem.unit || ''}`);
+        contextParts.push(`    Quantity: ${stockItem.quantity} ${stockItem.unit || ''} (Reserved: ${itemReserved})`);
         contextParts.push(`    Expiration Date: ${stockItem.expirationDate ? stockItem.expirationDate.toISOString().split('T')[0] : 'N/A'}`);
         contextParts.push(`    Status: ${stockItem.frozen ? 'Frozen' : 'Fresh'}, ${stockItem.opened ? 'Opened' : 'Unopened'}`);
       }
@@ -2268,5 +2276,118 @@ export const generateRecipeImage = async (req: Request, res: Response) => {
       message: "error",
       data: error.message
     });
+  }
+};
+
+export const calculateLogistics = async (req: Request, res: Response) => {
+  try {
+    const { startDate, endDate } = req.body;
+
+    let mealPlans;
+    if (startDate && endDate) {
+      mealPlans = await prisma.mealPlan.findMany({
+        where: { date: { gte: new Date(startDate), lte: new Date(endDate) } },
+        include: { recipe: { include: { ingredients: true } }, product: true, reservations: true }
+      });
+    } else {
+      mealPlans = await prisma.mealPlan.findMany({
+        where: { date: { gte: new Date() } },
+        include: { recipe: { include: { ingredients: true } }, product: true, reservations: true },
+        take: 20
+      });
+    }
+
+    const mpIds = mealPlans.map(mp => mp.id);
+    if (mpIds.length > 0) {
+      await prisma.stockReservation.deleteMany({
+        where: { mealPlanId: { in: mpIds } }
+      });
+    }
+
+    const inventoryContext = await getProductContext();
+
+    let planContext = "Meal Plan:\n";
+    for (const mp of mealPlans) {
+      planContext += `- Date: ${mp.date.toISOString().split('T')[0]}, ID: ${mp.id}\n`;
+      if (mp.recipe) {
+        planContext += `  Recipe: ${mp.recipe.name}\n`;
+        if (mp.recipe.ingredients) {
+          planContext += `  Ingredients: ${mp.recipe.ingredients.map(i => `${i.amount || ''} ${i.unit || ''} ${i.name}`).join(', ')}\n`;
+        }
+      } else if (mp.product) {
+        planContext += `  Product: ${mp.product.title}\n`;
+      }
+    }
+
+    const prompt = `
+      Analyze the following Meal Plan and Current Inventory.
+      Your goal is to identify which Stock Items should be reserved for each meal.
+      
+      For each meal plan entry:
+      1. Identify the ingredients needed.
+      2. Match them to available Stock Items in the Inventory.
+      3. Calculate how much of each stock item to reserve.
+      
+      Rules:
+      1. Prioritize stock items with the EARLIEST Expiration Date.
+      2. If a single stock item isn't enough, use partial amounts from multiple stock items until the need is met.
+      3. Return a JSON structure listing the reservations to create.
+      4. Generally reserve only what is needed for the recipe.
+      
+      Input:
+      ${planContext}
+      
+      Inventory:
+      ${inventoryContext}
+      
+      Output JSON Format:
+      {
+        "reservations": [
+          {
+            "mealPlanId": 123,
+            "stockItemId": 456,
+            "amount": 2.5
+          }
+        ]
+      }
+    `;
+
+    const { result } = await executeWithFallback('gemini_logistics', async (model) => {
+      return await model.generateContent(prompt);
+    });
+
+    const text = result.response.text();
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      res.status(500).json({ error: "Failed to parse Gemini response", raw: text });
+      return;
+    }
+    const data = JSON.parse(jsonMatch[0]);
+
+    let createdCount = 0;
+    if (data.reservations && Array.isArray(data.reservations)) {
+      for (const resv of data.reservations) {
+        if (resv.mealPlanId && resv.stockItemId && resv.amount) {
+          try {
+            await prisma.stockReservation.create({
+              data: {
+                mealPlanId: resv.mealPlanId,
+                stockItemId: resv.stockItemId,
+                amount: Number(resv.amount)
+              }
+            });
+            createdCount++;
+          } catch (e) {
+            console.warn(`Failed to create reservation m:${resv.mealPlanId} s:${resv.stockItemId}`, e);
+          }
+        }
+      }
+    }
+
+    res.json({ message: "success", reservationsCreated: createdCount });
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Failed to calculate logistics" });
   }
 };

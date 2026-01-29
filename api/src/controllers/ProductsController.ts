@@ -7,7 +7,7 @@ export const getById = async (req: Request, res: Response, next: NextFunction): 
             id: parseInt(req.params.id)
         },
         include: {
-            stockItems: { include: { location: true } },
+            stockItems: { include: { location: true, reservations: true } },
             files: true,
             barcodes: {
                 include: {
@@ -105,7 +105,7 @@ export const getAll = async (req: Request, res: Response, next: NextFunction): P
             }
         } : undefined,
         include: {
-            stockItems: { include: { location: true } },
+            stockItems: { include: { location: true, reservations: true } },
             files: true,
             barcodes: {
                 include: {
@@ -164,7 +164,7 @@ export const updateById = async (req: Request, res: Response, next: NextFunction
             })
         },
         include: {
-            stockItems: { include: { location: true } },
+            stockItems: { include: { location: true, reservations: true } },
             files: true,
             barcodes: {
                 include: {
@@ -196,7 +196,7 @@ export const searchProductByBarcode = async (req: Request, res: Response, next: 
         include: {
             product: {
                 include: {
-                    stockItems: { include: { location: true } },
+                    stockItems: { include: { location: true, reservations: true } },
                     files: true,
                     tags: true,
                     barcodes: {

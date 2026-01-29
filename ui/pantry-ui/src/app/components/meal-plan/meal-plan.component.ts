@@ -516,51 +516,68 @@ export class MealPlanComponent implements OnInit {
         if (this.isPlanningLogistics) return;
         this.isPlanningLogistics = true;
         this.logisticsActive = true;
-        this.snackBar.open("Consulting Sous Chef...", "Close", { duration: 1500 });
+        this.snackBar.open("Consulting Sous Chef & Reserving Stock...", "Close", { duration: 1500 });
 
         // Fetch 14 days of data
         const today = new Date();
         const future = new Date();
         future.setDate(today.getDate() + 14);
 
-        this.mealPlanService.getMealPlan(today.toISOString(), future.toISOString()).subscribe({
-            next: (plans) => {
-                // Generate Plan with Shopping Date = TODAY (assuming we shop today)
-                const logisticsPlan = this.logisticsService.generateLogisticsPlan(plans, today);
+        const startDateStr = today.toISOString().split('T')[0];
+        const endDateStr = future.toISOString().split('T')[0];
 
-                // Populate Local View
-                this.populateDailyTasksFromLogistics(logisticsPlan.tasks);
+        // 1. Trigger Stock Reservation (Logistics)
+        this.geminiService.planLogistics(startDateStr, endDateStr).subscribe({
+            next: (logisticsRes) => {
+                console.log("Gemini Logistics Result:", logisticsRes);
+                if (logisticsRes.reservationsCreated > 0) {
+                    this.snackBar.open(`Reserved stock for ${logisticsRes.reservationsCreated} items.`, "Cool", { duration: 2000 });
+                }
 
-                // Save to Backend
-                this.mealPlanService.saveLogisticsTasks(logisticsPlan.tasks, today.toISOString(), future.toISOString()).subscribe({
-                    next: () => {
-                        this.snackBar.open("Logistics Plan Updated & Saved!", "Close", { duration: 2000 });
+                // 2. Refresh Meal Plan Data (to ensure we have latest state if needed) & Generate Prep Tasks
+                this.mealPlanService.getMealPlan(today.toISOString(), future.toISOString()).subscribe({
+                    next: (plans) => {
+                        // Generate Plan with Shopping Date = TODAY (assuming we shop today)
+                        const logisticsPlan = this.logisticsService.generateLogisticsPlan(plans, today);
+
+                        // Populate Local View
+                        this.populateDailyTasksFromLogistics(logisticsPlan.tasks);
+
+                        // Save to Backend
+                        this.mealPlanService.saveLogisticsTasks(logisticsPlan.tasks, today.toISOString(), future.toISOString()).subscribe({
+                            next: () => {
+                                // this.snackBar.open("Logistics Plan Updated & Saved!", "Close", { duration: 2000 });
+                            },
+                            error: (err) => {
+                                console.error("Failed to save tasks", err);
+                                this.snackBar.open("Plan generated but failed to save.", "Close", { duration: 2000 });
+                            }
+                        });
+
+                        // 3. Generate Shopping List (Logistics via Gemini)
+                        this.mealPlanService.generateShoppingList(today.toISOString(), future.toISOString()).subscribe({
+                            next: (res) => {
+                                console.log('Shopping list generated:', res);
+                                if (res.items && res.items.length > 0) {
+                                    this.snackBar.open(`Added ${res.items.length} items to Shopping List`, 'Cool', { duration: 3000 });
+                                }
+                                this.isPlanningLogistics = false;
+                            },
+                            error: (err) => {
+                                console.error('Shopping list gen failed', err);
+                                this.isPlanningLogistics = false;
+                            }
+                        });
                     },
                     error: (err) => {
-                        console.error("Failed to save tasks", err);
-                        this.snackBar.open("Plan generated but failed to save.", "Close", { duration: 2000 });
-                        // If we are only waiting for this to fail, we might want to ensure spinner stops if shopping list also fails or finishes.
-                        // But we will primarily rely on the Shopping List generation which is the longer task.
-                    }
-                });
-
-                // Generate Shopping List (Logistics via Gemini)
-                this.mealPlanService.generateShoppingList(today.toISOString(), future.toISOString()).subscribe({
-                    next: (res) => {
-                        console.log('Shopping list generated:', res);
-                        if (res.items && res.items.length > 0) {
-                            this.snackBar.open(`Added ${res.items.length} items to Shopping List`, 'Cool', { duration: 3000 });
-                        }
-                        this.isPlanningLogistics = false;
-                    },
-                    error: (err) => {
-                        console.error('Shopping list gen failed', err);
+                        console.error("Failed to get meal plan", err);
                         this.isPlanningLogistics = false;
                     }
                 });
             },
             error: (err) => {
-                console.error("Failed to get meal plan", err);
+                console.error("Gemini Logistics Failed", err);
+                this.snackBar.open("Failed to reserve stock.", "Close", { duration: 3000 });
                 this.isPlanningLogistics = false;
             }
         });

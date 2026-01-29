@@ -98,6 +98,7 @@ model StockItem {
   location         Location? @relation(fields: [locationId], references: [id])
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
+  reservations     StockReservation[]
 }
 
 model PersonalAccessToken {
@@ -173,6 +174,7 @@ model MealPlan {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   tasks     MealTask[]
+  reservations StockReservation[]
 }
 
 model RecipeStep {
@@ -399,4 +401,15 @@ model PushSubscription {
   userAgent String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model StockReservation {
+  id          Int       @id @default(autoincrement())
+  stockItemId Int
+  stockItem   StockItem @relation(fields: [stockItemId], references: [id], onDelete: Cascade)
+  mealPlanId  Int
+  mealPlan    MealPlan  @relation(fields: [mealPlanId], references: [id], onDelete: Cascade)
+  amount      Float
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 }

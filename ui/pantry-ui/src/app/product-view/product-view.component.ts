@@ -399,4 +399,12 @@ export class ProductViewComponent implements OnChanges {
     else
       return "";
   }
+
+  getReservedAmount(stockItem: StockItem): number {
+    if (stockItem.reservations) {
+      return stockItem.reservations.reduce((acc, r) => acc + r.amount, 0);
+    }
+    return 0;
+  }
 }
+

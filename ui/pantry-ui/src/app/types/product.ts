@@ -18,6 +18,11 @@ export interface StockItem {
     openedDate?: Date
     locationId?: number
     location?: Location
+    reservations?: Array<{
+        id: number
+        amount: number
+        mealPlanId: number
+    }>
 }
 
 export interface Location {
