@@ -647,6 +647,7 @@ export class KioskPageComponent implements OnInit, OnDestroy {
                     }],
                     refrigeratorLifespanDays: details.refrigeratorLifespanDays,
                     freezerLifespanDays: details.freezerLifespanDays,
+                    pantryLifespanDays: details.pantryLifespanDays,
                     openedLifespanDays: details.openedLifespanDays,
                     trackCountBy: details.trackCountBy || 'quantity', // Use AI suggestion
                     autoPrintLabel: details.autoPrintLabel || false,
@@ -673,7 +674,12 @@ export class KioskPageComponent implements OnInit, OnDestroy {
         const today = new Date();
         // Default expiration?
         let expDate = new Date();
-        expDate.setDate(today.getDate() + 365); // Default 1 year if unknown
+
+        if (product.pantryLifespanDays) {
+             expDate.setDate(today.getDate() + product.pantryLifespanDays);
+        } else {
+             expDate.setDate(today.getDate() + 365); // Default 1 year if unknown
+        }
 
         // If product has lifespan, use it?
         // Logic normally calculates this. 

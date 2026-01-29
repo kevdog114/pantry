@@ -71,6 +71,13 @@
                         </mat-form-field>
 
                         <mat-form-field appearance="outline">
+                            <mat-label>Pantry/Shelf (Days)</mat-label>
+                            <span matPrefix><mat-icon class="mr-2">inventory_2</mat-icon> &nbsp;</span>
+                            <input name="pantryLifespanDays" type="number" matInput
+                                [(ngModel)]="product.pantryLifespanDays">
+                        </mat-form-field>
+
+                        <mat-form-field appearance="outline">
                             <mat-label>Opened (Days)</mat-label>
                             <span matPrefix><mat-icon class="mr-2">timelapse</mat-icon> &nbsp;</span>
                             <input name="openedLifespanDays" type="number" matInput

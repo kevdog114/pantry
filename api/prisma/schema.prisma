@@ -26,6 +26,7 @@ model Product {
   title                    String
   freezerLifespanDays     Int?
   refrigeratorLifespanDays Int?
+  pantryLifespanDays      Int?
   openedLifespanDays      Int?
   stockItems              StockItem[]
   files                   File[]     @relation("ProductToFile")
