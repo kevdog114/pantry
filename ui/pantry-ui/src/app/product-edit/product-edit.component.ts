@@ -109,6 +109,7 @@ export class ProductEditComponent implements AfterViewInit {
               if (this.product) {
                 if (data.freezerLifespanDays) this.product.freezerLifespanDays = data.freezerLifespanDays;
                 if (data.refrigeratorLifespanDays) this.product.refrigeratorLifespanDays = data.refrigeratorLifespanDays;
+                if (data.pantryLifespanDays) this.product.pantryLifespanDays = data.pantryLifespanDays;
                 if (data.openedLifespanDays) this.product.openedLifespanDays = data.openedLifespanDays;
                 if (data.trackCountBy) this.product.trackCountBy = data.trackCountBy;
               }
@@ -227,6 +228,7 @@ export class ProductEditComponent implements AfterViewInit {
 
     this.product.freezerLifespanDays = (this.product.freezerLifespanDays === null || this.product.freezerLifespanDays === undefined || (this.product.freezerLifespanDays as any) === '') ? null : Number(this.product.freezerLifespanDays);
     this.product.refrigeratorLifespanDays = (this.product.refrigeratorLifespanDays === null || this.product.refrigeratorLifespanDays === undefined || (this.product.refrigeratorLifespanDays as any) === '') ? null : Number(this.product.refrigeratorLifespanDays);
+    this.product.pantryLifespanDays = (this.product.pantryLifespanDays === null || this.product.pantryLifespanDays === undefined || (this.product.pantryLifespanDays as any) === '') ? null : Number(this.product.pantryLifespanDays);
     this.product.openedLifespanDays = (this.product.openedLifespanDays === null || this.product.openedLifespanDays === undefined || (this.product.openedLifespanDays as any) === '') ? null : Number(this.product.openedLifespanDays);
 
     if (this.product.barcodes) {

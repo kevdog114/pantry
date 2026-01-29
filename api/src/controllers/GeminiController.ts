@@ -1587,6 +1587,7 @@ export const postProductDetails = async (req: Request, res: Response) => {
       1. Freezer lifespan: How many days it is good in the freezer.
       2. Refrigerator lifespan: How many days it is good in the refrigerator (after thawing if frozen).
       3. Opened lifespan: How many days it is good after being opened.
+      4. Shelf/Pantry lifespan: How many days it is good in the pantry (unopened, room temp).
       
       Also, recommend the best way to track the remaining amount of this product: 'quantity' (e.g., cans, boxes) or 'weight' (e.g., flour, sugar, pasta).
 
@@ -1594,6 +1595,7 @@ export const postProductDetails = async (req: Request, res: Response) => {
       - freezerLifespanDays
       - refrigeratorLifespanDays
       - openedLifespanDays
+      - pantryLifespanDays
       - trackCountBy ('quantity' or 'weight')
       
       Use integer values for days. If unknown or if you are not sure for days, return null for that field. default trackCountBy to 'quantity' if unsure.`;
@@ -1604,12 +1606,14 @@ export const postProductDetails = async (req: Request, res: Response) => {
         freezerLifespanDays: { type: FunctionDeclarationSchemaType.INTEGER, nullable: true },
         refrigeratorLifespanDays: { type: FunctionDeclarationSchemaType.INTEGER, nullable: true },
         openedLifespanDays: { type: FunctionDeclarationSchemaType.INTEGER, nullable: true },
+        pantryLifespanDays: { type: FunctionDeclarationSchemaType.INTEGER, nullable: true },
         trackCountBy: { type: FunctionDeclarationSchemaType.STRING, enum: ["quantity", "weight"] }
       },
       required: [
         "freezerLifespanDays",
         "refrigeratorLifespanDays",
         "openedLifespanDays",
+        "pantryLifespanDays",
         "trackCountBy"
       ],
     } as any;

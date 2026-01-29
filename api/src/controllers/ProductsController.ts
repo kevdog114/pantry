@@ -32,6 +32,7 @@ export const create = async (req: Request, res: Response, next: NextFunction): P
             freezerLifespanDays: req.body.freezerLifespanDays,
             openedLifespanDays: req.body.openedLifespanDays,
             refrigeratorLifespanDays: req.body.refrigeratorLifespanDays,
+            pantryLifespanDays: req.body.pantryLifespanDays,
             trackCountBy: req.body.trackCountBy,
             autoPrintLabel: req.body.autoPrintLabel,
             barcodes: {
@@ -132,6 +133,7 @@ export const updateById = async (req: Request, res: Response, next: NextFunction
             freezerLifespanDays: req.body.freezerLifespanDays,
             openedLifespanDays: req.body.openedLifespanDays,
             refrigeratorLifespanDays: req.body.refrigeratorLifespanDays,
+            pantryLifespanDays: req.body.pantryLifespanDays,
             trackCountBy: req.body.trackCountBy,
             autoPrintLabel: req.body.autoPrintLabel,
             ...(req.body.fileIds && {
