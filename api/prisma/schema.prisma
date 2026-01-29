@@ -175,6 +175,8 @@ model MealPlan {
   updatedAt DateTime @updatedAt
   tasks     MealTask[]
   reservations StockReservation[]
+  quantity  Float    @default(1)
+  unit      String?
 }
 
 model RecipeStep {

@@ -392,3 +392,27 @@
         flex-shrink: 0;
     }
 }
+
+/* Quantity Editing Badge */
+.quantity-badge {
+    background-color: var(--mat-sys-secondary-container, #e8def8);
+    color: var(--mat-sys-on-secondary-container, #1d192b);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    margin-top: 4px;
+    display: inline-block;
+    border: 1px solid transparent;
+}
+
+.clickable-badge {
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.clickable-badge:hover {
+    background-color: var(--mat-sys-secondary, #625b71);
+    color: var(--mat-sys-on-secondary, #ffffff);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}

@@ -24,6 +24,7 @@ import { MatSnackBar } from '@angular/material/snack-bar';
 import { DragDropModule, CdkDragDrop, moveItemInArray, transferArrayItem } from '@angular/cdk/drag-drop';
 import { KitchenLogisticsService, LogisticsTask } from '../../services/kitchen-logistics.service';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { QuantityPromptDialogComponent } from '../quantity-prompt-dialog/quantity-prompt-dialog.component';
 
 @Component({
     selector: 'app-meal-plan',
@@ -80,7 +81,8 @@ export class MealPlanComponent implements OnInit {
         private geminiService: GeminiService,
         private snackBar: MatSnackBar,
         private http: HttpClient,
-        private env: EnvironmentService
+        private env: EnvironmentService,
+        private dialog: MatDialog
     ) {
         this.generateDays();
     }
@@ -221,6 +223,32 @@ export class MealPlanComponent implements OnInit {
                 // Background update, no need to reload entire list which causes flicker
             });
         }
+    }
+
+    editQuantity(plan: MealPlan) {
+        const current = plan.quantity || 1;
+        const dialogRef = this.dialog.open(QuantityPromptDialogComponent, {
+            data: {
+                title: 'Edit Quantity',
+                message: 'Enter the new quantity:',
+                max: 100,
+                current: current
+            }
+        });
+
+        dialogRef.afterClosed().subscribe(result => {
+            if (result && result !== current) {
+                this.mealPlanService.updateMealPlan(plan.id, new Date(plan.date), result).subscribe({
+                    next: (updated) => {
+                        plan.quantity = updated.quantity;
+                        this.snackBar.open('Quantity updated', 'Close', { duration: 2000 });
+                    },
+                    error: (err) => {
+                        this.snackBar.open('Failed to update quantity', 'Close', { duration: 2000 });
+                    }
+                });
+            }
+        });
     }
 
     getPlansForDate(date: Date): MealPlan[] {

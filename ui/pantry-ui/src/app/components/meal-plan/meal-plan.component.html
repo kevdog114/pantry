@@ -60,6 +60,10 @@
                                         style="font-size: 14px; width: 14px; height: 14px; vertical-align: middle; margin-right: 4px;">content_cut</mat-icon>
                                     <span>Requires prep</span>
                                 </div>
+                                <div *ngIf="plan.product" (click)="$event.stopPropagation(); editQuantity(plan)"
+                                    class="quantity-badge clickable-badge" matTooltip="Edit Quantity">
+                                    x{{ plan.quantity || 1 }}
+                                </div>
                             </div>
                             <button mat-icon-button class="action-btn" color="warn"
                                 (click)="$event.stopPropagation(); removeMeal(plan)">

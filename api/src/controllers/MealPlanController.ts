@@ -22,6 +22,9 @@ export const generateShoppingList = async (req: Request, res: Response): Promise
                             }
                         }
                     }
+                },
+                product: {
+                    include: { stockItems: true }
                 }
             }
         });
@@ -31,29 +34,53 @@ export const generateShoppingList = async (req: Request, res: Response): Promise
         const inventory: Record<string, any> = {};
 
         meals.forEach(meal => {
-            meal.recipe.ingredients.forEach(ing => {
-                // Add to Requirements
+            const mealQty = meal.quantity || 1;
+
+            if (meal.recipe) {
+                meal.recipe.ingredients.forEach(ing => {
+                    // Add to Requirements
+                    requirements.push({
+                        recipe: meal.recipe.name,
+                        ingredientName: ing.name,
+                        neededAmount: (ing.amount || 0) * mealQty, // Multiply by meal quantity
+                        neededUnit: ing.unit,
+                        linkedProduct: ing.product?.title || null
+                    });
+
+                    // Add to Inventory (once per product)
+                    if (ing.product) {
+                        const pTitle = ing.product.title;
+                        if (!inventory[pTitle]) {
+                            const stock = ing.product.stockItems || [];
+                            const totalStock = stock.reduce((acc, item) => acc + item.quantity, 0);
+                            inventory[pTitle] = {
+                                totalStock: totalStock,
+                                stockUnit: ing.product.trackCountBy || 'units'
+                            };
+                        }
+                    }
+                });
+            } else if (meal.product) {
+                // Standalone Product
                 requirements.push({
-                    recipe: meal.recipe.name,
-                    ingredientName: ing.name,
-                    neededAmount: ing.amount,
-                    neededUnit: ing.unit,
-                    linkedProduct: ing.product?.title || null
+                    recipe: "Direct Meal Item",
+                    ingredientName: meal.product.title,
+                    neededAmount: mealQty,
+                    neededUnit: "count",
+                    linkedProduct: meal.product.title
                 });
 
-                // Add to Inventory (once per product)
-                if (ing.product) {
-                    const pTitle = ing.product.title;
-                    if (!inventory[pTitle]) {
-                        const stock = ing.product.stockItems || [];
-                        const totalStock = stock.reduce((acc, item) => acc + item.quantity, 0);
-                        inventory[pTitle] = {
-                            totalStock: totalStock,
-                            stockUnit: ing.product.trackCountBy || 'units'
-                        };
-                    }
+                // Add to Inventory
+                const pTitle = meal.product.title;
+                if (!inventory[pTitle]) {
+                    const stock = meal.product.stockItems || [];
+                    const totalStock = stock.reduce((acc, item) => acc + item.quantity, 0);
+                    inventory[pTitle] = {
+                        totalStock: totalStock,
+                        stockUnit: meal.product.trackCountBy || 'units'
+                    };
                 }
-            });
+            }
         });
 
         if (requirements.length === 0) return res.send({ message: "No ingredients found in this range" });
@@ -251,7 +278,9 @@ export const addMealToPlan = async (req: Request, res: Response, next: NextFunct
             data: {
                 date: new Date(date),
                 recipeId: recipeId ? Number(recipeId) : undefined,
-                productId: productId ? Number(productId) : undefined
+                productId: productId ? Number(productId) : undefined,
+                quantity: req.body.quantity ? Number(req.body.quantity) : 1,
+                unit: req.body.unit || null
             },
             include: {
                 recipe: true,
@@ -272,7 +301,9 @@ export const updateMealPlan = async (req: Request, res: Response, next: NextFunc
         const meal = await prisma.mealPlan.update({
             where: { id: parseInt(id) },
             data: {
-                date: new Date(date)
+                date: (date) ? new Date(date) : undefined,
+                quantity: req.body.quantity ? Number(req.body.quantity) : undefined,
+                unit: req.body.unit || undefined
             },
             include: {
                 recipe: true,

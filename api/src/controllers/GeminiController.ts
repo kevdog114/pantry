@@ -2308,7 +2308,7 @@ export const calculateLogistics = async (req: Request, res: Response) => {
 
     let planContext = "Meal Plan:\n";
     for (const mp of mealPlans) {
-      planContext += `- Date: ${mp.date.toISOString().split('T')[0]}, ID: ${mp.id}\n`;
+      planContext += `- Date: ${mp.date.toISOString().split('T')[0]}, ID: ${mp.id}, Quantity: ${mp.quantity || 1} ${mp.unit || ''}\n`;
       if (mp.recipe) {
         planContext += `  Recipe: ${mp.recipe.name}\n`;
         if (mp.recipe.ingredients) {

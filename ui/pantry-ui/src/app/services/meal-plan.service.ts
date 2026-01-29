@@ -13,6 +13,7 @@ export interface MealPlan {
     recipe?: Recipe;
     productId?: number;
     product?: Product;
+    quantity?: number;
 }
 
 @Injectable({
@@ -37,8 +38,8 @@ export class MealPlanService {
         return this.http.delete<void>(`${this.apiUrl}/${id}`);
     }
 
-    updateMealPlan(id: number, date: Date): Observable<MealPlan> {
-        return this.http.put<MealPlan>(`${this.apiUrl}/${id}`, { date });
+    updateMealPlan(id: number, date: Date, quantity?: number): Observable<MealPlan> {
+        return this.http.put<MealPlan>(`${this.apiUrl}/${id}`, { date, quantity });
     }
 
     saveLogisticsTasks(tasks: any[], startDate?: string, endDate?: string): Observable<any> {
