@@ -12,6 +12,8 @@ import { MatMenuModule } from '@angular/material/menu';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { ShoppingListService, ShoppingList, ShoppingListItem } from '../services/shopping-list.service';
 import { GeminiService } from '../services/gemini.service';
+import { MatDialog } from '@angular/material/dialog';
+import { QuantityPromptDialogComponent } from '../components/quantity-prompt-dialog/quantity-prompt-dialog.component';
 
 @Component({
     selector: 'app-shopping-list',
@@ -23,7 +25,6 @@ import { GeminiService } from '../services/gemini.service';
         MatInputModule,
         MatButtonModule,
         MatIconModule,
-        MatCheckboxModule,
         MatCheckboxModule,
         MatListModule,
         MatMenuModule,
@@ -42,7 +43,8 @@ export class ShoppingListComponent implements OnInit {
 
     constructor(
         private shoppingListService: ShoppingListService,
-        private geminiService: GeminiService
+        private geminiService: GeminiService,
+        private dialog: MatDialog
     ) { }
 
     ngOnInit(): void {
@@ -95,6 +97,26 @@ export class ShoppingListComponent implements OnInit {
         this.shoppingListService.clearChecked(this.shoppingList.id).subscribe(() => {
             if (this.shoppingList) {
                 this.shoppingList.items = this.shoppingList.items.filter(i => !i.checked);
+            }
+        });
+    }
+
+    editQuantity(item: ShoppingListItem) {
+        const dialogRef = this.dialog.open(QuantityPromptDialogComponent, {
+            data: {
+                title: 'Edit Quantity',
+                message: `Update quantity for ${item.name}`,
+                current: item.quantity,
+                max: 1000
+            }
+        });
+
+        dialogRef.afterClosed().subscribe(result => {
+            if (result && result !== item.quantity) {
+                this.shoppingListService.updateItem(item.id, { quantity: result })
+                    .subscribe(updated => {
+                        item.quantity = updated.quantity;
+                    });
             }
         });
     }

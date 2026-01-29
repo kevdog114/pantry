@@ -533,6 +533,10 @@ export class MealPlanComponent implements OnInit {
             // Update Backend
             const newDateStr = event.container.id; // We will use date string as ID
             const newDate = new Date(newDateStr);
+
+            // CRITICAL: Update local model so subsequent edits use the new date
+            item.date = newDate.toISOString();
+
             this.mealPlanService.updateMealPlan(item.id, newDate).subscribe({
                 next: () => {
                     this.snackBar.open('Meal moved!', 'Order', { duration: 2000 });

@@ -2434,11 +2434,19 @@ export const calculateLogistics = async (req: Request, res: Response) => {
             // await prisma.shoppingTrip.update(...) 
           }
 
+
+          // Find or create a default shopping list to attach items to (required by schema)
+          let defaultList = await prisma.shoppingList.findFirst();
+          if (!defaultList) {
+            defaultList = await prisma.shoppingList.create({ data: { name: "My Shopping List" } });
+          }
+
           if (trip.items && Array.isArray(trip.items)) {
             for (const item of trip.items) {
               await prisma.shoppingListItem.create({
                 data: {
                   shoppingTripId: tripId,
+                  shoppingListId: defaultList.id,
                   name: item.name,
                   quantity: Number(item.amount) || 1,
                   unit: item.unit || null,

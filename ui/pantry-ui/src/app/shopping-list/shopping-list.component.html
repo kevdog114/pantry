@@ -49,8 +49,9 @@
                     style="font-size: 16px; width: 16px; height: 16px; vertical-align: middle; color: #673ab7;"
                     matTooltip="From Logistics Plan">smart_toy</mat-icon>
             </span>
-            <span matListItemLine *ngIf="item.quantity !== 1 || item.unit">Quantity: {{ item.quantity }}{{ item.unit ? '
-                ' + item.unit : '' }}</span>
+            <span matListItemLine *ngIf="item.quantity !== 1 || item.unit" (click)="editQuantity(item)"
+                style="cursor: pointer; text-decoration: underline dashed #ccc;">Quantity: {{ item.quantity }}{{
+                item.unit ? ' ' + item.unit : '' }}</span>
 
             <button mat-icon-button matListItemMeta (click)="deleteItem(item)">
                 <mat-icon>delete</mat-icon>
