@@ -4,7 +4,7 @@ import webpush from 'web-push';
 import { SystemSetting } from "@prisma/client";
 
 // Ensure keys exist or generate them
-async function getVapidKeys() {
+export async function getVapidKeys() {
     const settings = await prisma.systemSetting.findMany({
         where: {
             key: {
@@ -92,54 +92,57 @@ export const subscribe = async (req: Request, res: Response) => {
     }
 };
 
+export const sendNotificationToUser = async (userId: number, title: string, body: string, data: any = {}) => {
+    const { publicKey, privateKey, subject } = await getVapidKeys();
+    webpush.setVapidDetails(subject, publicKey, privateKey);
+
+    const subscriptions = await prisma.pushSubscription.findMany({
+        where: { userId }
+    });
+
+    const payload = JSON.stringify({
+        notification: {
+            title,
+            body,
+            icon: 'assets/icons/icon-72x72.png',
+            vibrate: [100, 50, 100],
+            data: {
+                dateOfArrival: Date.now(),
+                ...data
+            }
+        }
+    });
+
+    const promises = subscriptions.map(sub => {
+        const pushSubscription = {
+            endpoint: sub.endpoint,
+            keys: {
+                p256dh: sub.p256dh,
+                auth: sub.auth
+            }
+        };
+
+        return webpush.sendNotification(pushSubscription, payload)
+            .catch(async (err) => {
+                if (err.statusCode === 410 || err.statusCode === 404) {
+                    console.log(`Deleting expired subscription for user ${userId}`);
+                    await prisma.pushSubscription.delete({ where: { id: sub.id } });
+                } else {
+                    console.error("Failed to send push chunk:", err);
+                    // Don't throw, just log
+                }
+            });
+    });
+
+    await Promise.all(promises);
+    return subscriptions.length;
+};
+
 export const sendTestNotification = async (req: Request, res: Response) => {
     try {
         const userId = (req.user as any).id;
-        const { publicKey, privateKey, subject } = await getVapidKeys();
-
-        webpush.setVapidDetails(subject, publicKey, privateKey);
-
-        const subscriptions = await prisma.pushSubscription.findMany({
-            where: { userId }
-        });
-
-        const payload = JSON.stringify({
-            notification: {
-                title: 'Test Notification',
-                body: 'This is a test notification from your Pantry app!',
-                icon: 'assets/icons/icon-72x72.png',
-                vibrate: [100, 50, 100],
-                data: {
-                    dateOfArrival: Date.now(),
-                    primaryKey: 1
-                }
-            }
-        });
-
-        const promises = subscriptions.map(sub => {
-            const pushSubscription = {
-                endpoint: sub.endpoint,
-                keys: {
-                    p256dh: sub.p256dh,
-                    auth: sub.auth
-                }
-            };
-
-            return webpush.sendNotification(pushSubscription, payload)
-                .catch(async (err) => {
-                    if (err.statusCode === 410 || err.statusCode === 404) {
-                        // Subscription has expired or is no longer valid
-                        console.log(`Deleting expired subscription for user ${userId}`);
-                        await prisma.pushSubscription.delete({ where: { id: sub.id } });
-                    } else {
-                        throw err;
-                    }
-                });
-        });
-
-        await Promise.all(promises);
-
-        res.json({ message: `Sent test notification to ${subscriptions.length} devices` });
+        const count = await sendNotificationToUser(userId, 'Test Notification', 'This is a test notification from your Pantry app!', { primaryKey: 1 });
+        res.json({ message: `Sent test notification to ${count} devices` });
     } catch (error) {
         console.error("Error sending notification:", error);
         res.status(500).json({ message: "Error sending notification" });

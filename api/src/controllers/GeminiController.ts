@@ -9,6 +9,7 @@ import { storeFile, UPLOAD_DIR } from "../lib/FileStorage";
 import { intentEngine } from "../lib/IntentEngine";
 import { WeatherService } from "../services/WeatherService";
 import { determineQuickActions, generateReceiptSteps, determineSafeCookingTemps } from "../services/RecipeAIService";
+import { sendNotificationToUser } from "./PushController";
 
 dotenv.config();
 
@@ -813,6 +814,18 @@ export const post = async (req: Request, res: Response) => {
               },
               required: ["productId", "method", "steps"]
             }
+          },
+          {
+            name: "sendPushNotification",
+            description: "Send a push notification to the user's devices.",
+            parameters: {
+              type: FunctionDeclarationSchemaType.OBJECT,
+              properties: {
+                title: { type: FunctionDeclarationSchemaType.STRING, description: "Notification title" },
+                body: { type: FunctionDeclarationSchemaType.STRING, description: "Notification body text" }
+              },
+              required: ["title", "body"]
+            }
           }
         ]
       }
@@ -1278,6 +1291,12 @@ export const post = async (req: Request, res: Response) => {
               }
             });
             return { message: "Created cooking instruction", type: "instruction", instructionId: newInstruction.id };
+
+          case "sendPushNotification":
+            const uId = (req.user as any)?.id;
+            if (!uId) return { error: "User context not found." };
+            await sendNotificationToUser(uId, args.title, args.body);
+            return { message: `Notification sent.` };
 
           default:
             return { error: "Unknown tool" };
