@@ -535,36 +535,99 @@ export class MealPlanComponent implements OnInit {
         return missing;
     }
 
-    drop(event: CdkDragDrop<MealPlan[]>) {
-        if (event.previousContainer === event.container) {
-            moveItemInArray(event.container.data, event.previousIndex, event.currentIndex);
-        } else {
-            const item = event.previousContainer.data[event.previousIndex];
-            transferArrayItem(
-                event.previousContainer.data,
-                event.container.data,
-                event.previousIndex,
-                event.currentIndex,
-            );
-            this.calculatePrepTasks();
+    drop(event: CdkDragDrop<any[]>) {
+        const itemData = event.item.data;
+
+        if (this.isShoppingTrip(itemData)) {
+            // Handle Shopping Trip Move
+            let previousDateStr = event.previousContainer.id;
+            let newDateStr = event.container.id;
+
+            // Normalize IDs (remove 'shopping-' prefix if present)
+            if (previousDateStr.startsWith('shopping-')) previousDateStr = previousDateStr.replace('shopping-', '');
+            if (newDateStr.startsWith('shopping-')) newDateStr = newDateStr.replace('shopping-', '');
+
+            if (previousDateStr === newDateStr) return; // No change
+
+            // Convert ISO string (from ID) to Map Key (toDateString)
+            // The ID comes from day.toISOString() in the template
+            const previousDateKey = new Date(previousDateStr).toDateString();
+            const newDateKey = new Date(newDateStr).toDateString();
+
+            // Update Local State
+            // Remove from old date
+            const oldList = this.shoppingTrips[previousDateKey];
+            if (oldList) {
+                const index = oldList.indexOf(itemData);
+                if (index > -1) {
+                    oldList.splice(index, 1);
+                }
+            }
+
+            // Add to new date
+            if (!this.shoppingTrips[newDateKey]) {
+                this.shoppingTrips[newDateKey] = [];
+            }
+            this.shoppingTrips[newDateKey].push(itemData);
+            itemData.date = new Date(newDateStr); // Update object directly
 
             // Update Backend
-            const newDateStr = event.container.id; // We will use date string as ID
-            const newDate = new Date(newDateStr);
-
-            // CRITICAL: Update local model so subsequent edits use the new date
-            item.date = newDate.toISOString();
-
-            this.mealPlanService.updateMealPlan(item.id, newDate).subscribe({
+            this.shoppingTripService.updateShoppingTrip(itemData.id, new Date(newDateStr)).subscribe({
                 next: () => {
-                    this.snackBar.open('Meal moved!', 'Order', { duration: 2000 });
+                    this.snackBar.open('Shopping trip moved!', 'Cool', { duration: 2000 });
                 },
-                error: () => {
-                    this.snackBar.open('Failed to move meal.', 'Error', { duration: 2000 });
-                    // Revert? simpler to just reload or let it be for now (optimistic UI)
+                error: (err) => {
+                    console.error('Failed to move trip', err);
+                    this.snackBar.open('Failed to save move.', 'Error', { duration: 2000 });
+                    // Revert local change if needed... (omitted for brevity)
                 }
             });
+
+        } else {
+            // Handle Meal Plan Move (Existing Logic)
+            if (event.previousContainer === event.container) {
+                moveItemInArray(event.container.data, event.previousIndex, event.currentIndex);
+            } else {
+                // Determine item from index is risky if lists are mixed. 
+                // Better to use itemData if available, but transferArrayItem needs indices.
+                // Since MealPlans are rendered FIRST in the DOM list, their indices [0...N] match the data array.
+                // Shopping trips are rendered AFTER.
+                // So if we are dragging a MealPlan, event.previousIndex SHOULD be valid.
+
+                // However, to be safe, let's defer to standard logic:
+                // If itemData IS passed (which we will add), we can double check.
+                // But transferArrayItem is specifically for array manipulation.
+                transferArrayItem(
+                    event.previousContainer.data,
+                    event.container.data,
+                    event.previousIndex,
+                    event.currentIndex,
+                );
+                this.calculatePrepTasks();
+
+                // Update Backend
+                const mealItem = event.container.data[event.currentIndex];
+                const newDateStr = event.container.id;
+                const newDate = new Date(newDateStr);
+
+                // Update item date
+                mealItem.date = newDate.toISOString();
+
+                this.mealPlanService.updateMealPlan(mealItem.id, newDate).subscribe({
+                    next: () => {
+                        this.snackBar.open('Meal moved!', 'Order', { duration: 2000 });
+                    },
+                    error: () => {
+                        this.snackBar.open('Failed to move meal.', 'Error', { duration: 2000 });
+                    }
+                });
+            }
         }
+    }
+
+    isShoppingTrip(item: any): item is ShoppingTrip {
+        // Simple check: ShoppingTrip doesn't have recipeId/productId usually, but has 'items' array
+        return (item as ShoppingTrip).items !== undefined && (item as any).recipeId === undefined;
     }
     toggleHighlight(mealPlanId: number | number[]) {
         if (Array.isArray(mealPlanId)) {

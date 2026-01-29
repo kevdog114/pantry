@@ -82,43 +82,52 @@
                         </div>
                     </div>
 
-                    <!-- Prep Tasks Section -->
-                    <div class="prep-tasks-section mb-3" *ngIf="getPrepTasksForDate(day).length > 0">
-                        <div class="prep-header mb-1">
-                            <mat-icon inline="true" class="small-icon">checklist</mat-icon> <strong>Prep
-                                Checklist</strong>
-                        </div>
-                        <div *ngFor="let task of getPrepTasksForDate(day)" class="prep-task-item"
-                            (click)="toggleHighlight(task.relatedMealPlanIds || task.relatedMealPlanId)"
-                            [class.highlighted]="false" style="cursor: pointer;"
-                            [title]="task.relatedRecipeTitle ? 'Click to highlight ' + task.relatedRecipeTitle : ''">
+                    <!-- Visual placeholder if empty to encourage dropping or adding -->
+                    <div class="empty-state" *ngIf="getPlansForDate(day).length === 0">
+                        Add a meal
+                    </div>
+                </div>
 
-                            <!-- Dynamic Icon -->
-                            <mat-icon inline="true" class="task-icon"
-                                [class.text-info]="task.type === 'FREEZE' || task.type === 'THAW'"
-                                [class.text-muted]="task.type === 'PREP'">
-                                {{ task.icon || 'arrow_right' }}
-                            </mat-icon>
+                <!-- Prep Tasks Section -->
+                <div class="prep-tasks-section mb-3" *ngIf="getPrepTasksForDate(day).length > 0">
+                    <div class="prep-header mb-1">
+                        <mat-icon inline="true" class="small-icon">checklist</mat-icon> <strong>Prep
+                            Checklist</strong>
+                    </div>
+                    <div *ngFor="let task of getPrepTasksForDate(day)" class="prep-task-item"
+                        (click)="toggleHighlight(task.relatedMealPlanIds || task.relatedMealPlanId)"
+                        [class.highlighted]="false" style="cursor: pointer;"
+                        [title]="task.relatedRecipeTitle ? 'Click to highlight ' + task.relatedRecipeTitle : ''">
 
-                            <div class="task-details">
-                                <span class="task-desc">{{ task.description || task.task }}</span>
-                                <div class="task-meta text-muted small" *ngIf="task.relatedRecipeTitle">
-                                    <span
-                                        *ngIf="task.relatedMealDates && task.relatedMealDates.length > 0; else noDate">
-                                        For {{task.relatedRecipeTitle}} on {{ task.relatedMealDates.join(', ') }}
-                                    </span>
-                                    <ng-template #noDate>
-                                        For {{task.relatedRecipeTitle}}
-                                    </ng-template>
-                                </div>
+                        <!-- Dynamic Icon -->
+                        <mat-icon inline="true" class="task-icon"
+                            [class.text-info]="task.type === 'FREEZE' || task.type === 'THAW'"
+                            [class.text-muted]="task.type === 'PREP'">
+                            {{ task.icon || 'arrow_right' }}
+                        </mat-icon>
+
+                        <div class="task-details">
+                            <span class="task-desc">{{ task.description || task.task }}</span>
+                            <div class="task-meta text-muted small" *ngIf="task.relatedRecipeTitle">
+                                <span *ngIf="task.relatedMealDates && task.relatedMealDates.length > 0; else noDate">
+                                    For {{task.relatedRecipeTitle}} on {{ task.relatedMealDates.join(', ') }}
+                                </span>
+                                <ng-template #noDate>
+                                    For {{task.relatedRecipeTitle}}
+                                </ng-template>
                             </div>
                         </div>
                     </div>
+                </div>
 
-                    <!-- Shopping Trips -->
-                    <div class="shopping-trips-section mb-3" *ngIf="shoppingTrips[day.toDateString()]?.length">
+                <!-- Shopping Trips Drop List -->
+                <div class="shopping-trips-section mb-3" cdkDropList
+                    [cdkDropListData]="shoppingTrips[day.toDateString()]" [id]="'shopping-' + day.toISOString()"
+                    (cdkDropListDropped)="drop($event)">
+
+                    <div *ngIf="shoppingTrips[day.toDateString()]?.length">
                         <div *ngFor="let trip of shoppingTrips[day.toDateString()]"
-                            class="meal-item shopping-trip-container">
+                            class="meal-item shopping-trip-container" cdkDrag [cdkDragData]="trip">
                             <mat-expansion-panel class="shopping-trip-panel"
                                 [class.no-items]="!trip.items || trip.items.length === 0">
                                 <mat-expansion-panel-header>
@@ -149,7 +158,8 @@
 
                                 <div class="trip-details">
                                     <p *ngIf="trip.notes" class="text-muted small mb-2" style="white-space: pre-wrap;">
-                                        <strong>Notes:</strong> {{ trip.notes }}</p>
+                                        <strong>Notes:</strong> {{ trip.notes }}
+                                    </p>
 
                                     <div *ngIf="trip.items && trip.items.length > 0; else noItems">
                                         <ul class="list-group list-group-flush small">
@@ -167,11 +177,8 @@
                             </mat-expansion-panel>
                         </div>
                     </div>
-
-                    <!-- Visual placeholder if empty to encourage dropping or adding -->
-                    <div class="empty-state" *ngIf="getPlansForDate(day).length === 0">
-                        Add a meal
-                    </div>
+                    <!-- Empty drop zone helper so we can drop into empty days -->
+                    <div *ngIf="!shoppingTrips[day.toDateString()]?.length" style="min-height: 10px;"></div>
                 </div>
 
                 <div class="add-meal-section">
