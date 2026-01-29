@@ -6,6 +6,8 @@ import { HardwareBarcodeScannerService } from '../hardware-barcode-scanner.servi
 import { SocketService } from '../services/socket.service';
 import { HttpClient } from '@angular/common/http';
 import { EnvironmentService } from '../services/environment.service';
+import { KioskService, Kiosk } from '../services/kiosk.service';
+import { Subscription } from 'rxjs';
 
 @Component({
   selector: 'app-barcode-scanner',
@@ -15,7 +17,7 @@ import { EnvironmentService } from '../services/environment.service';
   styleUrl: './barcode-scanner.component.css'
 })
 export class BarcodeScannerComponent implements OnInit, OnDestroy {
-  scanMethod: 'camera' | 'manual' = 'camera';
+  scanMethod: 'camera' | 'manual' | 'hardware' = 'camera';
   cameras: Array<{ id: string; label: string }> = [];
   selectedCameraId: string = '';
   manualBarcodeInput: string = '';
@@ -25,18 +27,36 @@ export class BarcodeScannerComponent implements OnInit, OnDestroy {
 
   isKioskMode = false;
 
+  hardwareScanners: Kiosk[] = [];
+  claimedScannerBy: string | null = null;
+  claimedKioskId: number | null = null;
+  private claimSub: Subscription | null = null;
+
   constructor(
     private barcodeService: HardwareBarcodeScannerService,
     private socketService: SocketService,
     private http: HttpClient,
-    private env: EnvironmentService
+    private env: EnvironmentService,
+    private kioskService: KioskService
   ) { }
 
   async ngOnInit() {
+    // Check for hardware scanners
+    this.kioskService.getKiosks().subscribe(kiosks => {
+      this.hardwareScanners = kiosks.filter(k =>
+        (k.devices && k.devices.some(d => d.type === 'SCANNER' && d.status === 'ONLINE')) ||
+        k.hasKeyboardScanner
+      );
+    });
+
+    this.claimSub = this.barcodeService.claimedBy$.subscribe(by => {
+      this.claimedScannerBy = by;
+    });
+
     // Load preferences
     const savedMethod = localStorage.getItem('barcode_scan_method');
-    if (savedMethod === 'camera' || savedMethod === 'manual') {
-      this.scanMethod = savedMethod;
+    if (savedMethod === 'camera' || savedMethod === 'manual' || savedMethod === 'hardware') {
+      this.scanMethod = savedMethod as any;
     }
 
     const savedCameraId = localStorage.getItem('barcode_camera_id');
@@ -48,14 +68,20 @@ export class BarcodeScannerComponent implements OnInit, OnDestroy {
       await this.initializeCamera();
     }
 
+    const savedKioskId = localStorage.getItem('claimed_kiosk_id');
+    if (savedKioskId) {
+      this.claimedKioskId = parseInt(savedKioskId);
+    }
+
     this.isKioskMode = localStorage.getItem('kiosk_mode') === 'true';
   }
 
   ngOnDestroy() {
     this.stopScanner();
+    if (this.claimSub) this.claimSub.unsubscribe();
   }
 
-  async onMethodChange(method: 'camera' | 'manual') {
+  async onMethodChange(method: 'camera' | 'manual' | 'hardware') {
     this.scanMethod = method;
     localStorage.setItem('barcode_scan_method', method);
 
@@ -64,6 +90,12 @@ export class BarcodeScannerComponent implements OnInit, OnDestroy {
     } else {
       await this.stopScanner();
     }
+  }
+
+  claimScanner(kiosk: Kiosk) {
+    this.barcodeService.claimScanner(kiosk.id);
+    this.claimedKioskId = kiosk.id;
+    localStorage.setItem('claimed_kiosk_id', kiosk.id.toString());
   }
 
   async initializeCamera() {

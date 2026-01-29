@@ -17,6 +17,12 @@
                             [class.btn-outline-primary]="scanMethod !== 'manual'" (click)="onMethodChange('manual')">
                             <i class="bi bi-keyboard-fill me-2"></i>Manual Input
                         </button>
+                        <button type="button" class="btn" *ngIf="hardwareScanners.length > 0"
+                            [class.btn-primary]="scanMethod === 'hardware'"
+                            [class.btn-outline-primary]="scanMethod !== 'hardware'"
+                            (click)="onMethodChange('hardware')">
+                            <i class="bi bi-upc-scan me-2"></i>Hardware
+                        </button>
                     </div>
 
                     <!-- Camera Mode -->
@@ -59,6 +65,37 @@
                                 </div>
                             </div>
                         </form>
+                    </div>
+
+                    <!-- Hardware Mode -->
+                    <div *ngIf="scanMethod === 'hardware'">
+                        <div class="alert alert-info" role="alert">
+                            <i class="bi bi-info-circle-fill me-2"></i>
+                            Select a hardware scanner to pair with this device.
+                        </div>
+
+                        <div class="list-group">
+                            <div *ngFor="let kiosk of hardwareScanners"
+                                class="list-group-item d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h5 class="mb-1">{{ kiosk.name }}</h5>
+                                    <small class="text-muted">ID: {{ kiosk.id }}</small>
+                                </div>
+
+                                <button *ngIf="claimedScannerBy !== 'Me' || claimedKioskId !== kiosk.id"
+                                    class="btn btn-outline-primary" (click)="claimScanner(kiosk)">
+                                    Claim Scanner
+                                </button>
+                                <button *ngIf="claimedScannerBy === 'Me' && claimedKioskId === kiosk.id"
+                                    class="btn btn-success" disabled>
+                                    <i class="bi bi-check-circle-fill me-2"></i>Connected
+                                </button>
+                            </div>
+                        </div>
+
+                        <div *ngIf="claimedScannerBy && claimedScannerBy !== 'Me'" class="alert alert-warning mt-3">
+                            Scanner is currently claimed by: {{ claimedScannerBy }}
+                        </div>
                     </div>
 
                 </div>
