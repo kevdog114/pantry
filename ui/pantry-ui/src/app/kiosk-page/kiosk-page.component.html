@@ -43,7 +43,11 @@
                     <mat-icon *ngIf="lastScan.type === 'info'"
                         class="text-blue-500 text-8xl mb-4 animate-spin">sync</mat-icon>
 
-                    <h2 class="text-5xl font-bold mb-4 w-full break-words">{{ lastScan.title }}</h2>
+                    <h2 class="text-6xl font-extrabold mb-4 w-full break-words tracking-tight leading-tight"
+                        [class.text-green-400]="lastScan.type === 'success'"
+                        [class.text-red-500]="lastScan.type === 'error'">
+                        {{ lastScan.title }}
+                    </h2>
                     <h3 class="text-3xl text-cyan-400 font-mono">{{ lastScan.status }}</h3>
                 </div>
 

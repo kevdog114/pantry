@@ -415,16 +415,24 @@ export class KioskPageComponent implements OnInit, OnDestroy {
             const { product, stockItem } = await this.resolveBarcode(barcode);
 
             if (product) {
-                await this.addStock(product, 1);
+                const addedItem = await this.addStock(product, 1);
                 this.status = "1 Unit Added";
                 this.statusSubtext = product.title;
-                this.addToLog(product.title, "+1 Unit Added", 'success');
+
+                let expStr = "";
+                if (addedItem && addedItem.expirationDate) {
+                    expStr = ` (Exp: ${new Date(addedItem.expirationDate).toLocaleDateString()})`;
+                }
+
+                this.addToLog(product.title, `+1 Unit Added${expStr}`, 'success');
+                this.playSuccessSound();
             } else {
                 // Not Found - External Lookup flow?
                 // correctly handle if they scanned a stock code vs product code
                 if (barcode.toLowerCase().startsWith('sk-') || barcode.toLowerCase().startsWith('s2-')) {
                     this.status = "Stock Item Not Found";
                     this.addToLog("Stock Item Not Found", "", 'error');
+                    this.playErrorSound();
                     return;
                 }
 
@@ -434,6 +442,7 @@ export class KioskPageComponent implements OnInit, OnDestroy {
             console.error("Scan Error", err);
             this.status = "Error processing scan.";
             this.addToLog("Scan Error", "Failed to process", 'error');
+            this.playErrorSound();
             setTimeout(() => this.status = "Scan Barcode...", 3000);
         }
     }
@@ -590,20 +599,24 @@ export class KioskPageComponent implements OnInit, OnDestroy {
                     quantity: 1
                 });
 
-                // We need to update product to save barcode
-                // But ProductService.Update expects strict structure. 
-                // Let's assume sending the modified product works or we need a specialized endpoint?
-                // ProductView/MissingBarcode does this via Update.
                 const updatePayload = {
                     ...existingProduct,
                     barcodes: updatedBarcodes
                 };
 
                 await firstValueFrom(this.productService.Update(updatePayload));
-                await this.addStock(existingProduct, 1);
+                const addedItem = await this.addStock(existingProduct, 1);
 
                 this.status = "Linked & Added";
                 this.statusSubtext = existingProduct.title;
+
+                let expStr = "";
+                if (addedItem && addedItem.expirationDate) {
+                    expStr = ` (Exp: ${new Date(addedItem.expirationDate).toLocaleDateString()})`;
+                }
+
+                this.addToLog(existingProduct.title, `Linked & Added${expStr}`, 'success');
+                this.playSuccessSound();
                 this.showTempStatus("Linked & Added", existingProduct.title, 3000);
             } else {
                 // CREATE NEW
@@ -613,8 +626,17 @@ export class KioskPageComponent implements OnInit, OnDestroy {
                     brand: offData.brands || "",
                     existingProductTitle: ""
                 }));
-                // { data: { title, brand, description, tags, pantryLifespanDays... }, warning }
                 const details = detailsRes.data;
+
+                // VALIDATION: If still unknown or generic, FAIL
+                const candidateTitle = details.title || offData.product_name;
+                if (!candidateTitle || candidateTitle === 'Unknown Product' || candidateTitle === 'New Product') {
+                    this.status = "Unknown Product";
+                    this.addToLog("Unknown Product", "Could not identify", 'error');
+                    this.playErrorSound();
+                    setTimeout(() => this.status = "Scan Barcode...", 3000);
+                    return;
+                }
 
                 // Resolve Tags
                 const allTags = await firstValueFrom(this.tagsService.GetAll());
@@ -636,7 +658,7 @@ export class KioskPageComponent implements OnInit, OnDestroy {
 
                 // Create Product
                 const newProductPayload: any = {
-                    title: details.title || offData.product_name || "New Product",
+                    title: candidateTitle,
                     tags: productTags,
                     barcodes: [{
                         barcode: barcode,
@@ -655,20 +677,30 @@ export class KioskPageComponent implements OnInit, OnDestroy {
                 const createdProduct = await firstValueFrom(this.productService.Create(newProductPayload));
 
                 this.status = `Adding new product with 1 unit...`;
-                await this.addStock(createdProduct, 1);
+                const addedItem = await this.addStock(createdProduct, 1);
 
                 this.status = "Created & Added";
                 this.statusSubtext = createdProduct.title;
+
+                let expStr = "";
+                if (addedItem && addedItem.expirationDate) {
+                    expStr = ` (Exp: ${new Date(addedItem.expirationDate).toLocaleDateString()})`;
+                }
+
+                this.addToLog(createdProduct.title, `Created & Added${expStr}`, 'success');
+                this.playSuccessSound();
                 this.showTempStatus("Created & Added", createdProduct.title, 3000);
             }
         } catch (e) {
             console.error("AI/Create failed", e);
             this.status = "Failed to process product.";
+            this.addToLog("Processing Failed", "", 'error');
+            this.playErrorSound();
             setTimeout(() => this.status = "Scan Barcode...", 3000);
         }
     }
 
-    async addStock(product: Product, quantity: number) {
+    async addStock(product: Product, quantity: number): Promise<StockItem> {
         // Create stock item
         const today = new Date();
         // Default expiration?
@@ -681,7 +713,15 @@ export class KioskPageComponent implements OnInit, OnDestroy {
         // For now, let's use a safe default or backend logic might handle null?
         // StockItem requires expirationDate.
 
-        await firstValueFrom(this.productService.CreateStock({
+        // Use Pantry lifespan first if available (as this is Restock likely to pantry)
+        // Or check storage preference?
+        // Simple logic for now:
+        const days = product.refrigeratorLifespanDays || 365;
+        expDate = new Date();
+        expDate.setDate(today.getDate() + days);
+        expDate.setHours(0, 0, 0, 0);
+
+        return await firstValueFrom(this.productService.CreateStock({
             productId: product.id,
             quantity: quantity,
             expirationDate: expDate,
@@ -690,6 +730,54 @@ export class KioskPageComponent implements OnInit, OnDestroy {
             frozen: false,
             expirationExtensionAfterThaw: 0
         }));
+    }
+
+    playSuccessSound() {
+        try {
+            const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(523.25, ctx.currentTime); // C5
+            osc.frequency.setValueAtTime(659.25, ctx.currentTime + 0.1); // E5
+
+            gain.gain.setValueAtTime(0.3, ctx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.3);
+
+            osc.start();
+            osc.stop(ctx.currentTime + 0.3);
+
+            // Cleanup provided by GC largely, but context persists. 
+            // Ideally reuse context but for simple one-off:
+            setTimeout(() => ctx.close(), 500);
+        } catch (e) { }
+    }
+
+    playErrorSound() {
+        try {
+            const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(150, ctx.currentTime);
+            osc.frequency.linearRampToValueAtTime(100, ctx.currentTime + 0.3);
+
+            gain.gain.setValueAtTime(0.3, ctx.currentTime);
+            gain.gain.linearRampToValueAtTime(0.01, ctx.currentTime + 0.3);
+
+            osc.start();
+            osc.stop(ctx.currentTime + 0.3);
+
+            setTimeout(() => ctx.close(), 500);
+        } catch (e) { }
     }
 
     getTimerForAction(action: RecipeQuickAction): any | undefined {
