@@ -27,6 +27,9 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { QuantityPromptDialogComponent } from '../quantity-prompt-dialog/quantity-prompt-dialog.component';
 import { ShoppingTripService, ShoppingTrip } from '../../services/shopping-trip.service';
 import { ShoppingTripDialogComponent } from '../shopping-trip-dialog/shopping-trip-dialog.component';
+import { MealItemSearchDialogComponent } from '../meal-item-search-dialog/meal-item-search-dialog.component';
+import { MatMenuModule } from '@angular/material/menu';
+import { MatDividerModule } from '@angular/material/divider';
 
 @Component({
     selector: 'app-meal-plan',
@@ -38,6 +41,8 @@ import { ShoppingTripDialogComponent } from '../shopping-trip-dialog/shopping-tr
         MatButtonModule,
         MatIconModule,
         MatSelectModule,
+        MatMenuModule,
+        MatDividerModule,
         MatFormFieldModule,
         MatDatepickerModule,
         MatNativeDateModule,
@@ -94,6 +99,7 @@ export class MealPlanComponent implements OnInit {
         this.loadRecipes();
         this.loadProducts();
         this.loadMealPlans();
+        this.loadShoppingTrips();
     }
 
     startDateInView: Date = new Date();
@@ -115,6 +121,7 @@ export class MealPlanComponent implements OnInit {
         this.generateDays();
         this.loadMealPlans();
         this.loadUpcomingTasks();
+        this.loadShoppingTrips();
     }
 
     nextWeek() {
@@ -122,6 +129,7 @@ export class MealPlanComponent implements OnInit {
         this.generateDays();
         this.loadMealPlans();
         this.loadUpcomingTasks();
+        this.loadShoppingTrips();
     }
 
     resetToToday() {
@@ -129,6 +137,7 @@ export class MealPlanComponent implements OnInit {
         this.generateDays();
         this.loadMealPlans();
         this.loadUpcomingTasks();
+        this.loadShoppingTrips();
     }
 
     loadRecipes() {
@@ -181,37 +190,44 @@ export class MealPlanComponent implements OnInit {
         });
     }
 
-    addMeal(date: Date, itemValue: string, select?: any) {
-        console.log('Adding meal:', date, itemValue);
-        if (!itemValue) return;
 
-        const [type, idStr] = itemValue.split('-');
-        const id = parseInt(idStr);
 
+    openAddItemDialog(date: Date, type: 'recipe' | 'product') {
+        const items = type === 'recipe' ? this.recipes : this.products;
+
+        const dialogRef = this.dialog.open(MealItemSearchDialogComponent, {
+            width: '400px',
+            data: { type, items }
+        });
+
+        dialogRef.afterClosed().subscribe(result => {
+            if (result) {
+                this.addMealToPlan(date, type, result.id);
+            }
+        });
+    }
+
+    addMealToPlan(date: Date, type: 'recipe' | 'product', id: number) {
+        console.log('Adding meal:', date, type, id);
         let obs;
         if (type === 'recipe') {
             obs = this.mealPlanService.addMealToPlan(date, id);
         } else if (type === 'product') {
             obs = this.mealPlanService.addMealToPlan(date, undefined, id);
-        } else {
-            console.error('Unknown item type:', type);
-            return;
         }
 
-        obs.subscribe({
-            next: () => {
-                console.log('Meal added successfully');
-                this.loadMealPlans();
-                this.snackBar.open('Meal added!', 'Close', { duration: 2000 });
-                if (select) {
-                    select.value = undefined;
+        if (obs) {
+            obs.subscribe({
+                next: () => {
+                    this.snackBar.open(`${type === 'recipe' ? 'Recipe' : 'Product'} added!`, 'Close', { duration: 2000 });
+                    this.loadMealPlans(); // Refresh
+                },
+                error: (err) => {
+                    console.error('Error adding meal:', err);
+                    this.snackBar.open('Failed to add meal', 'Close', { duration: 2000 });
                 }
-            },
-            error: (err) => {
-                console.error('Error adding meal:', err);
-                this.snackBar.open('Failed to add meal', 'Close', { duration: 2000 });
-            }
-        });
+            });
+        }
     }
 
     removeMeal(plan: MealPlan) {

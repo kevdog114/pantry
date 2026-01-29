@@ -115,6 +115,26 @@
                         </div>
                     </div>
 
+                    <!-- Shopping Trips -->
+                    <div class="shopping-trips-section mb-3" *ngIf="shoppingTrips[day.toDateString()]?.length">
+                        <div *ngFor="let trip of shoppingTrips[day.toDateString()]" class="meal-item shopping-trip"
+                            style="border-left: 4px solid #9c27b0; background-color: rgba(156, 39, 176, 0.05);">
+                            <div class="meal-header">
+                                <div style="display: flex; align-items: center; cursor: pointer; flex-grow: 1;"
+                                    (click)="editShoppingTrip(trip)">
+                                    <mat-icon class="me-2" style="color: #9c27b0;">shopping_cart</mat-icon>
+                                    <span class="meal-title-text">Shopping Trip</span>
+                                </div>
+                                <button mat-icon-button class="action-btn" color="warn"
+                                    (click)="$event.stopPropagation(); deleteShoppingTrip(trip)">
+                                    <mat-icon>close</mat-icon>
+                                </button>
+                            </div>
+                            <div class="text-muted small ps-4" *ngIf="trip.notes"
+                                style="margin-top: 4px; white-space: pre-wrap;">{{ trip.notes }}</div>
+                        </div>
+                    </div>
+
                     <!-- Visual placeholder if empty to encourage dropping or adding -->
                     <div class="empty-state" *ngIf="getPlansForDate(day).length === 0">
                         Add a meal
@@ -122,22 +142,21 @@
                 </div>
 
                 <div class="add-meal-section">
-                    <mat-form-field appearance="outline" class="w-100" subscriptSizing="dynamic">
-                        <mat-label>+ Add Item</mat-label>
-                        <mat-select #recipeSelect (selectionChange)="addMeal(day, $event.value, recipeSelect)"
-                            placeholder="Select Recipe or Product">
-                            <mat-optgroup label="Recipes">
-                                <mat-option *ngFor="let recipe of recipes" [value]="'recipe-' + recipe.id">
-                                    {{ recipe.title }}
-                                </mat-option>
-                            </mat-optgroup>
-                            <mat-optgroup label="Products">
-                                <mat-option *ngFor="let product of products" [value]="'product-' + product.id">
-                                    {{ product.title }}
-                                </mat-option>
-                            </mat-optgroup>
-                        </mat-select>
-                    </mat-form-field>
+                    <button mat-flat-button color="accent" [matMenuTriggerFor]="addMenu" class="w-100">
+                        <mat-icon>add</mat-icon> Add Item
+                    </button>
+                    <mat-menu #addMenu="matMenu">
+                        <button mat-menu-item (click)="openAddItemDialog(day, 'recipe')">
+                            <mat-icon>restaurant_menu</mat-icon> Recipe
+                        </button>
+                        <button mat-menu-item (click)="openAddItemDialog(day, 'product')">
+                            <mat-icon>kitchen</mat-icon> Product
+                        </button>
+                        <mat-divider></mat-divider>
+                        <button mat-menu-item (click)="addShoppingTrip(day)">
+                            <mat-icon>shopping_cart</mat-icon> Shopping Trip
+                        </button>
+                    </mat-menu>
                 </div>
             </div>
         </div>
