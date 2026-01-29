@@ -105,16 +105,59 @@ export const update = async (req: Request, res: Response, next: NextFunction): P
 }
 
 export const create = async (req: Request, res: Response, next: NextFunction): Promise<any> => {
-    const stockItem = await prisma.stockItem.create({
-        data: {
-            productId: req.body.productId,
-            expirationDate: req.body.expirationDate ? new Date(req.body.expirationDate) : undefined,
-            quantity: req.body.quantity,
-            frozen: req.body.frozen,
-            opened: req.body.opened,
-            unit: req.body.unit,
-            locationId: req.body.locationId
+    try {
+        const productId = req.body.productId;
+        const expirationDate = req.body.expirationDate ? new Date(req.body.expirationDate) : null;
+        const frozen = !!req.body.frozen;
+        const opened = !!req.body.opened;
+        const unit = req.body.unit || null;
+        const locationId = req.body.locationId || null;
+        const quantityToAdd = req.body.quantity || 1;
+
+        // Check for existing stock item with same properties
+        const existingItem = await prisma.stockItem.findFirst({
+            where: {
+                productId,
+                expirationDate,
+                frozen,
+                opened,
+                unit,
+                locationId
+            }
+        });
+
+        if (existingItem) {
+            const updatedItem = await prisma.stockItem.update({
+                where: { id: existingItem.id },
+                data: {
+                    quantity: existingItem.quantity + quantityToAdd
+                }
+            });
+            res.send(updatedItem);
+            return;
         }
-    });
-    res.send(stockItem);
+
+        const stockItem = await prisma.stockItem.create({
+            data: {
+                productId,
+                expirationDate: expirationDate || undefined, // undefined to let Prisma handle null if strictly needed, though null usually works for nullable fields
+                // Wait, if expirationDate is null, passing null to nullable field is fine. 
+                // Passing undefined excludes it from the query (uses default if any, or null).
+                // In prisma create, undefined usually means "skipped".
+                // I'll use the original logic for create data construction to be safe, or just use what I parsed.
+                // original: expirationDate: req.body.expirationDate ? new Date(req.body.expirationDate) : undefined
+                // My parsed: Date object or null.
+                // Passing null to valid Date? field in Prisma works.
+                quantity: req.body.quantity,
+                frozen: req.body.frozen,
+                opened: req.body.opened,
+                unit: req.body.unit,
+                locationId: req.body.locationId
+            }
+        });
+        res.send(stockItem);
+    } catch (error) {
+        console.error("Error creating/updating stock item:", error);
+        res.status(500).json({ message: "Failed to create or update stock item" });
+    }
 }

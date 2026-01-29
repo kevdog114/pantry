@@ -53,10 +53,13 @@ export class StockAddDialogComponent {
             if (bc) barcodeId = bc.id;
         }
 
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
         this.stockItem = {
             productId: data.product.id,
             quantity: 1,
-            expirationDate: new Date(),
+            expirationDate: today,
             frozen: false,
             opened: false,
             productBarcodeId: barcodeId

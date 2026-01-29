@@ -674,6 +674,7 @@ export class KioskPageComponent implements OnInit, OnDestroy {
         // Default expiration?
         let expDate = new Date();
         expDate.setDate(today.getDate() + 365); // Default 1 year if unknown
+        expDate.setHours(0, 0, 0, 0); // Strip time to ensure matches on same day
 
         // If product has lifespan, use it?
         // Logic normally calculates this. 
