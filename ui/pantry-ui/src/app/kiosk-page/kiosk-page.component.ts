@@ -55,9 +55,11 @@ export class KioskPageComponent implements OnInit, OnDestroy {
     status: string = 'Ready';
     statusSubtext: string = '';
     activeMode: 'NONE' | 'RESTOCK' | 'CONSUME' | 'INVENTORY' = 'NONE';
-    restockState: 'SCAN' | 'OPTIONS' | 'WEIGH' | 'EXPIRATION' = 'SCAN';
+    restockState: 'SCAN' | 'OPTIONS' | 'WEIGH' | 'EXPIRATION' | 'QUANTITY_PAD' = 'SCAN';
     pendingProduct: Product | null = null;
     pendingExpiration: Date | null = null;
+    pendingQuantity: number = 1;
+    numpadValue: string = '';
     isOnline: boolean = false;
 
     // View State
@@ -415,11 +417,13 @@ export class KioskPageComponent implements OnInit, OnDestroy {
     async handleRestockBarcode(barcode: string) {
         if (!barcode) return;
 
-        // Reset any pending state if scanning new item
+        // Reset
         this.restockState = 'SCAN';
         this.pendingProduct = null;
         this.pendingExpiration = null;
-        this.stopScaleRead(); // Ensure scale is off if we were using it
+        this.pendingQuantity = 1;
+        this.numpadValue = '';
+        this.stopScaleRead();
 
         this.status = "Looking up product...";
         this.lastScan = { title: 'Processing...', status: 'Looking up...', type: 'info' };
@@ -428,44 +432,30 @@ export class KioskPageComponent implements OnInit, OnDestroy {
             const { product, stockItem } = await this.resolveBarcode(barcode);
 
             if (product) {
-                // Check if we need to weigh/adjust options
-                if (product.trackCountBy === 'weight') {
-                    this.pendingProduct = product;
-                    // Calculate default expiration
-                    const today = new Date();
-                    const days = product.refrigeratorLifespanDays || 365;
-                    const defExp = new Date();
-                    defExp.setDate(today.getDate() + days);
-                    defExp.setHours(0, 0, 0, 0);
-                    this.pendingExpiration = defExp;
+                // Intercept ALL products for Options (Weight or Quantity)
+                this.pendingProduct = product;
 
-                    this.restockState = 'OPTIONS';
-                    this.status = "Item Options";
-                    this.statusSubtext = product.title;
-                    return;
-                }
+                // Default Exp
+                const today = new Date();
+                const days = product.refrigeratorLifespanDays || 365;
+                const defExp = new Date();
+                defExp.setDate(today.getDate() + days);
+                defExp.setHours(0, 0, 0, 0);
+                this.pendingExpiration = defExp;
 
-                const addedItem = await this.addStock(product, 1);
-                this.status = "1 Unit Added";
+                this.restockState = 'OPTIONS';
+                this.status = "Item Options";
                 this.statusSubtext = product.title;
+                return;
 
-                let expStr = "";
-                if (addedItem && addedItem.expirationDate) {
-                    expStr = ` (Exp: ${new Date(addedItem.expirationDate).toLocaleDateString()})`;
-                }
-
-                this.addToLog(product.title, `+1 Unit Added${expStr}`, 'success');
-                this.playSuccessSound();
             } else {
-                // Not Found - External Lookup flow?
-                // correctly handle if they scanned a stock code vs product code
+                // Not Found
                 if (barcode.toLowerCase().startsWith('sk-') || barcode.toLowerCase().startsWith('s2-')) {
                     this.status = "Stock Item Not Found";
                     this.addToLog("Stock Item Not Found", "", 'error');
                     this.playErrorSound();
                     return;
                 }
-
                 await this.handleNewProduct(barcode);
             }
         } catch (err) {
@@ -638,39 +628,24 @@ export class KioskPageComponent implements OnInit, OnDestroy {
 
                 // If tracked by weight, we should technically go to options too.
                 // But simplified: just add 1 for now or check trackCountBy?
-                // Let's check trackCountBy to be consistent.
-                if (existingProduct.trackCountBy === 'weight') {
-                    this.pendingProduct = existingProduct;
-                    // Default exp
-                    const today = new Date();
-                    const days = existingProduct.refrigeratorLifespanDays || 365;
-                    const defExp = new Date();
-                    defExp.setDate(today.getDate() + days);
-                    defExp.setHours(0, 0, 0, 0);
-                    this.pendingExpiration = defExp;
+                // Intercept ALL for options consistency
+                this.pendingProduct = existingProduct;
+                // Default exp
+                const today = new Date();
+                const days = existingProduct.refrigeratorLifespanDays || 365;
+                const defExp = new Date();
+                defExp.setDate(today.getDate() + days);
+                defExp.setHours(0, 0, 0, 0);
+                this.pendingExpiration = defExp;
+                this.pendingQuantity = 1;
 
-                    this.restockState = 'OPTIONS';
-                    this.status = "Item Options";
-                    this.statusSubtext = existingProduct.title;
-
-                    this.addToLog(existingProduct.title, "Linked - Select Options", 'info');
-                    this.playSuccessSound();
-                    return;
-                }
-
-                const addedItem = await this.addStock(existingProduct, 1);
-
-                this.status = "Linked & Added";
+                this.restockState = 'OPTIONS';
+                this.status = "Item Options";
                 this.statusSubtext = existingProduct.title;
 
-                let expStr = "";
-                if (addedItem && addedItem.expirationDate) {
-                    expStr = ` (Exp: ${new Date(addedItem.expirationDate).toLocaleDateString()})`;
-                }
-
-                this.addToLog(existingProduct.title, `Linked & Added${expStr}`, 'success');
+                this.addToLog(existingProduct.title, "Linked - Select Options", 'info');
                 this.playSuccessSound();
-                this.showTempStatus("Linked & Added", existingProduct.title, 3000);
+                return;
             } else {
                 // CREATE NEW
                 this.status = "Analyzing product details...";
@@ -733,35 +708,21 @@ export class KioskPageComponent implements OnInit, OnDestroy {
                 this.status = `Adding new product...`;
 
                 // If tracked by weight?
-                if (createdProduct.trackCountBy === 'weight') {
-                    this.pendingProduct = createdProduct;
-                    const today = new Date();
-                    const days = createdProduct.refrigeratorLifespanDays || 365;
-                    const defExp = new Date();
-                    defExp.setDate(today.getDate() + days);
-                    defExp.setHours(0, 0, 0, 0);
-                    this.pendingExpiration = defExp;
+                // ALL Intercept
+                this.pendingProduct = createdProduct;
+                const today = new Date();
+                const days = createdProduct.refrigeratorLifespanDays || 365;
+                const defExp = new Date();
+                defExp.setDate(today.getDate() + days);
+                defExp.setHours(0, 0, 0, 0);
+                this.pendingExpiration = defExp;
+                this.pendingQuantity = 1;
 
-                    this.restockState = 'OPTIONS';
-                    this.status = "Item Options";
-                    this.statusSubtext = createdProduct.title;
-                    this.playSuccessSound();
-                    return;
-                }
-
-                const addedItem = await this.addStock(createdProduct, 1);
-
-                this.status = "Created & Added";
+                this.restockState = 'OPTIONS';
+                this.status = "Item Options";
                 this.statusSubtext = createdProduct.title;
-
-                let expStr = "";
-                if (addedItem && addedItem.expirationDate) {
-                    expStr = ` (Exp: ${new Date(addedItem.expirationDate).toLocaleDateString()})`;
-                }
-
-                this.addToLog(createdProduct.title, `Created & Added${expStr}`, 'success');
                 this.playSuccessSound();
-                this.showTempStatus("Created & Added", createdProduct.title, 3000);
+                return;
             }
         } catch (e) {
             console.error("AI/Create failed", e);
@@ -813,18 +774,74 @@ export class KioskPageComponent implements OnInit, OnDestroy {
         this.restockState = 'EXPIRATION';
     }
 
+    openRestockQuantity() {
+        this.restockState = 'QUANTITY_PAD';
+        this.numpadValue = '';
+    }
+
     cancelRestockItem() {
         this.restockState = 'SCAN';
         this.pendingProduct = null;
         this.pendingExpiration = null;
+        this.pendingQuantity = 1;
+        this.numpadValue = '';
         this.status = 'Scan Barcode...';
         this.statusSubtext = '';
         this.stopScaleRead();
     }
 
+    numpadInput(digit: string) {
+        if (this.numpadValue.length >= 4) return;
+        this.numpadValue += digit;
+    }
+
+    numpadBackspace() {
+        this.numpadValue = this.numpadValue.slice(0, -1);
+    }
+
+    numpadConfirm() {
+        const val = parseInt(this.numpadValue);
+        if (!isNaN(val) && val > 0) {
+            this.pendingQuantity = val;
+            this.backToRestockOptions();
+        } else {
+            this.backToRestockOptions();
+        }
+    }
+
     backToRestockOptions() {
         this.stopScaleRead();
         this.restockState = 'OPTIONS';
+        this.status = "Item Options";
+    }
+
+    async confirmRestockItem() {
+        if (!this.pendingProduct) return;
+
+        // Add Quantity
+        try {
+            const addedItem = await this.addStock(this.pendingProduct, this.pendingQuantity, this.pendingExpiration);
+
+            let expStr = "";
+            if (addedItem && addedItem.expirationDate) {
+                expStr = ` (Exp: ${new Date(addedItem.expirationDate).toLocaleDateString()})`;
+            }
+
+            this.addToLog(this.pendingProduct.title, `+${this.pendingQuantity} Unit(s) Added${expStr}`, 'success');
+            this.playSuccessSound();
+
+            // Should we clear logs or just reset state?
+            // "If scanning another product... reset"
+            // So reset state now.
+
+            this.cancelRestockItem();
+            this.showTempStatus("Added " + this.pendingQuantity + " Unit(s)", this.pendingProduct.title, 2000);
+
+        } catch (e) {
+            console.error("Failed to add stock", e);
+            this.snackBar.open("Failed to add stock", "Close");
+            this.playErrorSound();
+        }
     }
 
     setRestockExpiration(val: string) {

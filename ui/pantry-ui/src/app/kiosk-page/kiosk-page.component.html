@@ -84,20 +84,40 @@
                     class="bg-white/5 border border-white/10 rounded-3xl p-8 flex-1 flex flex-col items-center justify-center text-center">
                     <h2 class="text-5xl font-bold mb-2 text-white">{{ pendingProduct?.title }}</h2>
                     <div class="text-2xl text-gray-400 mb-12 font-mono">
-                        Expiration: <span class="text-cyan-400">{{ pendingExpiration ? (pendingExpiration |
-                            date:'mediumDate') : 'None' }}</span>
+                        <span *ngIf="pendingProduct?.trackCountBy !== 'weight'" class="mr-4">Qty: <span
+                                class="text-cyan-400 font-bold">{{ pendingQuantity }}</span></span>
+                        <span>Exp: <span class="text-cyan-400">{{ pendingExpiration ? (pendingExpiration |
+                                date:'mediumDate') : 'None' }}</span></span>
                     </div>
 
                     <div class="grid grid-cols-2 gap-8 w-full max-w-4xl h-64">
-                        <button class="k-btn primary h-full scale-button" style="font-size: 1.5rem;"
+                        <!-- WEIGHT CONTROL -->
+                        <button *ngIf="pendingProduct?.trackCountBy === 'weight'"
+                            class="k-btn primary h-full scale-button" style="font-size: 1.5rem;"
                             (click)="openRestockWeigh()">
                             <mat-icon style="transform: scale(2.5); margin-bottom: 1rem;">scale</mat-icon>
                             <span class="text-3xl mt-4 font-bold">WEIGH ITEM</span>
                         </button>
+
+                        <!-- QUANTITY CONTROL -->
+                        <button *ngIf="pendingProduct?.trackCountBy !== 'weight'" class="k-btn primary h-full"
+                            style="font-size: 1.5rem;" (click)="openRestockQuantity()">
+                            <mat-icon style="transform: scale(2.5); margin-bottom: 1rem;">dialpad</mat-icon>
+                            <span class="text-3xl mt-4 font-bold">CHANGE QTY</span>
+                        </button>
+
                         <button class="k-btn accent h-full" style="font-size: 1.5rem;"
                             (click)="openRestockExpiration()">
                             <mat-icon style="transform: scale(2.5); margin-bottom: 1rem;">calendar_today</mat-icon>
                             <span class="text-3xl mt-4 font-bold">CHANGE EXPIRATION</span>
+                        </button>
+
+                        <!-- QUANTITY ADD CONFIRMATION (Explicit Button for Qty Items) -->
+                        <button *ngIf="pendingProduct?.trackCountBy !== 'weight'"
+                            class="k-btn success h-full col-span-2" style="font-size: 2rem;"
+                            (click)="confirmRestockItem()">
+                            <mat-icon style="transform: scale(2.5); margin-bottom: -10px;">check_circle</mat-icon>
+                            <span class="text-4xl ml-4 font-bold">ADD ITEM</span>
                         </button>
                     </div>
                 </div>
@@ -143,6 +163,26 @@
                             class="text-3xl font-bold">CAPTURE</span>
                     </button>
                 </div>
+            </div>
+
+            <!-- STATE: QUANTITY PAD -->
+            <div *ngIf="restockState === 'QUANTITY_PAD'" class="flex-1 flex flex-col gap-4">
+                <div class="bg-white/5 border border-white/10 rounded-3xl flex-1 flex flex-col p-4 relative">
+                    <div class="flex-1 flex items-center justify-center mb-4 border-b border-white/10">
+                        <span class="text-[8rem] font-bold font-mono">{{ numpadValue || '_' }}</span>
+                    </div>
+
+                    <div class="grid grid-cols-3 gap-4 h-[60%]">
+                        <button *ngFor="let d of ['1','2','3','4','5','6','7','8','9']" class="k-btn text-5xl font-mono"
+                            (click)="numpadInput(d)">{{d}}</button>
+                        <button class="k-btn text-3xl font-bold text-red-400" (click)="numpadBackspace()">DEL</button>
+                        <button class="k-btn text-5xl font-mono" (click)="numpadInput('0')">0</button>
+                        <button class="k-btn text-3xl font-bold text-green-400" (click)="numpadConfirm()">OK</button>
+                    </div>
+                </div>
+                <button class="k-btn h-32" (click)="backToRestockOptions()">
+                    <mat-icon>arrow_back</mat-icon> <span class="text-2xl ml-4">CANCEL EDIT</span>
+                </button>
             </div>
 
             <!-- STATE: EXPIRATION -->
