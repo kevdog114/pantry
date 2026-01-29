@@ -2297,6 +2297,13 @@ export const calculateLogistics = async (req: Request, res: Response) => {
       });
     }
 
+    // Fetch existing Shopping Trips in range (plus loop overlap?)
+    // Just fetch future trips
+    const existingTrips = await prisma.shoppingTrip.findMany({
+      where: { date: { gte: new Date() } }
+    });
+    const tripContext = existingTrips.map(t => `- ID: ${t.id}, Date: ${t.date.toISOString().split('T')[0]}, Notes: ${t.notes}`).join('\n');
+
     const mpIds = mealPlans.map(mp => mp.id);
     if (mpIds.length > 0) {
       await prisma.stockReservation.deleteMany({
@@ -2321,21 +2328,30 @@ export const calculateLogistics = async (req: Request, res: Response) => {
 
     const prompt = `
       Analyze the following Meal Plan and Current Inventory.
-      Your goal is to identify which Stock Items should be reserved for each meal.
+      Your goal is to identify which Stock Items should be reserved for each meal, AND plan the necessary Shopping Trips.
       
       For each meal plan entry:
       1. Identify the ingredients needed.
       2. Match them to available Stock Items in the Inventory.
       3. Calculate how much of each stock item to reserve.
       
+      For logic planning (Shopping):
+      1. Identify ingredients that are MISSING or INSUFFICIENT after reservations.
+      2. Plan Shopping Trips to acquire them.
+      3. Use existing Shopping Trips if efficient (e.g. same day or leading up to the meal).
+      4. Create new Shopping Trips if needed (group items logically, e.g. weekly).
+      
       Rules:
       1. Prioritize stock items with the EARLIEST Expiration Date.
-      2. If a single stock item isn't enough, use partial amounts from multiple stock items until the need is met.
-      3. Return a JSON structure listing the reservations to create.
-      4. Generally reserve only what is needed for the recipe.
+      2. If a single stock item isn't enough, use partial amounts from multiple stock items.
+      3. Return a JSON structure listing reservations AND shopping trips.
+      4. Generally reserve only what is needed.
       
       Input:
       ${planContext}
+
+      Existing Shopping Trips:
+      ${tripContext}
       
       Inventory:
       ${inventoryContext}
@@ -2348,6 +2364,16 @@ export const calculateLogistics = async (req: Request, res: Response) => {
             "stockItemId": 456,
             "amount": 2.5
           }
+        ],
+        "shoppingTrips": [
+            {
+                "date": "YYYY-MM-DD",
+                "notes": "Weekly Shop",
+                "existingId": 12 (optional, if using existing),
+                "items": [
+                    { "name": "Milk", "amount": 1, "unit": "gal" }
+                ]
+            }
         ]
       }
     `;
@@ -2365,6 +2391,7 @@ export const calculateLogistics = async (req: Request, res: Response) => {
     const data = JSON.parse(jsonMatch[0]);
 
     let createdCount = 0;
+    // Process Reservations
     if (data.reservations && Array.isArray(data.reservations)) {
       for (const resv of data.reservations) {
         if (resv.mealPlanId && resv.stockItemId && resv.amount) {
@@ -2380,6 +2407,49 @@ export const calculateLogistics = async (req: Request, res: Response) => {
           } catch (e) {
             console.warn(`Failed to create reservation m:${resv.mealPlanId} s:${resv.stockItemId}`, e);
           }
+        }
+      }
+    }
+
+    // Process Shopping Trips
+    let tripsCreated = 0;
+    let itemsCreated = 0;
+    if (data.shoppingTrips && Array.isArray(data.shoppingTrips)) {
+      for (const trip of data.shoppingTrips) {
+        let tripId = trip.existingId;
+
+        try {
+          if (!tripId) {
+            // Create new trip
+            const newTrip = await prisma.shoppingTrip.create({
+              data: {
+                date: new Date(trip.date),
+                notes: trip.notes
+              }
+            });
+            tripId = newTrip.id;
+            tripsCreated++;
+          } else {
+            // (Optional) Update notes if provided?
+            // await prisma.shoppingTrip.update(...) 
+          }
+
+          if (trip.items && Array.isArray(trip.items)) {
+            for (const item of trip.items) {
+              await prisma.shoppingListItem.create({
+                data: {
+                  shoppingTripId: tripId,
+                  name: item.name,
+                  quantity: Number(item.amount) || 1,
+                  unit: item.unit || null,
+                  checked: false
+                }
+              });
+              itemsCreated++;
+            }
+          }
+        } catch (e) {
+          console.warn("Failed to process shopping trip", e);
         }
       }
     }

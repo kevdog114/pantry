@@ -22,6 +22,7 @@ import * as FamilyController from "./controllers/FamilyController";
 import * as MealPlanController from "./controllers/MealPlanController";
 import * as KioskController from "./controllers/KioskController";
 import * as ShoppingListController from "./controllers/ShoppingListController";
+import * as ShoppingTripController from "./controllers/ShoppingTripController";
 import { isAuthenticated } from "./middleware/auth";
 
 import * as LabelPrinterController from "./controllers/labelPrinterController";
@@ -265,6 +266,12 @@ app.put("/shopping-list/items/:itemId", ShoppingListController.updateItem);
 app.delete("/shopping-list/items/:itemId", ShoppingListController.deleteItem);
 app.delete("/shopping-list/:id/checked", ShoppingListController.clearChecked);
 
+
+app.get("/shopping-trips", ShoppingTripController.getShoppingTrips);
+app.post("/shopping-trips", ShoppingTripController.createShoppingTrip);
+app.put("/shopping-trips/:id", ShoppingTripController.updateShoppingTrip);
+app.delete("/shopping-trips/:id", ShoppingTripController.deleteShoppingTrip);
+app.post("/shopping-trips/:id/assign-items", ShoppingTripController.assignItemsToTrip);
 
 app.post("/labels/quick-print", LabelPrinterController.printQuickLabel);
 app.post("/labels/stock/:id", LabelPrinterController.printStockLabel);

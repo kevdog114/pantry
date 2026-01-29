@@ -25,6 +25,8 @@ import { DragDropModule, CdkDragDrop, moveItemInArray, transferArrayItem } from 
 import { KitchenLogisticsService, LogisticsTask } from '../../services/kitchen-logistics.service';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { QuantityPromptDialogComponent } from '../quantity-prompt-dialog/quantity-prompt-dialog.component';
+import { ShoppingTripService, ShoppingTrip } from '../../services/shopping-trip.service';
+import { ShoppingTripDialogComponent } from '../shopping-trip-dialog/shopping-trip-dialog.component';
 
 @Component({
     selector: 'app-meal-plan',
@@ -82,7 +84,8 @@ export class MealPlanComponent implements OnInit {
         private snackBar: MatSnackBar,
         private http: HttpClient,
         private env: EnvironmentService,
-        private dialog: MatDialog
+        private dialog: MatDialog,
+        private shoppingTripService: ShoppingTripService
     ) {
         this.generateDays();
     }
@@ -249,6 +252,101 @@ export class MealPlanComponent implements OnInit {
                 });
             }
         });
+    }
+
+    shoppingTrips: { [key: string]: ShoppingTrip[] } = {};
+
+    loadShoppingTrips() {
+        const start = this.days[0].toISOString();
+        const lastDay = new Date(this.days[this.days.length - 1]);
+        lastDay.setHours(23, 59, 59, 999);
+        const end = lastDay.toISOString();
+
+        this.shoppingTripService.getShoppingTrips(start, end).subscribe(trips => {
+            this.shoppingTrips = {};
+            this.days.forEach(d => {
+                this.shoppingTrips[d.toDateString()] = [];
+            });
+
+            trips.forEach(trip => {
+                const tripDate = new Date(trip.date);
+                const dateKey = tripDate.toDateString();
+                if (this.shoppingTrips[dateKey]) {
+                    this.shoppingTrips[dateKey].push(trip);
+                } else {
+                    this.shoppingTrips[dateKey] = [trip];
+                }
+            });
+        });
+    }
+
+    addShoppingTrip(date: Date) {
+        const dialogRef = this.dialog.open(ShoppingTripDialogComponent, {
+            data: { notes: '' }
+        });
+
+        dialogRef.afterClosed().subscribe(result => {
+            if (result !== undefined) {
+                this.shoppingTripService.createShoppingTrip(date, result).subscribe(() => {
+                    this.loadShoppingTrips();
+                    this.snackBar.open('Shopping trip added', 'Close', { duration: 2000 });
+                });
+            }
+        });
+    }
+
+    editShoppingTrip(trip: ShoppingTrip) {
+        const dialogRef = this.dialog.open(ShoppingTripDialogComponent, {
+            data: { notes: trip.notes || '' }
+        });
+
+        dialogRef.afterClosed().subscribe(result => {
+            if (result !== undefined) {
+                this.shoppingTripService.updateShoppingTrip(trip.id, undefined, result).subscribe(() => {
+                    trip.notes = result;
+                    this.snackBar.open('Shopping trip updated', 'Close', { duration: 2000 });
+                });
+            }
+        });
+    }
+
+    deleteShoppingTrip(trip: ShoppingTrip) {
+        if (confirm('Delete this shopping trip?')) {
+            this.shoppingTripService.deleteShoppingTrip(trip.id).subscribe(() => {
+                this.loadShoppingTrips();
+                this.snackBar.open('Shopping trip deleted', 'Close', { duration: 2000 });
+            });
+        }
+    }
+
+    dropTrip(event: CdkDragDrop<ShoppingTrip[]>) {
+        if (event.previousContainer === event.container) {
+            return;
+        } else {
+            const trip = event.previousContainer.data[event.previousIndex];
+            transferArrayItem(
+                event.previousContainer.data,
+                event.container.data,
+                event.previousIndex,
+                event.currentIndex,
+            );
+
+            // Container ID format: "trip-list-Fri Jan 30 2026"
+            // We need to extract the date string carefully.
+            // Let's assume the ID is just the date string if possible, or construct it.
+            // Actually, in HTML we will likely do [id]="'trip-' + day.toDateString()"
+            const id = event.container.id;
+            const dateStr = id.replace('trip-', '');
+            const newDate = new Date(dateStr);
+
+            this.shoppingTripService.updateShoppingTrip(trip.id, newDate).subscribe({
+                next: () => this.snackBar.open('Trip moved!', 'Order', { duration: 2000 }),
+                error: () => {
+                    this.snackBar.open('Failed to move trip.', 'Error', { duration: 2000 });
+                    this.loadShoppingTrips(); // Revert
+                }
+            });
+        }
     }
 
     getPlansForDate(date: Date): MealPlan[] {
@@ -583,19 +681,23 @@ export class MealPlanComponent implements OnInit {
                         });
 
                         // 3. Generate Shopping List (Logistics via Gemini)
-                        this.mealPlanService.generateShoppingList(today.toISOString(), future.toISOString()).subscribe({
-                            next: (res) => {
-                                console.log('Shopping list generated:', res);
-                                if (res.items && res.items.length > 0) {
-                                    this.snackBar.open(`Added ${res.items.length} items to Shopping List`, 'Cool', { duration: 3000 });
-                                }
-                                this.isPlanningLogistics = false;
-                            },
-                            error: (err) => {
-                                console.error('Shopping list gen failed', err);
-                                this.isPlanningLogistics = false;
-                            }
-                        });
+                        // 3. Generate Shopping List (Logistics via Gemini)
+                        // this.mealPlanService.generateShoppingList(today.toISOString(), future.toISOString()).subscribe({
+                        //     next: (res) => {
+                        //         console.log('Shopping list generated:', res);
+                        //         if (res.items && res.items.length > 0) {
+                        //             this.snackBar.open(`Added ${res.items.length} items to Shopping List`, 'Cool', { duration: 3000 });
+                        //         }
+                        //         this.isPlanningLogistics = false;
+                        //     },
+                        //     error: (err) => {
+                        //         console.error('Shopping list gen failed', err);
+                        //         this.isPlanningLogistics = false;
+                        //     }
+                        // });
+                        console.log('Gemini processed shopping trips. Reloading...');
+                        this.loadShoppingTrips();
+                        this.isPlanningLogistics = false;
                     },
                     error: (err) => {
                         console.error("Failed to get meal plan", err);

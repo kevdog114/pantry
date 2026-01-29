@@ -317,6 +317,17 @@ model ShoppingListItem {
   fromLogistics  Boolean      @default(false)
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
+  shoppingTripId Int?
+  shoppingTrip   ShoppingTrip? @relation(fields: [shoppingTripId], references: [id], onDelete: SetNull)
+}
+
+model ShoppingTrip {
+  id        Int      @id @default(autoincrement())
+  date      DateTime
+  notes     String?
+  items     ShoppingListItem[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model MealTask {
