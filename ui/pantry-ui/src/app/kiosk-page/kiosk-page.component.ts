@@ -63,6 +63,14 @@ export class KioskPageComponent implements OnInit, OnDestroy {
     pendingQuantity: number = 1;
     numpadValue: string = '';
 
+    // Leftover State
+    leftoverState: 'OPTIONS' | 'WEIGH' | 'QUANTITY_PAD' | 'EXPIRATION' = 'OPTIONS';
+    leftoverQuantity: number = 1;
+    leftoverWeight: number = 0;
+    leftoverMode: 'QUANTITY' | 'WEIGHT' = 'QUANTITY';
+    leftoverExpiration: Date | null = null;
+    showLeftoverModal: boolean = false;
+
     // Inventory Edit State
     inventoryState: 'SCAN' | 'DETAILS' | 'WEIGH' | 'QUANTITY' | 'EXPIRATION' | 'LOCATION' | 'OTHER_STOCK' = 'SCAN';
     inventoryProduct: Product | null = null;
@@ -1885,5 +1893,141 @@ export class KioskPageComponent implements OnInit, OnDestroy {
         }
         this.analyser = null;
         this.micVolume = 0;
+    }
+
+    // LEFTOVER METHODS
+    openLeftovers() {
+        if (!this.selectedRecipe) return;
+        this.showLeftoverModal = true;
+        this.leftoverState = 'OPTIONS';
+        this.leftoverQuantity = 1;
+        this.leftoverWeight = 0;
+        this.leftoverMode = 'QUANTITY';
+        this.numpadValue = '';
+
+        // Default expiration (+4 days)
+        const d = new Date();
+        d.setDate(d.getDate() + 4);
+        this.leftoverExpiration = d;
+    }
+
+    closeLeftovers() {
+        this.showLeftoverModal = false;
+        this.stopScaleRead();
+    }
+
+    toggleLeftoverMode() {
+        if (this.leftoverMode === 'QUANTITY') {
+            this.leftoverMode = 'WEIGHT';
+            // Start scale if possible
+            this.startScaleRead();
+        } else {
+            this.leftoverMode = 'QUANTITY';
+            this.stopScaleRead();
+        }
+    }
+
+    openLeftoverWeigh() {
+        this.leftoverState = 'WEIGH';
+        this.startScaleRead();
+    }
+
+    openLeftoverQuantityPad() {
+        this.leftoverState = 'QUANTITY_PAD';
+        this.numpadValue = '';
+    }
+
+    openLeftoverExpiration() {
+        this.leftoverState = 'EXPIRATION';
+    }
+
+    backToLeftoverOptions() {
+        this.leftoverState = 'OPTIONS';
+        this.stopScaleRead();
+    }
+
+    captureLeftoverWeight() {
+        this.leftoverWeight = this.currentWeight;
+        this.backToLeftoverOptions();
+    }
+
+    confirmLeftoverQuantity() {
+        const val = parseInt(this.numpadValue);
+        if (!isNaN(val) && val > 0) {
+            this.leftoverQuantity = val;
+        }
+        this.backToLeftoverOptions();
+    }
+
+    setLeftoverExpiration(val: string) {
+        const today = new Date();
+        let d: Date | null = new Date();
+        d.setHours(0, 0, 0, 0);
+
+        switch (val) {
+            case '4d': d.setDate(today.getDate() + 4); break;
+            case '1w': d.setDate(today.getDate() + 7); break;
+            case '2w': d.setDate(today.getDate() + 14); break;
+            case '6m': d.setMonth(today.getMonth() + 6); break;
+            case '1y': d.setFullYear(today.getFullYear() + 1); break;
+            case '2y': d.setFullYear(today.getFullYear() + 2); break;
+            case 'none': d = null; break;
+            default: d = null;
+        }
+
+        this.leftoverExpiration = d;
+        this.backToLeftoverOptions();
+    }
+
+    async saveLeftovers(printType: 'NONE' | 'SINGLE' | 'MATCH_QUANTITY') {
+        if (!this.selectedRecipe) return;
+
+        const payload: any = {
+            trackBy: this.leftoverMode === 'WEIGHT' ? 'weight' : 'quantity'
+        };
+
+        if (this.leftoverMode === 'WEIGHT') {
+            payload.quantity = this.leftoverWeight > 0 ? this.leftoverWeight : this.currentWeight;
+            payload.unit = 'g';
+            // Fallback if they didn't capture but hit save on weigh screen (though currentWeight should work)
+        } else {
+            payload.quantity = this.leftoverQuantity;
+        }
+
+        if (this.leftoverExpiration) {
+            payload.customExpirationDate = this.leftoverExpiration.toISOString();
+        }
+
+        this.status = "Creating Leftovers...";
+
+        try {
+            const res = await firstValueFrom(this.http.post<any>(`${this.env.apiUrl}/recipes/${this.selectedRecipe.id}/leftover`, payload));
+            const stockItem = res.stockItem;
+
+            if (printType !== 'NONE' && stockItem) {
+                this.status = "Printing Label(s)...";
+                let printCount = 1;
+
+                if (printType === 'MATCH_QUANTITY' && this.leftoverMode === 'QUANTITY') {
+                    printCount = payload.quantity;
+                }
+
+                for (let i = 0; i < printCount; i++) {
+                    // Add slight delay to avoid buffer overwrites in printer
+                    if (i > 0) await new Promise(r => setTimeout(r, 500));
+                    this.labelService.printStockLabel(stockItem.id, this.labelSizeCode).subscribe();
+                }
+            }
+
+            this.closeLeftovers();
+            this.playSuccessSound();
+            this.showTempStatus("Leftovers Created", this.selectedRecipe.title, 2000);
+
+        } catch (e) {
+            console.error("Leftover creation failed", e);
+            this.playErrorSound();
+            this.status = "Error";
+            this.snackBar.open("Failed to create leftovers", "Close");
+        }
     }
 }

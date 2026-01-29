@@ -862,3 +862,15 @@
     transition: width 0.1s linear;
     width: 0%;
 }
+.k-btn-ghost {
+    background: transparent;
+    border: 1px dashed var(--k-border);
+    color: var(--k-text-dim);
+    transition: all 0.2s;
+    cursor: pointer;
+}
+.k-btn-ghost:active {
+    background: rgba(255, 255, 255, 0.1);
+    transform: scale(0.98);
+    border-color: rgba(255,255,255,0.5);
+}
