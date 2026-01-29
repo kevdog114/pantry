@@ -10,6 +10,8 @@ import { MealPlanService, MealPlan } from '../../services/meal-plan.service';
 import { GeminiService } from '../../services/gemini.service';
 import { RecipeService } from '../../services/recipe.service';
 import { Recipe } from '../../types/recipe';
+import { ProductListService } from '../product-list/product-list.service';
+import { Product } from '../../types/product';
 import { MatCardModule } from '@angular/material/card';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
@@ -50,6 +52,7 @@ export class MealPlanComponent implements OnInit {
     mealPlans: { [key: string]: MealPlan[] } = {};
     dailyPrepTasks: { [key: string]: LogisticsTask[] } = {};
     recipes: Recipe[] = [];
+    products: Product[] = [];
     selectedDate: Date = new Date();
     thawAdviceMap: { [product: string]: { hoursToThaw: number, advice: string } } = {};
     loadingThawAdvice = false;
@@ -72,6 +75,7 @@ export class MealPlanComponent implements OnInit {
     constructor(
         private mealPlanService: MealPlanService,
         private recipeService: RecipeService,
+        private productService: ProductListService,
         private logisticsService: KitchenLogisticsService, // Injected
         private geminiService: GeminiService,
         private snackBar: MatSnackBar,
@@ -83,6 +87,7 @@ export class MealPlanComponent implements OnInit {
 
     ngOnInit() {
         this.loadRecipes();
+        this.loadProducts();
         this.loadMealPlans();
     }
 
@@ -127,6 +132,12 @@ export class MealPlanComponent implements OnInit {
         });
     }
 
+    loadProducts() {
+        this.productService.GetAll().subscribe(products => {
+            this.products = products;
+        });
+    }
+
     loadMealPlans() {
         const start = this.days[0].toISOString();
         const lastDay = new Date(this.days[this.days.length - 1]);
@@ -165,11 +176,24 @@ export class MealPlanComponent implements OnInit {
         });
     }
 
-    addMeal(date: Date, recipeId: number, select?: any) {
-        console.log('Adding meal:', date, recipeId);
-        if (!recipeId) return;
+    addMeal(date: Date, itemValue: string, select?: any) {
+        console.log('Adding meal:', date, itemValue);
+        if (!itemValue) return;
 
-        this.mealPlanService.addMealToPlan(date, recipeId).subscribe({
+        const [type, idStr] = itemValue.split('-');
+        const id = parseInt(idStr);
+
+        let obs;
+        if (type === 'recipe') {
+            obs = this.mealPlanService.addMealToPlan(date, id);
+        } else if (type === 'product') {
+            obs = this.mealPlanService.addMealToPlan(date, undefined, id);
+        } else {
+            console.error('Unknown item type:', type);
+            return;
+        }
+
+        obs.subscribe({
             next: () => {
                 console.log('Meal added successfully');
                 this.loadMealPlans();
@@ -213,6 +237,8 @@ export class MealPlanComponent implements OnInit {
         console.log('Checking thaw times...');
         Object.values(this.mealPlans).flat().forEach(plan => {
             const recipe = plan.recipe as any;
+            if (!recipe) return; // Skip if no recipe (e.g. product only)
+
             const ingredients = recipe.ingredients || recipe.recipeIngredients; // Handle potential schema naming diff
 
             if (ingredients) {
@@ -273,7 +299,30 @@ export class MealPlanComponent implements OnInit {
 
     // Thawing Logic
     getThawingAdvice(plan: MealPlan): string | null {
+        if (plan.product) {
+            // For raw product meals
+            const product = plan.product as any; // Ensure we have stock items
+            if (product.stockItems && product.stockItems.length > 0) {
+                const hasFresh = product.stockItems.some((item: any) => !item.frozen || item.opened);
+                if (!hasFresh) {
+                    const cookDate = new Date(plan.date);
+                    let thawDate = new Date(cookDate);
+                    const thawInfo = this.thawAdviceMap[product.title.toLowerCase()];
+
+                    if (thawInfo && thawInfo.hoursToThaw > 0) {
+                        const hours = thawInfo.hoursToThaw;
+                        thawDate = new Date(cookDate.getTime() - (hours * 60 * 60 * 1000));
+                        const dateStr = thawDate.toLocaleDateString();
+                        const timeStr = thawDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                        return `${product.title}: Start thawing ${dateStr} ${timeStr}`;
+                    }
+                }
+            }
+            return null;
+        }
+
         const recipe = plan.recipe as any;
+        if (!recipe) return null;
 
         // Priority 1: Use pre-calculated AI advice stored on the recipe
         if (recipe.thawInstructions) {
@@ -311,7 +360,19 @@ export class MealPlanComponent implements OnInit {
 
     getMissingIngredients(plan: MealPlan): string[] {
         const missing: string[] = [];
+        if (plan.product) {
+            // Check if we have the product itself
+            const p: any = plan.product;
+            if (!p.stockItems || p.stockItems.length === 0 || p.stockItems.every((si: any) => si.quantity <= 0)) {
+                // Simple existence check, quantity check is harder without amount
+                missing.push(p.title);
+            }
+            return missing;
+        }
+
         const recipe = plan.recipe as any;
+        if (!recipe) return [];
+
         if (recipe.ingredients) {
             recipe.ingredients.forEach((ing: any) => {
                 const product = ing.product;

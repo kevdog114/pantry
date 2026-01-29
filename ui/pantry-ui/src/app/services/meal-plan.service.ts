@@ -4,11 +4,15 @@ import { Observable } from 'rxjs';
 import { Recipe } from '../types/recipe';
 import { EnvironmentService } from './environment.service';
 
+import { Product } from '../types/product';
+
 export interface MealPlan {
     id: number;
     date: string;
-    recipeId: number;
-    recipe: Recipe;
+    recipeId?: number;
+    recipe?: Recipe;
+    productId?: number;
+    product?: Product;
 }
 
 @Injectable({
@@ -25,8 +29,8 @@ export class MealPlanService {
         return this.http.get<MealPlan[]>(`${this.apiUrl}?startDate=${startDate}&endDate=${endDate}`);
     }
 
-    addMealToPlan(date: Date, recipeId: number): Observable<MealPlan> {
-        return this.http.post<MealPlan>(this.apiUrl, { date, recipeId });
+    addMealToPlan(date: Date, recipeId?: number, productId?: number): Observable<MealPlan> {
+        return this.http.post<MealPlan>(this.apiUrl, { date, recipeId, productId });
     }
 
     removeMealFromPlan(id: number): Observable<void> {

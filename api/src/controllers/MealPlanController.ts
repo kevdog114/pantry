@@ -226,6 +226,11 @@ export const getMealPlan = async (req: Request, res: Response, next: NextFunctio
                     prepTasks: true,
                     quickActions: true
                 }
+            },
+            product: {
+                include: {
+                    stockItems: true
+                }
             }
         }
     });
@@ -233,22 +238,24 @@ export const getMealPlan = async (req: Request, res: Response, next: NextFunctio
 }
 
 export const addMealToPlan = async (req: Request, res: Response, next: NextFunction): Promise<any> => {
-    const { date, recipeId } = req.body;
+    const { date, recipeId, productId } = req.body;
     console.log(`[Method: addMealToPlan] Request Body:`, req.body); // Debug log
 
-    if (!date || !recipeId) {
-        console.error("Missing date or recipeId");
-        return res.status(400).send("Date and RecipeId are required");
+    if (!date || (!recipeId && !productId)) {
+        console.error("Missing date or recipeId or productId");
+        return res.status(400).send("Date and RecipeId or ProductId are required");
     }
 
     try {
         const meal = await prisma.mealPlan.create({
             data: {
                 date: new Date(date),
-                recipeId: Number(recipeId) // Safer than parseInt for general numeric casting
+                recipeId: recipeId ? Number(recipeId) : undefined,
+                productId: productId ? Number(productId) : undefined
             },
             include: {
-                recipe: true
+                recipe: true,
+                product: true
             }
         });
         res.send(mapMealPlan(meal));
@@ -268,7 +275,8 @@ export const updateMealPlan = async (req: Request, res: Response, next: NextFunc
                 date: new Date(date)
             },
             include: {
-                recipe: true
+                recipe: true,
+                product: true
             }
         });
         res.send(mapMealPlan(meal));

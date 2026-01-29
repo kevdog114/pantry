@@ -41,6 +41,7 @@ model Product {
   leftoverRecipe         Recipe?    @relation("RecipeLeftovers", fields: [leftoverRecipeId], references: [id])
   autoPrintLabel         Boolean    @default(false)
   cookingInstructions    Recipe[]   @relation("ProductInstructions")
+  mealPlans              MealPlan[]
 }
 
 model File {
@@ -164,8 +165,10 @@ model RecipeQuickAction {
 model MealPlan {
   id        Int      @id @default(autoincrement())
   date      DateTime
-  recipeId  Int
-  recipe    Recipe   @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  recipeId  Int?
+  recipe    Recipe?  @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  productId Int?
+  product   Product? @relation(fields: [productId], references: [id], onDelete: Cascade)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   tasks     MealTask[]

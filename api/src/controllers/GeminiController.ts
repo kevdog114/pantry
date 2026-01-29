@@ -646,6 +646,17 @@ export const post = async (req: Request, res: Response) => {
             }
           },
           {
+            name: "getProducts",
+            description: "Search for products in inventory by name/keyword. Returns list of matches with IDs.",
+            parameters: {
+              type: FunctionDeclarationSchemaType.OBJECT,
+              properties: {
+                query: { type: FunctionDeclarationSchemaType.STRING, description: "Search term" }
+              },
+              required: ["query"]
+            }
+          },
+          {
             name: "getRecipes",
             description: "Search for recipes by name/keyword. Returns list of matches with IDs.",
             parameters: {
@@ -670,14 +681,15 @@ export const post = async (req: Request, res: Response) => {
           },
           {
             name: "addToMealPlan",
-            description: "Add a recipe to the meal plan.",
+            description: "Add a recipe OR a product to the meal plan.",
             parameters: {
               type: FunctionDeclarationSchemaType.OBJECT,
               properties: {
                 date: { type: FunctionDeclarationSchemaType.STRING, description: "Date (YYYY-MM-DD)" },
-                recipeId: { type: FunctionDeclarationSchemaType.INTEGER, description: "ID of the recipe" }
+                recipeId: { type: FunctionDeclarationSchemaType.INTEGER, description: "ID of the recipe (optional)" },
+                productId: { type: FunctionDeclarationSchemaType.INTEGER, description: "ID of the product (optional)" }
               },
-              required: ["date", "recipeId"]
+              required: ["date"]
             }
           },
           {
@@ -990,6 +1002,17 @@ export const post = async (req: Request, res: Response) => {
             }
             return { error: `Item ${args.item} not found in shopping list.` };
 
+          case "getProducts":
+            const queryProducts = await prisma.product.findMany({
+              where: {
+                title: {
+                  contains: args.query
+                }
+              },
+              select: { id: true, title: true }
+            });
+            return queryProducts;
+
           case "getRecipes":
             const recipes = await prisma.recipe.findMany({
               where: {
@@ -1023,10 +1046,16 @@ export const post = async (req: Request, res: Response) => {
             // Fix Timezone: Append T12:00:00 so it falls in the middle of the day, 
             // avoiding UTC 00:00 rolling back to previous day in Western timezones.
             const dateStr = args.date.includes('T') ? args.date : `${args.date}T12:00:00`;
+
+            if (!args.recipeId && !args.productId) {
+              return { error: "You must provide either a recipeId or a productId." };
+            }
+
             const newPlan = await prisma.mealPlan.create({
               data: {
                 date: new Date(dateStr),
-                recipeId: args.recipeId
+                recipeId: args.recipeId,
+                productId: args.productId
               }
             });
             return { message: "Added meal plan", planId: newPlan.id };

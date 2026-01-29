@@ -55,11 +55,21 @@ export class KioskPageComponent implements OnInit, OnDestroy {
     status: string = 'Ready';
     statusSubtext: string = '';
     activeMode: 'NONE' | 'RESTOCK' | 'CONSUME' | 'INVENTORY' = 'NONE';
+
+    // Restock State
     restockState: 'SCAN' | 'OPTIONS' | 'WEIGH' | 'EXPIRATION' | 'QUANTITY_PAD' = 'SCAN';
     pendingProduct: Product | null = null;
     pendingExpiration: Date | null = null;
     pendingQuantity: number = 1;
     numpadValue: string = '';
+
+    // Inventory Edit State
+    inventoryState: 'SCAN' | 'DETAILS' | 'WEIGH' | 'QUANTITY' | 'EXPIRATION' | 'LOCATION' | 'OTHER_STOCK' = 'SCAN';
+    inventoryProduct: Product | null = null;
+    inventoryStockItems: StockItem[] = []; // All items for this product
+    inventorySelectedStockItem: StockItem | null = null;
+    inventoryLocations: any[] = []; // Cache locations
+
     isOnline: boolean = false;
 
     // View State
@@ -325,13 +335,18 @@ export class KioskPageComponent implements OnInit, OnDestroy {
     // Actions
     setMode(mode: 'RESTOCK' | 'CONSUME' | 'INVENTORY') {
         this.activeMode = mode;
-        this.restockState = 'SCAN';
-        this.pendingProduct = null;
-        this.pendingExpiration = null;
         this.status = 'Scan Barcode...';
         this.statusSubtext = '';
         this.sessionLog = [];
         this.lastScan = null;
+
+        // Reset Sub-states
+        this.restockState = 'SCAN';
+        this.inventoryState = 'SCAN';
+        this.pendingProduct = null;
+        this.inventoryProduct = null;
+        this.inventoryStockItems = [];
+        this.inventorySelectedStockItem = null;
 
         if (mode === 'RESTOCK') {
             this.hardwareScanner.setCustomHandler(this.handleRestockBarcode.bind(this));
@@ -528,48 +543,51 @@ export class KioskPageComponent implements OnInit, OnDestroy {
 
     async handleInventoryBarcode(barcode: string) {
         if (!barcode) return;
-        this.status = "Checking Stock...";
+        this.status = "Loading Inventory...";
         this.statusSubtext = "";
 
+        // Reset selection
+        this.inventoryState = 'SCAN';
+        this.inventoryProduct = null;
+        this.inventorySelectedStockItem = null;
+
         try {
-            // Check Local DB
             const { product, stockItem } = await this.resolveBarcode(barcode);
 
             if (product) {
-                this.status = product.title;
+                this.inventoryProduct = product;
+                // Get fresh stock items list just in case
+                // product.stockItems is usually populated by resolveBarcode logic (if strictly from ProductService Get)
+                // But let's assume resolveBarcode uses http.get product which includes stockItems.
 
-                let totalQty = 0;
-                let nextExp: Date | null = null;
+                // Sort stock items
+                let allItems = product.stockItems || [];
+                // Sort: Expired -> Due Soon -> Good
+                allItems.sort((a, b) => {
+                    const da = a.expirationDate ? new Date(a.expirationDate).getTime() : 9999999999999;
+                    const db = b.expirationDate ? new Date(b.expirationDate).getTime() : 9999999999999;
+                    return da - db;
+                });
 
-                if (product.stockItems) {
-                    for (const item of product.stockItems) {
-                        totalQty += item.quantity;
-                        if (item.expirationDate) {
-                            const d = new Date(item.expirationDate);
-                            if (!nextExp || d < nextExp) {
-                                nextExp = d;
-                            }
-                        }
-                    }
-                }
+                this.inventoryStockItems = allItems;
 
-                if (totalQty === 0) {
-                    this.statusSubtext = "Out of Stock";
+                if (stockItem) {
+                    // Specific item scanned
+                    this.inventorySelectedStockItem = stockItem;
+                } else if (allItems.length > 0) {
+                    // Pick nearest expiring
+                    this.inventorySelectedStockItem = allItems[0];
                 } else {
-                    let expStr = "No Expiry";
-                    if (nextExp) {
-                        expStr = new Date(nextExp).toLocaleDateString();
-                    }
-                    this.statusSubtext = `Total Stock: ${totalQty} | Next Exp: ${expStr}`;
-
-                    if (stockItem) {
-                        // Overwrite subtext if specific item scanned
-                        let specificExp = stockItem.expirationDate ? new Date(stockItem.expirationDate).toLocaleDateString() : 'None';
-                        this.statusSubtext = `Scanned Item: ${stockItem.quantity} unit(s) | Exp: ${specificExp}`;
-                    }
+                    // No stock exists
+                    this.status = "No Stock Found";
+                    this.showTempStatus("No Stock Items", product.title, 3000);
+                    return;
                 }
 
-                // We do NOT call showTempStatus because we want this info to stay until next scan or exit
+                this.inventoryState = 'DETAILS';
+                this.status = "Edit Inventory";
+                this.statusSubtext = product.title;
+
             } else {
                 this.status = "Product Not Found";
                 this.statusSubtext = "";
@@ -579,6 +597,172 @@ export class KioskPageComponent implements OnInit, OnDestroy {
             console.error("Scan Error", err);
             this.status = "Error processing scan.";
             setTimeout(() => this.status = "Scan Barcode...", 3000);
+        }
+    }
+
+    // --- INVENTORY ACTIONS ---
+
+    get inventoryTotalQty(): number {
+        return this.inventoryStockItems.reduce((acc, item) => acc + item.quantity, 0);
+    }
+
+    get inventoryNearestExp(): Date | null {
+        if (this.inventoryStockItems.length === 0) return null;
+        // sorted in handleInventoryBarcode
+        const d = this.inventoryStockItems[0].expirationDate;
+        return d ? new Date(d) : null;
+    }
+
+    printInventoryLabel() {
+        if (!this.inventorySelectedStockItem || !this.inventorySelectedStockItem.id) return;
+
+        this.snackBar.open("Printing...", "Close", { duration: 1500 });
+
+        this.labelService.printStockLabel(this.inventorySelectedStockItem.id, this.labelSizeCode).subscribe({
+            next: () => {
+                this.snackBar.open("Label Sent", "Close", { duration: 1500 });
+                this.playSuccessSound();
+            },
+            error: (err) => {
+                console.error("Print failed", err);
+                this.snackBar.open("Print Failed", "Close", { duration: 2000 });
+                this.playErrorSound();
+            }
+        });
+    }
+
+    // Scale / Weight
+    openInventoryWeight() {
+        this.inventoryState = 'WEIGH';
+        this.startScaleRead();
+    }
+
+    // Quantity
+    openInventoryQuantity() {
+        this.inventoryState = 'QUANTITY';
+        this.numpadValue = '';
+    }
+
+    // Expiration
+    openInventoryExpiration() {
+        this.inventoryState = 'EXPIRATION';
+    }
+
+    // Location
+    openInventoryLocation() {
+        this.status = "Loading Locations...";
+        this.http.get<any[]>(`${this.env.apiUrl}/locations`).subscribe({
+            next: (locs) => {
+                this.inventoryLocations = locs;
+                this.inventoryState = 'LOCATION';
+                this.status = "Select Location";
+            },
+            error: () => {
+                this.snackBar.open("Failed to load locations", "Close");
+                this.status = "Edit Inventory";
+            }
+        });
+    }
+
+    // Other Stock
+    openOtherStock() {
+        this.inventoryState = 'OTHER_STOCK';
+    }
+
+    selectOtherStock(item: StockItem) {
+        this.inventorySelectedStockItem = item;
+        this.inventoryState = 'DETAILS';
+    }
+
+    // Remove
+    removeInventoryItem() {
+        if (!this.inventorySelectedStockItem) return;
+        if (confirm("Are you sure you want to delete this item?")) {
+            this.http.delete(`${this.env.apiUrl}/stock-items/${this.inventorySelectedStockItem.id}`).subscribe(() => {
+                this.snackBar.open("Item Deleted", "Close", { duration: 2000 });
+
+                // Refresh
+                // Remove from local list
+                this.inventoryStockItems = this.inventoryStockItems.filter(i => i.id !== this.inventorySelectedStockItem?.id);
+
+                if (this.inventoryStockItems.length > 0) {
+                    this.inventorySelectedStockItem = this.inventoryStockItems[0];
+                    this.inventoryState = 'DETAILS';
+                } else {
+                    // Empty
+                    this.finishAction(); // Go back to scan
+                }
+                this.playSuccessSound();
+            });
+        }
+    }
+
+    // UPDATE HELPERS
+    backToInventoryDetails() {
+        this.stopScaleRead();
+        this.inventoryState = 'DETAILS';
+        this.status = "Edit Inventory";
+    }
+
+    async updateInventoryWeight() {
+        if (!this.inventorySelectedStockItem || this.currentWeight <= 0) return;
+
+        const payload = { ...this.inventorySelectedStockItem, quantity: this.currentWeight };
+        await this.updateStockItemGeneric(payload);
+        this.backToInventoryDetails();
+    }
+
+    async updateInventoryQuantity() {
+        const val = parseInt(this.numpadValue);
+        if (!this.inventorySelectedStockItem || isNaN(val) || val < 0) return; // Allow 0? maybe not.
+
+        const payload = { ...this.inventorySelectedStockItem, quantity: val };
+        await this.updateStockItemGeneric(payload);
+        this.backToInventoryDetails();
+    }
+
+    async setInventoryExpiration(val: string) {
+        if (!this.inventorySelectedStockItem) return;
+        const today = new Date();
+        let d: Date | null = new Date();
+        d.setHours(0, 0, 0, 0);
+
+        switch (val) {
+            case '4d': d.setDate(today.getDate() + 4); break;
+            case '1w': d.setDate(today.getDate() + 7); break;
+            case '2w': d.setDate(today.getDate() + 14); break;
+            case '6m': d.setMonth(today.getMonth() + 6); break;
+            case '1y': d.setFullYear(today.getFullYear() + 1); break;
+            case '2y': d.setFullYear(today.getFullYear() + 2); break;
+            case 'none': d = null; break;
+            default: d = null;
+        }
+
+        const payload = { ...this.inventorySelectedStockItem, expirationDate: d };
+        await this.updateStockItemGeneric(payload);
+        this.backToInventoryDetails();
+    }
+
+    async setInventoryLocation(locationId: number) {
+        if (!this.inventorySelectedStockItem) return;
+        const payload = { ...this.inventorySelectedStockItem, locationId: locationId };
+        await this.updateStockItemGeneric(payload);
+        this.backToInventoryDetails();
+    }
+
+    async updateStockItemGeneric(limitPayload: any) {
+        try {
+            await firstValueFrom(this.http.patch(`${this.env.apiUrl}/stock-items/${limitPayload.id}`, limitPayload));
+            this.snackBar.open("Updated", "Close", { duration: 1500 });
+
+            // Update local reference
+            if (this.inventorySelectedStockItem) {
+                Object.assign(this.inventorySelectedStockItem, limitPayload);
+            }
+            this.playSuccessSound();
+        } catch (e) {
+            console.error("Update failed", e);
+            this.playErrorSound();
         }
     }
 
