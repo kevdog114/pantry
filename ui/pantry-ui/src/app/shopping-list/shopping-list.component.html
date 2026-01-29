@@ -20,14 +20,16 @@
     </div>
 
     <div class="add-item-form">
-        <mat-form-field appearance="outline" class="w-full">
-            <mat-label>Add item</mat-label>
-            <input matInput class="barcode-input" [(ngModel)]="newItemName" (keyup.enter)="addItem()"
-                placeholder="Milk, Bread, etc.">
-            <button mat-icon-button matSuffix (click)="addItem()">
-                <mat-icon>add</mat-icon>
-            </button>
-        </mat-form-field>
+        <form (ngSubmit)="addItem()" class="w-full">
+            <mat-form-field appearance="outline" class="w-full">
+                <mat-label>Add item</mat-label>
+                <input matInput class="barcode-input" [(ngModel)]="newItemName" name="newItemName"
+                    placeholder="Milk, Bread, etc.">
+                <button mat-icon-button matSuffix type="submit">
+                    <mat-icon>add</mat-icon>
+                </button>
+            </mat-form-field>
+        </form>
     </div>
 
     <div *ngIf="isLoading" class="state-message">

@@ -15,9 +15,11 @@
 <div class="toolbar-container">
     <!-- Search Bar -->
     <div class="search-container">
-        <mat-icon class="text-secondary ms-2">search</mat-icon>
-        <input type="text" class="search-input" placeholder="Search products..." [(ngModel)]="searchTerm"
-            (keyup.enter)="refreshList()">
+        <form (ngSubmit)="refreshList()" class="d-flex w-100 align-items-center">
+            <mat-icon class="text-secondary ms-2">search</mat-icon>
+            <input type="text" class="search-input" placeholder="Search products..." [(ngModel)]="searchTerm"
+                name="searchTerm">
+        </form>
     </div>
 
     <!-- Filter/Sort Group -->
