@@ -28,8 +28,12 @@
                         </div>
                     </div>
                     <div class="task-actions">
-                        <mat-checkbox [checked]="task.completed" (change)="completeTask(task)"
-                            color="primary"></mat-checkbox>
+                        <mat-checkbox *ngIf="!task.isShoppingTrip" [checked]="task.completed"
+                            (change)="completeTask(task)" color="primary"></mat-checkbox>
+                        <button mat-icon-button *ngIf="task.isShoppingTrip" color="primary"
+                            [routerLink]="['/shopping-list']" matTooltip="View Shopping List">
+                            <mat-icon>open_in_new</mat-icon>
+                        </button>
                     </div>
                 </div>
             </div>

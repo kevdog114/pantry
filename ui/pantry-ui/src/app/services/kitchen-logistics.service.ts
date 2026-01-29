@@ -73,13 +73,7 @@ export class KitchenLogisticsService {
     };
 
 
-    // 1. Create Shopping Task
-    tasks.push({
-      date: shoppingDate,
-      type: 'SHOP',
-      description: 'Grocery Shopping Day',
-      icon: 'shopping_cart'
-    });
+
 
     // Track available frozen stock for allocation simulation
     const frozenStockMap = new Map<number, number>();

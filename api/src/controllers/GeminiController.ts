@@ -2338,14 +2338,16 @@ export const calculateLogistics = async (req: Request, res: Response) => {
       For logic planning (Shopping):
       1. Identify ingredients that are MISSING or INSUFFICIENT after reservations.
       2. Plan Shopping Trips to acquire them.
-      3. Use existing Shopping Trips if efficient (e.g. same day or leading up to the meal).
-      4. Create new Shopping Trips if needed (group items logically, e.g. weekly).
+      3. CONSOLIDATE shopping trips as much as possible (e.g. one big weekly trip is better than many small ones).
+      4. SCHEDULE shopping trips at least 1 DAY BEFORE the items are needed for a meal (e.g. if meal is on Friday, shop by Thursday).
+      5. Use existing Shopping Trips if they meet the timing requirements.
       
       Rules:
       1. Prioritize stock items with the EARLIEST Expiration Date.
       2. If a single stock item isn't enough, use partial amounts from multiple stock items.
       3. Return a JSON structure listing reservations AND shopping trips.
       4. Generally reserve only what is needed.
+      5. Do NOT plan shopping trips on the same day as the meal unless it's unavoidable.
       
       Input:
       ${planContext}
@@ -2420,18 +2422,41 @@ export const calculateLogistics = async (req: Request, res: Response) => {
 
         try {
           if (!tripId) {
-            // Create new trip
-            const newTrip = await prisma.shoppingTrip.create({
-              data: {
-                date: new Date(trip.date),
-                notes: trip.notes
+            // Try to find an existing trip on this date first to avoid duplicates
+            const tripDate = new Date(trip.date);
+            // Create range for the whole day
+            const startOfDay = new Date(tripDate);
+            startOfDay.setHours(0, 0, 0, 0);
+            const endOfDay = new Date(tripDate);
+            endOfDay.setHours(23, 59, 59, 999);
+
+            const existingTrip = await prisma.shoppingTrip.findFirst({
+              where: {
+                date: {
+                  gte: startOfDay,
+                  lte: endOfDay
+                }
               }
             });
-            tripId = newTrip.id;
-            tripsCreated++;
-          } else {
-            // (Optional) Update notes if provided?
-            // await prisma.shoppingTrip.update(...) 
+
+            if (existingTrip) {
+              tripId = existingTrip.id;
+            } else {
+              // Create new trip
+              const newTrip = await prisma.shoppingTrip.create({
+                data: {
+                  date: tripDate, // Use the parsed date
+                  notes: trip.notes || "Auto-planned Shopping Trip"
+                }
+              });
+              tripId = newTrip.id;
+              tripsCreated++;
+            }
+          }
+
+          if (!tripId) {
+            console.warn("Could not determine trip ID, skipping items");
+            continue;
           }
 
 
@@ -2441,14 +2466,34 @@ export const calculateLogistics = async (req: Request, res: Response) => {
             defaultList = await prisma.shoppingList.create({ data: { name: "My Shopping List" } });
           }
 
+          // Clear existing items for this trip so we don't duplicate on re-run
+          if (tripId) {
+            await prisma.shoppingListItem.deleteMany({
+              where: { shoppingTripId: tripId }
+            });
+          }
+
           if (trip.items && Array.isArray(trip.items)) {
+            // Aggregate items by name and unit
+            const aggregatedItems = new Map<string, any>();
+
             for (const item of trip.items) {
+              const key = `${item.name.toLowerCase().trim()}_${item.unit ? item.unit.toLowerCase().trim() : 'nounit'}`;
+              if (aggregatedItems.has(key)) {
+                const existing = aggregatedItems.get(key);
+                existing.amount = (Number(existing.amount) || 0) + (Number(item.amount) || 0);
+              } else {
+                aggregatedItems.set(key, { ...item, amount: Number(item.amount) || 0 }); // Ensure copy and number conversion
+              }
+            }
+
+            for (const item of aggregatedItems.values()) {
               await prisma.shoppingListItem.create({
                 data: {
                   shoppingTripId: tripId,
                   shoppingListId: defaultList.id,
                   name: item.name,
-                  quantity: Number(item.amount) || 1,
+                  quantity: item.amount || 1, // Already aggregated as number
                   unit: item.unit || null,
                   checked: false
                 }

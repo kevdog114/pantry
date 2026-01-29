@@ -30,6 +30,7 @@ import { ShoppingTripDialogComponent } from '../shopping-trip-dialog/shopping-tr
 import { MealItemSearchDialogComponent } from '../meal-item-search-dialog/meal-item-search-dialog.component';
 import { MatMenuModule } from '@angular/material/menu';
 import { MatDividerModule } from '@angular/material/divider';
+import { MatExpansionModule } from '@angular/material/expansion';
 
 @Component({
     selector: 'app-meal-plan',
@@ -43,6 +44,7 @@ import { MatDividerModule } from '@angular/material/divider';
         MatSelectModule,
         MatMenuModule,
         MatDividerModule,
+        MatExpansionModule,
         MatFormFieldModule,
         MatDatepickerModule,
         MatNativeDateModule,

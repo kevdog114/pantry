@@ -117,21 +117,54 @@
 
                     <!-- Shopping Trips -->
                     <div class="shopping-trips-section mb-3" *ngIf="shoppingTrips[day.toDateString()]?.length">
-                        <div *ngFor="let trip of shoppingTrips[day.toDateString()]" class="meal-item shopping-trip"
-                            style="border-left: 4px solid #9c27b0; background-color: rgba(156, 39, 176, 0.05);">
-                            <div class="meal-header">
-                                <div style="display: flex; align-items: center; cursor: pointer; flex-grow: 1;"
-                                    (click)="editShoppingTrip(trip)">
-                                    <mat-icon class="me-2" style="color: #9c27b0;">shopping_cart</mat-icon>
-                                    <span class="meal-title-text">Shopping Trip</span>
+                        <div *ngFor="let trip of shoppingTrips[day.toDateString()]"
+                            class="meal-item shopping-trip-container">
+                            <mat-expansion-panel class="shopping-trip-panel"
+                                [class.no-items]="!trip.items || trip.items.length === 0">
+                                <mat-expansion-panel-header>
+                                    <mat-panel-title
+                                        style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
+                                        <div style="display: flex; align-items: center;">
+                                            <mat-icon class="me-2" style="color: #9c27b0;">shopping_cart</mat-icon>
+                                            <span class="meal-title-text">Shopping Trip</span>
+                                            <span *ngIf="trip.items && trip.items.length > 0"
+                                                class="badge rounded-pill bg-secondary ms-2" style="font-size: 0.7em;">
+                                                {{ trip.items.length }} items
+                                            </span>
+                                        </div>
+                                        <div style="display: flex; align-items: center;">
+                                            <button mat-icon-button class="action-btn" color="primary"
+                                                (click)="$event.stopPropagation(); editShoppingTrip(trip)"
+                                                matTooltip="Edit Notes">
+                                                <mat-icon style="font-size: 18px;">edit</mat-icon>
+                                            </button>
+                                            <button mat-icon-button class="action-btn" color="warn"
+                                                (click)="$event.stopPropagation(); deleteShoppingTrip(trip)"
+                                                matTooltip="Delete Trip">
+                                                <mat-icon style="font-size: 18px;">close</mat-icon>
+                                            </button>
+                                        </div>
+                                    </mat-panel-title>
+                                </mat-expansion-panel-header>
+
+                                <div class="trip-details">
+                                    <p *ngIf="trip.notes" class="text-muted small mb-2" style="white-space: pre-wrap;">
+                                        <strong>Notes:</strong> {{ trip.notes }}</p>
+
+                                    <div *ngIf="trip.items && trip.items.length > 0; else noItems">
+                                        <ul class="list-group list-group-flush small">
+                                            <li class="list-group-item px-0 py-1" *ngFor="let item of trip.items"
+                                                style="background: transparent;">
+                                                <span>{{ item.quantity }} {{ item.unit }} {{ item.name }}</span>
+                                            </li>
+                                        </ul>
+                                    </div>
+                                    <ng-template #noItems>
+                                        <p class="text-muted small fst-italic mb-0">No specific items recommended yet.
+                                        </p>
+                                    </ng-template>
                                 </div>
-                                <button mat-icon-button class="action-btn" color="warn"
-                                    (click)="$event.stopPropagation(); deleteShoppingTrip(trip)">
-                                    <mat-icon>close</mat-icon>
-                                </button>
-                            </div>
-                            <div class="text-muted small ps-4" *ngIf="trip.notes"
-                                style="margin-top: 4px; white-space: pre-wrap;">{{ trip.notes }}</div>
+                            </mat-expansion-panel>
                         </div>
                     </div>
 

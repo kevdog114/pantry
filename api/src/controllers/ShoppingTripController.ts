@@ -70,8 +70,15 @@ export const updateShoppingTrip = async (req: Request, res: Response): Promise<v
 export const deleteShoppingTrip = async (req: Request, res: Response): Promise<void> => {
     try {
         const { id } = req.params;
+        const tripId = parseInt(id);
+
+        // First, delete related shopping list items
+        await prisma.shoppingListItem.deleteMany({
+            where: { shoppingTripId: tripId }
+        });
+
         await prisma.shoppingTrip.delete({
-            where: { id: parseInt(id) }
+            where: { id: tripId }
         });
         res.json({ message: "Deleted" });
     } catch (error: any) {
