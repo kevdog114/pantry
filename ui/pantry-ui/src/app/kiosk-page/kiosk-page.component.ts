@@ -55,6 +55,9 @@ export class KioskPageComponent implements OnInit, OnDestroy {
     status: string = 'Ready';
     statusSubtext: string = '';
     activeMode: 'NONE' | 'RESTOCK' | 'CONSUME' | 'INVENTORY' = 'NONE';
+    restockState: 'SCAN' | 'OPTIONS' | 'WEIGH' | 'EXPIRATION' = 'SCAN';
+    pendingProduct: Product | null = null;
+    pendingExpiration: Date | null = null;
     isOnline: boolean = false;
 
     // View State
@@ -320,6 +323,9 @@ export class KioskPageComponent implements OnInit, OnDestroy {
     // Actions
     setMode(mode: 'RESTOCK' | 'CONSUME' | 'INVENTORY') {
         this.activeMode = mode;
+        this.restockState = 'SCAN';
+        this.pendingProduct = null;
+        this.pendingExpiration = null;
         this.status = 'Scan Barcode...';
         this.statusSubtext = '';
         this.sessionLog = [];
@@ -408,6 +414,13 @@ export class KioskPageComponent implements OnInit, OnDestroy {
 
     async handleRestockBarcode(barcode: string) {
         if (!barcode) return;
+
+        // Reset any pending state if scanning new item
+        this.restockState = 'SCAN';
+        this.pendingProduct = null;
+        this.pendingExpiration = null;
+        this.stopScaleRead(); // Ensure scale is off if we were using it
+
         this.status = "Looking up product...";
         this.lastScan = { title: 'Processing...', status: 'Looking up...', type: 'info' };
 
@@ -415,6 +428,23 @@ export class KioskPageComponent implements OnInit, OnDestroy {
             const { product, stockItem } = await this.resolveBarcode(barcode);
 
             if (product) {
+                // Check if we need to weigh/adjust options
+                if (product.trackCountBy === 'weight') {
+                    this.pendingProduct = product;
+                    // Calculate default expiration
+                    const today = new Date();
+                    const days = product.refrigeratorLifespanDays || 365;
+                    const defExp = new Date();
+                    defExp.setDate(today.getDate() + days);
+                    defExp.setHours(0, 0, 0, 0);
+                    this.pendingExpiration = defExp;
+
+                    this.restockState = 'OPTIONS';
+                    this.status = "Item Options";
+                    this.statusSubtext = product.title;
+                    return;
+                }
+
                 const addedItem = await this.addStock(product, 1);
                 this.status = "1 Unit Added";
                 this.statusSubtext = product.title;
@@ -605,6 +635,29 @@ export class KioskPageComponent implements OnInit, OnDestroy {
                 };
 
                 await firstValueFrom(this.productService.Update(updatePayload));
+
+                // If tracked by weight, we should technically go to options too.
+                // But simplified: just add 1 for now or check trackCountBy?
+                // Let's check trackCountBy to be consistent.
+                if (existingProduct.trackCountBy === 'weight') {
+                    this.pendingProduct = existingProduct;
+                    // Default exp
+                    const today = new Date();
+                    const days = existingProduct.refrigeratorLifespanDays || 365;
+                    const defExp = new Date();
+                    defExp.setDate(today.getDate() + days);
+                    defExp.setHours(0, 0, 0, 0);
+                    this.pendingExpiration = defExp;
+
+                    this.restockState = 'OPTIONS';
+                    this.status = "Item Options";
+                    this.statusSubtext = existingProduct.title;
+
+                    this.addToLog(existingProduct.title, "Linked - Select Options", 'info');
+                    this.playSuccessSound();
+                    return;
+                }
+
                 const addedItem = await this.addStock(existingProduct, 1);
 
                 this.status = "Linked & Added";
@@ -626,6 +679,7 @@ export class KioskPageComponent implements OnInit, OnDestroy {
                     brand: offData.brands || "",
                     existingProductTitle: ""
                 }));
+                // { data: { title, brand, description, tags, pantryLifespanDays... }, warning }
                 const details = detailsRes.data;
 
                 // VALIDATION: If still unknown or generic, FAIL
@@ -676,7 +730,25 @@ export class KioskPageComponent implements OnInit, OnDestroy {
 
                 const createdProduct = await firstValueFrom(this.productService.Create(newProductPayload));
 
-                this.status = `Adding new product with 1 unit...`;
+                this.status = `Adding new product...`;
+
+                // If tracked by weight?
+                if (createdProduct.trackCountBy === 'weight') {
+                    this.pendingProduct = createdProduct;
+                    const today = new Date();
+                    const days = createdProduct.refrigeratorLifespanDays || 365;
+                    const defExp = new Date();
+                    defExp.setDate(today.getDate() + days);
+                    defExp.setHours(0, 0, 0, 0);
+                    this.pendingExpiration = defExp;
+
+                    this.restockState = 'OPTIONS';
+                    this.status = "Item Options";
+                    this.statusSubtext = createdProduct.title;
+                    this.playSuccessSound();
+                    return;
+                }
+
                 const addedItem = await this.addStock(createdProduct, 1);
 
                 this.status = "Created & Added";
@@ -700,36 +772,113 @@ export class KioskPageComponent implements OnInit, OnDestroy {
         }
     }
 
-    async addStock(product: Product, quantity: number): Promise<StockItem> {
+    async addStock(product: Product, quantity: number, explicitExpiration?: Date | null): Promise<StockItem> {
         // Create stock item
         const today = new Date();
-        // Default expiration?
-        let expDate = new Date();
-        expDate.setDate(today.getDate() + 365); // Default 1 year if unknown
-        expDate.setHours(0, 0, 0, 0); // Strip time to ensure matches on same day
 
-        // If product has lifespan, use it?
-        // Logic normally calculates this. 
-        // For now, let's use a safe default or backend logic might handle null?
-        // StockItem requires expirationDate.
+        let expDate: Date | null | undefined = explicitExpiration;
 
-        // Use Pantry lifespan first if available (as this is Restock likely to pantry)
-        // Or check storage preference?
-        // Simple logic for now:
-        const days = product.refrigeratorLifespanDays || 365;
-        expDate = new Date();
-        expDate.setDate(today.getDate() + days);
-        expDate.setHours(0, 0, 0, 0);
+        // If explicitExpiration is not provided, use default calculation
+        if (expDate === undefined) {
+            // Default expiration?
+            const days = product.refrigeratorLifespanDays || 365;
+            const d = new Date();
+            d.setDate(today.getDate() + days);
+            d.setHours(0, 0, 0, 0);
+            expDate = d;
+        }
+
+        // If expDate is null (meaning 'None'), we should probably set it to null in payload
+        // The API/Type expects Date | null.
 
         return await firstValueFrom(this.productService.CreateStock({
             productId: product.id,
             quantity: quantity,
-            expirationDate: expDate,
-            productBarcodeId: product.barcodes?.[0]?.id || 0, // Associate with first barcode?
+            expirationDate: expDate as any, // Cast to any if strict null checks complain, but StockItem allows null? Schema says DateTime? (nullable).
+            productBarcodeId: product.barcodes?.[0]?.id || 0,
             opened: false,
             frozen: false,
-            expirationExtensionAfterThaw: 0
+            expirationExtensionAfterThaw: 0,
+            unit: product.trackCountBy === 'weight' ? 'g' : 'unit'
         }));
+    }
+
+    // RESTOCK UI HELPERS
+    openRestockWeigh() {
+        this.restockState = 'WEIGH';
+        this.startScaleRead();
+    }
+
+    openRestockExpiration() {
+        this.restockState = 'EXPIRATION';
+    }
+
+    cancelRestockItem() {
+        this.restockState = 'SCAN';
+        this.pendingProduct = null;
+        this.pendingExpiration = null;
+        this.status = 'Scan Barcode...';
+        this.statusSubtext = '';
+        this.stopScaleRead();
+    }
+
+    backToRestockOptions() {
+        this.stopScaleRead();
+        this.restockState = 'OPTIONS';
+    }
+
+    setRestockExpiration(val: string) {
+        if (!this.pendingProduct) return;
+        const today = new Date();
+        let d: Date | null = new Date();
+        d.setHours(0, 0, 0, 0);
+
+        switch (val) {
+            case '4d': d.setDate(today.getDate() + 4); break;
+            case '1w': d.setDate(today.getDate() + 7); break;
+            case '2w': d.setDate(today.getDate() + 14); break;
+            case '6m': d.setMonth(today.getMonth() + 6); break;
+            case '1y': d.setFullYear(today.getFullYear() + 1); break;
+            case '2y': d.setFullYear(today.getFullYear() + 2); break;
+            case 'none': d = null; break;
+            default: d = null;
+        }
+
+        this.pendingExpiration = d;
+        this.backToRestockOptions();
+    }
+
+    async captureRestockWeight() {
+        if (!this.pendingProduct) return;
+        if (this.currentWeight <= 0) {
+            this.snackBar.open("Weight must be > 0", "Close", { duration: 1500 });
+            return;
+        }
+
+        // Capture
+        try {
+            const addedItem = await this.addStock(this.pendingProduct, this.currentWeight, this.pendingExpiration);
+
+            let expStr = "";
+            if (addedItem && addedItem.expirationDate) {
+                expStr = ` (Exp: ${new Date(addedItem.expirationDate).toLocaleDateString()})`;
+            }
+
+            // weight log
+            const weightStr = `${this.currentWeight}g`;
+
+            this.addToLog(this.pendingProduct.title, `+${weightStr} Added${expStr}`, 'success');
+            this.playSuccessSound();
+
+            // Reset
+            this.cancelRestockItem();
+            this.showTempStatus("Weight Added", this.pendingProduct.title, 2000);
+
+        } catch (e) {
+            console.error("Failed to add weighted stock", e);
+            this.snackBar.open("Failed to add stock", "Close");
+            this.playErrorSound();
+        }
     }
 
     playSuccessSound() {
