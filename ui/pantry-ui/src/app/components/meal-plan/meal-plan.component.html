@@ -55,9 +55,14 @@
                                     {{ plan.recipe?.title || plan.product?.title || 'Unknown Item' }}
                                     <span *ngIf="plan.isLeftover" class="badge bg-secondary ms-1"
                                         style="font-size: 0.7em; vertical-align: middle;">Leftover</span>
-                                    <span *ngIf="plan.recipe?.yield" class="text-muted small ms-1"
+                                    <span *ngIf="hasLeftoverShortage(plan)" class="badge bg-danger ms-1"
+                                        style="font-size: 0.7em; vertical-align: middle;"
+                                        matTooltip="Planned quantity exceeds available leftovers">
+                                        Shortage!
+                                    </span>
+                                    <span *ngIf="plan.recipe?.yield && !plan.isLeftover" class="text-muted small ms-1"
                                         style="font-size: 0.85em;">
-                                        (Yields: {{plan.recipe?.yield}})
+                                        (Yields: {{plan.recipe?.yield}} | {{ getRemainingServings(plan) }} left)
                                     </span>
                                 </span>
                                 <div *ngIf="hasPrepTasks(plan)" class="prep-indicator text-muted"
@@ -206,7 +211,7 @@
                         <mat-menu #leftoversMenu="matMenu">
                             <button mat-menu-item *ngFor="let plan of getLeftoverCandidates(day)"
                                 (click)="addLeftover(day, plan)">
-                                {{ plan.recipe?.title }}
+                                {{ plan.recipe?.title }} ({{ getRemainingServings(plan) }} left)
                             </button>
                         </mat-menu>
                         <mat-divider></mat-divider>

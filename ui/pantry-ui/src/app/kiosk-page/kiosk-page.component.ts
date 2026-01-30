@@ -1585,7 +1585,10 @@ export class KioskPageComponent implements OnInit, OnDestroy {
         }
     }
 
-    async selectInstruction(recipe: Recipe) {
+    activeMealPlanId: number | null = null;
+
+    async selectInstruction(recipe: Recipe, mealPlanId?: number) {
+        this.activeMealPlanId = mealPlanId || null;
         this.availableInstructions = [];
         // Optimistically set partial data
         this.selectedRecipe = recipe;
@@ -2016,6 +2019,17 @@ export class KioskPageComponent implements OnInit, OnDestroy {
                     // Add slight delay to avoid buffer overwrites in printer
                     if (i > 0) await new Promise(r => setTimeout(r, 500));
                     this.labelService.printStockLabel(stockItem.id, this.labelSizeCode).subscribe();
+                }
+            }
+
+            // Sync with Meal Plan if applicable
+            if (this.activeMealPlanId) {
+                try {
+                    await firstValueFrom(this.http.put(`${this.env.apiUrl}/meal-plan/${this.activeMealPlanId}`, {
+                        actualYield: payload.quantity
+                    }));
+                } catch (e) {
+                    console.warn("Failed to update meal plan yield", e);
                 }
             }
 

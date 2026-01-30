@@ -306,7 +306,8 @@ export const updateMealPlan = async (req: Request, res: Response, next: NextFunc
             data: {
                 date: (date) ? new Date(date) : undefined,
                 quantity: req.body.quantity ? Number(req.body.quantity) : undefined,
-                unit: req.body.unit || undefined
+                unit: req.body.unit || undefined,
+                actualYield: req.body.actualYield ? Number(req.body.actualYield) : undefined
             },
             include: {
                 recipe: true,

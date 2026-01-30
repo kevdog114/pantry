@@ -15,6 +15,7 @@ export interface MealPlan {
     product?: Product;
     quantity?: number;
     isLeftover?: boolean;
+    actualYield?: number;
 }
 
 @Injectable({

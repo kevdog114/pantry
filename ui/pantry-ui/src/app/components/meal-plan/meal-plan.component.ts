@@ -371,14 +371,17 @@ export class MealPlanComponent implements OnInit {
         const candidates: MealPlan[] = [];
         const dateLimit = new Date(currentDate);
         dateLimit.setHours(0, 0, 0, 0);
+        const seenRecipeIds = new Set<number>();
 
         for (const day of this.days) {
             if (day.getTime() >= dateLimit.getTime()) break;
 
             const plans = this.getPlansForDate(day);
             for (const plan of plans) {
-                if (plan.recipe) {
+                // Deduplicate by recipe ID to avoid showing both the original and leftovers of it
+                if (plan.recipe && plan.recipe.id && !seenRecipeIds.has(plan.recipe.id)) {
                     candidates.push(plan);
+                    seenRecipeIds.add(plan.recipe.id);
                 }
             }
         }
@@ -953,5 +956,79 @@ export class MealPlanComponent implements OnInit {
         if (c.includes('wind') || c.includes('breeze')) return 'air';
 
         return 'wb_cloudy'; // Default fallback
+    }
+
+    getRemainingServings(plan: MealPlan): number {
+        // Parse Yield
+        let originalYield = 4; // Default
+        if (plan.actualYield) {
+            originalYield = plan.actualYield;
+        } else if (plan.recipe && plan.recipe.yield) {
+            // Try to parse "4 servings" or "4"
+            const match = plan.recipe.yield.match(/(\d+)/);
+            if (match) originalYield = parseInt(match[1]);
+        }
+
+        // Find usage
+        let totalUsed = 0;
+        const planDate = new Date(plan.date);
+
+        Object.values(this.mealPlans).flat().forEach(p => {
+            if (p.isLeftover && p.recipeId === plan.recipeId) {
+                if (new Date(p.date) > planDate) {
+                    totalUsed += (p.quantity || 1);
+                }
+            }
+        });
+
+        return Math.max(0, originalYield - totalUsed);
+    }
+
+    hasLeftoverShortage(plan: MealPlan): boolean {
+        if (!plan.isLeftover || !plan.recipe) return false;
+
+        // Find Source Plan
+        const planDate = new Date(plan.date);
+        let sourcePlan: MealPlan | null = null;
+        let diff = Infinity;
+
+        // Find closest previous non-leftover meal of same recipe
+        Object.values(this.mealPlans).flat().forEach(p => {
+            if (!p.isLeftover && p.recipeId === plan.recipeId) {
+                const d = new Date(p.date);
+                if (d < planDate) {
+                    const timeDiff = planDate.getTime() - d.getTime();
+                    if (timeDiff < diff) {
+                        diff = timeDiff;
+                        sourcePlan = p;
+                    }
+                }
+            }
+        });
+
+        if (!sourcePlan) return true;
+
+        return this.getRawRemaining(sourcePlan) < 0;
+    }
+
+    getRawRemaining(plan: MealPlan): number {
+        let originalYield = 4;
+        if (plan.actualYield) {
+            originalYield = plan.actualYield;
+        } else if (plan.recipe && plan.recipe.yield) {
+            const match = plan.recipe.yield.match(/(\d+)/);
+            if (match) originalYield = parseInt(match[1]);
+        }
+
+        let totalUsed = 0;
+        const planDate = new Date(plan.date);
+
+        Object.values(this.mealPlans).flat().forEach(p => {
+            if (p.isLeftover && p.recipeId === plan.recipeId && new Date(p.date) > planDate) {
+                totalUsed += (p.quantity || 1);
+            }
+        });
+
+        return originalYield - totalUsed;
     }
 }

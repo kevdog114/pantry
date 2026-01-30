@@ -178,6 +178,7 @@ model MealPlan {
   quantity  Float    @default(1)
   unit      String?
   isLeftover Boolean @default(false)
+  actualYield Float?
 }
 
 model RecipeStep {

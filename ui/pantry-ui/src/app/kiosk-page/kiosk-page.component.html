@@ -571,7 +571,7 @@
                     <div class="cook-header">UPCOMING MEALS</div>
                     <div class="flex-1 overflow-y-auto">
                         <button *ngFor="let meal of upcomingMeals" class="meal-item"
-                            (click)="selectInstruction(meal.recipe)">
+                            (click)="selectInstruction(meal.recipe, meal.id)">
                             <div>
                                 <div class="fs-xs text-k-accent fw-bold mb-1">{{ getMealDateLabel(meal.date) |
                                     uppercase }}</div>
