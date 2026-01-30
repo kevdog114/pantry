@@ -1,4 +1,3 @@
 export const environment = {
-    apiUrl: 'api_base_url_here',
-    siteTitle: 'site_title_here'
+    appVersion: '0.0.0-dev'
 };

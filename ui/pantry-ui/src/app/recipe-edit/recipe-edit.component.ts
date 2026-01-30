@@ -9,7 +9,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatCardModule } from '@angular/material/card';
 import { Router } from '@angular/router';
-import { environment } from '../../environments/environment';
+import { EnvironmentService } from '../services/environment.service';
 import { MatTabsModule } from '@angular/material/tabs';
 import { MatAutocompleteModule } from '@angular/material/autocomplete';
 import { ProductListService } from '../components/product-list/product-list.service';
@@ -114,7 +114,8 @@ export class RecipeEditComponent implements AfterViewInit {
     private router: Router,
     private productService: ProductListService,
     private geminiService: GeminiService,
-    private snackBar: MatSnackBar
+    private snackBar: MatSnackBar,
+    private env: EnvironmentService
   ) { }
 
   ngAfterViewInit(): void {
@@ -361,7 +362,7 @@ export class RecipeEditComponent implements AfterViewInit {
       }
     }
 
-    return environment.apiUrl + "/files/" + id + "?size=small" + cacheBuster;
+    return this.env.apiUrl + "/files/" + id + "?size=small" + cacheBuster;
   }
 
   public inputValue: any;

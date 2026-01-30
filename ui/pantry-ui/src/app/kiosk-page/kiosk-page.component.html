@@ -837,6 +837,7 @@
     <!-- Footer -->
     <div class="footer">
         <span class="font-bold tracking-widest uppercase">{{ pantryName }}</span>
+        <span class="ms-3 text-white/30 font-mono text-sm">v{{ appVersion }}</span>
 
         <span class="connection-status" [class.offline]="!isOnline">
             <mat-icon *ngIf="scannerClaimedBy === 'Me'"

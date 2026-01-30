@@ -12,6 +12,7 @@
     title="Scanner Claimed by Another Device"
     style="font-size: 1.2rem; height: 1.2rem; width: 1.2rem;">qr_code_scanner</mat-icon>
   <a [routerLink]="['/']">{{title}}</a>
+  <small class="ms-2 text-white opacity-50 d-none d-sm-inline-block" style="font-size: 0.75rem;">v{{appVersion}}</small>
   <span class="example-spacer"></span>
   <a mat-icon-button [routerLink]="['/barcode/scanner']">
     <mat-icon>qr_code_scanner</mat-icon>

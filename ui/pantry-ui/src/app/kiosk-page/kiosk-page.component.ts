@@ -85,6 +85,7 @@ export class KioskPageComponent implements OnInit, OnDestroy {
 
     // Info Footer
     pantryName = '';
+    appVersion = '';
     currentDate: Date = new Date();
     timezone: string = Intl.DateTimeFormat().resolvedOptions().timeZone;
     private timer: any;
@@ -142,6 +143,7 @@ export class KioskPageComponent implements OnInit, OnDestroy {
 
     ngOnInit(): void {
         this.pantryName = this.env.siteName;
+        this.appVersion = this.env.appVersion;
 
         // Load Timezone
         this.settingsService.getSettings().subscribe(res => {

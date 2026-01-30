@@ -34,6 +34,7 @@ import { CommonModule } from '@angular/common';
 })
 export class AppComponent implements OnInit {
   title = "Pantry"
+  appVersion = '';
   isAuthenticated: Observable<boolean> = of(false);
   isFullWidth = false;
 
@@ -52,6 +53,7 @@ export class AppComponent implements OnInit {
     private env: EnvironmentService,
     private router: Router) {
     this.title = this.env.siteName;
+    this.appVersion = this.env.appVersion;
     this.isSocketConnected$ = this.socketService.connected$;
     hardwareScanner.ListenForScanner();
 

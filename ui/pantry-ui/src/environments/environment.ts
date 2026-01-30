@@ -1,4 +1,3 @@
 export const environment = {
-    apiUrl: 'http://localhost:4300',
-    siteTitle: 'My Pantry Site ()'
+    appVersion: '0.0.0-dev'
 };
