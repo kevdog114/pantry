@@ -14,6 +14,7 @@ export interface MealPlan {
     productId?: number;
     product?: Product;
     quantity?: number;
+    isLeftover?: boolean;
 }
 
 @Injectable({
@@ -30,8 +31,8 @@ export class MealPlanService {
         return this.http.get<MealPlan[]>(`${this.apiUrl}?startDate=${startDate}&endDate=${endDate}`);
     }
 
-    addMealToPlan(date: Date, recipeId?: number, productId?: number): Observable<MealPlan> {
-        return this.http.post<MealPlan>(this.apiUrl, { date, recipeId, productId });
+    addMealToPlan(date: Date, recipeId?: number, productId?: number, isLeftover?: boolean, quantity?: number): Observable<MealPlan> {
+        return this.http.post<MealPlan>(this.apiUrl, { date, recipeId, productId, isLeftover, quantity });
     }
 
     removeMealFromPlan(id: number): Observable<void> {

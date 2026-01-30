@@ -34,6 +34,8 @@ export const generateShoppingList = async (req: Request, res: Response): Promise
         const inventory: Record<string, any> = {};
 
         meals.forEach(meal => {
+            if (meal.isLeftover) return; // Skip leftovers for shopping list
+
             const mealQty = meal.quantity || 1;
 
             if (meal.recipe) {
@@ -265,7 +267,7 @@ export const getMealPlan = async (req: Request, res: Response, next: NextFunctio
 }
 
 export const addMealToPlan = async (req: Request, res: Response, next: NextFunction): Promise<any> => {
-    const { date, recipeId, productId } = req.body;
+    const { date, recipeId, productId, isLeftover } = req.body;
     console.log(`[Method: addMealToPlan] Request Body:`, req.body); // Debug log
 
     if (!date || (!recipeId && !productId)) {
@@ -280,7 +282,8 @@ export const addMealToPlan = async (req: Request, res: Response, next: NextFunct
                 recipeId: recipeId ? Number(recipeId) : undefined,
                 productId: productId ? Number(productId) : undefined,
                 quantity: req.body.quantity ? Number(req.body.quantity) : 1,
-                unit: req.body.unit || null
+                unit: req.body.unit || null,
+                isLeftover: isLeftover || false
             },
             include: {
                 recipe: true,

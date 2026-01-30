@@ -177,6 +177,7 @@ model MealPlan {
   reservations StockReservation[]
   quantity  Float    @default(1)
   unit      String?
+  isLeftover Boolean @default(false)
 }
 
 model RecipeStep {

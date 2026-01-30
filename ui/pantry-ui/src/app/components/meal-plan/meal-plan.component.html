@@ -53,6 +53,12 @@
                                     [routerLink]="plan.recipe ? ['/recipes', plan.recipeId] : []"
                                     [style.cursor]="plan.recipe ? 'pointer' : 'default'">
                                     {{ plan.recipe?.title || plan.product?.title || 'Unknown Item' }}
+                                    <span *ngIf="plan.isLeftover" class="badge bg-secondary ms-1"
+                                        style="font-size: 0.7em; vertical-align: middle;">Leftover</span>
+                                    <span *ngIf="plan.recipe?.yield" class="text-muted small ms-1"
+                                        style="font-size: 0.85em;">
+                                        (Yields: {{plan.recipe?.yield}})
+                                    </span>
                                 </span>
                                 <div *ngIf="hasPrepTasks(plan)" class="prep-indicator text-muted"
                                     style="font-size: 0.8rem; display: flex; align-items: center; margin-top: 2px;">
@@ -192,6 +198,16 @@
                         <button mat-menu-item (click)="openAddItemDialog(day, 'product')">
                             <mat-icon>kitchen</mat-icon> Product
                         </button>
+                        <button mat-menu-item [matMenuTriggerFor]="leftoversMenu"
+                            *ngIf="getLeftoverCandidates(day).length > 0">
+                            <mat-icon>recycling</mat-icon> Leftovers
+                        </button>
+                        <mat-menu #leftoversMenu="matMenu">
+                            <button mat-menu-item *ngFor="let plan of getLeftoverCandidates(day)"
+                                (click)="addLeftover(day, plan)">
+                                {{ plan.recipe?.title }}
+                            </button>
+                        </mat-menu>
                         <mat-divider></mat-divider>
                         <button mat-menu-item (click)="addShoppingTrip(day)">
                             <mat-icon>shopping_cart</mat-icon> Shopping Trip

@@ -367,6 +367,50 @@ export class MealPlanComponent implements OnInit {
         }
     }
 
+    getLeftoverCandidates(currentDate: Date): MealPlan[] {
+        const candidates: MealPlan[] = [];
+        const dateLimit = new Date(currentDate);
+        dateLimit.setHours(0, 0, 0, 0);
+
+        for (const day of this.days) {
+            if (day.getTime() >= dateLimit.getTime()) break;
+
+            const plans = this.getPlansForDate(day);
+            for (const plan of plans) {
+                if (plan.recipe) {
+                    candidates.push(plan);
+                }
+            }
+        }
+        return candidates;
+    }
+
+    addLeftover(date: Date, plan: MealPlan) {
+        const dialogRef = this.dialog.open(QuantityPromptDialogComponent, {
+            data: {
+                title: 'Add Leftovers',
+                message: `How many servings of ${plan.recipe?.title} are you having?`,
+                max: 10,
+                current: 1
+            }
+        });
+
+        dialogRef.afterClosed().subscribe(qty => {
+            if (qty) {
+                this.mealPlanService.addMealToPlan(date, plan.recipeId, undefined, true, qty).subscribe({
+                    next: () => {
+                        this.snackBar.open('Leftovers added!', 'Close', { duration: 2000 });
+                        this.loadMealPlans();
+                    },
+                    error: (err) => {
+                        console.error('Error adding leftovers:', err);
+                        this.snackBar.open('Failed to add leftovers', 'Close', { duration: 2000 });
+                    }
+                });
+            }
+        });
+    }
+
     getPlansForDate(date: Date): MealPlan[] {
         return this.mealPlans[date.toDateString()] || [];
     }
