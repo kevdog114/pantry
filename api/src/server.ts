@@ -1,6 +1,8 @@
 import * as dotenv from "dotenv";
 dotenv.config();
 
+import * as net from 'net';
+
 import app from "./app";
 import prisma from './lib/prisma';
 import * as crypto from "crypto";
@@ -445,6 +447,139 @@ io.on("connection", (socket) => {
                     claimedBy: null
                 });
             }
+        }
+
+        // Cleanup speech client if exists
+        // (Managed in speech handlers below or via closure variable if we move it up)
+        // Since we are adding speech handlers in this scope, let's clean them up here.
+        // But we need reference to speechClient.
+        // We will define speechClient variable at the top of the connection scope.
+    });
+
+    // Speech Streaming Handlers
+    let speechClient: net.Socket | null = null;
+    let whisperBuffer = '';
+    let whisperState: 'LINE' | 'PAYLOAD' = 'LINE';
+    let whisperPayloadLength = 0;
+
+    socket.on("speech_start", () => {
+        console.log(`Socket ${socket.id} starting speech stream`);
+        if (speechClient) {
+            speechClient.destroy();
+        }
+
+        speechClient = new net.Socket();
+
+        const WHISPER_HOST = process.env.WHISPER_HOST || 'localhost';
+        const WHISPER_PORT = parseInt(process.env.WHISPER_PORT || '10300', 10);
+
+        speechClient.connect(WHISPER_PORT, WHISPER_HOST, () => {
+            console.log(`Socket ${socket.id} connected to Whisper`);
+            // Send Audio Start
+            const startMsg = JSON.stringify({
+                type: 'audio-start',
+                data: {
+                    rate: 16000,
+                    width: 2,
+                    channels: 1
+                }
+            }) + '\n';
+            speechClient?.write(startMsg);
+        });
+
+        speechClient.on('data', (data) => {
+            whisperBuffer += data.toString();
+
+            while (true) {
+                if (whisperState === 'LINE') {
+                    const lineEnd = whisperBuffer.indexOf('\n');
+                    if (lineEnd === -1) break;
+                    const line = whisperBuffer.substring(0, lineEnd);
+                    whisperBuffer = whisperBuffer.substring(lineEnd + 1);
+                    if (!line.trim()) continue;
+
+                    try {
+                        const msg = JSON.parse(line);
+                        if (msg.type === 'transcript' || msg.event === 'transcript') {
+                            if (msg.data_length > 0) {
+                                whisperState = 'PAYLOAD';
+                                whisperPayloadLength = msg.data_length;
+                            } else {
+                                const text = msg.data?.text || msg.text || '';
+                                // Emit partial or final text
+                                socket.emit('speech_text', { text, isFinal: false });
+                            }
+                        }
+                    } catch (e) {
+                        console.error('Error parsing Whisper message', e);
+                    }
+                } else if (whisperState === 'PAYLOAD') {
+                    if (whisperBuffer.length >= whisperPayloadLength) {
+                        const payload = whisperBuffer.substring(0, whisperPayloadLength);
+                        whisperBuffer = whisperBuffer.substring(whisperPayloadLength);
+                        whisperState = 'LINE';
+
+                        let text = payload;
+                        try {
+                            const p = JSON.parse(payload);
+                            if (p.text) text = p.text;
+                        } catch (e) { }
+
+                        socket.emit('speech_text', { text, isFinal: false });
+                    } else {
+                        break;
+                    }
+                }
+            }
+        });
+
+        speechClient.on('error', (err) => {
+            console.error('Whisper socket error', err);
+            socket.emit('speech_error', { error: err.message });
+        });
+
+        // Ensure cleanup on socket disconnect
+        socket.on("disconnect", () => {
+            if (speechClient) {
+                speechClient.destroy();
+                speechClient = null;
+            }
+        });
+    });
+
+    socket.on("speech_data", (chunk: any) => {
+        if (speechClient && !speechClient.destroyed) {
+            // Buffer comes as generic data, ensure it is buffer
+            // Socket.io handles binary as buffer usually
+
+            // Send Audio Chunk
+            const chunkHeader = JSON.stringify({
+                type: 'audio-chunk',
+                data: {
+                    rate: 16000,
+                    width: 2,
+                    channels: 1
+                },
+                payload_length: (chunk as Buffer).length
+            }) + '\n';
+            speechClient.write(chunkHeader);
+            speechClient.write(chunk as Buffer);
+        }
+    });
+
+    socket.on("speech_stop", () => {
+        if (speechClient && !speechClient.destroyed) {
+            const stopMsg = JSON.stringify({
+                type: 'audio-stop'
+            }) + '\n';
+            speechClient.write(stopMsg);
+
+            // Allow some time for final response
+            setTimeout(() => {
+                if (speechClient && !speechClient.destroyed) {
+                    speechClient.end();
+                }
+            }, 2000);
         }
     });
 });

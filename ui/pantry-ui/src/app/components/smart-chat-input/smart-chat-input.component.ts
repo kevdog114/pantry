@@ -8,6 +8,7 @@ import { MatInputModule } from '@angular/material/input';
 import { FormsModule } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import { EnvironmentService } from '../../services/environment.service';
+import { SocketService } from '../../services/socket.service';
 
 @Component({
     selector: 'app-smart-chat-input',
@@ -43,24 +44,32 @@ export class SmartChatInputComponent implements OnDestroy {
     selectedImagePreview: string | ArrayBuffer | null = null;
 
     // Audio recording variables
-    private mediaRecorder: MediaRecorder | null = null;
-    private audioChunks: Blob[] = [];
     private stream: MediaStream | null = null;
 
     // VAD variables
     private audioContext: AudioContext | null = null;
-    private analyser: AnalyserNode | null = null;
     private microphone: MediaStreamAudioSourceNode | null = null;
 
     constructor(
         private cd: ChangeDetectorRef,
         private ngZone: NgZone,
         private http: HttpClient,
-        private env: EnvironmentService
-    ) { }
+        private env: EnvironmentService,
+        private socketService: SocketService
+    ) {
+        this.socketService.on('speech_text', (data: any) => {
+            if (this.isListening || this.isProcessingAudio) {
+                this.ngZone.run(() => {
+                    this._text = data.text;
+                    this.cd.detectChanges();
+                });
+            }
+        });
+    }
 
     ngOnDestroy() {
         this.stopRecording();
+        this.socketService.removeListener('speech_text');
     }
 
     async toggleListening() {
@@ -74,33 +83,59 @@ export class SmartChatInputComponent implements OnDestroy {
     async startRecording() {
         try {
             this.stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            this.mediaRecorder = new MediaRecorder(this.stream);
-            this.audioChunks = [];
+            this.audioContext = new AudioContext();
+            this.microphone = this.audioContext.createMediaStreamSource(this.stream);
 
-            this.mediaRecorder.ondataavailable = (event) => {
-                this.audioChunks.push(event.data);
+            // Create ScriptProcessor for raw audio access
+            const bufferSize = 4096;
+            const scriptProcessor = this.audioContext.createScriptProcessor(bufferSize, 1, 1);
+
+            this.microphone.connect(scriptProcessor);
+            scriptProcessor.connect(this.audioContext.destination);
+
+            this.socketService.emit('speech_start');
+
+            let silenceStart = Date.now();
+            const silenceThreshold = 0.02; // RMS threshold
+            const maxSilenceDuration = 1500; // 1.5 seconds
+
+            scriptProcessor.onaudioprocess = (event) => {
+                if (!this.isListening) return;
+
+                const inputData = event.inputBuffer.getChannelData(0);
+
+                // Downsample to 16kHz and convert to Int16
+                const downsampled = this.downsampleBuffer(inputData, this.audioContext!.sampleRate, 16000);
+                this.socketService.emit('speech_data', downsampled);
+
+                // VAD (Silence Detection)
+                let sum = 0;
+                for (let i = 0; i < inputData.length; i++) {
+                    sum += inputData[i] * inputData[i];
+                }
+                const rms = Math.sqrt(sum / inputData.length);
+
+                if (rms > silenceThreshold) {
+                    silenceStart = Date.now();
+                } else {
+                    if (Date.now() - silenceStart > maxSilenceDuration) {
+                        this.ngZone.run(() => this.stopRecording());
+                    }
+                }
             };
 
-            this.mediaRecorder.onstop = () => {
-                this.processAudio();
-            };
-
-            this.mediaRecorder.start();
             this.isListening = true;
             this.cd.detectChanges();
 
-            this.initVAD(this.stream);
-
         } catch (error) {
             console.error('Error accessing microphone:', error);
-            // Optionally set an error state or notify user
         }
     }
 
     stopRecording() {
-        if (this.mediaRecorder && this.isListening) {
-            this.mediaRecorder.stop();
+        if (this.isListening) {
             this.isListening = false;
+            this.socketService.emit('speech_stop');
 
             if (this.audioContext) {
                 this.audioContext.close();
@@ -111,86 +146,58 @@ export class SmartChatInputComponent implements OnDestroy {
                 this.stream.getTracks().forEach(track => track.stop());
                 this.stream = null;
             }
+
             this.cd.detectChanges();
+
+            // Check auto-send
+            if (this.autoSendAudio && this._text.trim()) {
+                this.sendMessage();
+            } else {
+                setTimeout(() => {
+                    if (this.inputField) this.inputField.nativeElement.focus();
+                });
+            }
         }
     }
 
-    initVAD(stream: MediaStream) {
-        this.audioContext = new AudioContext();
-        this.analyser = this.audioContext.createAnalyser();
-        this.microphone = this.audioContext.createMediaStreamSource(stream);
-        this.microphone.connect(this.analyser);
-        this.analyser.fftSize = 2048;
+    // Unused but kept if needed for reference, though new logic is integrated
+    initVAD(stream: MediaStream) { }
+    processAudio() { }
 
-        const bufferLength = this.analyser.fftSize;
-        const dataArray = new Uint8Array(bufferLength);
+    downsampleBuffer(buffer: Float32Array, sampleRate: number, outSampleRate: number): Int16Array {
+        if (outSampleRate === sampleRate) {
+            return this.floatTo16BitPCM(buffer);
+        }
+        if (outSampleRate > sampleRate) {
+            return this.floatTo16BitPCM(buffer);
+        }
+        const sampleRateRatio = sampleRate / outSampleRate;
+        const newLength = Math.round(buffer.length / sampleRateRatio);
+        const result = new Int16Array(newLength);
+        let offsetResult = 0;
+        let offsetBuffer = 0;
 
-        let silenceStart = Date.now();
-        const silenceThreshold = 0.02; // RMS threshold
-        const maxSilenceDuration = 750; // 0.75 seconds
-
-        const checkSilence = () => {
-            if (!this.isListening || !this.analyser) return;
-
-            this.analyser.getByteTimeDomainData(dataArray);
-
-            let sum = 0;
-            for (let i = 0; i < bufferLength; i++) {
-                const x = (dataArray[i] - 128) / 128.0;
-                sum += x * x;
+        while (offsetResult < result.length) {
+            const nextOffsetBuffer = Math.round((offsetResult + 1) * sampleRateRatio);
+            let accum = 0, count = 0;
+            for (let i = offsetBuffer; i < nextOffsetBuffer && i < buffer.length; i++) {
+                accum += buffer[i];
+                count++;
             }
-            const rms = Math.sqrt(sum / bufferLength);
-
-            if (rms > silenceThreshold) {
-                silenceStart = Date.now();
-            } else {
-                if (Date.now() - silenceStart > maxSilenceDuration) {
-                    this.ngZone.run(() => this.stopRecording());
-                    return;
-                }
-            }
-
-            requestAnimationFrame(checkSilence);
-        };
-
-        checkSilence();
+            result[offsetResult] = Math.max(-1, Math.min(1, count > 0 ? accum / count : 0)) * 0x7FFF;
+            offsetResult++;
+            offsetBuffer = nextOffsetBuffer;
+        }
+        return result;
     }
 
-    processAudio() {
-        if (this.audioChunks.length === 0) return;
-
-        this.isProcessingAudio = true;
-        this.cd.detectChanges();
-
-        const audioBlob = new Blob(this.audioChunks, { type: 'audio/webm' }); // Use webm or wav depending on browser, generally webm is default
-        const formData = new FormData();
-        formData.append('audio', audioBlob, 'recording.webm');
-
-        this.http.post<{ text: string }>(`${this.env.apiUrl}/speech/transcribe`, formData)
-            .subscribe({
-                next: (response) => {
-                    this.ngZone.run(() => {
-                        this._text = response.text || '';
-                        this.isProcessingAudio = false;
-                        this.cd.detectChanges();
-
-                        if (this.autoSendAudio && this._text.trim()) {
-                            this.sendMessage();
-                        } else {
-                            setTimeout(() => {
-                                if (this.inputField) this.inputField.nativeElement.focus();
-                            });
-                        }
-                    });
-                },
-                error: (error) => {
-                    this.ngZone.run(() => {
-                        console.error('Transcription failed:', error);
-                        this.isProcessingAudio = false;
-                        this.cd.detectChanges();
-                    });
-                }
-            });
+    floatTo16BitPCM(input: Float32Array) {
+        const output = new Int16Array(input.length);
+        for (let i = 0; i < input.length; i++) {
+            const s = Math.max(-1, Math.min(1, input[i]));
+            output[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+        }
+        return output;
     }
 
     onImageSelected(event: any) {
