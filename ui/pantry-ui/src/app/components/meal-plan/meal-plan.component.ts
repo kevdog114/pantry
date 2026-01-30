@@ -548,6 +548,7 @@ export class MealPlanComponent implements OnInit {
 
     getMissingIngredients(plan: MealPlan): string[] {
         const missing: string[] = [];
+        if (plan.isLeftover) return [];
         if (plan.product) {
             // Check if we have the product itself
             const p: any = plan.product;
