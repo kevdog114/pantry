@@ -21,6 +21,7 @@ import * as FamilyController from "./controllers/FamilyController";
 
 import * as MealPlanController from "./controllers/MealPlanController";
 import * as KioskController from "./controllers/KioskController";
+import * as KioskCommandController from "./controllers/KioskCommandController";
 import * as ShoppingListController from "./controllers/ShoppingListController";
 import * as ShoppingTripController from "./controllers/ShoppingTripController";
 import { isAuthenticated } from "./middleware/auth";
@@ -259,6 +260,11 @@ app.put("/kiosk/:id/settings", KioskController.updateKioskSettings);
 app.put("/kiosk/:kioskId/devices/:deviceId/config", KioskController.updateDeviceConfig);
 app.post("/kiosk/:id/devices/:deviceId/test-print", KioskController.testReceiptPrinter);
 app.get("/kiosk/scanners", KioskController.getAvailableScanners);
+
+app.get("/kiosk-commands", KioskCommandController.getAll);
+app.post("/kiosk-commands", KioskCommandController.create);
+app.put("/kiosk-commands/:id", KioskCommandController.update);
+app.delete("/kiosk-commands/:id", KioskCommandController.deleteById);
 
 app.get("/shopping-list", ShoppingListController.getShoppingList);
 app.post("/shopping-list/:id/items", ShoppingListController.addItem);

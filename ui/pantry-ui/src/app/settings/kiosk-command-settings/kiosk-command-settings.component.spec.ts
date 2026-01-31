@@ -1,16 +1,16 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideHttpClient } from '@angular/common/http';
 import { provideHttpClientTesting } from '@angular/common/http/testing';
-import { SettingsComponent } from './settings.component';
+import { KioskCommandSettingsComponent } from './kiosk-command-settings.component';
 import { NoopAnimationsModule } from '@angular/platform-browser/animations';
 
-describe('SettingsComponent', () => {
-  let component: SettingsComponent;
-  let fixture: ComponentFixture<SettingsComponent>;
+describe('KioskCommandSettingsComponent', () => {
+  let component: KioskCommandSettingsComponent;
+  let fixture: ComponentFixture<KioskCommandSettingsComponent>;
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
-      imports: [SettingsComponent, NoopAnimationsModule],
+      imports: [KioskCommandSettingsComponent, NoopAnimationsModule],
       providers: [
         provideHttpClient(),
         provideHttpClientTesting()
@@ -18,7 +18,7 @@ describe('SettingsComponent', () => {
     })
     .compileComponents();
 
-    fixture = TestBed.createComponent(SettingsComponent);
+    fixture = TestBed.createComponent(KioskCommandSettingsComponent);
     component = fixture.componentInstance;
     fixture.detectChanges();
   });

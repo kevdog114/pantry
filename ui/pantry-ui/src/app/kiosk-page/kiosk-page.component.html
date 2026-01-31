@@ -276,6 +276,48 @@
             <button class="k-btn" style="border-color: var(--k-accent);" (click)="openTimers()">
                 <mat-icon class="text-orange-500">timer</mat-icon><span>TIMERS</span>
             </button>
+            <button class="k-btn" style="border-color: var(--k-primary);" (click)="openCustomCommands()">
+                <mat-icon class="text-cyan-400">smart_toy</mat-icon><span>AI CMD</span>
+            </button>
+        </div>
+
+        <!-- CUSTOM COMMANDS -->
+        <div *ngIf="viewState === 'CUSTOM_COMMANDS'" class="flex flex-col h-full w-full">
+            <div class="back-btn-row shrink-0">
+                <button class="k-btn px-6 h-16 w-auto" (click)="closeCustomCommands()">
+                    <mat-icon>arrow_back</mat-icon><span class="ml-2">BACK</span>
+                </button>
+            </div>
+
+            <div class="flex-1 overflow-y-auto p-4 w-full">
+
+                <!-- Command List -->
+                <div *ngIf="!customCommandResult && !isExecutingCommand" class="grid grid-cols-2 gap-4">
+                     <button *ngFor="let cmd of customCommands" class="k-btn primary h-40 text-2xl" (click)="executeCustomCommand(cmd)">
+                        <span class="text-center">{{ cmd.name }}</span>
+                     </button>
+                     <div *ngIf="customCommands.length === 0" class="col-span-2 text-center text-gray-400 text-2xl mt-10">
+                        No custom commands defined. <br> Add them in Settings.
+                     </div>
+                </div>
+
+                <!-- Executing State -->
+                <div *ngIf="isExecutingCommand" class="flex flex-col items-center justify-center h-full">
+                    <mat-progress-bar mode="indeterminate" class="w-1/2 mb-8"></mat-progress-bar>
+                    <div class="text-4xl animate-pulse">Thinking...</div>
+                </div>
+
+                <!-- Result State -->
+                <div *ngIf="customCommandResult" class="bg-white/5 border border-white/10 rounded-2xl p-6 h-full flex flex-col">
+                    <div class="flex-1 overflow-y-auto mb-4 markdown-body text-xl">
+                         <markdown [data]="getCustomCommandText(customCommandResult)"></markdown>
+                    </div>
+                    <button class="k-btn success h-20 shrink-0" (click)="customCommandResult = null; status = 'Custom Commands'">
+                        <mat-icon>check</mat-icon> <span>DONE</span>
+                    </button>
+                </div>
+
+            </div>
         </div>
 
         <!-- UTILITIES -->
