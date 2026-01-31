@@ -22,12 +22,14 @@ import { Product, ProductTags, StockItem } from '../types/product';
 import { firstValueFrom, Subscription } from 'rxjs';
 import { MarkdownModule } from 'ngx-markdown';
 
-type ViewState = 'MAIN' | 'UTILITIES' | 'PRINT_LABELS' | 'QUICK_LABEL' | 'SCALE' | 'COOK' | 'TIMERS' | 'HARDWARE';
+type ViewState = 'MAIN' | 'UTILITIES' | 'PRINT_LABELS' | 'QUICK_LABEL' | 'SCALE' | 'COOK' | 'TIMERS' | 'HARDWARE' | 'CUSTOM_COMMANDS';
 import { Recipe, RecipeQuickAction } from '../types/recipe';
 
 import { SocketService } from '../services/socket.service';
 import { SipService, SipConfig, SipCallState, SipIncomingCall } from '../services/sip.service';
 import { SettingsService } from '../settings/settings.service';
+import { KioskCommandService } from '../services/kiosk-command.service';
+import { KioskCommand } from '../types/kiosk-command';
 
 @Component({
     selector: 'app-kiosk-page',
@@ -117,6 +119,11 @@ export class KioskPageComponent implements OnInit, OnDestroy {
     upcomingMeals: any[] = [];
     private timersSub: Subscription | null = null;
 
+    // Custom Commands
+    customCommands: KioskCommand[] = [];
+    customCommandResult: any | null = null;
+    isExecutingCommand: boolean = false;
+
     // Hardware Test Logic
     micStream: MediaStream | null = null;
     micVolume: number = 0;
@@ -137,7 +144,8 @@ export class KioskPageComponent implements OnInit, OnDestroy {
         private tagsService: TagsService,
         private ngZone: NgZone,
         private sipService: SipService,
-        private settingsService: SettingsService
+        private settingsService: SettingsService,
+        private commandService: KioskCommandService
     ) { }
 
     ngOnInit(): void {
@@ -1227,6 +1235,74 @@ export class KioskPageComponent implements OnInit, OnDestroy {
         this.statusSubtext = '';
         this.activeMode = 'NONE';
         this.hardwareScanner.setCustomHandler(() => { });
+    }
+
+    openCustomCommands() {
+        this.viewState = 'CUSTOM_COMMANDS';
+        this.status = 'Custom Commands';
+        this.customCommandResult = null;
+        this.loadCustomCommands();
+    }
+
+    closeCustomCommands() {
+        this.viewState = 'MAIN';
+        this.status = 'Ready';
+        this.customCommandResult = null;
+    }
+
+    loadCustomCommands() {
+        this.commandService.getAll().subscribe({
+            next: (res) => {
+                this.customCommands = res.data;
+            },
+            error: (err) => console.error("Failed to load custom commands", err)
+        });
+    }
+
+    executeCustomCommand(cmd: KioskCommand) {
+        this.isExecutingCommand = true;
+        this.status = "Executing...";
+        this.statusSubtext = cmd.name;
+        this.customCommandResult = null;
+
+        // Use Gemini Chat Endpoint
+        this.http.post<any>(`${this.env.apiUrl}/gemini/chat`, {
+            prompt: cmd.command
+        }).subscribe({
+            next: (res) => {
+                this.isExecutingCommand = false;
+                this.status = "Result";
+                // res.data is expected to be { items: [...] } or text
+                this.customCommandResult = res.data;
+                this.playSuccessSound();
+            },
+            error: (err) => {
+                console.error("Command failed", err);
+                this.isExecutingCommand = false;
+                this.status = "Error";
+                this.statusSubtext = "Command Failed";
+                this.playErrorSound();
+            }
+        });
+    }
+
+    getCustomCommandText(result: any): string {
+        if (!result) return '';
+        if (typeof result === 'string') return result;
+
+        // Handle Gemini JSON format
+        if (result.items && Array.isArray(result.items)) {
+             return result.items.map((item: any) => {
+                 if (item.type === 'chat') return item.content;
+                 if (item.type === 'recipe') return `Recipe Generated: ${item.recipe.title}`;
+                 return '';
+             }).join('\n\n');
+        }
+
+        // Fallback for simple content
+        if (result.content) return result.content;
+
+        return JSON.stringify(result);
     }
 
     openPrintLabels() {

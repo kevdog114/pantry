@@ -1,0 +1,56 @@
+<div class="command-settings">
+    <div class="header-row">
+        <h3>Custom Kiosk Commands</h3>
+        <button mat-raised-button color="primary" (click)="startEdit()">
+            <mat-icon>add</mat-icon> Add Command
+        </button>
+    </div>
+
+    <!-- Edit Form -->
+    <mat-card *ngIf="editingId !== null" class="edit-card">
+        <mat-card-header>
+            <mat-card-title>{{ editingId === 0 ? 'New Command' : 'Edit Command' }}</mat-card-title>
+        </mat-card-header>
+        <mat-card-content class="edit-form">
+            <mat-form-field appearance="outline" class="full-width">
+                <mat-label>Button Label</mat-label>
+                <input matInput [(ngModel)]="editName" placeholder="e.g. Find Dinner Ideas">
+            </mat-form-field>
+
+            <mat-form-field appearance="outline" class="full-width">
+                <mat-label>Gemini Query</mat-label>
+                <textarea matInput [(ngModel)]="editCommand" placeholder="e.g. Suggest 3 dinner ideas based on expiring items..." rows="4"></textarea>
+            </mat-form-field>
+        </mat-card-content>
+        <mat-card-actions align="end">
+            <button mat-button (click)="cancelEdit()">Cancel</button>
+            <button mat-raised-button color="primary" (click)="saveCommand()">Save</button>
+        </mat-card-actions>
+    </mat-card>
+
+    <!-- List -->
+    <div class="command-list" *ngIf="commands.length > 0">
+        <mat-list>
+            <mat-list-item *ngFor="let cmd of commands">
+                <div matListItemIcon>
+                    <mat-icon>smart_toy</mat-icon>
+                </div>
+                <div matListItemTitle>{{ cmd.name }}</div>
+                <div matListItemLine class="query-text">{{ cmd.command }}</div>
+                <div matListItemMeta>
+                    <button mat-icon-button color="primary" (click)="startEdit(cmd)">
+                        <mat-icon>edit</mat-icon>
+                    </button>
+                    <button mat-icon-button color="warn" (click)="deleteCommand(cmd.id)">
+                        <mat-icon>delete</mat-icon>
+                    </button>
+                </div>
+            </mat-list-item>
+        </mat-list>
+    </div>
+
+    <div *ngIf="commands.length === 0 && editingId === null" class="empty-state">
+        <mat-icon>info</mat-icon>
+        <p>No custom commands defined yet.</p>
+    </div>
+</div>
