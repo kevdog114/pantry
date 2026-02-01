@@ -331,6 +331,14 @@
                     (click)="toggleMicTest()" [class.warn]="micStream" [class.bg-red-500]="micStream">
                     <mat-icon>{{ micStream ? 'mic_off' : 'mic' }}</mat-icon>
                 </button>
+
+                <div class="mt-4 pt-4 border-t border-white/10 w-full flex justify-between items-center">
+                    <span class="text-sm text-gray-500">BRIDGE VERSION</span>
+                    <span class="font-mono font-bold" [class.text-green-500]="bridgeVersion !== 'Offline'"
+                        [class.text-red-500]="bridgeVersion === 'Offline'">
+                        {{ isLoadingBridgeVersion ? 'Loading...' : bridgeVersion }}
+                    </span>
+                </div>
             </div>
         </div>
 

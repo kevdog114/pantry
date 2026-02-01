@@ -28,6 +28,7 @@ import { Recipe, RecipeQuickAction } from '../types/recipe';
 import { SocketService } from '../services/socket.service';
 import { SipService, SipConfig, SipCallState, SipIncomingCall } from '../services/sip.service';
 import { SettingsService } from '../settings/settings.service';
+import { HardwareService } from '../services/hardware.service';
 
 @Component({
     selector: 'app-kiosk-page',
@@ -124,6 +125,8 @@ export class KioskPageComponent implements OnInit, OnDestroy {
     audioContext: AudioContext | null = null;
     analyser: AnalyserNode | null = null;
     micFrameId: number | null = null;
+    bridgeVersion: string = '';
+    isLoadingBridgeVersion: boolean = false;
 
     constructor(
         private router: Router,
@@ -138,7 +141,8 @@ export class KioskPageComponent implements OnInit, OnDestroy {
         private tagsService: TagsService,
         private ngZone: NgZone,
         private sipService: SipService,
-        private settingsService: SettingsService
+        private settingsService: SettingsService,
+        private hardwareService: HardwareService
     ) { }
 
     ngOnInit(): void {
@@ -1785,6 +1789,18 @@ export class KioskPageComponent implements OnInit, OnDestroy {
         this.status = 'Hardware Check';
         this.startMicTest(); // Auto start? Or wait for user? Let's auto start for convenience, or maybe not to avoid feedback.
         // User asked for a button to show volume level.
+
+        this.isLoadingBridgeVersion = true;
+        this.hardwareService.checkBridge().subscribe({
+            next: (state) => {
+                this.bridgeVersion = state && state.version ? state.version : 'Unknown';
+                this.isLoadingBridgeVersion = false;
+            },
+            error: () => {
+                this.bridgeVersion = 'Offline';
+                this.isLoadingBridgeVersion = false;
+            }
+        });
     }
 
     closeHardware() {

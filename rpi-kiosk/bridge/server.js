@@ -14,12 +14,15 @@ let state = {
     backendUrl: process.env.BACKEND_URL || 'http://localhost:4300'
 };
 
+const packageJson = require('./package.json');
+
 // API to check health
 app.get('/health', (req, res) => {
     res.json({
         status: 'ok',
         connected: !!(socket && socket.connected),
-        device: 'Brother QL-600' // Hardcoded support for now
+        device: 'Brother QL-600', // Hardcoded support for now
+        version: packageJson.version
     });
 });
 
