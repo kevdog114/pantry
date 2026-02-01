@@ -495,10 +495,14 @@ function connectSocket() {
         const cmd = `/opt/venv/bin/python3 flash_tool.py list`;
 
         const { exec } = require('child_process');
-        exec(cmd, (err, stdout, stderr) => {
+        exec(cmd, { timeout: 5000 }, (err, stdout, stderr) => {
             if (err) {
                 console.error('List Ports Error:', err);
-                socket.emit('serial_ports_list', { requestId, success: false, message: stderr });
+                if (err.signal === 'SIGTERM') {
+                    socket.emit('serial_ports_list', { requestId, success: false, message: "Timeout listing ports. Busy?" });
+                } else {
+                    socket.emit('serial_ports_list', { requestId, success: false, message: stderr || err.message });
+                }
             } else {
                 try {
                     const ports = JSON.parse(stdout);
@@ -514,6 +518,17 @@ function connectSocket() {
         console.log('Received flash_firmware request', payload);
         const requestId = payload.requestId;
         const { port, sketch } = payload;
+
+        // Stop monitor if active on this port
+        if (scaleMonitorProcess && currentScalePort === port) {
+            console.log("Stopping scale monitor for flashing...");
+            scaleMonitorProcess.kill();
+            scaleMonitorProcess = null;
+            // Don't clear currentScalePort so we can maybe restart it? 
+            // Or better, letting checkDevices() restart it later is safer.
+            currentScalePort = null;
+        }
+
         const cmd = `/opt/venv/bin/python3 flash_tool.py flash --port "${port}" --sketch "${sketch}"`;
 
         const { exec } = require('child_process');
