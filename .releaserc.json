@@ -8,7 +8,7 @@
         [
             "@semantic-release/exec",
             {
-                "prepareCmd": "npm version ${nextRelease.version} --prefix api --no-git-tag-version --allow-same-version && npm version ${nextRelease.version} --prefix ui/pantry-ui --no-git-tag-version --allow-same-version && npm version ${nextRelease.version} --prefix rpi-kiosk/bridge --no-git-tag-version --allow-same-version && node rpi-kiosk/scripts/bump-scale-version.js ${lastRelease.gitTag} && sed -i \"s/appVersion: '.*'/appVersion: '${nextRelease.version}'/g\" ui/pantry-ui/src/environments/environment.ts"
+                "prepareCmd": "npm version ${nextRelease.version} --prefix api --no-git-tag-version --allow-same-version && npm version ${nextRelease.version} --prefix ui/pantry-ui --no-git-tag-version --allow-same-version && npm version ${nextRelease.version} --prefix rpi-kiosk/bridge --no-git-tag-version --allow-same-version && node rpi-kiosk/scripts/bump-scale-version.js ${lastRelease.gitTag} && sed -i \"s/appVersion: '.*'/appVersion: '${nextRelease.version}'/g\" ui/pantry-ui/src/environments/environment.ts && sed -i \"s/appVersion: '.*'/appVersion: '${nextRelease.version}'/g\" ui/pantry-ui/src/environments/environment.development.ts && sed -i \"s/appVersion: '.*'/appVersion: '${nextRelease.version}'/g\" ui/pantry-ui/src/environments/environment.production.ts"
             }
         ],
         [
@@ -20,6 +20,8 @@
                     "ui/pantry-ui/package.json",
                     "ui/pantry-ui/package-lock.json",
                     "ui/pantry-ui/src/environments/environment.ts",
+                    "ui/pantry-ui/src/environments/environment.development.ts",
+                    "ui/pantry-ui/src/environments/environment.production.ts",
                     "rpi-kiosk/bridge/package.json",
                     "rpi-kiosk/arduino/scale/scale.ino"
                 ],
