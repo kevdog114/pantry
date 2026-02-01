@@ -210,6 +210,11 @@ export const routes: Routes = [
         canActivate: [AuthGuard]
     },
     {
+        path: "audit",
+        loadComponent: () => import('./audit-page/audit-page.component').then(m => m.AuditPageComponent),
+        canActivate: [AuthGuard]
+    },
+    {
         path: "**",
         redirectTo: "home"
     }

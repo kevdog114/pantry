@@ -1,0 +1,96 @@
+<div class="audit-container">
+    <div class="header">
+        <h1>Location Audit</h1>
+    </div>
+
+    <!-- Selection View -->
+    <div class="selection-view" *ngIf="!selectedLocationId">
+        <div class="card">
+            <h2>Select Location</h2>
+            <div class="form-group">
+                <select [(ngModel)]="selectedLocationIdAsInput" (change)="onLocationChange($event)">
+                    <option [ngValue]="null">Choose a location...</option>
+                    <option *ngFor="let loc of locations" [value]="loc.id">{{ loc.name }}</option>
+                </select>
+            </div>
+        </div>
+    </div>
+
+    <!-- Audit View -->
+    <div class="audit-view" *ngIf="selectedLocationId && !auditFinished">
+        <div class="toolbar">
+            <h2>Auditing: {{ selectedLocation?.name }}</h2>
+            <button class="btn btn-primary" (click)="finishAudit()">Finish Audit</button>
+        </div>
+
+        <div class="content-grid">
+            <div class="section expected-section">
+                <h3>Expected Items</h3>
+                <div class="item-list">
+                    <div class="item-card" *ngFor="let item of expectedItems" [class.found]="item.found">
+                        <div class="status-icon">
+                            <span *ngIf="item.found">✅</span>
+                            <span *ngIf="!item.found">⬜</span>
+                        </div>
+                        <div class="item-details">
+                            <span class="product-name">{{ item.productName }}</span>
+                            <span class="stock-info">Qty: {{ item.stockItem.quantity }}</span>
+                        </div>
+                    </div>
+                    <div *ngIf="expectedItems.length === 0" class="empty-state">
+                        No items expected in this location.
+                    </div>
+                </div>
+            </div>
+
+            <div class="section extra-section">
+                <h3>Extra Scanned Items</h3>
+                <div class="item-list">
+                    <div class="item-card extra" *ngFor="let extra of extraItems">
+                        <div class="item-details">
+                            <span class="product-name">{{ extra.product?.title || 'Unknown Product' }}</span>
+                            <span class="barcode">{{ extra.barcode }}</span>
+                            <span class="count-badge" *ngIf="extra.count > 1">x{{ extra.count }}</span>
+                        </div>
+                        <div class="actions">
+                            <button class="btn btn-sm btn-action" (click)="moveItemToHere(extra)">
+                                Move/Add Here
+                            </button>
+                        </div>
+                    </div>
+                    <div *ngIf="extraItems.length === 0" class="empty-state">
+                        No extra items scanned.
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Summary View -->
+    <div class="summary-view" *ngIf="auditFinished">
+        <h2>Audit Results</h2>
+
+        <div class="summary-card missing">
+            <h3>Missing Items ({{ missingItemsResult.length }})</h3>
+            <p *ngIf="missingItemsResult.length === 0">🎉 No items missing!</p>
+            <ul>
+                <li *ngFor="let item of missingItemsResult">
+                    {{ item.productName }} (Qty: {{ item.stockItem.quantity }})
+                </li>
+            </ul>
+        </div>
+
+        <div class="summary-card extras" *ngIf="extraItems.length > 0">
+            <h3>Unresolved Extras ({{ extraItems.length }})</h3>
+            <p class="warning">You still have items scanned that weren't added to the location.</p>
+            <ul>
+                <li *ngFor="let extra of extraItems">
+                    {{ extra.product?.title || extra.barcode }} (x{{ extra.count }})
+                    <button class="btn btn-sm btn-action" (click)="moveItemToHere(extra)">Move</button>
+                </li>
+            </ul>
+        </div>
+
+        <button class="btn btn-secondary" (click)="reset()">Start New Audit</button>
+    </div>
+</div>

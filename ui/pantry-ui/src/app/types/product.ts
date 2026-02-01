@@ -23,12 +23,14 @@ export interface StockItem {
         amount: number
         mealPlanId: number
     }>
+    product?: Product
 }
 
 export interface Location {
     id: number
     name: string
     description: string
+    stockItems?: StockItem[]
 }
 
 export interface ProductBarcode {

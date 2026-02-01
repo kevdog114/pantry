@@ -5,6 +5,13 @@ export const getById = async (req: Request, res: Response, next: NextFunction): 
     const location = await prisma.location.findUnique({
         where: {
             id: parseInt(req.params.id)
+        },
+        include: {
+            stockItems: {
+                include: {
+                    product: true
+                }
+            }
         }
     });
     res.send(location);
