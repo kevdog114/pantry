@@ -130,6 +130,10 @@ export class FlashDialogComponent implements OnInit {
     };
 
     this.socketService.on('serial_ports_list', handler);
+
+    // Ensure we are joined to the room
+    this.socketService.emit('bind_to_kiosk', this.data.kioskId);
+
     this.socketService.emit('get_serial_ports', {
       kioskId: this.data.kioskId,
       requestId: this.requestId

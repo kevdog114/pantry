@@ -364,11 +364,17 @@ io.on("connection", (socket) => {
     });
 
     socket.on("serial_ports_list", (data) => {
-        if (kioskId) {
-            console.log(`Received serial_ports_list from Kiosk ${kioskId}`);
-            io.to(`kiosk_device_${kioskId}`).emit('serial_ports_list', data);
+        // Fallback to data.requestId or infer routing if needed, but primarily use socket.kioskId
+        const sourceKioskId = kioskId || (data.kioskId); // Bridge might not send kioskId in data, but socket should have it.
+
+        if (sourceKioskId) {
+            console.log(`Received serial_ports_list from Kiosk ${sourceKioskId}`, JSON.stringify(data));
+            io.to(`kiosk_device_${sourceKioskId}`).emit('serial_ports_list', data);
+        } else {
+            console.warn(`Received serial_ports_list from unknown socket ${socket.id}`, data);
         }
     });
+
 
     socket.on("flash_firmware", (data) => {
         const targetKioskId = data.kioskId;
@@ -377,9 +383,12 @@ io.on("connection", (socket) => {
     });
 
     socket.on("flash_complete", (data) => {
-        if (kioskId) {
-            console.log(`Received flash_complete from Kiosk ${kioskId}`, data);
-            io.to(`kiosk_device_${kioskId}`).emit('flash_complete', data);
+        const sourceKioskId = kioskId || (data.kioskId);
+        if (sourceKioskId) {
+            console.log(`Received flash_complete from Kiosk ${sourceKioskId}`, data);
+            io.to(`kiosk_device_${sourceKioskId}`).emit('flash_complete', data);
+        } else {
+            console.warn(`Received flash_complete from unknown socket`, data);
         }
     });
 
