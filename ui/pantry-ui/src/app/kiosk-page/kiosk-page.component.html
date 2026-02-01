@@ -339,6 +339,22 @@
                         {{ isLoadingBridgeVersion ? 'Loading...' : bridgeVersion }}
                     </span>
                 </div>
+
+                <div class="mt-4 pt-4 border-t border-white/10 w-full flex justify-between items-center"
+                    *ngIf="scaleInfo">
+                    <span class="text-sm text-gray-500">SCALE FIRMWARE</span>
+                    <span class="font-mono font-bold text-blue-400">
+                        {{ scaleInfo.firmware }}
+                    </span>
+                </div>
+
+                <div class="mt-4 pt-4 border-t border-white/10 w-full flex justify-between items-center"
+                    *ngIf="!scaleInfo && !isLoadingBridgeVersion && bridgeVersion !== 'Offline'">
+                    <span class="text-sm text-gray-500">SCALE</span>
+                    <span class="font-mono font-bold text-gray-500">
+                        NOT DETECTED
+                    </span>
+                </div>
             </div>
         </div>
 

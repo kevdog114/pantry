@@ -18,11 +18,18 @@ const packageJson = require('./package.json');
 
 // API to check health
 app.get('/health', (req, res) => {
+    const scaleList = Object.values(knownScales).map(s => ({
+        model: s.model,
+        firmware: s.firmware,
+        status: s.connected ? 'ONLINE' : 'OFFLINE'
+    }));
+
     res.json({
         status: 'ok',
         connected: !!(socket && socket.connected),
         device: 'Brother QL-600', // Hardcoded support for now
-        version: packageJson.version
+        version: packageJson.version,
+        scales: scaleList
     });
 });
 

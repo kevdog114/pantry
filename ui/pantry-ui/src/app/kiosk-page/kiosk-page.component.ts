@@ -126,6 +126,7 @@ export class KioskPageComponent implements OnInit, OnDestroy {
     analyser: AnalyserNode | null = null;
     micFrameId: number | null = null;
     bridgeVersion: string = '';
+    scaleInfo: any = null;
     isLoadingBridgeVersion: boolean = false;
 
     constructor(
@@ -1794,10 +1795,16 @@ export class KioskPageComponent implements OnInit, OnDestroy {
         this.hardwareService.checkBridge().subscribe({
             next: (state) => {
                 this.bridgeVersion = state && state.version ? state.version : 'Unknown';
+                if (state && state.scales && state.scales.length > 0) {
+                    this.scaleInfo = state.scales[0];
+                } else {
+                    this.scaleInfo = null;
+                }
                 this.isLoadingBridgeVersion = false;
             },
             error: () => {
                 this.bridgeVersion = 'Offline';
+                this.scaleInfo = null;
                 this.isLoadingBridgeVersion = false;
             }
         });
