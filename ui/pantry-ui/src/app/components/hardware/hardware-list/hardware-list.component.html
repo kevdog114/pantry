@@ -36,7 +36,8 @@
                             class="hover:bg-gray-50 dark:hover:bg-zinc-700/30 transition-colors">
                             <mat-icon matListItemIcon class="text-gray-400">
                                 {{ device.type === 'PRINTER' ? 'print' : (device.type === 'RECEIPT_PRINTER' ? 'receipt'
-                                : (device.type === 'SCALE' ? 'linear_scale' : 'usb')) }}
+                                : (device.type === 'SCALE' ? 'linear_scale' : (device.type === 'BRIDGE' ? 'hub' :
+                                'usb'))) }}
                             </mat-icon>
                             <div matListItemTitle class="font-medium">{{ device.name }}</div>
                             <div matListItemLine class="flex items-center gap-2">
@@ -61,6 +62,22 @@
                                     class="bg-gray-50 dark:bg-zinc-700 text-gray-600 dark:text-gray-400 text-xs px-2 py-0.5 rounded border border-gray-200 dark:border-gray-600"
                                     *ngIf="details.config?.model">
                                     {{ details.config.model }}
+                                </span>
+                            </div>
+                            <!-- Bridge Info -->
+                            <div matListItemLine class="mt-1"
+                                *ngIf="device.type === 'BRIDGE' && getDeviceDetails(device) as details">
+                                <span class="text-xs font-mono bg-purple-100 text-purple-800 px-2 py-0.5 rounded"
+                                    *ngIf="details.version">
+                                    v{{ details.version }}
+                                </span>
+                            </div>
+                            <!-- Scale Info -->
+                            <div matListItemLine class="mt-1"
+                                *ngIf="device.type === 'SCALE' && getDeviceDetails(device) as details">
+                                <span class="text-xs font-mono bg-indigo-100 text-indigo-800 px-2 py-0.5 rounded"
+                                    *ngIf="details.firmware">
+                                    {{ details.firmware }}
                                 </span>
                             </div>
                             <div matListItemMeta

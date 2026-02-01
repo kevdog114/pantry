@@ -670,6 +670,19 @@ function checkDevices() {
     const pythonCmd = '/opt/venv/bin/python3 print_label.py';
     const fs = require('fs');
 
+    // Register Bridge Itself
+    if (socket && socket.connected) {
+        socket.emit('device_register', {
+            name: 'Kiosk Bridge',
+            type: 'BRIDGE',
+            status: 'ONLINE',
+            details: JSON.stringify({
+                version: packageJson.version,
+                startTime: new Date().toISOString()
+            })
+        });
+    }
+
     // Check for Keyboard Scanner Config
     try {
         if (fs.existsSync(KIOSK_CONFIG_FILE)) {
