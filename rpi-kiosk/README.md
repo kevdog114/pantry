@@ -76,11 +76,52 @@ xset s noblank
 xhost +local:root
 
 # Run the Kiosk Docker Container
-# --ipc=host: Recommended for Chrome in Docker to avoid shared memory crashes
-# -v /tmp/.X11-unix:/tmp/.X11-unix: Share the display socket
-# --privileged: Required for direct access to USB devices (Label Printer)
-# -v /dev/bus/usb:/dev/bus/usb: Share USB devices for receipt/label printers
-# -v /dev/input:/dev/input: Share input devices for barcode scanner support (bridge scans directly)
+# Run the Kiosk Startup Script
+# This script handles:
+# 1. Starting a fast-loading bootstrapper (loading screen)
+# 2. Updating the main application
+# 3. Launching the main Kiosk
+#
+# You can copy the script from `scripts/start-kiosk.sh` in this repo, or paste the following:
+
+~/start-kiosk.sh
+```
+
+Create the `~/start-kiosk.sh` script:
+
+```bash
+nano ~/start-kiosk.sh
+```
+
+Paste the content from `scripts/start-kiosk.sh` (available in this repository).  
+Remember to make it executable:
+```bash
+chmod +x ~/start-kiosk.sh
+```
+
+### Script Content (for reference):
+```bash
+#!/bin/bash
+BOOTSTRAP_IMAGE="klschaefer/pantry-bootstrapper:latest"
+MAIN_IMAGE="klschaefer/pantry-kiosk:latest"
+URL="${URL:-https://pantry.yourdomain.com}"
+
+# 1. Start Bootstrapper
+if [[ "$(docker images -q $BOOTSTRAP_IMAGE 2> /dev/null)" == "" ]]; then
+  echo "Pulling bootstrapper..."
+  docker pull $BOOTSTRAP_IMAGE
+fi
+
+# Run Bootstrapper (mounts docker socket to perform self-update)
+docker run --rm \
+  --name pantry-bootstrapper \
+  -v /tmp/.X11-unix:/tmp/.X11-unix \
+  -v /var/run/docker.sock:/var/run/docker.sock \
+  -e DISPLAY=:0 \
+  -e TARGET_IMAGE="$MAIN_IMAGE" \
+  $BOOTSTRAP_IMAGE
+
+# 3. Switch to Main Image
 docker run --rm \
   --name pantry-kiosk \
   -v /tmp/.X11-unix:/tmp/.X11-unix \
@@ -92,16 +133,9 @@ docker run --rm \
   --device /dev/snd \
   --privileged \
   -e DISPLAY=:0 \
-  -e URL="https://pantry.yourdomain.com" \
-  # Optional: MQTT Integration (Home Assistant)
-  # -e MQTT_BROKER="192.168.1.10" \
-  # -e MQTT_PORT=1883 \
-  # -e MQTT_USER="homeassistant" \
-  # -e MQTT_PASSWORD="password" \
-  # -e KIOSK_ID="pantry_kiosk" \
+  -e URL="$URL" \
   --ipc=host \
-  --pull=always \
-  klschaefer/pantry-kiosk:latest
+  $MAIN_IMAGE
 ```
 *(Replace `klschaefer/pantry-kiosk:latest` with your proper image tag if different)*
 
