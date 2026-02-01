@@ -87,6 +87,30 @@ export const create = async (req: Request, res: Response) => {
             }
         });
 
+        // Check for planned leftovers and link them
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        const plannedLeftovers = await prisma.mealPlan.findMany({
+            where: {
+                recipeId: recipe.id,
+                isLeftover: true,
+                date: { gte: today }
+            }
+        });
+
+        if (plannedLeftovers.length > 0) {
+            console.log(`Linking created leftover to ${plannedLeftovers.length} planned meals.`);
+            await prisma.mealPlan.updateMany({
+                where: {
+                    id: { in: plannedLeftovers.map(mp => mp.id) }
+                },
+                data: {
+                    productId: product.id
+                }
+            });
+        }
+
         res.json({ product, stockItem });
     } catch (error) {
         console.error("Error creating leftover:", error);
