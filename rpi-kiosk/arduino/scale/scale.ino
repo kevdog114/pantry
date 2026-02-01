@@ -2,7 +2,7 @@
 
 #define DOUT_PIN 10
 #define SCK_PIN 9
-#define FIRMWARE_VERSION "SCALE_FW_1.1"
+#define FIRMWARE_VERSION "SCALE_FW_0.0"
 
 HX711 scale;
 
