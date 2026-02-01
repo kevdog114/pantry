@@ -866,7 +866,7 @@ export const post = async (req: Request, res: Response) => {
                 opened: args.opened || false
               }
             });
-            return { message: "Stock item created", item: newItem };
+            return { message: "Stock item created. Please confirm this action to the user.", item: newItem };
 
           case "editStockEntry":
             const currentItem = await prisma.stockItem.findUnique({
@@ -955,11 +955,11 @@ export const post = async (req: Request, res: Response) => {
               where: { id: args.stockId },
               data: formattedData
             });
-            return { message: "Updated", item: updated };
+            return { message: "Updated. Please confirm to the user.", item: updated };
 
           case "deleteStockEntry":
             await prisma.stockItem.delete({ where: { id: args.stockId } });
-            return { message: "Deleted stock item " + args.stockId };
+            return { message: "Deleted stock item " + args.stockId + ". Please confirm to the user." };
 
           case "getShoppingList":
             const list = await prisma.shoppingList.findFirst({
@@ -991,7 +991,7 @@ export const post = async (req: Request, res: Response) => {
                   unit: args.unit || existingItem.unit
                 }
               });
-              return { message: "Updated shopping list item quantity", item: updatedItem };
+              return { message: "Updated shopping list item quantity. Please confirm this to the user.", item: updatedItem };
             }
 
             const newShoppingItem = await prisma.shoppingListItem.create({
@@ -1002,7 +1002,7 @@ export const post = async (req: Request, res: Response) => {
                 unit: args.unit || null
               }
             });
-            return { message: "Added to shopping list", item: newShoppingItem };
+            return { message: "Added to shopping list. Please confirm this to the user.", item: newShoppingItem };
 
           case "removeFromShoppingList":
             const sl = await prisma.shoppingList.findFirst();
@@ -1019,7 +1019,7 @@ export const post = async (req: Request, res: Response) => {
 
             if (itemToDelete) {
               await prisma.shoppingListItem.delete({ where: { id: itemToDelete.id } });
-              return { message: `Removed ${itemToDelete.name} from shopping list.` };
+              return { message: `Removed ${itemToDelete.name} from shopping list. Please confirm to the user.` };
             }
             return { error: `Item ${args.item} not found in shopping list.` };
 
@@ -1079,18 +1079,18 @@ export const post = async (req: Request, res: Response) => {
                 productId: args.productId
               }
             });
-            return { message: "Added meal plan", planId: newPlan.id };
+            return { message: "Added meal plan. Please confirm this to the user.", planId: newPlan.id };
 
           case "removeFromMealPlan":
             await prisma.mealPlan.delete({ where: { id: args.mealPlanId } });
-            return { message: "Removed meal from plan" };
+            return { message: "Removed meal from plan. Please confirm to the user." };
 
           case "moveMealPlan":
             await prisma.mealPlan.update({
               where: { id: args.mealPlanId },
               data: { date: new Date(args.newDate) }
             });
-            return { message: "Moved meal plan" };
+            return { message: "Moved meal plan. Please confirm to the user." };
 
           case "createRecipe":
             const newRecipe = await prisma.recipe.create({
@@ -1152,7 +1152,7 @@ export const post = async (req: Request, res: Response) => {
               console.error("Failed to enrich Gemini-created recipe:", err);
             }
 
-            return { message: "Recipe created successfully. ID: " + newRecipe.id, recipeId: newRecipe.id };
+            return { message: "Recipe created successfully. ID: " + newRecipe.id + ". Please confirm creation to the user.", recipeId: newRecipe.id };
 
           case "printReceipt":
             try {
@@ -1224,7 +1224,7 @@ export const post = async (req: Request, res: Response) => {
                 }
               });
 
-              return { message: "Print command sent to Kiosk." };
+              return { message: "Print command sent to Kiosk. Please confirm this action to the user." };
             } catch (err: any) {
               console.error("[Gemini] printReceipt error:", err);
               return { error: "Failed to process print request: " + err.message };
@@ -1269,11 +1269,11 @@ export const post = async (req: Request, res: Response) => {
                 status: "RUNNING"
               }
             });
-            return { message: "Timer started", timer: newTimer };
+            return { message: "Timer started. Please confirm to the user.", timer: newTimer };
 
           case "deleteTimer":
             await prisma.timer.delete({ where: { id: args.timerId } });
-            return { message: "Timer deleted" };
+            return { message: "Timer deleted. Please confirm to the user." };
 
           case "createCookingInstruction":
             // Verify product exists
@@ -1298,13 +1298,13 @@ export const post = async (req: Request, res: Response) => {
                 }
               }
             });
-            return { message: "Created cooking instruction", type: "instruction", instructionId: newInstruction.id };
+            return { message: "Created cooking instruction. Please confirm to the user.", type: "instruction", instructionId: newInstruction.id };
 
           case "sendPushNotification":
             const uId = (req.user as any)?.id;
             if (!uId) return { error: "User context not found." };
             await sendNotificationToUser(uId, args.title, args.body);
-            return { message: `Notification sent.` };
+            return { message: `Notification sent. Please confirm to the user.` };
 
           default:
             return { error: "Unknown tool" };
@@ -1316,6 +1316,7 @@ export const post = async (req: Request, res: Response) => {
 
     const debugSetting = await prisma.systemSetting.findUnique({ where: { key: 'gemini_debug' } });
     const isGeminiDebug = debugSetting?.value === 'true';
+    let printedInThisTurn = false;
 
     const { result, warning } = await executeWithFallback(
       "gemini_chat_model",
@@ -1365,6 +1366,7 @@ export const post = async (req: Request, res: Response) => {
                   continue;
                 }
                 printedOnce = true; // Mark as printed
+                printedInThisTurn = true;
               }
 
               const toolResult = await handleToolCall(call.name, call.args);
@@ -1451,6 +1453,17 @@ export const post = async (req: Request, res: Response) => {
           }
         ]
       };
+    }
+
+    // Safety Net: If printed but no items returned (model thought action was sufficient), inject confirmation
+    if (printedInThisTurn) {
+      if (!data.items) data.items = [];
+      if (Array.isArray(data.items) && data.items.length === 0) {
+        data.items.push({
+          type: 'chat',
+          content: "I've sent that to the printer."
+        });
+      }
     }
 
     // Save Model Response to DB
