@@ -125,35 +125,32 @@
             <!-- STATE: WEIGH -->
             <div *ngIf="restockState === 'WEIGH'" class="flex-1 flex flex-col gap-4">
                 <div
-                    class="flex-1 bg-white/5 border border-white/10 rounded-3xl flex flex-col relative overflow-hidden">
+                    class="flex-1 bg-white/5 border border-white/10 rounded-3xl flex flex-col items-center justify-center relative overflow-hidden">
                     <div class="absolute top-6 left-6 z-10">
                         <span class="text-gray-400 font-bold tracking-widest text-xl">SCALE</span>
                     </div>
 
                     <div class="flex-1 flex flex-col items-center justify-center">
-                        <div class="text-[12rem] font-mono leading-none font-bold text-white slashed-zero">
+                        <div class="font-mono leading-none font-bold text-white slashed-zero" style="font-size: 12rem;">
                             {{ displayWeight | number:'1.0-1' }}
                         </div>
                         <div class="text-6xl text-cyan-400 font-bold tracking-widest uppercase mt-4">{{ currentUnit }}
                         </div>
                     </div>
-
-                    <div class="p-8 flex justify-between gap-8">
-                        <button class="k-btn flex-1 h-32" (click)="tareScale()">
-                            <mat-icon class="scale-150 mr-4">restart_alt</mat-icon> <span class="text-3xl">TARE</span>
-                        </button>
-                        <button class="k-btn flex-1 h-32" (click)="toggleUnit()">
-                            <mat-icon class="scale-150 mr-4">swap_vert</mat-icon> <span class="text-3xl">UNIT</span>
-                        </button>
-                    </div>
                 </div>
 
-                <div class="grid grid-cols-2 gap-4 h-32">
-                    <button class="k-btn" (click)="backToRestockOptions()">
-                        <mat-icon>arrow_back</mat-icon> <span class="text-2xl ml-4">BACK</span>
+                <div class="grid grid-cols-2 gap-4" style="height: 300px; flex-shrink: 0;">
+                    <button class="k-btn h-full" (click)="tareScale()">
+                        <mat-icon class="scale-150 mb-2">restart_alt</mat-icon> <span class="text-3xl">TARE</span>
+                    </button>
+                    <button class="k-btn h-full" (click)="toggleUnit()">
+                        <mat-icon class="scale-150 mb-2">swap_vert</mat-icon> <span class="text-3xl">UNIT</span>
+                    </button>
+                    <button class="k-btn h-full" (click)="backToRestockOptions()">
+                        <mat-icon class="scale-150 mb-2">arrow_back</mat-icon> <span class="text-3xl">BACK</span>
                     </button>
                     <button class="k-btn success h-full" (click)="captureRestockWeight()">
-                        <mat-icon class="scale-150 mr-4">check_circle</mat-icon> <span
+                        <mat-icon class="scale-150 mb-2">check_circle</mat-icon> <span
                             class="text-3xl font-bold">CAPTURE</span>
                     </button>
                 </div>

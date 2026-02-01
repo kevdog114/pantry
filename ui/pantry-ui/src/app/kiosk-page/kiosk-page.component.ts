@@ -1118,16 +1118,27 @@ export class KioskPageComponent implements OnInit, OnDestroy {
         this.backToRestockOptions();
     }
 
+    isProcessing: boolean = false;
+
     async captureRestockWeight() {
+        if (this.isProcessing) return;
         if (!this.pendingProduct) return;
         if (this.currentWeight <= 0) {
             this.snackBar.open("Weight must be > 0", "Close", { duration: 1500 });
             return;
         }
 
+        this.isProcessing = true;
+
         // Capture
         try {
             const addedItem = await this.addStock(this.pendingProduct, this.currentWeight, this.pendingExpiration);
+
+            if (!this.pendingProduct) {
+                // Should not happen if locked, but safety check
+                this.isProcessing = false;
+                return;
+            }
 
             let expStr = "";
             if (addedItem && addedItem.expirationDate) {
@@ -1142,12 +1153,14 @@ export class KioskPageComponent implements OnInit, OnDestroy {
 
             // Reset
             this.cancelRestockItem();
-            this.showTempStatus("Weight Added", this.pendingProduct.title, 2000);
+            this.showTempStatus("Weight Added", this.pendingProduct!.title, 2000);
 
         } catch (e) {
             console.error("Failed to add weighted stock", e);
             this.snackBar.open("Failed to add stock", "Close");
             this.playErrorSound();
+        } finally {
+            this.isProcessing = false;
         }
     }
 
