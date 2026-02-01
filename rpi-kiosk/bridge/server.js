@@ -490,25 +490,32 @@ function connectSocket() {
     });
 
     socket.on('get_serial_ports', (payload) => {
-        console.log('Received get_serial_ports request', payload);
+        console.log('[DEBUG] Received get_serial_ports request', payload);
         const requestId = payload.requestId;
         const cmd = `/opt/venv/bin/python3 flash_tool.py list`;
 
+        console.log(`[DEBUG] Executing: ${cmd}`);
         const { exec } = require('child_process');
         exec(cmd, { timeout: 5000 }, (err, stdout, stderr) => {
+            console.log(`[DEBUG] Exec finished. Err: ${err ? 'Yes' : 'No'}, Stdout len: ${stdout ? stdout.length : 0}, Stderr: ${stderr}`);
             if (err) {
                 console.error('List Ports Error:', err);
                 if (err.signal === 'SIGTERM') {
+                    console.log('[DEBUG] Emitting timeout failure');
                     socket.emit('serial_ports_list', { requestId, success: false, message: "Timeout listing ports. Busy?" });
                 } else {
+                    console.log('[DEBUG] Emitting error failure');
                     socket.emit('serial_ports_list', { requestId, success: false, message: stderr || err.message });
                 }
             } else {
                 try {
+                    console.log(`[DEBUG] Parsing stdout: ${stdout}`);
                     const ports = JSON.parse(stdout);
+                    console.log('[DEBUG] Emitting success');
                     socket.emit('serial_ports_list', { requestId, success: true, ports });
                 } catch (e) {
-                    socket.emit('serial_ports_list', { requestId, success: false, message: "Parse error" });
+                    console.error('[DEBUG] Parse error:', e);
+                    socket.emit('serial_ports_list', { requestId, success: false, message: "Parse error: " + e.message });
                 }
             }
         });
