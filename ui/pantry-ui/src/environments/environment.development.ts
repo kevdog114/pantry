@@ -1,3 +1,3 @@
 export const environment = {
-    appVersion: '1.4.0'
+    appVersion: '1.5.0'
 };
