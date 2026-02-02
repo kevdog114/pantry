@@ -7,6 +7,9 @@ import { HardwareBarcodeScannerService } from '../hardware-barcode-scanner.servi
 import { EnvironmentService } from '../services/environment.service';
 import { Location, StockItem, Product } from '../types/product';
 import { firstValueFrom } from 'rxjs';
+import { ProductListService } from '../components/product-list/product-list.service';
+import { TagsService } from '../tags.service';
+import { ProductTags } from '../types/product';
 
 interface AuditItem {
     stockItem: StockItem;
@@ -19,6 +22,13 @@ interface ExtraItem {
     product?: Product;
     stockItemId?: number; // if sk- barcode
     count: number;
+}
+
+interface ProcessingItem {
+    barcode: string;
+    status: string;
+    productName?: string;
+    error?: string;
 }
 
 @Component({
@@ -35,6 +45,7 @@ export class AuditPageComponent implements OnInit, OnDestroy {
 
     expectedItems: AuditItem[] = [];
     extraItems: ExtraItem[] = []; // Items found but not expected
+    processingItems: ProcessingItem[] = [];
 
     isLoading = false;
     auditFinished = false;
@@ -48,7 +59,9 @@ export class AuditPageComponent implements OnInit, OnDestroy {
         private locationService: LocationService,
         private scannerService: HardwareBarcodeScannerService,
         private http: HttpClient,
-        private env: EnvironmentService
+        private env: EnvironmentService,
+        private productService: ProductListService,
+        private tagsService: TagsService
     ) { }
 
     onLocationChange(event: any) {
@@ -66,6 +79,7 @@ export class AuditPageComponent implements OnInit, OnDestroy {
         this.extraItems = [];
         this.auditFinished = false;
         this.missingItemsResult = [];
+        this.processingItems = [];
     }
 
     ngOnInit(): void {
@@ -132,7 +146,8 @@ export class AuditPageComponent implements OnInit, OnDestroy {
                 this.processProductScan(product, barcode);
             } else {
                 // Unknown barcode
-                alert(`Unknown barcode: ${barcode}`);
+                // alert(`Unknown barcode: ${barcode}`);
+                this.handleUnknownBarcode(barcode);
             }
         } catch (err) {
             console.error(err);
@@ -248,5 +263,139 @@ export class AuditPageComponent implements OnInit, OnDestroy {
             locationId,
             quantity: 1 // Default to 1 per scan
         }));
+    }
+    async handleUnknownBarcode(barcode: string) {
+        // Prevent duplicate processing
+        if (this.processingItems.find(p => p.barcode === barcode)) return;
+
+        const processItem: ProcessingItem = {
+            barcode,
+            status: 'Looking up...'
+        };
+        this.processingItems.push(processItem);
+
+        try {
+            // OFF Lookup
+            let offData: any = {};
+            try {
+                const offRes = await firstValueFrom(this.http.get<any>(`https://world.openfoodfacts.org/api/v2/product/${barcode}`));
+                if (offRes && offRes.product) {
+                    offData = offRes.product;
+                }
+            } catch (e) { }
+
+            if (!offData.product_name) {
+                processItem.status = 'Not found in OFF';
+                processItem.error = 'Unknown Product';
+                // Wait and remove?
+                setTimeout(() => {
+                    const idx = this.processingItems.indexOf(processItem);
+                    if (idx >= 0) this.processingItems.splice(idx, 1);
+                }, 3000);
+                return;
+            }
+
+            processItem.status = 'AI Processing...';
+
+            // Match Check
+            const matchRes = await firstValueFrom(this.http.post<any>(`${this.env.apiUrl}/gemini/product-match`, {
+                productName: offData.product_name,
+                brand: offData.brands || ""
+            }));
+
+            let product: Product;
+
+            if (matchRes.matchId) {
+                // Link to existing
+                processItem.status = 'Linking...';
+                product = await firstValueFrom(this.productService.Get(matchRes.matchId));
+
+                // Add barcode if missing
+                const updatedBarcodes = product.barcodes || [];
+                if (!updatedBarcodes.find(b => b.barcode === barcode)) {
+                    updatedBarcodes.push({
+                        barcode: barcode,
+                        brand: offData.brands || "",
+                        description: "Added via Audit",
+                        tags: [],
+                        ProductId: product.id,
+                        id: 0,
+                        quantity: 1
+                    });
+                    await firstValueFrom(this.productService.Update({ ...product, barcodes: updatedBarcodes }));
+                }
+            } else {
+                // Create New
+                processItem.status = 'Creating Product...';
+                const detailsRes = await firstValueFrom(this.http.post<any>(`${this.env.apiUrl}/gemini/barcode-details`, {
+                    productName: offData.product_name,
+                    brand: offData.brands || "",
+                    existingProductTitle: ""
+                }));
+                const details = detailsRes.data;
+                const candidateTitle = details.title || offData.product_name;
+
+                // Tags Logic
+                const allTags = await firstValueFrom(this.tagsService.GetAll());
+                const productTags: ProductTags[] = [];
+                if (details.tags && Array.isArray(details.tags)) {
+                    for (const tagName of details.tags) {
+                        const existing = allTags.find(t => t.name.toLowerCase() === tagName.toLowerCase());
+                        if (existing) {
+                            productTags.push(existing);
+                        } else {
+                            try {
+                                const newTag = await firstValueFrom(this.tagsService.Create({ name: tagName, group: 'General' } as any));
+                                productTags.push(newTag);
+                            } catch (e) { }
+                        }
+                    }
+                }
+
+                const newProductPayload: any = {
+                    title: candidateTitle,
+                    tags: productTags,
+                    barcodes: [{
+                        barcode: barcode,
+                        brand: details.brand || offData.brands || "",
+                        description: details.description || "",
+                        tags: [],
+                        quantity: 1
+                    }],
+                    refrigeratorLifespanDays: details.refrigeratorLifespanDays,
+                    pantryLifespanDays: details.pantryLifespanDays,
+                    trackCountBy: details.trackCountBy || 'quantity',
+                };
+                product = await firstValueFrom(this.productService.Create(newProductPayload));
+            }
+
+            // Create Stock Item
+            processItem.status = 'Adding Stock...';
+            if (this.selectedLocationId) {
+                await firstValueFrom(this.http.post(`${this.env.apiUrl}/stock-items`, {
+                    productId: product.id,
+                    locationId: this.selectedLocationId,
+                    quantity: 1
+                }));
+            }
+
+            // Success
+            processItem.status = 'Done';
+            processItem.productName = product.title;
+
+            // Move to Extra Items (so it shows up in the accepted list)
+            this.addExtraItem(barcode, product);
+
+            // Remove from processing
+            const idx = this.processingItems.indexOf(processItem);
+            if (idx >= 0) {
+                this.processingItems.splice(idx, 1);
+            }
+
+        } catch (err) {
+            console.error(err);
+            processItem.status = 'Error';
+            processItem.error = 'Failed';
+        }
     }
 }

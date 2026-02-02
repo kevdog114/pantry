@@ -43,6 +43,22 @@
                 </div>
             </div>
 
+            <div class="section processing-section" *ngIf="processingItems.length > 0">
+                <h3>Processing New Items</h3>
+                <div class="item-list">
+                    <div class="item-card processing" *ngFor="let item of processingItems" [class.error]="item.error">
+                        <div class="loading-spinner" *ngIf="!item.error"></div>
+                        <div class="status-icon" *ngIf="item.error">⚠️</div>
+                        <div class="item-details">
+                            <span class="product-name" *ngIf="item.productName">{{ item.productName }}</span>
+                            <span class="barcode">{{ item.barcode }}</span>
+                            <span class="status">{{ item.status }}</span>
+                            <span class="stock-info" *ngIf="item.error">{{ item.error }}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <div class="section extra-section">
                 <h3>Extra Scanned Items</h3>
                 <div class="item-list">
