@@ -15,6 +15,7 @@ interface AuditItem {
     stockItem: StockItem;
     found: boolean;
     productName: string;
+    reportedQuantity: number;
 }
 
 interface ExtraItem {
@@ -115,7 +116,8 @@ export class AuditPageComponent implements OnInit, OnDestroy {
                 this.expectedItems = loc.stockItems.map(item => ({
                     stockItem: item,
                     found: false,
-                    productName: item.product?.title || 'Unknown Product'
+                    productName: item.product?.title || 'Unknown Product',
+                    reportedQuantity: item.quantity
                 }));
             }
         } catch (err) {
@@ -225,41 +227,39 @@ export class AuditPageComponent implements OnInit, OnDestroy {
     async moveItemToHere(extra: ExtraItem) {
         if (!this.selectedLocationId) return;
 
-        // Logic to move item
-        // If it's a specific stock item (sk-), update it.
         if (extra.stockItemId) {
-            await this.updateStockLocation(extra.stockItemId, this.selectedLocationId);
-            // Remove from extra items list or mark done?
-            // Ideally reload?
-            alert(`Moved stock item ${extra.stockItemId} to this location.`);
+            // It's an existing stock item. Update it.
+            const payload: any = {
+                locationId: this.selectedLocationId,
+                quantity: extra.count
+            };
+            if (extra.expirationDate) {
+                payload.expirationDate = new Date(extra.expirationDate);
+            }
+
+            try {
+                await firstValueFrom(this.http.patch(`${this.env.apiUrl}/stock-items/${extra.stockItemId}`, payload));
+                alert(`Updated item in this location.`);
+            } catch (e) {
+                console.error(e);
+                alert("Failed to update item");
+            }
+
         } else if (extra.product) {
-            // It's a generic product scan. We don't know WHICH stock item it is if it came from elsewhere.
-            // However, user prompt said: "move items to that location if the user scans items that aren't there already"
-            // If it's a new product, we might need to CREATE a stock item?
-            // Or does it mean we assume it's one of the existing stock items of that product found elsewhere?
-            // That's risky/ambiguous. 
-            // For now, I'll fallback to "Create new stock item" if it's a product scan not matching expected.
-            // create stock item
+            // Create New
             await this.createStockItem(extra.product.id, this.selectedLocationId, extra.count, extra.expirationDate);
             alert(`Created new stock entry for ${extra.product.title} in this location.`);
         }
 
-        // Remove from UI list for visual feedback
+        // Remove from list
         const idx = this.extraItems.indexOf(extra);
         if (idx >= 0) {
-            // If count > 1, decrement?
-            if (extra.count > 1) {
-                extra.count--;
-                // Repeat the action for others? User has to click multiple times?
-                // Maybe "Move All"?
-            } else {
-                this.extraItems.splice(idx, 1);
-            }
+            this.extraItems.splice(idx, 1);
         }
     }
 
     async updateStockLocation(stockId: number, locationId: number) {
-        await firstValueFrom(this.http.put(`${this.env.apiUrl}/stock-items/${stockId}`, {
+        await firstValueFrom(this.http.patch(`${this.env.apiUrl}/stock-items/${stockId}`, {
             locationId: locationId
         }));
     }
@@ -276,6 +276,23 @@ export class AuditPageComponent implements OnInit, OnDestroy {
             quantity: quantity,
             expirationDate: expDateObj
         }));
+    }
+
+    async updateItemQuantity(item: AuditItem) {
+        if (!item || item.reportedQuantity < 0) return;
+
+        try {
+            await firstValueFrom(this.http.patch(`${this.env.apiUrl}/stock-items/${item.stockItem.id}`, {
+                quantity: item.reportedQuantity
+            }));
+            // Update the "source of truth" in the list so button can hide/reset state if needed
+            item.stockItem.quantity = item.reportedQuantity;
+            // Optionally auto-mark as found if they update quantity?
+            if (!item.found) item.found = true;
+        } catch (e) {
+            console.error("Failed to update quantity", e);
+            alert("Failed to save quantity");
+        }
     }
     async handleUnknownBarcode(barcode: string) {
         // Check for existing processing item
@@ -396,8 +413,9 @@ export class AuditPageComponent implements OnInit, OnDestroy {
             d.setDate(d.getDate() + days);
             expirationDateObj = d;
 
+            let createdStockItem: any = null;
             if (this.selectedLocationId) {
-                await firstValueFrom(this.http.post(`${this.env.apiUrl}/stock-items`, {
+                createdStockItem = await firstValueFrom(this.http.post<any>(`${this.env.apiUrl}/stock-items`, {
                     productId: product.id,
                     locationId: this.selectedLocationId,
                     quantity: processItem.count,
@@ -416,11 +434,15 @@ export class AuditPageComponent implements OnInit, OnDestroy {
             const existingExtra = this.extraItems.find(e => e.product?.id === product.id);
             if (existingExtra) {
                 existingExtra.count += processItem.count;
+                if (!existingExtra.stockItemId && createdStockItem) {
+                    existingExtra.stockItemId = createdStockItem.id;
+                }
             } else {
                 this.extraItems.push({
                     barcode,
                     product,
                     count: processItem.count,
+                    stockItemId: createdStockItem?.id,
                     expirationDate: isoDate
                 });
             }

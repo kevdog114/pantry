@@ -32,9 +32,17 @@
                             <span *ngIf="item.found">✅</span>
                             <span *ngIf="!item.found">⬜</span>
                         </div>
-                        <div class="item-details">
+                        <div class="item-details" style="flex: 1;">
                             <span class="product-name">{{ item.productName }}</span>
-                            <span class="stock-info">Qty: {{ item.stockItem.quantity }}</span>
+                            <div class="stock-info-row">
+                                <label>Qty:</label>
+                                <input type="number" [(ngModel)]="item.reportedQuantity" class="qty-input" min="0">
+                                <span *ngIf="item.reportedQuantity !== item.stockItem.quantity"
+                                    class="qty-changed-indicator" (click)="updateItemQuantity(item)"
+                                    title="Save Quantity">
+                                    💾
+                                </span>
+                            </div>
                         </div>
                     </div>
                     <div *ngIf="expectedItems.length === 0" class="empty-state">

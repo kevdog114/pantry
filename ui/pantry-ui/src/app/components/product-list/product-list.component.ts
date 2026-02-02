@@ -87,12 +87,12 @@ export class ProductListComponent implements AfterViewInit {
     public refreshList = () => {
         if (this.searchTerm !== null && this.searchTerm !== undefined && this.searchTerm.length > 0) {
             this.svc.searchProducts(this.searchTerm, this.selectedLocationId).subscribe(a => {
-                this.products = a;
+                this.products = this.sortItems(a, this.selectedSortOption);
             });
         }
         else {
             this.svc.GetAll(this.selectedLocationId).subscribe(res => {
-                this.products = res;
+                this.products = this.sortItems(res, this.selectedSortOption);
             });
         }
     }
@@ -103,8 +103,13 @@ export class ProductListComponent implements AfterViewInit {
 
     private sortItems = (products: Product[], sortOption: SortOption): Product[] => {
         return products.sort((a: Product, b: Product) => {
-            var val1 = sortOption == "alphabetical" ? a.title : a.minExpiration;
-            var val2 = sortOption == "alphabetical" ? b.title : b.minExpiration;
+            let val1 = sortOption == "alphabetical" ? a.title : a.minExpiration;
+            let val2 = sortOption == "alphabetical" ? b.title : b.minExpiration;
+
+            if (sortOption == "alphabetical") {
+                val1 = val1 ? val1.toString().toLowerCase() : val1;
+                val2 = val2 ? val2.toString().toLowerCase() : val2;
+            }
 
             if (val1 === val2) return 0;
             if (val1 === null || val1 === undefined) return 1;
