@@ -268,7 +268,7 @@ export const getMealPlan = async (req: Request, res: Response, next: NextFunctio
 }
 
 export const addMealToPlan = async (req: Request, res: Response, next: NextFunction): Promise<any> => {
-    const { date, recipeId, productId, isLeftover } = req.body;
+    const { date, recipeId, productId, isLeftover, mealType } = req.body;
     console.log(`[Method: addMealToPlan] Request Body:`, req.body); // Debug log
 
     if (!date || (!recipeId && !productId)) {
@@ -284,7 +284,8 @@ export const addMealToPlan = async (req: Request, res: Response, next: NextFunct
                 productId: productId ? Number(productId) : undefined,
                 quantity: req.body.quantity ? Number(req.body.quantity) : 1,
                 unit: req.body.unit || null,
-                isLeftover: isLeftover || false
+                isLeftover: isLeftover || false,
+                mealType: mealType || null
             },
             include: {
                 recipe: true,
@@ -308,7 +309,8 @@ export const updateMealPlan = async (req: Request, res: Response, next: NextFunc
                 date: (date) ? new Date(date) : undefined,
                 quantity: req.body.quantity ? Number(req.body.quantity) : undefined,
                 unit: req.body.unit || undefined,
-                actualYield: req.body.actualYield ? Number(req.body.actualYield) : undefined
+                actualYield: req.body.actualYield ? Number(req.body.actualYield) : undefined,
+                mealType: req.body.mealType || undefined
             },
             include: {
                 recipe: true,

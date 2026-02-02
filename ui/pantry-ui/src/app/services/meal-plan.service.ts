@@ -16,6 +16,7 @@ export interface MealPlan {
     quantity?: number;
     isLeftover?: boolean;
     actualYield?: number;
+    mealType?: string;
 }
 
 @Injectable({
@@ -32,16 +33,16 @@ export class MealPlanService {
         return this.http.get<MealPlan[]>(`${this.apiUrl}?startDate=${startDate}&endDate=${endDate}`);
     }
 
-    addMealToPlan(date: Date, recipeId?: number, productId?: number, isLeftover?: boolean, quantity?: number): Observable<MealPlan> {
-        return this.http.post<MealPlan>(this.apiUrl, { date, recipeId, productId, isLeftover, quantity });
+    addMealToPlan(date: Date, recipeId?: number, productId?: number, isLeftover?: boolean, quantity?: number, mealType?: string): Observable<MealPlan> {
+        return this.http.post<MealPlan>(this.apiUrl, { date, recipeId, productId, isLeftover, quantity, mealType });
     }
 
     removeMealFromPlan(id: number): Observable<void> {
         return this.http.delete<void>(`${this.apiUrl}/${id}`);
     }
 
-    updateMealPlan(id: number, date: Date, quantity?: number): Observable<MealPlan> {
-        return this.http.put<MealPlan>(`${this.apiUrl}/${id}`, { date, quantity });
+    updateMealPlan(id: number, date: Date, quantity?: number, mealType?: string): Observable<MealPlan> {
+        return this.http.put<MealPlan>(`${this.apiUrl}/${id}`, { date, quantity, mealType });
     }
 
     saveLogisticsTasks(tasks: any[], startDate?: string, endDate?: string): Observable<any> {

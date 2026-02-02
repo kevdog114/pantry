@@ -15,11 +15,12 @@ import { MatTabsModule } from '@angular/material/tabs';
 import { WeatherSettingsComponent } from './weather-settings/weather-settings.component';
 
 import { PbxSettingsComponent } from './pbx-settings/pbx-settings.component';
+import { MealSettingsComponent } from './meal-settings/meal-settings.component';
 
 @Component({
   selector: 'app-settings',
   standalone: true,
-  imports: [CommonModule, FormsModule, MatFormFieldModule, MatSelectModule, MatButtonModule, RouterModule, MatTabsModule, WeatherSettingsComponent, MatSlideToggleModule, PbxSettingsComponent],
+  imports: [CommonModule, FormsModule, MatFormFieldModule, MatSelectModule, MatButtonModule, RouterModule, MatTabsModule, WeatherSettingsComponent, MatSlideToggleModule, PbxSettingsComponent, MealSettingsComponent],
   templateUrl: './settings.component.html',
   styleUrls: ['./settings.component.css']
 })

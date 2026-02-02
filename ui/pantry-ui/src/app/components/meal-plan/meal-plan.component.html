@@ -42,63 +42,101 @@
             </div>
 
             <div class="card-body">
-                <div class="meals-list" cdkDropList [cdkDropListData]="getPlansForDate(day)" [id]="day.toISOString()"
-                    (cdkDropListDropped)="drop($event)">
-
-                    <div *ngFor="let plan of getPlansForDate(day)" class="meal-item" cdkDrag
-                        [class.highlighted]="isHighlighted(plan.id)">
-                        <div class="meal-header">
-                            <div>
-                                <span class="meal-title-text"
-                                    [routerLink]="plan.recipe ? ['/recipes', plan.recipeId] : []"
-                                    [style.cursor]="plan.recipe ? 'pointer' : 'default'">
-                                    {{ plan.recipe?.title || plan.product?.title || 'Unknown Item' }}
-                                    <span *ngIf="plan.isLeftover" class="badge bg-secondary ms-1"
-                                        style="font-size: 0.7em; vertical-align: middle;">Leftover</span>
-                                    <span *ngIf="hasLeftoverShortage(plan)" class="badge bg-danger ms-1"
-                                        style="font-size: 0.7em; vertical-align: middle;"
-                                        matTooltip="Planned quantity exceeds available leftovers">
-                                        Shortage!
-                                    </span>
-                                    <span *ngIf="plan.recipe?.yield && !plan.isLeftover" class="text-muted small ms-1"
-                                        style="font-size: 0.85em;">
-                                        (Yields: {{plan.recipe?.yield}} | {{ getRemainingServings(plan) }} left)
-                                    </span>
-                                </span>
-                                <div *ngIf="hasPrepTasks(plan)" class="prep-indicator text-muted"
-                                    style="font-size: 0.8rem; display: flex; align-items: center; margin-top: 2px;">
-                                    <mat-icon
-                                        style="font-size: 14px; width: 14px; height: 14px; vertical-align: middle; margin-right: 4px;">content_cut</mat-icon>
-                                    <span>Requires prep</span>
-                                </div>
-                                <div *ngIf="plan.product || plan.isLeftover"
-                                    (click)="$event.stopPropagation(); editQuantity(plan)"
-                                    class="quantity-badge clickable-badge" matTooltip="Edit Quantity">
-                                    x{{ plan.quantity || 1 }}
-                                </div>
-                            </div>
-                            <button mat-icon-button class="action-btn" color="warn"
-                                (click)="$event.stopPropagation(); removeMeal(plan)">
-                                <mat-icon>close</mat-icon>
-                            </button>
-                        </div>
-
-                        <div class="indicators" *ngIf="getMissingIngredients(plan).length > 0">
-
-
-                            <!-- Purchase Notice -->
-                            <div *ngIf="getMissingIngredients(plan).length > 0" class="badge buy">
-                                <mat-icon>shopping_cart</mat-icon>
-                                <span>Buy: {{ getMissingIngredients(plan).join(', ') }}</span>
-                            </div>
-                        </div>
+                <!-- Unassigned Section (Only if items exist) -->
+                <div class="meal-type-section" *ngIf="getMealsForDayUnassigned(day).length > 0">
+                    <div class="meal-type-header">
+                        <span>Unassigned</span>
                     </div>
+                    <div class="meals-list" cdkDropList [cdkDropListData]="getMealsForDayUnassigned(day)"
+                        [id]="'meal-list-' + day.toISOString() + '--Unassigned'" (cdkDropListDropped)="drop($event)">
 
-                    <!-- Visual placeholder if empty to encourage dropping or adding -->
-                    <div class="empty-state" *ngIf="getPlansForDate(day).length === 0">
-                        Add a meal
+                        <div *ngFor="let plan of getMealsForDayUnassigned(day)" class="meal-item" cdkDrag
+                            [cdkDragData]="plan" [class.highlighted]="isHighlighted(plan.id)">
+
+                            <!-- Reusing the meal item content template -->
+                            <ng-container
+                                *ngTemplateOutlet="mealItemTemplate; context: {$implicit: plan}"></ng-container>
+
+                        </div>
                     </div>
                 </div>
+
+                <!-- Iterate Meal Types -->
+                <div *ngFor="let type of mealTypes" class="meal-type-section">
+                    <div class="meal-type-header">
+                        <span>{{type}}</span>
+                        <button mat-icon-button class="add-mini-btn" [matMenuTriggerFor]="typeAddMenu">
+                            <mat-icon style="font-size: 18px;">add</mat-icon>
+                        </button>
+                        <mat-menu #typeAddMenu="matMenu">
+                            <button mat-menu-item (click)="openAddItemDialog(day, 'recipe', type)">
+                                <mat-icon>restaurant_menu</mat-icon> Recipe
+                            </button>
+                            <button mat-menu-item (click)="openAddItemDialog(day, 'product', type)">
+                                <mat-icon>kitchen</mat-icon> Product
+                            </button>
+                        </mat-menu>
+                    </div>
+
+                    <div class="meals-list type-list" cdkDropList [cdkDropListData]="getMealsForDayAndType(day, type)"
+                        [id]="'meal-list-' + day.toISOString() + '--' + type" (cdkDropListDropped)="drop($event)">
+
+                        <div *ngFor="let plan of getMealsForDayAndType(day, type)" class="meal-item" cdkDrag
+                            [cdkDragData]="plan" [class.highlighted]="isHighlighted(plan.id)">
+                            <ng-container
+                                *ngTemplateOutlet="mealItemTemplate; context: {$implicit: plan}"></ng-container>
+                        </div>
+
+                        <!-- Empty placeholder to allow dropping -->
+                        <div class="empty-drop-placeholder" *ngIf="getMealsForDayAndType(day, type).length === 0"></div>
+                    </div>
+                </div>
+
+                <!-- Template for Meal Item Content to avoid duplication -->
+                <ng-template #mealItemTemplate let-plan>
+                    <div class="meal-header">
+                        <div>
+                            <span class="meal-title-text" [routerLink]="plan.recipe ? ['/recipes', plan.recipeId] : []"
+                                [style.cursor]="plan.recipe ? 'pointer' : 'default'">
+                                {{ plan.recipe?.title || plan.product?.title || 'Unknown Item' }}
+                                <span *ngIf="plan.isLeftover" class="badge bg-secondary ms-1"
+                                    style="font-size: 0.7em; vertical-align: middle;">Leftover</span>
+                                <span *ngIf="hasLeftoverShortage(plan)" class="badge bg-danger ms-1"
+                                    style="font-size: 0.7em; vertical-align: middle;"
+                                    matTooltip="Planned quantity exceeds available leftovers">
+                                    Shortage!
+                                </span>
+                                <span *ngIf="plan.recipe?.yield && !plan.isLeftover" class="text-muted small ms-1"
+                                    style="font-size: 0.85em;">
+                                    (Yields: {{plan.recipe?.yield}} | {{ getRemainingServings(plan) }} left)
+                                </span>
+                            </span>
+                            <div *ngIf="hasPrepTasks(plan)" class="prep-indicator text-muted"
+                                style="font-size: 0.8rem; display: flex; align-items: center; margin-top: 2px;">
+                                <mat-icon
+                                    style="font-size: 14px; width: 14px; height: 14px; vertical-align: middle; margin-right: 4px;">content_cut</mat-icon>
+                                <span>Requires prep</span>
+                            </div>
+                            <div *ngIf="plan.product || plan.isLeftover"
+                                (click)="$event.stopPropagation(); editQuantity(plan)"
+                                class="quantity-badge clickable-badge" matTooltip="Edit Quantity">
+                                x{{ plan.quantity || 1 }}
+                            </div>
+                        </div>
+                        <button mat-icon-button class="action-btn" color="warn"
+                            (click)="$event.stopPropagation(); removeMeal(plan)">
+                            <mat-icon>close</mat-icon>
+                        </button>
+                    </div>
+
+                    <div class="indicators" *ngIf="getMissingIngredients(plan).length > 0">
+                        <!-- Purchase Notice -->
+                        <div *ngIf="getMissingIngredients(plan).length > 0" class="badge buy">
+                            <mat-icon>shopping_cart</mat-icon>
+                            <span>Buy: {{ getMissingIngredients(plan).join(', ') }}</span>
+                        </div>
+                    </div>
+                </ng-template>
 
                 <!-- Prep Tasks Section -->
                 <div class="prep-tasks-section mb-3" *ngIf="getPrepTasksForDate(day).length > 0">

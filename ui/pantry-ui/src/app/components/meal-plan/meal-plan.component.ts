@@ -28,6 +28,7 @@ import { QuantityPromptDialogComponent } from '../quantity-prompt-dialog/quantit
 import { ShoppingTripService, ShoppingTrip } from '../../services/shopping-trip.service';
 import { ShoppingTripDialogComponent } from '../shopping-trip-dialog/shopping-trip-dialog.component';
 import { MealItemSearchDialogComponent } from '../meal-item-search-dialog/meal-item-search-dialog.component';
+import { SettingsService } from '../../settings/settings.service';
 import { MatMenuModule } from '@angular/material/menu';
 import { MatDividerModule } from '@angular/material/divider';
 import { MatExpansionModule } from '@angular/material/expansion';
@@ -70,6 +71,8 @@ export class MealPlanComponent implements OnInit {
     logisticsActive = false;
     isPlanningLogistics = false;
     weatherMap: Map<string, any> = new Map();
+    mealTypes: string[] = ['Breakfast', 'Lunch', 'Dinner', 'Snack'];
+    loadingSettings = true;
 
     loadUpcomingTasks() {
         const start = this.days[0].toISOString();
@@ -92,7 +95,8 @@ export class MealPlanComponent implements OnInit {
         private http: HttpClient,
         private env: EnvironmentService,
         private dialog: MatDialog,
-        private shoppingTripService: ShoppingTripService
+        private shoppingTripService: ShoppingTripService,
+        private settingsService: SettingsService
     ) {
         this.generateDays();
     }
@@ -194,7 +198,28 @@ export class MealPlanComponent implements OnInit {
 
 
 
-    openAddItemDialog(date: Date, type: 'recipe' | 'product') {
+
+    getMealsForDayAndType(day: Date, type: string): MealPlan[] {
+        const dateKey = day.toDateString();
+        const meals = this.mealPlans[dateKey] || [];
+        return meals.filter(m => {
+            return m.mealType === type;
+        });
+    }
+
+    getMealsForDayUnassigned(day: Date): MealPlan[] {
+        const dateKey = day.toDateString();
+        const meals = this.mealPlans[dateKey] || [];
+        // Show as unassigned if null and we don't treat dinner as default strictly, 
+        // OR if we treat null as Dinner, then this is empty? 
+        // Let's assume null = Dinner for legacy compatibility, or Unassigned. 
+        // For now, let's treat null as "Unassigned" unless user puts it in a bucket.
+        // Actually, if I dragged it, it gets a type.
+        // Let's return meals where mealType is NOT in mealTypes list
+        return meals.filter(m => !m.mealType || !this.mealTypes.includes(m.mealType));
+    }
+
+    openAddItemDialog(date: Date, type: 'recipe' | 'product', mealType?: string) {
         const items = type === 'recipe' ? this.recipes : this.products;
 
         const dialogRef = this.dialog.open(MealItemSearchDialogComponent, {
@@ -204,18 +229,18 @@ export class MealPlanComponent implements OnInit {
 
         dialogRef.afterClosed().subscribe(result => {
             if (result) {
-                this.addMealToPlan(date, type, result.id);
+                this.addMealToPlan(date, type, result.id, mealType);
             }
         });
     }
 
-    addMealToPlan(date: Date, type: 'recipe' | 'product', id: number) {
-        console.log('Adding meal:', date, type, id);
+    addMealToPlan(date: Date, type: 'recipe' | 'product', id: number, mealType?: string) {
+        console.log('Adding meal:', date, type, id, mealType);
         let obs;
         if (type === 'recipe') {
-            obs = this.mealPlanService.addMealToPlan(date, id);
+            obs = this.mealPlanService.addMealToPlan(date, id, undefined, undefined, undefined, mealType);
         } else if (type === 'product') {
-            obs = this.mealPlanService.addMealToPlan(date, undefined, id);
+            obs = this.mealPlanService.addMealToPlan(date, undefined, id, undefined, undefined, mealType);
         }
 
         if (obs) {
@@ -633,45 +658,62 @@ export class MealPlanComponent implements OnInit {
 
         } else {
             // Handle Meal Plan Move (Existing Logic)
-            if (event.previousContainer === event.container) {
-                moveItemInArray(event.container.data, event.previousIndex, event.currentIndex);
-            } else {
-                // Determine item from index is risky if lists are mixed. 
-                // Better to use itemData if available, but transferArrayItem needs indices.
-                // Since MealPlans are rendered FIRST in the DOM list, their indices [0...N] match the data array.
-                // Shopping trips are rendered AFTER.
-                // So if we are dragging a MealPlan, event.previousIndex SHOULD be valid.
+            // Handle Meal Plan Move
+            const item = itemData as MealPlan;
+            const previousContainerId = event.previousContainer.id;
+            const newContainerId = event.container.id;
 
-                // However, to be safe, let's defer to standard logic:
-                // If itemData IS passed (which we will add), we can double check.
-                // But transferArrayItem is specifically for array manipulation.
-                transferArrayItem(
-                    event.previousContainer.data,
-                    event.container.data,
-                    event.previousIndex,
-                    event.currentIndex,
-                );
-                this.calculatePrepTasks();
-
-                // Update Backend
-                const mealItem = event.container.data[event.currentIndex];
-                const newDateStr = event.container.id;
-                const newDate = new Date(newDateStr);
-
-                // Update item date
-                mealItem.date = newDate.toISOString();
-
-                this.mealPlanService.updateMealPlan(mealItem.id, newDate).subscribe({
-                    next: () => {
-                        this.snackBar.open('Meal moved!', 'Order', { duration: 2000 });
-                    },
-                    error: () => {
-                        this.snackBar.open('Failed to move meal.', 'Error', { duration: 2000 });
-                    }
-                });
+            if (previousContainerId === newContainerId && event.previousIndex === event.currentIndex) {
+                return;
             }
+
+            // Parse ID: "meal-list-{{ISO_DATE}}--{{MEAL_TYPE}}"
+            // Assuming prefix "meal-list-"
+            const cleanNewId = newContainerId.replace('meal-list-', '');
+            const [newDateStr, newMealType] = cleanNewId.split('--');
+
+            const newDate = new Date(newDateStr);
+            const oldDate = new Date(item.date);
+
+            // Optimistic Update
+            // Remove from source list
+            const oldDateKey = oldDate.toDateString();
+            if (this.mealPlans[oldDateKey]) {
+                const idx = this.mealPlans[oldDateKey].findIndex(m => m.id === item.id);
+                if (idx > -1) {
+                    this.mealPlans[oldDateKey].splice(idx, 1);
+                }
+            }
+
+            // Update Item Properties
+            item.date = newDate.toISOString();
+            item.mealType = newMealType === 'Unassigned' ? undefined : newMealType;
+
+            // Add to destination list
+            const newDateKey = newDate.toDateString();
+            if (!this.mealPlans[newDateKey]) {
+                this.mealPlans[newDateKey] = [];
+            }
+            this.mealPlans[newDateKey].push(item);
+
+            // Recalculate tasks locally
+            this.calculatePrepTasks();
+
+            // API Call
+            this.mealPlanService.updateMealPlan(item.id, newDate, undefined, item.mealType).subscribe({
+                next: () => {
+                    this.snackBar.open('Meal moved!', 'Order', { duration: 2000 });
+                },
+                error: (err) => {
+                    console.error('Failed to move meal', err);
+                    this.snackBar.open('Failed to move meal.', 'Error', { duration: 2000 });
+                    // Revert is harder here, let's just reload
+                    this.loadMealPlans();
+                }
+            });
         }
     }
+
 
     isShoppingTrip(item: any): item is ShoppingTrip {
         // Simple check: ShoppingTrip doesn't have recipeId/productId usually, but has 'items' array

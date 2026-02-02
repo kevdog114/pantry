@@ -1,0 +1,28 @@
+<div class="meal-settings-container">
+    <h3>Meal Configuration</h3>
+    <p>Define the meals of the day for your meal plan. Drag to reorder.</p>
+
+    <div cdkDropList class="meal-list" (cdkDropListDropped)="drop($event)">
+        <div class="meal-box" *ngFor="let type of mealTypes; let i = index" cdkDrag>
+            <mat-icon class="drag-handle" cdkDragHandle>drag_indicator</mat-icon>
+            <span class="meal-name">{{type}}</span>
+            <button mat-icon-button color="warn" (click)="removeType(i)">
+                <mat-icon>delete</mat-icon>
+            </button>
+        </div>
+    </div>
+
+    <div class="add-meal-form">
+        <mat-form-field appearance="outline">
+            <mat-label>New Meal Type</mat-label>
+            <input matInput [(ngModel)]="newMealType" (keyup.enter)="addType()" placeholder="e.g. Brunch">
+        </mat-form-field>
+        <button mat-raised-button color="primary" (click)="addType()" [disabled]="!newMealType.trim()">Add</button>
+    </div>
+
+    <div class="actions">
+        <button mat-raised-button color="accent" (click)="saveSettings()" [disabled]="loading">
+            {{ loading ? 'Saving...' : 'Save Changes' }}
+        </button>
+    </div>
+</div>
