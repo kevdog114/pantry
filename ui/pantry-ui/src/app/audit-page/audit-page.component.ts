@@ -6,16 +6,19 @@ import { LocationService } from '../services/location.service';
 import { HardwareBarcodeScannerService } from '../hardware-barcode-scanner.service';
 import { EnvironmentService } from '../services/environment.service';
 import { Location, StockItem, Product } from '../types/product';
-import { firstValueFrom } from 'rxjs';
+import { firstValueFrom, Subscription } from 'rxjs';
 import { ProductListService } from '../components/product-list/product-list.service';
 import { TagsService } from '../tags.service';
 import { ProductTags } from '../types/product';
+import { KioskService, Kiosk } from '../services/kiosk.service';
 
 interface AuditItem {
-    stockItem: StockItem;
+    stockItems: StockItem[];
     found: boolean;
     productName: string;
     reportedQuantity: number;
+    scannedCount: number;
+    initialQuantity: number;
 }
 
 interface ExtraItem {
@@ -58,13 +61,20 @@ export class AuditPageComponent implements OnInit, OnDestroy {
     // View helper
     selectedLocationIdAsInput: number | null = null;
 
+    // Hardware Scanner
+    hardwareScanners: Kiosk[] = [];
+    claimedScannerBy: string | null = null;
+    claimedKioskId: number | null = null;
+    private claimSub: Subscription | null = null;
+
     constructor(
         private locationService: LocationService,
         private scannerService: HardwareBarcodeScannerService,
         private http: HttpClient,
         private env: EnvironmentService,
         private productService: ProductListService,
-        private tagsService: TagsService
+        private tagsService: TagsService,
+        private kioskService: KioskService
     ) { }
 
     onLocationChange(event: any) {
@@ -89,11 +99,35 @@ export class AuditPageComponent implements OnInit, OnDestroy {
         this.loadLocations();
         // Register custom handler
         this.scannerService.setCustomHandler((barcode) => this.handleScan(barcode));
+
+        // Load Scanners
+        this.kioskService.getKiosks().subscribe(kiosks => {
+            this.hardwareScanners = kiosks.filter(k =>
+                (k.devices && k.devices.some(d => d.type === 'SCANNER' && d.status === 'ONLINE')) ||
+                k.hasKeyboardScanner
+            );
+        });
+
+        this.claimSub = this.scannerService.claimedBy$.subscribe(by => {
+            this.claimedScannerBy = by;
+        });
+
+        const savedKioskId = localStorage.getItem('claimed_kiosk_id');
+        if (savedKioskId) {
+            this.claimedKioskId = parseInt(savedKioskId);
+        }
+    }
+
+    claimScanner(kiosk: Kiosk) {
+        this.scannerService.claimScanner(kiosk.id);
+        this.claimedKioskId = kiosk.id;
+        localStorage.setItem('claimed_kiosk_id', kiosk.id.toString());
     }
 
     ngOnDestroy(): void {
         // Clear custom handler
         this.scannerService.setCustomHandler(null);
+        if (this.claimSub) this.claimSub.unsubscribe();
     }
 
     loadLocations() {
@@ -113,12 +147,30 @@ export class AuditPageComponent implements OnInit, OnDestroy {
             const loc = await firstValueFrom(this.locationService.getById(id));
             this.selectedLocation = loc;
             if (loc.stockItems) {
-                this.expectedItems = loc.stockItems.map(item => ({
-                    stockItem: item,
-                    found: false,
-                    productName: item.product?.title || 'Unknown Product',
-                    reportedQuantity: item.quantity
-                }));
+                // Group by Product ID
+                const map = new Map<number, StockItem[]>();
+                for (const item of loc.stockItems) {
+                    if (item.productId) {
+                        const list = map.get(item.productId) || [];
+                        list.push(item);
+                        map.set(item.productId, list);
+                    }
+                }
+
+                // Create Audit Items from Groups
+                for (const [pid, items] of map.entries()) {
+                    const totalQty = items.reduce((sum, i) => sum + i.quantity, 0);
+                    const productName = items[0].product?.title || 'Unknown Product';
+
+                    this.expectedItems.push({
+                        stockItems: items,
+                        found: false,
+                        productName: productName,
+                        reportedQuantity: totalQty,
+                        initialQuantity: totalQty,
+                        scannedCount: 0
+                    });
+                }
             }
         } catch (err) {
             console.error('Error loading location', err);
@@ -160,9 +212,11 @@ export class AuditPageComponent implements OnInit, OnDestroy {
 
     processStockIdScan(stockId: number, barcode: string) {
         // Check if expected
-        const expectedIdx = this.expectedItems.findIndex(i => i.stockItem.id === stockId);
+        const expectedIdx = this.expectedItems.findIndex(i => i.stockItems.some(s => s.id === stockId));
         if (expectedIdx >= 0) {
-            this.expectedItems[expectedIdx].found = true;
+            const item = this.expectedItems[expectedIdx];
+            item.scannedCount++;
+            item.found = item.scannedCount >= item.reportedQuantity;
             // Play success sound?
         } else {
             // It's an extra item (specific stock item moved here)
@@ -176,26 +230,44 @@ export class AuditPageComponent implements OnInit, OnDestroy {
 
     processProductScan(product: Product, barcode: string) {
         // Check if we have an unfound expected item for this product
-        const candidateIdx = this.expectedItems.findIndex(i => i.stockItem.productId === product.id && !i.found);
+        const candidateIdx = this.expectedItems.findIndex(i => i.stockItems[0].productId === product.id && !i.found);
 
         if (candidateIdx >= 0) {
-            // Mark as found
-            this.expectedItems[candidateIdx].found = true;
-        } else {
-            // Extra item
-            const existing = this.extraItems.find(e => e.product?.id === product.id);
-            if (existing) {
-                existing.count++;
-            } else {
-                // Calculate Default Expiration
-                let expirationDate = '';
-                const days = product.refrigeratorLifespanDays || product.pantryLifespanDays || 365;
-                const d = new Date();
-                d.setDate(d.getDate() + days);
-                expirationDate = d.toISOString().split('T')[0];
+            // Found expected item
+            const item = this.expectedItems[candidateIdx];
+            item.scannedCount++;
 
-                this.addExtraItem(barcode, product, undefined, expirationDate);
+            // Check if fully found
+            if (item.scannedCount >= item.reportedQuantity) {
+                item.found = true;
             }
+        } else {
+            // Look for fully found items (overflow)
+            const fullIdx = this.expectedItems.findIndex(i => i.stockItems[0].productId === product.id && i.found);
+            if (fullIdx >= 0) {
+                // Already fully found, add as extra
+                this.addExtraAsNew(barcode, product);
+                return;
+            }
+
+            // Extra item (totally new product)
+            this.addExtraAsNew(barcode, product);
+        }
+    }
+
+    addExtraAsNew(barcode: string, product: Product) {
+        const existing = this.extraItems.find(e => e.product?.id === product.id);
+        if (existing) {
+            existing.count++;
+        } else {
+            // Calculate Default Expiration
+            let expirationDate = '';
+            const days = product.refrigeratorLifespanDays || product.pantryLifespanDays || 365;
+            const d = new Date();
+            d.setDate(d.getDate() + days);
+            expirationDate = d.toISOString().split('T')[0];
+
+            this.addExtraItem(barcode, product, undefined, expirationDate);
         }
     }
 
@@ -281,17 +353,33 @@ export class AuditPageComponent implements OnInit, OnDestroy {
     async updateItemQuantity(item: AuditItem) {
         if (!item || item.reportedQuantity < 0) return;
 
-        try {
-            await firstValueFrom(this.http.patch(`${this.env.apiUrl}/stock-items/${item.stockItem.id}`, {
-                quantity: item.reportedQuantity
-            }));
-            // Update the "source of truth" in the list so button can hide/reset state if needed
-            item.stockItem.quantity = item.reportedQuantity;
-            // Optionally auto-mark as found if they update quantity?
-            if (!item.found) item.found = true;
-        } catch (e) {
-            console.error("Failed to update quantity", e);
-            alert("Failed to save quantity");
+        // If simple 1-to-1 mapping (most common)
+        if (item.stockItems.length === 1) {
+            try {
+                await firstValueFrom(this.http.patch(`${this.env.apiUrl}/stock-items/${item.stockItems[0].id}`, {
+                    quantity: item.reportedQuantity
+                }));
+                item.stockItems[0].quantity = item.reportedQuantity;
+                item.initialQuantity = item.reportedQuantity;
+                if (!item.found) item.found = true;
+            } catch (e) {
+                console.error("Failed to update quantity", e);
+                alert("Failed to save quantity");
+            }
+        } else {
+            // Complex case: Multiple stock items for this product.
+            // We need to reconcile the total.
+            // Simplest strategy: Update the first one to reflect the delta, or ask user?
+            // "Grouping" usually implies treating them as fungible.
+            // Strategy: 
+            // 1. Calculate current total DB quantity.
+            // 2. Diff with new reported quantity.
+            // 3. Add/Subtract from first item (if enough) or iteratively.
+
+            // For now, let's warn.
+            alert("Cannot auto-update quantity for grouped items. Please adjust individual stock items in the inventory view if needed (Feature pending).");
+            // Reset UI to initial
+            item.reportedQuantity = item.initialQuantity;
         }
     }
     async handleUnknownBarcode(barcode: string) {

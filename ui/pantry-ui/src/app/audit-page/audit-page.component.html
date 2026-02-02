@@ -1,6 +1,23 @@
 <div class="audit-container">
     <div class="header">
         <h1>Location Audit</h1>
+
+        <div class="scanner-status" *ngIf="hardwareScanners.length > 0">
+            <div *ngFor="let kiosk of hardwareScanners" class="scanner-item">
+                <span class="scanner-name">📡 {{ kiosk.name }}</span>
+                <button *ngIf="claimedScannerBy !== 'Me' || claimedKioskId !== kiosk.id"
+                    class="btn btn-sm btn-outline-primary" (click)="claimScanner(kiosk)">
+                    Claim
+                </button>
+                <div *ngIf="claimedScannerBy === 'Me' && claimedKioskId === kiosk.id" class="badge-connected">
+                    ✅ Connected
+                </div>
+                <small *ngIf="claimedScannerBy && claimedScannerBy !== 'Me' && claimedKioskId === kiosk.id"
+                    class="text-warning">
+                    (Claimed by {{ claimedScannerBy }})
+                </small>
+            </div>
+        </div>
     </div>
 
     <!-- Selection View -->
@@ -27,17 +44,22 @@
             <div class="section expected-section">
                 <h3>Expected Items</h3>
                 <div class="item-list">
-                    <div class="item-card" *ngFor="let item of expectedItems" [class.found]="item.found">
+                    <div class="item-card" *ngFor="let item of expectedItems" [class.found]="item.found"
+                        [class.partial]="!item.found && item.scannedCount > 0">
                         <div class="status-icon">
                             <span *ngIf="item.found">✅</span>
-                            <span *ngIf="!item.found">⬜</span>
+                            <span *ngIf="!item.found && item.scannedCount === 0">⬜</span>
+                            <span *ngIf="!item.found && item.scannedCount > 0">⏳</span>
                         </div>
                         <div class="item-details" style="flex: 1;">
                             <span class="product-name">{{ item.productName }}</span>
                             <div class="stock-info-row">
+                                <span *ngIf="!item.found && item.scannedCount > 0" class="scan-progress">
+                                    {{ item.scannedCount }} of {{ item.reportedQuantity }}
+                                </span>
                                 <label>Qty:</label>
                                 <input type="number" [(ngModel)]="item.reportedQuantity" class="qty-input" min="0">
-                                <span *ngIf="item.reportedQuantity !== item.stockItem.quantity"
+                                <span *ngIf="item.reportedQuantity !== item.initialQuantity"
                                     class="qty-changed-indicator" (click)="updateItemQuantity(item)"
                                     title="Save Quantity">
                                     💾
@@ -104,7 +126,7 @@
             <p *ngIf="missingItemsResult.length === 0">🎉 No items missing!</p>
             <ul>
                 <li *ngFor="let item of missingItemsResult">
-                    {{ item.productName }} (Qty: {{ item.stockItem.quantity }})
+                    {{ item.productName }} (Qty: {{ item.initialQuantity }})
                 </li>
             </ul>
         </div>
