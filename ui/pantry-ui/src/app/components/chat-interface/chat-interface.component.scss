@@ -65,6 +65,15 @@
     margin-bottom: 2px;
 }
 
+.message-timestamp {
+    font-size: 0.7rem;
+    color: var(--mat-sys-on-surface-variant);
+    opacity: 0.8;
+    margin-top: 2px;
+    margin-left: 4px;
+    margin-right: 4px;
+}
+
 .message-content-group {
     display: flex;
     flex-direction: column;

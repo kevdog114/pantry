@@ -18,6 +18,7 @@ export interface ChatContentItem {
 export interface ChatMessage {
     sender: string;
     contents: ChatContentItem[];
+    timestamp?: Date;
 }
 
 @Component({

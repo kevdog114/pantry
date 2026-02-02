@@ -122,7 +122,8 @@ export class GeminiChatComponent implements OnInit {
             } else {
               currentMessage = {
                 sender,
-                contents: contents
+                contents: contents,
+                timestamp: msg.createdAt ? new Date(msg.createdAt) : undefined
               };
               this.messages.push(currentMessage);
             }
@@ -162,7 +163,8 @@ export class GeminiChatComponent implements OnInit {
           contents: [
             { type: 'image', imageUrl: e.target.result },
             { type: 'chat', text: prompt }
-          ]
+          ],
+          timestamp: new Date()
         });
         this.executeSend(prompt, image);
       };
@@ -171,7 +173,7 @@ export class GeminiChatComponent implements OnInit {
       if (prompt) {
         userContents.push({ type: 'chat', text: prompt });
       }
-      this.messages.push({ sender: 'You', contents: userContents });
+      this.messages.push({ sender: 'You', contents: userContents, timestamp: new Date() });
       this.executeSend(prompt, undefined);
     }
   }
@@ -238,7 +240,8 @@ export class GeminiChatComponent implements OnInit {
       if (geminiContents.length > 0) {
         this.messages.push({
           sender: 'Gemini',
-          contents: geminiContents
+          contents: geminiContents,
+          timestamp: new Date()
         });
       }
 
