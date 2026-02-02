@@ -66,6 +66,11 @@
                         <div class="item-details">
                             <span class="product-name">{{ extra.product?.title || 'Unknown Product' }}</span>
                             <span class="barcode">{{ extra.barcode }}</span>
+                            <!-- Expiration Field -->
+                            <div class="expiration-row" *ngIf="extra.expirationDate !== undefined">
+                                <label>Exp:</label>
+                                <input type="date" [(ngModel)]="extra.expirationDate" class="exp-input">
+                            </div>
                             <span class="count-badge" *ngIf="extra.count > 1">x{{ extra.count }}</span>
                         </div>
                         <div class="actions">

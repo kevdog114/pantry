@@ -318,3 +318,22 @@ li {
 .item-card.processing.error .status {
     color: #ef4444;
 }
+
+.expiration-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 4px;
+    font-size: 0.9rem;
+    color: #cbd5e1;
+}
+
+.exp-input {
+    background: transparent;
+    border: 1px solid #475569;
+    border-radius: 4px;
+    color: white;
+    padding: 2px 4px;
+    font-family: monospace;
+    font-size: 0.9rem;
+}

@@ -22,6 +22,7 @@ interface ExtraItem {
     product?: Product;
     stockItemId?: number; // if sk- barcode
     count: number;
+    expirationDate?: string; // YYYY-MM-DD for input
 }
 
 interface ProcessingItem {
@@ -29,6 +30,7 @@ interface ProcessingItem {
     status: string;
     productName?: string;
     error?: string;
+    count: number;
 }
 
 @Component({
@@ -179,24 +181,29 @@ export class AuditPageComponent implements OnInit, OnDestroy {
             this.expectedItems[candidateIdx].found = true;
         } else {
             // Extra item
-            // Check if we already have a record for this extra product to increment count? 
-            // Or just add new entry. User might verify quantity manually.
-            // For simplicity, let's group by barcode/product
             const existing = this.extraItems.find(e => e.product?.id === product.id);
             if (existing) {
                 existing.count++;
             } else {
-                this.addExtraItem(barcode, product);
+                // Calculate Default Expiration
+                let expirationDate = '';
+                const days = product.refrigeratorLifespanDays || product.pantryLifespanDays || 365;
+                const d = new Date();
+                d.setDate(d.getDate() + days);
+                expirationDate = d.toISOString().split('T')[0];
+
+                this.addExtraItem(barcode, product, undefined, expirationDate);
             }
         }
     }
 
-    addExtraItem(barcode: string, product?: Product, stockItemId?: number) {
+    addExtraItem(barcode: string, product?: Product, stockItemId?: number, expirationDate?: string) {
         this.extraItems.push({
             barcode,
             product,
             stockItemId,
-            count: 1
+            count: 1,
+            expirationDate
         });
     }
 
@@ -233,7 +240,7 @@ export class AuditPageComponent implements OnInit, OnDestroy {
             // That's risky/ambiguous. 
             // For now, I'll fallback to "Create new stock item" if it's a product scan not matching expected.
             // create stock item
-            await this.createStockItem(extra.product.id, this.selectedLocationId);
+            await this.createStockItem(extra.product.id, this.selectedLocationId, extra.count, extra.expirationDate);
             alert(`Created new stock entry for ${extra.product.title} in this location.`);
         }
 
@@ -257,20 +264,31 @@ export class AuditPageComponent implements OnInit, OnDestroy {
         }));
     }
 
-    async createStockItem(productId: number, locationId: number) {
+    async createStockItem(productId: number, locationId: number, quantity: number = 1, expirationDate?: string) {
+        let expDateObj = null;
+        if (expirationDate) {
+            expDateObj = new Date(expirationDate);
+        }
+
         await firstValueFrom(this.http.post(`${this.env.apiUrl}/stock-items`, {
             productId,
             locationId,
-            quantity: 1 // Default to 1 per scan
+            quantity: quantity,
+            expirationDate: expDateObj
         }));
     }
     async handleUnknownBarcode(barcode: string) {
-        // Prevent duplicate processing
-        if (this.processingItems.find(p => p.barcode === barcode)) return;
+        // Check for existing processing item
+        const existingProcess = this.processingItems.find(p => p.barcode === barcode);
+        if (existingProcess) {
+            existingProcess.count++;
+            return;
+        }
 
         const processItem: ProcessingItem = {
             barcode,
-            status: 'Looking up...'
+            status: 'Looking up...',
+            count: 1
         };
         this.processingItems.push(processItem);
 
@@ -371,11 +389,19 @@ export class AuditPageComponent implements OnInit, OnDestroy {
 
             // Create Stock Item
             processItem.status = 'Adding Stock...';
+            // Calculate Default Expiration
+            let expirationDateObj: Date | null = null;
+            const days = product.refrigeratorLifespanDays || product.pantryLifespanDays || 365;
+            const d = new Date();
+            d.setDate(d.getDate() + days);
+            expirationDateObj = d;
+
             if (this.selectedLocationId) {
                 await firstValueFrom(this.http.post(`${this.env.apiUrl}/stock-items`, {
                     productId: product.id,
                     locationId: this.selectedLocationId,
-                    quantity: 1
+                    quantity: processItem.count,
+                    expirationDate: expirationDateObj
                 }));
             }
 
@@ -384,7 +410,20 @@ export class AuditPageComponent implements OnInit, OnDestroy {
             processItem.productName = product.title;
 
             // Move to Extra Items (so it shows up in the accepted list)
-            this.addExtraItem(barcode, product);
+            const isoDate = expirationDateObj ? expirationDateObj.toISOString().split('T')[0] : undefined;
+
+            // Check if already in extras (from a manual scan parallel to this flow?)
+            const existingExtra = this.extraItems.find(e => e.product?.id === product.id);
+            if (existingExtra) {
+                existingExtra.count += processItem.count;
+            } else {
+                this.extraItems.push({
+                    barcode,
+                    product,
+                    count: processItem.count,
+                    expirationDate: isoDate
+                });
+            }
 
             // Remove from processing
             const idx = this.processingItems.indexOf(processItem);
