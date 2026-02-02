@@ -114,6 +114,7 @@ export class KioskPageComponent implements OnInit, OnDestroy {
     activeTimers: any[] = [];
     targetWeight: number | null = null;
     showRecipeDetails: boolean = false;
+    activeMealPlanId: number | null = null;
 
 
     upcomingMeals: any[] = [];
@@ -1770,11 +1771,34 @@ export class KioskPageComponent implements OnInit, OnDestroy {
 
         this.http.get<any[]>(`${this.env.apiUrl}/meal-plan?startDate=${sStr}&endDate=${eStr}`).subscribe({
             next: (meals) => {
-                // Filter out meals without recipes
-                this.upcomingMeals = meals.filter(m => m.recipe).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+                // Filter out meals without recipes OR products with instructions
+                this.upcomingMeals = meals.filter(m => {
+                    const hasRecipe = !!m.recipe;
+                    const hasProductInst = m.product && m.product.cookingInstructions && m.product.cookingInstructions.length > 0;
+                    return hasRecipe || hasProductInst;
+                }).map(m => {
+                    // Normalize title
+                    m.displayTitle = m.recipe ? m.recipe.title : m.product.title;
+                    return m;
+                }).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
             },
             error: (e) => console.error("Failed to fetch upcoming meals", e)
         });
+    }
+
+    selectUpcomingMeal(meal: any) {
+        if (meal.recipe) {
+            this.selectInstruction(meal.recipe, meal.id);
+        } else if (meal.product && meal.product.cookingInstructions) {
+            if (meal.product.cookingInstructions.length === 1) {
+                this.selectInstruction(meal.product.cookingInstructions[0], meal.id);
+            } else if (meal.product.cookingInstructions.length > 1) {
+                // Show choice
+                this.activeMealPlanId = meal.id;
+                this.availableInstructions = meal.product.cookingInstructions;
+                this.selectedRecipe = null;
+            }
+        }
     }
 
     getMealDateLabel(dateStr: string): string {

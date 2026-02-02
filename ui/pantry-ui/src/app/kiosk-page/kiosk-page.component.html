@@ -591,12 +591,11 @@
                 <div class="cook-column flex-1">
                     <div class="cook-header">UPCOMING MEALS</div>
                     <div class="flex-1 overflow-y-auto">
-                        <button *ngFor="let meal of upcomingMeals" class="meal-item"
-                            (click)="selectInstruction(meal.recipe, meal.id)">
+                        <button *ngFor="let meal of upcomingMeals" class="meal-item" (click)="selectUpcomingMeal(meal)">
                             <div>
                                 <div class="fs-xs text-k-accent fw-bold mb-1">{{ getMealDateLabel(meal.date) |
                                     uppercase }}</div>
-                                <div class="fs-lg fw-bold">{{ meal.recipe.title }}</div>
+                                <div class="fs-lg fw-bold">{{ meal.displayTitle }}</div>
                             </div>
                             <mat-icon>chevron_right</mat-icon>
                         </button>
@@ -611,7 +610,7 @@
                 <h2 class="fs-2xl fw-bold mb-4 text-center">Select Version</h2>
                 <div class="instruction-grid">
                     <button *ngFor="let instruction of availableInstructions" class="k-btn primary h-40"
-                        (click)="selectInstruction(instruction)">
+                        (click)="selectInstruction(instruction, activeMealPlanId)">
                         <mat-icon>menu_book</mat-icon>
                         <span class="text-2xl text-center">{{ (instruction.name || instruction.title) }}</span>
                     </button>

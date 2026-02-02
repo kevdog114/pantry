@@ -258,7 +258,8 @@ export const getMealPlan = async (req: Request, res: Response, next: NextFunctio
             },
             product: {
                 include: {
-                    stockItems: true
+                    stockItems: true,
+                    cookingInstructions: true
                 }
             }
         }
