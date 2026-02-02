@@ -1,10 +1,21 @@
-{
-    "branches": [
+const releaseNotesGenerator = require('@semantic-release/release-notes-generator');
+
+module.exports = {
+    branches: [
         "main"
     ],
-    "plugins": [
+    plugins: [
         "@semantic-release/commit-analyzer",
-        "@semantic-release/release-notes-generator",
+        {
+            generateNotes: async (pluginConfig, context) => {
+                const notes = await releaseNotesGenerator.generateNotes(pluginConfig, context);
+                const dockerUsername = process.env.DOCKERHUB_USERNAME;
+                if (dockerUsername) {
+                    return `${notes}\n\n### Docker Images\n- [API](https://hub.docker.com/r/${dockerUsername}/pantry-api)\n- [UI](https://hub.docker.com/r/${dockerUsername}/pantry-ui)\n- [Kiosk](https://hub.docker.com/r/${dockerUsername}/pantry-kiosk)`;
+                }
+                return notes;
+            }
+        },
         [
             "@semantic-release/exec",
             {
@@ -30,4 +41,4 @@
         ],
         "@semantic-release/github"
     ]
-}
+};

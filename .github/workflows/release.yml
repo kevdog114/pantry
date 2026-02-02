@@ -26,9 +26,10 @@ jobs:
           node-version: "lts/*"
 
       - name: Install dependencies
-        run: npm install --no-save semantic-release @semantic-release/git @semantic-release/exec
+        run: npm install --no-save semantic-release @semantic-release/git @semantic-release/exec @semantic-release/release-notes-generator
 
       - name: Release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
         run: npx semantic-release
