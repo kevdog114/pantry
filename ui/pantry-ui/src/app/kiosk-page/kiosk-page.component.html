@@ -610,7 +610,7 @@
                 <h2 class="fs-2xl fw-bold mb-4 text-center">Select Version</h2>
                 <div class="instruction-grid">
                     <button *ngFor="let instruction of availableInstructions" class="k-btn primary h-40"
-                        (click)="selectInstruction(instruction, activeMealPlanId)">
+                        (click)="selectInstruction(instruction, activeMealPlanId || undefined)">
                         <mat-icon>menu_book</mat-icon>
                         <span class="text-2xl text-center">{{ (instruction.name || instruction.title) }}</span>
                     </button>

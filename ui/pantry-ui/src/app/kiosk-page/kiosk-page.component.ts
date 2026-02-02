@@ -114,7 +114,7 @@ export class KioskPageComponent implements OnInit, OnDestroy {
     activeTimers: any[] = [];
     targetWeight: number | null = null;
     showRecipeDetails: boolean = false;
-    activeMealPlanId: number | null = null;
+    activeMealPlanId: number | null | undefined = null;
 
 
     upcomingMeals: any[] = [];
@@ -1606,7 +1606,7 @@ export class KioskPageComponent implements OnInit, OnDestroy {
         }
     }
 
-    activeMealPlanId: number | null = null;
+
 
     async selectInstruction(recipe: Recipe, mealPlanId?: number) {
         this.activeMealPlanId = mealPlanId || null;
