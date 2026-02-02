@@ -1,6 +1,7 @@
 import { HttpClient } from "@angular/common/http";
 import { Injectable } from "@angular/core";
 import { Observable } from "rxjs";
+import { map } from 'rxjs/operators';
 import { Product, StockItem } from "../../types/product";
 import { EnvironmentService } from "../../services/environment.service";
 
@@ -17,12 +18,32 @@ export class ProductListService {
         return this.env.apiUrl + b;
     }
 
+    private enrichProducts = (products: Product[]): Product[] => {
+        products.forEach(p => {
+            if (p.stockItems && p.stockItems.length > 0) {
+                if (p.totalQuantity === undefined || p.totalQuantity === null) {
+                    p.totalQuantity = p.stockItems.reduce((acc, item) => acc + item.quantity, 0);
+                }
+                if (!p.minExpiration) {
+                    const expirations = p.stockItems
+                        .map(i => i.expirationDate ? new Date(i.expirationDate).getTime() : null)
+                        .filter(d => d !== null) as number[];
+
+                    if (expirations.length > 0) {
+                        p.minExpiration = new Date(Math.min(...expirations));
+                    }
+                }
+            }
+        });
+        return products;
+    }
+
     public searchProducts = (searchQuery: string, locationId?: number): Observable<Product[]> => {
         let url = `/product-search?q=${encodeURIComponent(searchQuery)}`;
         if (locationId) {
             url += `&locationId=${locationId}`;
         }
-        return this.http.get<Product[]>(this.a(url));
+        return this.http.get<Product[]>(this.a(url)).pipe(map(this.enrichProducts));
     }
 
     public GetAll = (locationId?: number): Observable<Product[]> => {
@@ -30,7 +51,7 @@ export class ProductListService {
         if (locationId) {
             url += `?locationId=${locationId}`;
         }
-        return this.http.get<Product[]>(this.a(url))
+        return this.http.get<Product[]>(this.a(url)).pipe(map(this.enrichProducts));
     }
 
     public Get = (id: number): Observable<Product> => {
