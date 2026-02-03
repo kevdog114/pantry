@@ -55,7 +55,10 @@ export const create = async (req: Request, res: Response, next: NextFunction): P
                     type: qa.type,
                     value: qa.value
                 })) || []
-            }
+            },
+            type: req.body.type || 'recipe',
+            instructionForProductId: req.body.instructionForProductId || null
+
         },
         include: {
             steps: { orderBy: { stepNumber: 'asc' } },
@@ -213,6 +216,8 @@ export const update = async (req: Request, res: Response, next: NextFunction): P
                         value: qa.value
                     })) || []
                 },
+                type: req.body.type,
+                instructionForProductId: req.body.instructionForProductId,
                 safeTemps: {
                     deleteMany: {} // We will regenerate them potentially, or leave them? 
                     // The user said "use gemini to determine... save this with the recipe"
@@ -315,6 +320,8 @@ const mapToResponse = (recipe: any) => {
         customPrepInstructions: recipe.customPrepInstructions,
         files: recipe.files || [],
         receiptSteps: recipe.receiptSteps,
-        quickActions: recipe.quickActions || []
+        quickActions: recipe.quickActions || [],
+        type: recipe.type,
+        instructionForProductId: recipe.instructionForProductId
     };
 }

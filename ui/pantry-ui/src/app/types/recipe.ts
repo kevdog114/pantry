@@ -14,6 +14,8 @@ export interface Recipe {
     source?: string;
     createdAt?: Date;
     ingredientText?: string;
+    type?: string;
+    instructionForProductId?: number;
     ingredients?: {
         id?: number;
         name: string;

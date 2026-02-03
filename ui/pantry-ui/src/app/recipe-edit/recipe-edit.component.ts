@@ -59,17 +59,53 @@ export class RecipeEditComponent implements AfterViewInit {
     }
     else {
       this.isCreate = true;
-      this.recipe = {
-        id: 0,
-        title: "",
-        description: "",
-        steps: [],
-        ingredients: [],
-        prepTasks: [],
-        quickActions: [],
-        source: "",
-        ingredientText: ""
+      this.initNewRecipe();
+    }
+  }
+
+  @Input("product-id")
+  set productIdQuery(pid: string | undefined) {
+    if (pid && this.isCreate && this.recipe) {
+      const productId = parseInt(pid);
+      if (!isNaN(productId)) {
+        this.recipe.instructionForProductId = productId;
+        this.recipe.type = 'instruction';
+
+        // Fetch product to add as ingredient
+        this.productService.Get(productId).subscribe(p => {
+          if (p && this.recipe) {
+            // Check if ingredient already exists (to prevent duplicates if input set multiple times)
+            if (!this.recipe.ingredients?.find(i => i.productId === p.id)) {
+              if (!this.recipe.ingredients) this.recipe.ingredients = [];
+              this.recipe.ingredients.push({
+                name: p.title,
+                amount: 1, // Default amount
+                unit: p.trackCountBy === 'weight' ? 'lb' : 'count',
+                productId: p.id
+              });
+              // Also set title suggestion
+              if (!this.recipe.title) {
+                this.recipe.title = `Prep ${p.title}`;
+              }
+            }
+          }
+        });
       }
+    }
+  }
+
+  private initNewRecipe() {
+    this.recipe = {
+      id: 0,
+      title: "",
+      description: "",
+      steps: [],
+      ingredients: [],
+      prepTasks: [],
+      quickActions: [],
+      source: "",
+      ingredientText: "",
+      type: 'recipe'
     }
   }
 
