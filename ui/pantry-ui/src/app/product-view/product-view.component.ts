@@ -30,6 +30,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { StockItemDialogComponent } from '../components/stock-item-dialog/stock-item-dialog.component';
 import { StockAddDialogComponent } from '../components/stock-add-dialog/stock-add-dialog.component';
 import { QuantityPromptDialogComponent } from '../components/quantity-prompt-dialog/quantity-prompt-dialog.component';
+import { RecipeCardComponent, ChatRecipe } from '../components/recipe-card/recipe-card.component';
 
 @Component({
   selector: 'app-product-view',
@@ -46,7 +47,9 @@ import { QuantityPromptDialogComponent } from '../components/quantity-prompt-dia
     MatDividerModule,
     MatDialogModule,
     RouterModule,
-    MatTooltipModule
+    RouterModule,
+    MatTooltipModule,
+    RecipeCardComponent
   ],
   templateUrl: './product-view.component.html',
   styleUrl: './product-view.component.scss'
@@ -405,6 +408,20 @@ export class ProductViewComponent implements OnChanges {
       return stockItem.reservations.reduce((acc, r) => acc + r.amount, 0);
     }
     return 0;
+  }
+
+  toChatRecipe(instruction: any): ChatRecipe {
+    return {
+      title: instruction.name,
+      description: instruction.description,
+      ingredients: [],
+      instructions: instruction.steps.map((s: any) => s.instruction),
+      time: {
+        prep: instruction.prepTime ? instruction.prepTime + ' m' : '',
+        cook: instruction.cookTime ? instruction.cookTime + ' m' : '',
+        total: ((instruction.prepTime || 0) + (instruction.cookTime || 0)) + ' m'
+      }
+    };
   }
 }
 

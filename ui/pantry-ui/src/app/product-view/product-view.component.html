@@ -22,109 +22,127 @@
     <!-- Main Content -->
     <div class="content-grid">
 
-        <!-- Left Column: Stock Items -->
-        <mat-card>
-            <mat-card-header>
-                <mat-card-title>Stock Inventory</mat-card-title>
-            </mat-card-header>
-            <mat-card-content>
-                <table mat-table [dataSource]="product.stockItems" class="w-100">
 
-                    <!-- Quantity Column -->
-                    <ng-container matColumnDef="quantity">
-                        <th mat-header-cell *matHeaderCellDef> Quantity </th>
-                        <td mat-cell *matCellDef="let row">
-                            <div class="d-flex align-items-center">
-                                <span class="fw-bold fs-6">{{row.quantity}} {{row.unit}}</span>
-                                <span *ngIf="row.opened" class="status-badge badge-open">Open</span>
-                                <span *ngIf="row.frozen" class="status-badge badge-frozen">Frozen</span>
-                                <span *ngIf="getReservedAmount(row) > 0" class="status-badge badge-reserved"
-                                    style="background-color: #ff9800; color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.75rem; margin-left:8px;">
-                                    Reserved: {{ getReservedAmount(row) | number:'1.0-2' }}
-                                </span>
-                            </div>
-                        </td>
-                    </ng-container>
 
-                    <!-- Expiration Column -->
-                    <ng-container matColumnDef="expiration">
-                        <th mat-header-cell *matHeaderCellDef> Expiration </th>
-                        <td mat-cell *matCellDef="let row" class="text-secondary">
-                            {{row.expirationDate | date:'mediumDate'}}
-                        </td>
-                    </ng-container>
+        <!-- Left Column: Stock Items & Instructions -->
+        <div class="d-flex flex-column gap-4">
+            <mat-card>
+                <mat-card-header>
+                    <mat-card-title>Stock Inventory</mat-card-title>
+                </mat-card-header>
+                <mat-card-content>
+                    <table mat-table [dataSource]="product.stockItems" class="w-100">
 
-                    <!-- Actions Column -->
-                    <ng-container matColumnDef="actions">
-                        <th mat-header-cell *matHeaderCellDef></th>
-                        <td mat-cell *matCellDef="let row" class="text-end">
-                            <button mat-stroked-button color="accent" (click)="UseStock(row, 1)"
-                                [disabled]="menuTrigger.menuOpen">
-                                Use 1
-                                <mat-spinner style="display: inline-block; margin-left: 8px; vertical-align: middle;"
-                                    diameter="18" *ngIf="row.loading_use"></mat-spinner>
-                            </button>
+                        <!-- Quantity Column -->
+                        <ng-container matColumnDef="quantity">
+                            <th mat-header-cell *matHeaderCellDef> Quantity </th>
+                            <td mat-cell *matCellDef="let row">
+                                <div class="d-flex align-items-center">
+                                    <span class="fw-bold fs-6">{{row.quantity}} {{row.unit}}</span>
+                                    <span *ngIf="row.opened" class="status-badge badge-open">Open</span>
+                                    <span *ngIf="row.frozen" class="status-badge badge-frozen">Frozen</span>
+                                    <span *ngIf="getReservedAmount(row) > 0" class="status-badge badge-reserved"
+                                        style="background-color: #ff9800; color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.75rem; margin-left:8px;">
+                                        Reserved: {{ getReservedAmount(row) | number:'1.0-2' }}
+                                    </span>
+                                </div>
+                            </td>
+                        </ng-container>
 
-                            <button mat-icon-button [matMenuTriggerFor]="stockItemEdit" #menuTrigger="matMenuTrigger"
-                                class="ms-2">
-                                <mat-icon>more_vert</mat-icon>
-                            </button>
+                        <!-- Expiration Column -->
+                        <ng-container matColumnDef="expiration">
+                            <th mat-header-cell *matHeaderCellDef> Expiration </th>
+                            <td mat-cell *matCellDef="let row" class="text-secondary">
+                                {{row.expirationDate | date:'mediumDate'}}
+                            </td>
+                        </ng-container>
 
-                            <mat-menu #stockItemEdit="matMenu">
-                                <a mat-menu-item [routerLink]="['/products', product.id, 'stock-items', row.id]">
-                                    <mat-icon>edit</mat-icon> Edit
-                                </a>
-
-                                <button mat-menu-item (click)="setFrozen(row, true)" *ngIf="!row.frozen">
-                                    <mat-icon>ac_unit</mat-icon> Freeze
-                                    <small class="text-muted ms-2"
-                                        *ngIf="product.freezerLifespanDays">(+{{product.freezerLifespanDays}}
-                                        days)</small>
+                        <!-- Actions Column -->
+                        <ng-container matColumnDef="actions">
+                            <th mat-header-cell *matHeaderCellDef></th>
+                            <td mat-cell *matCellDef="let row" class="text-end">
+                                <button mat-stroked-button color="accent" (click)="UseStock(row, 1)"
+                                    [disabled]="menuTrigger.menuOpen">
+                                    Use 1
+                                    <mat-spinner
+                                        style="display: inline-block; margin-left: 8px; vertical-align: middle;"
+                                        diameter="18" *ngIf="row.loading_use"></mat-spinner>
                                 </button>
 
-                                <button mat-menu-item (click)="setFrozen(row, false)" *ngIf="row.frozen">
-                                    <mat-icon>thermometer_gain</mat-icon> Remove from Freezer
+                                <button mat-icon-button [matMenuTriggerFor]="stockItemEdit"
+                                    #menuTrigger="matMenuTrigger" class="ms-2">
+                                    <mat-icon>more_vert</mat-icon>
                                 </button>
 
-                                <button mat-menu-item (click)="setOpened(row)" *ngIf="!row.opened">
-                                    <mat-icon>orders</mat-icon> Open
-                                    <small class="text-muted ms-2"
-                                        *ngIf="product.openedLifespanDays">(+{{product.openedLifespanDays}}
-                                        days)</small>
-                                </button>
+                                <mat-menu #stockItemEdit="matMenu">
+                                    <a mat-menu-item [routerLink]="['/products', product.id, 'stock-items', row.id]">
+                                        <mat-icon>edit</mat-icon> Edit
+                                    </a>
 
-                                <mat-divider></mat-divider>
+                                    <button mat-menu-item (click)="setFrozen(row, true)" *ngIf="!row.frozen">
+                                        <mat-icon>ac_unit</mat-icon> Freeze
+                                        <small class="text-muted ms-2"
+                                            *ngIf="product.freezerLifespanDays">(+{{product.freezerLifespanDays}}
+                                            days)</small>
+                                    </button>
 
-                                <button mat-menu-item (click)="printStockLabel(row, labelSizeCode)">
-                                    <mat-icon>print</mat-icon> Print Label ({{labelSizeDescription}})
-                                </button>
+                                    <button mat-menu-item (click)="setFrozen(row, false)" *ngIf="row.frozen">
+                                        <mat-icon>thermometer_gain</mat-icon> Remove from Freezer
+                                    </button>
 
-                                <button mat-menu-item *ngIf="product.trackCountBy === 'quantity' && row.quantity > 1"
-                                    (click)="printMultipleStockLabels(row, labelSizeCode)">
-                                    <mat-icon>print_add</mat-icon> Print {{row.quantity}} Labels
-                                </button>
+                                    <button mat-menu-item (click)="setOpened(row)" *ngIf="!row.opened">
+                                        <mat-icon>orders</mat-icon> Open
+                                        <small class="text-muted ms-2"
+                                            *ngIf="product.openedLifespanDays">(+{{product.openedLifespanDays}}
+                                            days)</small>
+                                    </button>
 
-                                <button mat-menu-item *ngIf="row.opened" (click)="printModifier(row, 'Opened')">
-                                    <mat-icon>print</mat-icon> Print 'Opened' Strip
-                                </button>
+                                    <mat-divider></mat-divider>
 
-                                <button mat-menu-item *ngIf="row.frozen" (click)="printModifier(row, 'Frozen')">
-                                    <mat-icon>print</mat-icon> Print 'Frozen' Strip
-                                </button>
-                            </mat-menu>
-                        </td>
-                    </ng-container>
+                                    <button mat-menu-item (click)="printStockLabel(row, labelSizeCode)">
+                                        <mat-icon>print</mat-icon> Print Label ({{labelSizeDescription}})
+                                    </button>
 
-                    <tr mat-header-row *matHeaderRowDef="['quantity', 'expiration', 'actions']"></tr>
-                    <tr mat-row *matRowDef="let row; columns: ['quantity', 'expiration', 'actions']"
-                        [class.bg-light-subtle]="row.id == stockId"></tr>
-                </table>
+                                    <button mat-menu-item
+                                        *ngIf="product.trackCountBy === 'quantity' && row.quantity > 1"
+                                        (click)="printMultipleStockLabels(row, labelSizeCode)">
+                                        <mat-icon>print_add</mat-icon> Print {{row.quantity}} Labels
+                                    </button>
 
-                <div *ngIf="!product.stockItems || product.stockItems.length === 0" class="p-4 text-center text-muted">
-                    No items in stock.
+                                    <button mat-menu-item *ngIf="row.opened" (click)="printModifier(row, 'Opened')">
+                                        <mat-icon>print</mat-icon> Print 'Opened' Strip
+                                    </button>
+
+                                    <button mat-menu-item *ngIf="row.frozen" (click)="printModifier(row, 'Frozen')">
+                                        <mat-icon>print</mat-icon> Print 'Frozen' Strip
+                                    </button>
+                                </mat-menu>
+                            </td>
+                        </ng-container>
+
+                        <tr mat-header-row *matHeaderRowDef="['quantity', 'expiration', 'actions']"></tr>
+                        <tr mat-row *matRowDef="let row; columns: ['quantity', 'expiration', 'actions']"
+                            [class.bg-light-subtle]="row.id == stockId"></tr>
+                    </table>
+
+                    <div *ngIf="!product.stockItems || product.stockItems.length === 0"
+                        class="p-4 text-center text-muted">
+                        No items in stock.
+                    </div>
+                </mat-card-content>
+
+            </mat-card>
+
+            <div *ngIf="product.cookingInstructions && product.cookingInstructions.length > 0">
+                <h3 class="mat-h3 mb-3">Preparation Instructions</h3>
+                <div class="d-flex flex-column gap-3">
+                    <app-recipe-card *ngFor="let instruction of product.cookingInstructions"
+                        [recipe]="toChatRecipe(instruction)" [expanded]="false">
+                    </app-recipe-card>
                 </div>
-            </mat-card-content>
-        </mat-card>
+            </div>
+
+        </div>
 
         <!-- Right Column: Image and Barcodes -->
         <div class="d-flex flex-column gap-4 image-column">
@@ -155,49 +173,14 @@
                 </mat-card-content>
             </mat-card>
 
-            <!-- Cooking Instructions -->
-            <mat-card *ngIf="product.cookingInstructions && product.cookingInstructions.length > 0">
-                <mat-card-header>
-                    <mat-card-title>Cooking Instructions</mat-card-title>
-                </mat-card-header>
-                <mat-card-content class="pt-2">
-                    <div *ngFor="let instruction of product.cookingInstructions; let last = last" class="mb-4">
-                        <div
-                            class="d-flex justify-content-between align-items-baseline mb-2 instruction-header rounded">
-                            <a [routerLink]="['/recipes', instruction.id]" class="instruction-link">
-                                <h3 class="mat-h3 m-0">{{instruction.name.split(' - ').pop()}}</h3>
-                                <mat-icon class="ms-2">open_in_new</mat-icon>
-                            </a>
-                            <div class="d-flex gap-3 text-secondary small">
-                                <span *ngIf="instruction.prepTime" title="Prep Time"><mat-icon
-                                        style="font-size: 16px; width: 16px; height: 16px; vertical-align: text-bottom;">timer</mat-icon>
-                                    {{instruction.prepTime}}m</span>
-                                <span *ngIf="instruction.cookTime" title="Cook Time"><mat-icon
-                                        style="font-size: 16px; width: 16px; height: 16px; vertical-align: text-bottom;">outdoor_grill</mat-icon>
-                                    {{instruction.cookTime}}m</span>
-                            </div>
-                        </div>
 
-                        <p *ngIf="instruction.description" class="text-secondary small fst-italic mb-2">
-                            {{instruction.description}}</p>
-
-                        <ol class="ps-3 mb-0">
-                            <li *ngFor="let step of instruction.steps" class="mb-1">
-                                {{step.instruction}}
-                            </li>
-                        </ol>
-                        <mat-divider *ngIf="!last" class="mt-3"></mat-divider>
-                    </div>
-                </mat-card-content>
-            </mat-card>
 
         </div>
+
+        <!-- Audio Chat FAB -->
+        <button mat-fab class="audio-chat-fab" color="tertiary" (click)="openAudioChat()"
+            matTooltip="Ask Gemini about this product">
+            <mat-icon>smart_toy</mat-icon>
+        </button>
+
     </div>
-
-    <!-- Audio Chat FAB -->
-    <button mat-fab class="audio-chat-fab" color="tertiary" (click)="openAudioChat()"
-        matTooltip="Ask Gemini about this product">
-        <mat-icon>smart_toy</mat-icon>
-    </button>
-
-</div>
