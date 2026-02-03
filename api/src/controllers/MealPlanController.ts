@@ -310,6 +310,7 @@ export const updateMealPlan = async (req: Request, res: Response, next: NextFunc
                 quantity: req.body.quantity ? Number(req.body.quantity) : undefined,
                 unit: req.body.unit || undefined,
                 actualYield: req.body.actualYield ? Number(req.body.actualYield) : undefined,
+                servingsConsumed: (req.body.servingsConsumed !== undefined) ? Number(req.body.servingsConsumed) : undefined,
                 mealType: req.body.mealType || undefined
             },
             include: {

@@ -179,6 +179,7 @@ model MealPlan {
   unit      String?
   isLeftover Boolean @default(false)
   actualYield Float?
+  servingsConsumed Float?
   mealType  String?
 }
 

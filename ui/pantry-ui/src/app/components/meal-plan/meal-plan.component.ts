@@ -1023,7 +1023,36 @@ export class MealPlanComponent implements OnInit {
             }
         });
 
-        return Math.max(0, originalYield - totalUsed);
+        // Subtract what was consumed on the day of cooking
+        const consumed = plan.servingsConsumed || 0;
+
+        return Math.max(0, originalYield - totalUsed - consumed);
+    }
+
+    editConsumed(plan: MealPlan) {
+        const current = plan.servingsConsumed || 0;
+        const dialogRef = this.dialog.open(QuantityPromptDialogComponent, {
+            data: {
+                title: 'Edit Consumed',
+                message: 'How many servings did you consume?',
+                max: 100,
+                current: current
+            }
+        });
+
+        dialogRef.afterClosed().subscribe(result => {
+            if (result !== undefined && result !== current) {
+                this.mealPlanService.updateMealPlan(plan.id, new Date(plan.date), undefined, undefined, result).subscribe({
+                    next: (updated) => {
+                        plan.servingsConsumed = updated.servingsConsumed;
+                        this.snackBar.open('Consumed quantity updated', 'Close', { duration: 2000 });
+                    },
+                    error: (err) => {
+                        this.snackBar.open('Failed to update consumed quantity', 'Close', { duration: 2000 });
+                    }
+                });
+            }
+        });
     }
 
     hasLeftoverShortage(plan: MealPlan): boolean {

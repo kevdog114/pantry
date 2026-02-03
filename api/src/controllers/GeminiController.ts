@@ -2592,3 +2592,23 @@ export const calculateLogistics = async (req: Request, res: Response) => {
     res.status(500).json({ error: "Failed to calculate logistics" });
   }
 };
+
+export const getDebugLogs = async (req: Request, res: Response) => {
+  try {
+    const { sessionId } = req.params;
+    if (!sessionId) {
+      res.status(400).json({ error: "Session ID required" });
+      return;
+    }
+
+    const logs = await prisma.geminiDebugLog.findMany({
+      where: { sessionId: parseInt(sessionId) },
+      orderBy: { requestTimestamp: 'asc' }
+    });
+
+    res.json(logs);
+  } catch (err) {
+    console.error("Error fetching debug logs:", err);
+    res.status(500).json({ error: "Failed to fetch logs" });
+  }
+};

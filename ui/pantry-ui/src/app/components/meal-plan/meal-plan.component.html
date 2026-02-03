@@ -107,8 +107,11 @@
                                     Shortage!
                                 </span>
                                 <span *ngIf="plan.recipe?.yield && !plan.isLeftover" class="text-muted small ms-1"
-                                    style="font-size: 0.85em;">
-                                    (Yields: {{plan.recipe?.yield}} | {{ getRemainingServings(plan) }} left)
+                                    style="font-size: 0.85em; cursor: pointer; text-decoration: underline dotted;"
+                                    (click)="$event.stopPropagation(); editConsumed(plan)"
+                                    matTooltip="Click to record consumed servings">
+                                    (Yield: {{plan.recipe?.yield}} <span *ngIf="plan.servingsConsumed">| Ate:
+                                        {{plan.servingsConsumed}}</span> | Rem: {{ getRemainingServings(plan) }})
                                 </span>
                             </span>
                             <div *ngIf="hasPrepTasks(plan)" class="prep-indicator text-muted"
