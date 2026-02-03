@@ -24,6 +24,15 @@
     <div *ngIf="isMobile" class="mobile-header">
       <button class="back-btn" (click)="backToSessions()">← Back</button>
       <span class="mobile-title">Smart Chat</span>
+      <button *ngIf="currentSessionId" (click)="openDebugLog()" title="View Debug Logs"
+        style="margin-left: auto; background: none; border: none;">🐞</button>
+    </div>
+
+    <div *ngIf="!isMobile && currentSessionId" class="desktop-header"
+      style="display: flex; justify-content: flex-end; padding: 10px;">
+      <button (click)="openDebugLog()"
+        style="background: #f0f0f0; border: 1px solid #ccc; border-radius: 4px; padding: 5px 10px; cursor: pointer;">🐞
+        View Debug Log</button>
     </div>
 
     <app-chat-interface [messages]="messages" [isLoading]="isLoading" [showWelcomeMessage]="true"

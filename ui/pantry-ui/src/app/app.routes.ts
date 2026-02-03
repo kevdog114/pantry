@@ -157,6 +157,11 @@ export const routes: Routes = [
         canActivate: [AuthGuard]
     },
     {
+        path: "gemini/logs/:sessionId",
+        loadComponent: () => import('./components/gemini-chat/gemini-debug-log/gemini-debug-log.component').then(m => m.GeminiDebugLogComponent),
+        canActivate: [AuthGuard]
+    },
+    {
         path: "quick-label",
         component: QuickLabelComponent
     },

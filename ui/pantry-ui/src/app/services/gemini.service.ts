@@ -86,4 +86,8 @@ export class GeminiService {
     };
     return this.http.post<any>(`${this.env.apiUrl}/gemini/recipe-quick-actions`, payload);
   }
+
+  getDebugLogs(sessionId: number): Observable<any> {
+    return this.http.get<any>(`${this.env.apiUrl}/gemini/logs/${sessionId}`);
+  }
 }

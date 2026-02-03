@@ -262,6 +262,12 @@ export class GeminiChatComponent implements OnInit {
   backToSessions() {
     this.showSidebar = true;
   }
+
+  openDebugLog() {
+    if (this.currentSessionId) {
+      window.open('/gemini/logs/' + this.currentSessionId, '_blank');
+    }
+  }
 }
 
 

@@ -211,6 +211,7 @@ app.post("/gemini/product-match", GeminiController.postProductMatch);
 app.post("/gemini/barcode-details", GeminiController.postBarcodeDetails);
 app.post("/gemini/shopping-list-sort", GeminiController.postShoppingListSort);
 app.post("/gemini/logistics", GeminiController.calculateLogistics);
+app.get("/gemini/logs/:sessionId", GeminiController.getDebugLogs);
 
 app.post("/speech/transcribe", SpeechController.transcribe);
 

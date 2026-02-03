@@ -1316,6 +1316,8 @@ export const post = async (req: Request, res: Response) => {
 
     const debugSetting = await prisma.systemSetting.findUnique({ where: { key: 'gemini_debug' } });
     const isGeminiDebug = debugSetting?.value === 'true';
+    const dbLogSetting = await prisma.systemSetting.findUnique({ where: { key: 'gemini_debug_logging' } });
+    const isDbLogging = dbLogSetting?.value === 'true';
     let printedInThisTurn = false;
 
     const { result, warning } = await executeWithFallback(
@@ -1332,12 +1334,45 @@ export const post = async (req: Request, res: Response) => {
           console.log(JSON.stringify(currentContents, null, 2));
           console.log("--------------------------------------");
         }
+
+
+        const reqStart = Date.now();
         let responseResult = await model.generateContent({
           contents: currentContents,
           tools: inventoryTools,
           // We remove explicit JSON enforcement here to allow tool calls to happen naturally
           // The system prompt still demands JSON for the final answer.
         });
+        const reqEnd = Date.now();
+
+        if (isDbLogging) {
+          try {
+            // Safely serialize response
+            // Note: responseResult.response may contain circular refs or methods, we want the data
+            const rawResponse = responseResult.response;
+            let serializedResponse = '';
+            try {
+              serializedResponse = JSON.stringify(rawResponse);
+            } catch (e) {
+              serializedResponse = "Could not serialize response: " + (e as Error).message;
+            }
+
+            await prisma.geminiDebugLog.create({
+              data: {
+                sessionId: sessionId as number,
+                requestTimestamp: new Date(reqStart),
+                responseTimestamp: new Date(reqEnd),
+                durationMs: reqEnd - reqStart,
+                statusCode: 200,
+                requestData: JSON.stringify(currentContents),
+                responseData: serializedResponse,
+                toolCalls: JSON.stringify(rawResponse.functionCalls ? rawResponse.functionCalls() : [])
+              }
+            });
+          } catch (logErr) {
+            console.error("Failed to write debug log", logErr);
+          }
+        }
 
         while (currentLoop < maxLoops) {
           const response = responseResult.response;
@@ -1390,10 +1425,40 @@ export const post = async (req: Request, res: Response) => {
               console.log(JSON.stringify(currentContents, null, 2));
               console.log("--------------------------------------");
             }
+
+            const loopReqStart = Date.now();
             responseResult = await model.generateContent({
               contents: currentContents,
               tools: inventoryTools
             });
+            const loopReqEnd = Date.now();
+
+            if (isDbLogging) {
+              try {
+                const rawResponse = responseResult.response;
+                let serializedResponse = '';
+                try {
+                  serializedResponse = JSON.stringify(rawResponse);
+                } catch (e) {
+                  serializedResponse = "Could not serialize response: " + (e as Error).message;
+                }
+
+                await prisma.geminiDebugLog.create({
+                  data: {
+                    sessionId: sessionId as number,
+                    requestTimestamp: new Date(loopReqStart),
+                    responseTimestamp: new Date(loopReqEnd),
+                    durationMs: loopReqEnd - loopReqStart,
+                    statusCode: 200,
+                    requestData: JSON.stringify(currentContents),
+                    responseData: serializedResponse,
+                    toolCalls: JSON.stringify(rawResponse.functionCalls ? rawResponse.functionCalls() : [])
+                  }
+                });
+              } catch (logErr) {
+                console.error("Failed to write debug log (loop)", logErr);
+              }
+            }
 
             currentLoop++;
           } else {

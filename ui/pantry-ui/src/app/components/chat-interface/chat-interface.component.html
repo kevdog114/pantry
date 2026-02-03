@@ -36,11 +36,10 @@
                     </div>
                 </div>
             </div>
+            <span class="message-timestamp" *ngIf="message.timestamp">
+                {{ message.timestamp | date:'shortTime' }} {{ message.timestamp | date:'MM/dd' }}
+            </span>
         </div>
-
-        <span class="message-timestamp" *ngIf="message.timestamp">
-            {{ message.timestamp | date:'shortTime' }} {{ message.timestamp | date:'MM/dd' }}
-        </span>
     </div>
 
     <!-- Loading Indicator -->
@@ -59,5 +58,4 @@
     <app-smart-chat-input [placeholder]="placeholder" [disabled]="isLoading" [enableAudio]="enableAudio"
         [autoSendAudio]="autoSendAudio" (send)="handleSend($event)">
     </app-smart-chat-input>
-</div>
 </div>
