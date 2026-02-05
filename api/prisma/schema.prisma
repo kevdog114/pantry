@@ -245,15 +245,18 @@ model ChatSession {
 }
 
 model ChatMessage {
-  id            Int         @id @default(autoincrement())
-  sessionId     Int
-  session       ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-  sender        String      // "user" or "model"
-  type          String      // "chat" or "recipe"
-  content       String?     // For text
-  recipeData    String?     // JSON string for recipe data
-  imageUrl      String?     // URL/Path to image if present
-  createdAt     DateTime    @default(now())
+  id                 Int         @id @default(autoincrement())
+  sessionId          Int
+  session            ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  sender             String      // "user" or "model" or "system" (for tool calls)
+  type               String      // "chat", "recipe", or "tool_call"
+  content            String?     // For text
+  recipeData         String?     // JSON string for recipe data
+  imageUrl           String?     // URL/Path to image if present
+  toolCallData       String?     // JSON string for tool call info (name, displayName)
+  toolCallDurationMs Int?        // Duration of tool call in milliseconds
+  modelUsed          String?     // Model that generated this response
+  createdAt          DateTime    @default(now())
 }
 
 model FamilyMember {

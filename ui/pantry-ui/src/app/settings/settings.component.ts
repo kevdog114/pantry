@@ -33,6 +33,8 @@ export class SettingsComponent implements OnInit {
   expirationModelKey = 'gemini_expiration_model';
   quickSnackModelKey = 'gemini_quick_snack_model';
   imageGenModelKey = 'gemini_image_generation_model';
+  routerModelKey = 'gemini_router_model';
+  proModelKey = 'gemini_pro_model';
   debugLoggingKey = 'gemini_debug_logging';
   timezoneKey = 'system_timezone';
 
@@ -41,6 +43,8 @@ export class SettingsComponent implements OnInit {
   selectedExpirationModel: string = 'gemini-flash-latest';
   selectedQuickSnackModel: string = 'gemini-flash-latest';
   selectedImageGenModel: string = 'imagen-4.0-generate-001';
+  selectedRouterModel: string = 'gemini-flash-latest';
+  selectedProModel: string = 'gemini-3-pro-preview';
   debugLogging: boolean = false;
   selectedTimezone: string = Intl.DateTimeFormat().resolvedOptions().timeZone; // Default to system
 
@@ -97,6 +101,8 @@ export class SettingsComponent implements OnInit {
         if (settings[this.expirationModelKey]) this.selectedExpirationModel = settings[this.expirationModelKey];
         if (settings[this.quickSnackModelKey]) this.selectedQuickSnackModel = settings[this.quickSnackModelKey];
         if (settings[this.imageGenModelKey]) this.selectedImageGenModel = settings[this.imageGenModelKey];
+        if (settings[this.routerModelKey]) this.selectedRouterModel = settings[this.routerModelKey];
+        if (settings[this.proModelKey]) this.selectedProModel = settings[this.proModelKey];
 
         if (settings[this.debugLoggingKey]) {
           this.debugLogging = settings[this.debugLoggingKey] === 'true';
@@ -123,6 +129,8 @@ export class SettingsComponent implements OnInit {
     settings[this.expirationModelKey] = this.selectedExpirationModel;
     settings[this.quickSnackModelKey] = this.selectedQuickSnackModel;
     settings[this.imageGenModelKey] = this.selectedImageGenModel;
+    settings[this.routerModelKey] = this.selectedRouterModel;
+    settings[this.proModelKey] = this.selectedProModel;
     settings[this.debugLoggingKey] = String(this.debugLogging);
     settings[this.timezoneKey] = this.selectedTimezone;
 

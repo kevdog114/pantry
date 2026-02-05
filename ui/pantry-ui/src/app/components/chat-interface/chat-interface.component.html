@@ -34,11 +34,48 @@
                     <div *ngIf="item.type === 'recipe' && item.recipe">
                         <app-recipe-card [recipe]="item.recipe"></app-recipe-card>
                     </div>
+
+                    <!-- Tool Call Message -->
+                    <div *ngIf="item.type === 'tool_call' && item.toolCall" class="tool-call-container">
+                        <mat-icon class="tool-icon">build</mat-icon>
+                        <span class="tool-display-name">{{ item.toolCall.displayName || item.toolCall.name }}</span>
+                        <span class="tool-duration" *ngIf="item.durationMs">({{ item.durationMs }}ms)</span>
+                    </div>
                 </div>
             </div>
-            <span class="message-timestamp" *ngIf="message.timestamp">
-                {{ message.timestamp | date:'shortTime' }} {{ message.timestamp | date:'MM/dd' }}
-            </span>
+            <!-- Metadata & Timestamp -->
+            <div class="message-footer">
+                <div class="message-meta" *ngIf="message.meta">
+                    <span class="meta-item" *ngIf="message.meta.modelName" [title]="'Model: ' + message.meta.modelName">
+                        <mat-icon>smart_toy</mat-icon>
+                        {{ message.meta.modelName }}
+                    </span>
+                    <span class="meta-item highlight" *ngIf="message.meta.usingCache" title="Context Cache Used">
+                        <mat-icon>bolt</mat-icon>
+                        Cached
+                    </span>
+                    <span class="meta-item" *ngIf="message.meta.usageMetadata?.totalTokenCount"
+                        [title]="'Total Tokens: ' + message.meta.usageMetadata?.totalTokenCount">
+                        <mat-icon>data_usage</mat-icon>
+                        <!-- Only show cached breakdown if we actually reused an existing cache -->
+                        <ng-container
+                            *ngIf="message.meta.usingCache && message.meta.usageMetadata?.cachedContentTokenCount; else totalOnly">
+                            <span class="token-split">
+                                {{ (message.meta.usageMetadata?.totalTokenCount || 0) -
+                                (message.meta.usageMetadata?.cachedContentTokenCount || 0) }}
+                                <span class="cached-val">(+{{ (message.meta.usageMetadata?.cachedContentTokenCount || 0)
+                                    / 1000 | number:'1.0-1' }}k)</span>
+                            </span>
+                        </ng-container>
+                        <ng-template #totalOnly>
+                            {{ message.meta.usageMetadata?.totalTokenCount }}
+                        </ng-template>
+                    </span>
+                </div>
+                <span class="message-timestamp" *ngIf="message.timestamp">
+                    {{ message.timestamp | date:'shortTime' }} {{ message.timestamp | date:'MM/dd' }}
+                </span>
+            </div>
         </div>
     </div>
 

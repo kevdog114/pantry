@@ -1,10 +1,11 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, OnDestroy } from '@angular/core';
 import { GeminiService, StreamEvent } from '../../services/gemini.service';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 
 import { RecipeService } from '../../services/recipe.service';
+import { SocketService } from '../../services/socket.service';
 import { ChatInterfaceComponent, ChatMessage, ChatContentItem } from '../chat-interface/chat-interface.component';
 
 // Re-export types for backward compatibility if needed, or update consumers
@@ -17,7 +18,7 @@ export type { ChatMessage, ChatContentItem };
   imports: [CommonModule, FormsModule, MatSnackBarModule, ChatInterfaceComponent],
   standalone: true,
 })
-export class GeminiChatComponent implements OnInit {
+export class GeminiChatComponent implements OnInit, OnDestroy {
   showSidebar: boolean = true;
   isMobile: boolean = window.innerWidth <= 768;
 
@@ -43,7 +44,8 @@ export class GeminiChatComponent implements OnInit {
   constructor(
     private geminiService: GeminiService,
     private snackBar: MatSnackBar,
-    private recipeService: RecipeService
+    private recipeService: RecipeService,
+    private socketService: SocketService
   ) {
     this.checkScreenSize();
     window.addEventListener('resize', () => this.checkScreenSize());
@@ -58,6 +60,21 @@ export class GeminiChatComponent implements OnInit {
 
   ngOnInit() {
     this.loadSessions();
+
+    // Listen for session title updates from backend (async title generation)
+    this.socketService.fromEvent<{ sessionId: number; title: string }>('chat_session_updated').subscribe(
+      (event) => {
+        // Update the session title in our local list
+        const session = this.sessions.find(s => s.id === event.sessionId);
+        if (session) {
+          session.title = event.title;
+        }
+      }
+    );
+  }
+
+  ngOnDestroy() {
+    this.socketService.removeListener('chat_session_updated');
   }
 
   loadSessions() {
@@ -83,8 +100,24 @@ export class GeminiChatComponent implements OnInit {
       // Reconstruct messages from DB history
       if (session.messages) {
         session.messages.forEach((msg: any) => {
-          const sender = msg.sender === 'user' ? 'You' : 'Gemini';
           const contents: ChatContentItem[] = [];
+
+          // Handle tool_call type separately - display as system message
+          if (msg.type === 'tool_call') {
+            const toolCallMessage: ChatMessage = {
+              sender: 'Gemini',
+              contents: [{
+                type: 'tool_call',
+                toolCall: msg.toolCallData ? JSON.parse(msg.toolCallData) : { name: 'unknown' },
+                durationMs: msg.toolCallDurationMs
+              }],
+              timestamp: msg.createdAt ? new Date(msg.createdAt) : undefined
+            };
+            this.messages.push(toolCallMessage);
+            return;
+          }
+
+          const sender = msg.sender === 'user' ? 'You' : 'Gemini';
 
           if (msg.content) {
             contents.push({
@@ -192,6 +225,7 @@ export class GeminiChatComponent implements OnInit {
     // We'll create the streaming message when the first chunk arrives
     let streamingMessage: ChatMessage | null = null;
     let accumulatedText = '';
+    let earlyMeta: ChatMessage['meta'] = undefined;
 
     this.geminiService.sendMessageStream(
       prompt,
@@ -203,6 +237,33 @@ export class GeminiChatComponent implements OnInit {
             this.currentSessionId = event.sessionId;
             this.loadSessions();
           }
+        } else if (event.type === 'meta') {
+          // Early metadata event - store it to apply when message is created
+          // The backend sends modelName and usingCache as top-level properties
+          earlyMeta = {
+            modelName: event.modelName,
+            usingCache: event.usingCache
+          };
+          // If streaming message already exists, apply immediately
+          if (streamingMessage) {
+            streamingMessage.meta = { ...streamingMessage.meta, ...earlyMeta };
+          }
+        } else if (event.type === 'tool_call' && event.toolCall) {
+          if (!streamingMessage) {
+            streamingMessage = {
+              sender: 'Gemini',
+              contents: [],
+              timestamp: new Date(),
+              meta: earlyMeta // Apply early metadata if available
+            };
+            this.messages.push(streamingMessage);
+          }
+          streamingMessage.contents.push({
+            type: 'tool_call',
+            toolCall: event.toolCall
+          });
+          // Use displayName from backend if available, otherwise fallback to tool name
+          this.loadingText = (event as any).displayName || `Using tool: ${event.toolCall.name}...`;
         } else if (event.type === 'chunk' && event.text) {
           accumulatedText += event.text;
           const displayText = this.extractDisplayText(accumulatedText);
@@ -218,13 +279,19 @@ export class GeminiChatComponent implements OnInit {
             streamingMessage = {
               sender: 'Gemini',
               contents: [{ type: 'chat', text: displayText }],
-              timestamp: new Date()
+              timestamp: new Date(),
+              meta: earlyMeta // Apply early metadata if available
             };
             this.messages.push(streamingMessage);
             // Keep isLoading = true so the loading indicator stays visible
-          } else if (streamingMessage && streamingMessage.contents[0].type === 'chat') {
-            // Update existing message with new content
-            streamingMessage.contents[0].text = displayText;
+          } else if (streamingMessage) {
+            // Find or create chat content
+            const chatContent = streamingMessage.contents.find(c => c.type === 'chat');
+            if (chatContent) {
+              chatContent.text = displayText;
+            } else if (hasRealContent) {
+              streamingMessage.contents.push({ type: 'chat', text: displayText });
+            }
           }
         } else if (event.type === 'done' && event.data) {
           // Replace streaming content with final parsed content
@@ -232,12 +299,18 @@ export class GeminiChatComponent implements OnInit {
           this.loadingText = 'Thinking...';
           if (streamingMessage) {
             streamingMessage.contents = this.parseGeminiResponse(event.data);
+            // Merge early meta with final meta (final has usageMetadata)
+            if (event.meta) {
+              streamingMessage.meta = { ...streamingMessage.meta, ...event.meta };
+            }
           } else {
             // No chunks received, create final message directly
+            // Merge early meta with final meta
             const finalMessage: ChatMessage = {
               sender: 'Gemini',
               contents: this.parseGeminiResponse(event.data),
-              timestamp: new Date()
+              timestamp: new Date(),
+              meta: { ...earlyMeta, ...event.meta }
             };
             this.messages.push(finalMessage);
           }
@@ -433,6 +506,11 @@ export class GeminiChatComponent implements OnInit {
             recipe: item.recipe,
             expanded: false
           });
+        } else if (item.type === 'tool_call' && item.toolCall) {
+          geminiContents.push({
+            type: 'tool_call',
+            toolCall: item.toolCall
+          });
         } else {
           geminiContents.push({
             type: 'chat',
@@ -487,7 +565,8 @@ export class GeminiChatComponent implements OnInit {
         this.messages.push({
           sender: 'Gemini',
           contents: geminiContents,
-          timestamp: new Date()
+          timestamp: new Date(),
+          meta: response.meta
         });
       }
 

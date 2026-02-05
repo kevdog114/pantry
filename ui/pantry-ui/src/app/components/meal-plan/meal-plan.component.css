@@ -109,13 +109,37 @@
 }
 
 /* Meals List */
+/* Meals List */
+.meal-type-section {
+    margin-bottom: 12px;
+}
+
+.meal-type-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: var(--mat-sys-on-surface-variant);
+    margin-bottom: 4px;
+    padding: 0 4px;
+}
+
 .meals-list {
-    min-height: 100px;
+    min-height: 24px;
     /* Drop zone area */
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 8px;
     flex-grow: 1;
+    transition: min-height 0.2s;
+}
+
+/* Ensure it expands when dragging over if needed, or rely on placeholder */
+.meals-list.cdk-drop-list-dragging {
+    min-height: 60px;
+    background: rgba(0, 0, 0, 0.02);
+    border-radius: 8px;
 }
 
 .meal-item {

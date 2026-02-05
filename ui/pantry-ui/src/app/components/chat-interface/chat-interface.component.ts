@@ -8,17 +8,33 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 
 export interface ChatContentItem {
-    type: 'chat' | 'recipe' | 'image';
+    type: 'chat' | 'recipe' | 'image' | 'tool_call';
     text?: string;
     recipe?: ChatRecipe;
     expanded?: boolean;
     imageUrl?: string;
+    toolCall?: {
+        name: string;
+        args?: any;
+        displayName?: string;
+    };
+    durationMs?: number; // Duration of tool call in milliseconds
 }
 
 export interface ChatMessage {
     sender: string;
     contents: ChatContentItem[];
     timestamp?: Date;
+    meta?: {
+        usingCache?: boolean;
+        modelName?: string;
+        usageMetadata?: {
+            promptTokenCount?: number;
+            candidatesTokenCount?: number;
+            totalTokenCount?: number;
+            cachedContentTokenCount?: number;
+        };
+    };
 }
 
 @Component({

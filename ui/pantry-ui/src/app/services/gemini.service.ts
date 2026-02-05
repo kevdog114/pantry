@@ -4,11 +4,29 @@ import { Observable, Subject, of } from 'rxjs';
 import { EnvironmentService } from './environment.service';
 
 export interface StreamEvent {
-  type: 'session' | 'chunk' | 'done' | 'error';
+  type: 'session' | 'chunk' | 'done' | 'error' | 'tool_call' | 'meta';
   sessionId?: number;
   text?: string;
   data?: any;
   message?: string;
+  toolCall?: {
+    name: string;
+    args: any;
+  };
+  // For early meta event (top-level properties)
+  modelName?: string;
+  usingCache?: boolean;
+  // For done event (nested meta property)
+  meta?: {
+    usingCache?: boolean;
+    modelName?: string;
+    usageMetadata?: {
+      promptTokenCount?: number;
+      candidatesTokenCount?: number;
+      totalTokenCount?: number;
+      cachedContentTokenCount?: number;
+    };
+  };
 }
 
 @Injectable({

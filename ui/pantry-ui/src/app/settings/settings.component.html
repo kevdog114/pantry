@@ -23,6 +23,39 @@
                             <mat-form-field appearance="outline">
                                 <mat-label>Select Model</mat-label>
                                 <mat-select [(ngModel)]="selectedChatModel">
+                                    <mat-option value="auto">Auto (Smart Routing)</mat-option>
+                                    <mat-option *ngFor="let model of models" [value]="model.name">
+                                        {{model.displayName}}
+                                    </mat-option>
+                                </mat-select>
+                            </mat-form-field>
+                        </div>
+
+                        <!-- Router Model (shown when Auto is selected) -->
+                        <div class="setting-item sub-setting" *ngIf="selectedChatModel === 'auto'">
+                            <div class="setting-info">
+                                <h3>Router Model</h3>
+                                <p>Fast model used to route requests and answer simple queries.</p>
+                            </div>
+                            <mat-form-field appearance="outline">
+                                <mat-label>Select Router Model</mat-label>
+                                <mat-select [(ngModel)]="selectedRouterModel">
+                                    <mat-option *ngFor="let model of models" [value]="model.name">
+                                        {{model.displayName}}
+                                    </mat-option>
+                                </mat-select>
+                            </mat-form-field>
+                        </div>
+
+                        <!-- Pro Model (shown when Auto is selected) -->
+                        <div class="setting-item sub-setting" *ngIf="selectedChatModel === 'auto'">
+                            <div class="setting-info">
+                                <h3>Pro Model</h3>
+                                <p>Powerful model used for complex requests.</p>
+                            </div>
+                            <mat-form-field appearance="outline">
+                                <mat-label>Select Pro Model</mat-label>
+                                <mat-select [(ngModel)]="selectedProModel">
                                     <mat-option *ngFor="let model of models" [value]="model.name">
                                         {{model.displayName}}
                                     </mat-option>

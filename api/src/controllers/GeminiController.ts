@@ -1,4 +1,4 @@
-import { GoogleGenerativeAI, Content, FunctionDeclarationSchemaType } from "@google/generative-ai";
+import { GoogleGenerativeAI, Content, FunctionDeclarationSchemaType, EnhancedGenerateContentResponse, GenerateContentStreamResult } from "@google/generative-ai";
 import { GoogleAICacheManager, CachedContent } from "@google/generative-ai/server";
 import * as crypto from "crypto";
 import dotenv from "dotenv";
@@ -25,7 +25,14 @@ const cacheManager = new GoogleAICacheManager(gemini_api_key);
 
 const DEFAULT_FALLBACK_MODEL = "gemini-flash-latest";
 // Models that support caching (flash models generally support it)
-const CACHE_SUPPORTED_MODELS = ["gemini-1.5-flash", "gemini-1.5-flash-latest", "gemini-2.0-flash", "gemini-2.0-flash-001", "gemini-flash-latest"];
+const CACHE_SUPPORTED_MODELS = ["gemini-1.5-flash", "gemini-1.5-flash-latest", "gemini-2.0-flash", "gemini-2.0-flash-001", "gemini-flash-latest", "gemini-3-pro-preview"];
+
+// Auto model routing
+const AUTO_MODEL = "auto";
+const ROUTER_MODEL_SETTING = "gemini_router_model";
+const DEFAULT_ROUTER_MODEL = "gemini-flash-latest";
+const PRO_MODEL_SETTING = "gemini_pro_model";
+const DEFAULT_PRO_MODEL = "gemini-3-pro-preview";
 
 // In-memory cache reference to avoid repeated API calls
 let currentCache: CachedContent | null = null;
@@ -46,8 +53,11 @@ export async function getGeminiModel(featureKey: string, fallbackModelName: stri
     const setting = await prisma.systemSetting.findUnique({
       where: { key: featureKey }
     });
+    // If setting exists and is NOT "auto", use it. If "auto", we stick to fallback (Flash)
+    // "auto" is handled specially in the streaming endpoint with routing logic
     if (setting && setting.value) {
-      modelName = setting.value;
+      const val = setting.value.trim();
+      if (val !== AUTO_MODEL) modelName = val;
     }
   } catch (err) {
     console.warn(`Failed to fetch setting for ${featureKey}, using default: ${modelName}`, err);
@@ -96,6 +106,143 @@ export async function executeWithFallback<T>(
       }
     }
     throw error; // Initial model was already fallback or error is fatal
+  }
+}
+
+
+/**
+ * Optimized Router: Uses Flash to attempt a direct answer.
+ * If Flash outputs the escalation token, it discards the stream and switches to Pro.
+ * Otherwise, it streams the Flash response directly.
+ */
+async function routeAndExecute(
+  systemInstruction: string,
+  contents: Content[],
+  tools: any[],
+  geminiConfig: any,
+  additionalContext?: string
+): Promise<{ streamResult: GenerateContentStreamResult; finalModelName: string }> {
+  // 1. Resolve Model Names
+  let routerModelName = DEFAULT_ROUTER_MODEL;
+  let proModelName = DEFAULT_PRO_MODEL;
+
+  try {
+    const settings = await prisma.systemSetting.findMany({
+      where: { key: { in: [ROUTER_MODEL_SETTING, PRO_MODEL_SETTING] } }
+    });
+
+    const routerSetting = settings.find(s => s.key === ROUTER_MODEL_SETTING);
+    if (routerSetting?.value) routerModelName = routerSetting.value;
+
+    const proSetting = settings.find(s => s.key === PRO_MODEL_SETTING);
+    if (proSetting?.value) proModelName = proSetting.value;
+  } catch (err) {
+    console.warn("Failed to get routing model settings, using defaults");
+  }
+
+  // 2. Prepare Router (Flash) with escalation instruction
+  const ESCALATION_TOKEN = "[[ROUTER_ESCALATE]]";
+  const routingInstruction = `
+[INTERNAL ROUTING INSTRUCTION]
+You are acting as the primary responder. Analyze the user request.
+If it requires complex reasoning, advanced creative writing, or capabilities beyond a standard efficient model, output EXACTLY the token "${ESCALATION_TOKEN}" and nothing else.
+Otherwise, answer the request directly and helpfully as the assistant.
+${systemInstruction}`;
+
+  const routerModel = googleAI.getGenerativeModel({
+    model: routerModelName,
+    ...geminiConfig
+  });
+
+  console.log(`[Auto Router] Attempting direct answer with ${routerModelName}...`);
+
+  try {
+    // 3. Start Flash Stream
+    const routerStreamResult = await routerModel.generateContentStream({
+      contents,
+      systemInstruction: routingInstruction,
+      tools,
+    });
+
+    // 4. Robust Peeking: Buffer chunks until we have enough text to check for escalation or confirm regular response
+    const iterator = routerStreamResult.stream[Symbol.asyncIterator]();
+    let accumulatedText = "";
+    const bufferedResults: any[] = [];
+    let isEscalating = false;
+
+    // Buffer up to ~50 chars or until we see the token.
+    while (true) {
+      const next = await iterator.next();
+      if (next.done) break;
+
+      bufferedResults.push(next);
+      accumulatedText += next.value.text();
+
+      if (accumulatedText.includes(ESCALATION_TOKEN)) {
+        isEscalating = true;
+        break;
+      }
+
+      if (accumulatedText.trimStart().length > 50) break;
+    }
+
+
+
+    // 5. Check for Escalation Token
+    if (isEscalating) {
+      console.log(`[Auto Router] Escalation token detected. Switching to Pro (${proModelName}).`);
+
+      // Discard Flash stream (it will complete naturally as we stop iterating, or we can ignore it)
+      // Start Pro Stream
+      const proModel = googleAI.getGenerativeModel({
+        model: proModelName,
+        ...geminiConfig
+      });
+
+      const proStreamResult = await proModel.generateContentStream({
+        contents,
+        systemInstruction, // Use original instruction without routing directive
+        tools
+      });
+
+      return { streamResult: proStreamResult, finalModelName: proModelName };
+    }
+
+    // 6. Direct Answer - Reconstruct Stream
+    console.log(`[Auto Router] Flash accepted request. Streaming directly. Buffer size: ${bufferedResults.length}`);
+
+    async function* combinedStream() {
+      for (const result of bufferedResults) yield result.value;
+
+      let next = await iterator.next();
+      while (!next.done) {
+        yield next.value;
+        next = await iterator.next();
+      }
+    }
+
+    // Return the seamless stream
+    return {
+      streamResult: {
+        stream: combinedStream(),
+        response: routerStreamResult.response
+      },
+      finalModelName: routerModelName
+    };
+
+  } catch (error) {
+    console.error("[Auto Router] Router failed, falling back to Pro:", error);
+    // If Flash fails completely, fallback to Pro
+    const proModel = googleAI.getGenerativeModel({
+      model: proModelName,
+      ...geminiConfig
+    });
+    const proStreamResult = await proModel.generateContentStream({
+      contents,
+      systemInstruction,
+      tools
+    });
+    return { streamResult: proStreamResult, finalModelName: proModelName };
   }
 }
 
@@ -264,16 +411,9 @@ function hashContext(content: string): string {
 }
 
 /**
- * Build the system instruction with all context
+ * Build the system instruction with minimal context - tools will provide data on demand.
  */
 async function buildSystemInstruction(additionalContext?: string): Promise<string> {
-  const [productContext, familyContext, equipmentContext, weatherContext] = await Promise.all([
-    getProductContext(),
-    getFamilyContext(),
-    getEquipmentContext(),
-    getWeatherContext()
-  ]);
-
   return `
     You are a smart cooking assistant managing a pantry.
     Date: ${new Date().toLocaleDateString()}.
@@ -284,6 +424,14 @@ async function buildSystemInstruction(additionalContext?: string): Promise<strin
     3. **Stock & Cooking Instructions:** Use provided tools. For package images, use 'createCookingInstruction' for each method (e.g., Microwave, Oven).
     4. **Quantities:** Respect 'trackCountBy' in inventory context. If 'weight', use weight; if 'quantity', use count.
 
+    **CRITICAL - Use Tools for Context:**
+    - You do NOT know what is in the inventory until you search. Always use 'searchInventory' or 'getAllProducts' to find products and stock levels.
+    - Before recommending ANY recipe, you MUST check 'getFamilyPreferences' to ensure no allergies or dietary restrictions are violated.
+    - Use 'getStockExpiringSoon' to find items that need to be used up.
+    - Use 'getWeatherForecast' for weather-related meal suggestions.
+    - Use 'getAvailableEquipment' to check what cooking appliances are available.
+    - Use 'searchRecipes' and 'getRecipeDetails' to find and suggest saved recipes.
+
     **JSON Structure:**
     {
       "items": [
@@ -292,12 +440,7 @@ async function buildSystemInstruction(additionalContext?: string): Promise<strin
       ]
     }
 
-    **Context:**
-    Inventory: ${productContext}
-    Family: ${familyContext}
-    Equipment: ${equipmentContext}
-    Weather: ${weatherContext}
-    ${additionalContext ? `User View: ${additionalContext}` : ''}
+    ${additionalContext ? `**User View Context:** ${additionalContext}` : ''}
   `;
 }
 
@@ -305,7 +448,7 @@ async function buildSystemInstruction(additionalContext?: string): Promise<strin
  * Get or create a context cache for the chat model.
  * Returns the cache name if caching is supported and successful, otherwise null.
  */
-async function getOrCreateContextCache(modelName: string, additionalContext?: string): Promise<string | null> {
+async function getOrCreateContextCache(modelName: string, additionalContext?: string): Promise<{ name: string; isHit: boolean } | null> {
   // Check if the model supports caching
   const supportsCaching = CACHE_SUPPORTED_MODELS.some(m => modelName.includes(m) || m.includes(modelName));
   if (!supportsCaching) {
@@ -316,13 +459,38 @@ async function getOrCreateContextCache(modelName: string, additionalContext?: st
   try {
     // Build the full context
     const systemInstruction = await buildSystemInstruction(additionalContext);
+
+    // Estimate token count (rough: ~4 chars per token for English)
+    // Gemini requires minimum 1024 tokens for caching
+    const estimatedTokens = Math.ceil(systemInstruction.length / 4);
+    const MIN_CACHE_TOKENS = 1024;
+
+    if (estimatedTokens < MIN_CACHE_TOKENS) {
+      console.log(`[Context Cache] Context too small for caching (est. ${estimatedTokens} tokens, min ${MIN_CACHE_TOKENS}), skipping`);
+      return null;
+    }
+
     const contextHash = hashContext(systemInstruction);
 
     // Check if current cache is still valid
     const now = new Date();
-    if (currentCache && currentCacheHash === contextHash && cacheExpiresAt && cacheExpiresAt > now) {
-      console.log(`[Context Cache] Using existing cache: ${currentCache.name}`);
-      return currentCache.name || null;
+
+    // Debug logging for cache hit/miss analysis
+    if (currentCache) {
+      console.log(`[Context Cache] Hash Check - Current: ${currentCacheHash}, New: ${contextHash}`);
+      console.log(`[Context Cache] Expiration Check - Expires: ${cacheExpiresAt?.toISOString()}, Now: ${now.toISOString()}`);
+      if (currentCacheHash === contextHash && cacheExpiresAt && cacheExpiresAt > now) {
+        console.log(`[Context Cache] HIT - Using existing cache: ${currentCache.name}`);
+        return { name: currentCache.name, isHit: true };
+      } else {
+        console.log(`[Context Cache] MISS - ${currentCacheHash !== contextHash ? 'Hash mismatch (content changed)' : 'Expired'}`);
+        // If content changed, let's log what changed if we can (simplified: just length)
+        if (currentCacheHash !== contextHash) {
+          console.log(`[Context Cache] Content Length - Old (approx): "unknown", New: ${systemInstruction.length}`);
+        }
+      }
+    } else {
+      console.log(`[Context Cache] No active cache found. New Hash: ${contextHash}`);
     }
 
     // If we have an old cache with different content, try to delete it
@@ -362,7 +530,7 @@ async function getOrCreateContextCache(modelName: string, additionalContext?: st
     cacheExpiresAt = new Date(now.getTime() + 3600 * 1000); // 1 hour from now
 
     console.log(`[Context Cache] Cache created: ${cache.name}, expires: ${cacheExpiresAt.toISOString()}`);
-    return cache.name || null;
+    return { name: cache.name, isHit: false };
 
   } catch (error) {
     console.error("[Context Cache] Failed to create cache:", error);
@@ -374,7 +542,7 @@ async function getOrCreateContextCache(modelName: string, additionalContext?: st
  * Get a model instance that uses the cached content if available.
  * Falls back to regular model if caching fails or is not supported.
  */
-async function getCachedModel(featureKey: string): Promise<{
+async function getCachedModel(featureKey: string, additionalContext?: string): Promise<{
   model: any;
   modelName: string;
   usingCache: boolean;
@@ -383,22 +551,24 @@ async function getCachedModel(featureKey: string): Promise<{
   const { model, modelName } = await getGeminiModel(featureKey);
 
   try {
-    const cacheName = await getOrCreateContextCache(modelName);
+    const cacheResult = await getOrCreateContextCache(modelName, additionalContext);
 
-    if (cacheName) {
+    if (cacheResult) {
+      const { name, isHit } = cacheResult;
+
       // Get the full cache object to pass to the model
-      const cachedContent = await cacheManager.get(cacheName);
+      const cachedContent = await cacheManager.get(name);
 
       // Create a model that uses the cached content
       const cachedModel = googleAI.getGenerativeModelFromCachedContent(cachedContent);
-      return { model: cachedModel, modelName, usingCache: true };
+      return { model: cachedModel, modelName, usingCache: isHit };
     }
   } catch (error) {
     console.warn("[Context Cache] Failed to get cached model, falling back to regular model:", error);
   }
 
   // Build system instruction for non-cached fallback
-  const systemInstruction = await buildSystemInstruction();
+  const systemInstruction = await buildSystemInstruction(additionalContext);
   return { model, modelName, usingCache: false, systemInstruction };
 }
 
@@ -602,47 +772,49 @@ export const post = async (req: Request, res: Response) => {
         orderBy: { createdAt: 'asc' }
       });
 
-      // Convert messages to history Content[]
-      history = messages.map(msg => {
-        let text = msg.content || '';
-        // If it was a recipe, we construct a JSON representation to simulate what the model outputted
-        if (msg.type === 'recipe' && msg.recipeData) {
-          text = JSON.stringify({
-            items: [{
-              type: 'recipe',
-              recipe: JSON.parse(msg.recipeData)
-            }]
-          });
-        }
-
-        const parts: any[] = [];
-        if (text) {
-          parts.push({ text });
-        }
-
-        if (msg.imageUrl) {
-          const ext = path.extname(msg.imageUrl).toLowerCase();
-          let mime = 'image/jpeg';
-          if (ext === '.png') mime = 'image/png';
-          if (ext === '.webp') mime = 'image/webp';
-          if (ext === '.heic') mime = 'image/heic';
-          if (ext === '.heif') mime = 'image/heif';
-
-          try {
-            const fullPath = path.join(UPLOAD_DIR, msg.imageUrl);
-            if (fs.existsSync(fullPath)) {
-              parts.push(fileToGenerativePart(fullPath, mime));
-            }
-          } catch (e) {
-            console.error("Failed to load image for history", e);
+      // Convert messages to history Content[] - filter out tool_call types (UI only)
+      history = messages
+        .filter(msg => msg.type !== 'tool_call')
+        .map(msg => {
+          let text = msg.content || '';
+          // If it was a recipe, we construct a JSON representation to simulate what the model outputted
+          if (msg.type === 'recipe' && msg.recipeData) {
+            text = JSON.stringify({
+              items: [{
+                type: 'recipe',
+                recipe: JSON.parse(msg.recipeData)
+              }]
+            });
           }
-        }
 
-        return {
-          role: msg.sender,
-          parts: parts
-        } as Content;
-      });
+          const parts: any[] = [];
+          if (text) {
+            parts.push({ text });
+          }
+
+          if (msg.imageUrl) {
+            const ext = path.extname(msg.imageUrl).toLowerCase();
+            let mime = 'image/jpeg';
+            if (ext === '.png') mime = 'image/png';
+            if (ext === '.webp') mime = 'image/webp';
+            if (ext === '.heic') mime = 'image/heic';
+            if (ext === '.heif') mime = 'image/heif';
+
+            try {
+              const fullPath = path.join(UPLOAD_DIR, msg.imageUrl);
+              if (fs.existsSync(fullPath)) {
+                parts.push(fileToGenerativePart(fullPath, mime));
+              }
+            } catch (e) {
+              console.error("Failed to load image for history", e);
+            }
+          }
+
+          return {
+            role: msg.sender,
+            parts: parts
+          } as Content;
+        }).filter(content => content.parts.length > 0);
     }
 
     // Save User Message to DB
@@ -663,7 +835,7 @@ export const post = async (req: Request, res: Response) => {
 
     // Try to get a cached model for better performance
     const contextStart = Date.now();
-    const { model: cachedModel, modelName, usingCache, systemInstruction } = await getCachedModel("gemini_chat_model");
+    const { model: cachedModel, modelName, usingCache, systemInstruction } = await getCachedModel("gemini_chat_model", additionalContext);
     const contextDuration = Date.now() - contextStart;
     console.log(`Context ${usingCache ? '(cached)' : '(fresh)'} generation time: ${contextDuration}ms`);
 
@@ -711,9 +883,104 @@ export const post = async (req: Request, res: Response) => {
       console.log("[Context Cache] Using non-cached context, contents length:", contents.length);
     }
 
+    // Tool display names for friendly UI messages
+    const toolDisplayNames: Record<string, string> = {
+      // Context Tools
+      getWeatherForecast: "Checking weather forecast...",
+      getFamilyPreferences: "Checking family dietary preferences...",
+      getAvailableEquipment: "Checking available equipment...",
+      searchInventory: "Searching inventory...",
+      getAllProducts: "Loading product list...",
+      getStockExpiringSoon: "Checking expiration dates...",
+      // Recipe Tools
+      searchRecipes: "Searching recipes...",
+      getRecipes: "Searching recipes...",
+      getRecipeDetails: "Loading recipe details...",
+      // Stock Tools
+      getStockEntries: "Loading stock entries...",
+      createStockEntry: "Adding stock entry...",
+      editStockEntry: "Updating stock entry...",
+      deleteStockEntry: "Removing stock entry...",
+      // Shopping List Tools
+      getShoppingList: "Loading shopping list...",
+      addToShoppingList: "Adding to shopping list...",
+      removeFromShoppingList: "Removing from shopping list...",
+      // Meal Plan Tools
+      getMealPlan: "Loading meal plan...",
+      addToMealPlan: "Adding to meal plan...",
+      removeFromMealPlan: "Removing from meal plan...",
+      moveMealPlan: "Moving meal plan entry...",
+      // Other Tools
+      getProducts: "Searching products...",
+      createRecipe: "Creating recipe...",
+      printReceipt: "Sending to printer...",
+      createCookingInstruction: "Saving cooking instructions...",
+      sendPushNotification: "Sending notification...",
+      getTimers: "Loading timers...",
+      createTimer: "Starting timer...",
+      deleteTimer: "Stopping timer..."
+    };
+
     const inventoryTools = [
       {
         functionDeclarations: [
+          // NEW CONTEXT TOOLS
+          {
+            name: "getWeatherForecast",
+            description: "Get the weather forecast for the next few days. Useful for meal planning based on weather.",
+            parameters: {
+              type: FunctionDeclarationSchemaType.OBJECT,
+              properties: {
+                days: { type: FunctionDeclarationSchemaType.INTEGER, description: "Number of days to forecast (default 5)" }
+              }
+            }
+          },
+          {
+            name: "getFamilyPreferences",
+            description: "Get family member dietary preferences, restrictions, and allergies. ALWAYS call this before recommending recipes.",
+            parameters: {
+              type: FunctionDeclarationSchemaType.OBJECT,
+              properties: {}
+            }
+          },
+          {
+            name: "getAvailableEquipment",
+            description: "Get the list of available cooking equipment and appliances.",
+            parameters: {
+              type: FunctionDeclarationSchemaType.OBJECT,
+              properties: {}
+            }
+          },
+          {
+            name: "searchInventory",
+            description: "Search for products in inventory by name, category, or tag. Returns matching products with their current stock levels.",
+            parameters: {
+              type: FunctionDeclarationSchemaType.OBJECT,
+              properties: {
+                query: { type: FunctionDeclarationSchemaType.STRING, description: "Search term (matches product title or tags)" }
+              },
+              required: ["query"]
+            }
+          },
+          {
+            name: "getAllProducts",
+            description: "Get a list of ALL products in the system with their stock levels. Use when you need to browse or see everything available.",
+            parameters: {
+              type: FunctionDeclarationSchemaType.OBJECT,
+              properties: {}
+            }
+          },
+          {
+            name: "getStockExpiringSoon",
+            description: "Get products with stock that will expire within a specified number of days.",
+            parameters: {
+              type: FunctionDeclarationSchemaType.OBJECT,
+              properties: {
+                days: { type: FunctionDeclarationSchemaType.INTEGER, description: "Number of days to look ahead (default 7)" }
+              }
+            }
+          },
+          // EXISTING TOOLS
           {
             name: "getStockEntries",
             description: "Get a list of stock entries for a specific product. Returns details including ID.",
@@ -989,6 +1256,143 @@ export const post = async (req: Request, res: Response) => {
       console.log(`Executing tool ${name} with args:`, args);
       try {
         switch (name) {
+          // NEW CONTEXT TOOL HANDLERS
+          case "getWeatherForecast":
+            const days = args.days || 5;
+            try {
+              const service = new WeatherService();
+              const today = new Date();
+              const endDate = new Date();
+              endDate.setDate(today.getDate() + days - 1);
+              const forecasts = await service.getForecast(today, endDate);
+              if (!forecasts || forecasts.length === 0) {
+                return { message: "No weather forecast available." };
+              }
+              return {
+                forecasts: forecasts.map(f => ({
+                  date: f.date.toISOString().split('T')[0],
+                  condition: f.condition,
+                  highTemp: f.highTemp,
+                  lowTemp: f.lowTemp,
+                  precipitationChance: f.precipitationChance
+                }))
+              };
+            } catch (e) {
+              console.error("Weather tool error:", e);
+              return { error: "Weather service unavailable" };
+            }
+
+          case "getFamilyPreferences":
+            const members = await prisma.familyMember.findMany();
+            const generalPref = await prisma.systemSetting.findUnique({
+              where: { key: 'family_general_preferences' }
+            });
+            return {
+              generalPreferences: generalPref?.value || null,
+              members: members.map(m => ({
+                name: m.name,
+                dateOfBirth: m.dateOfBirth ? m.dateOfBirth.toISOString().split('T')[0] : null,
+                preferences: m.preferences
+              }))
+            };
+
+          case "getAvailableEquipment":
+            const equipment = await prisma.equipment.findMany();
+            return {
+              equipment: equipment.map(e => ({
+                id: e.id,
+                name: e.name,
+                notes: e.notes
+              }))
+            };
+
+          case "searchInventory":
+            const searchQuery = args.query?.toLowerCase() || '';
+            const searchProducts = await prisma.product.findMany({
+              where: {
+                OR: [
+                  { title: { contains: searchQuery } },
+                  { tags: { some: { name: { contains: searchQuery } } } }
+                ]
+              },
+              include: {
+                stockItems: { include: { reservations: true } },
+                tags: { select: { name: true } }
+              }
+            });
+            return {
+              products: searchProducts.map(p => {
+                const totalQty = p.stockItems.reduce((sum, s) => sum + s.quantity, 0);
+                const totalReserved = p.stockItems.reduce((sum, s) =>
+                  sum + s.reservations.reduce((rSum, r) => rSum + r.amount, 0), 0);
+                const earliestExp = p.stockItems
+                  .filter(s => s.expirationDate)
+                  .sort((a, b) => (a.expirationDate?.getTime() || 0) - (b.expirationDate?.getTime() || 0))[0]?.expirationDate;
+                return {
+                  id: p.id,
+                  title: p.title,
+                  totalQuantity: totalQty,
+                  reservedQuantity: totalReserved,
+                  availableQuantity: totalQty - totalReserved,
+                  trackCountBy: p.trackCountBy,
+                  tags: p.tags.map(t => t.name),
+                  earliestExpiration: earliestExp ? earliestExp.toISOString().split('T')[0] : null
+                };
+              })
+            };
+
+          case "getAllProducts":
+            const allProducts = await prisma.product.findMany({
+              include: {
+                stockItems: { include: { reservations: true } },
+                tags: { select: { name: true } }
+              }
+            });
+            return {
+              products: allProducts.map(p => {
+                const totalQty = p.stockItems.reduce((sum, s) => sum + s.quantity, 0);
+                const totalReserved = p.stockItems.reduce((sum, s) =>
+                  sum + s.reservations.reduce((rSum, r) => rSum + r.amount, 0), 0);
+                return {
+                  id: p.id,
+                  title: p.title,
+                  totalQuantity: totalQty,
+                  availableQuantity: totalQty - totalReserved,
+                  trackCountBy: p.trackCountBy,
+                  tags: p.tags.map(t => t.name)
+                };
+              })
+            };
+
+          case "getStockExpiringSoon":
+            const lookAheadDays = args.days || 7;
+            const futureDate = new Date();
+            futureDate.setDate(futureDate.getDate() + lookAheadDays);
+            const expiringStock = await prisma.stockItem.findMany({
+              where: {
+                expirationDate: {
+                  gte: new Date(),
+                  lte: futureDate
+                },
+                quantity: { gt: 0 }
+              },
+              include: { product: { select: { id: true, title: true } } },
+              orderBy: { expirationDate: 'asc' }
+            });
+            return {
+              expiringItems: expiringStock.map(s => ({
+                productId: s.product.id,
+                productTitle: s.product.title,
+                stockId: s.id,
+                quantity: s.quantity,
+                unit: s.unit,
+                expirationDate: s.expirationDate?.toISOString().split('T')[0],
+                frozen: s.frozen,
+                opened: s.opened
+              }))
+            };
+
+          // EXISTING TOOL HANDLERS
           case "getStockEntries":
             const product = await prisma.product.findUnique({
               where: { id: args.productId },
@@ -1482,6 +1886,20 @@ export const post = async (req: Request, res: Response) => {
 
 
       const reqStart = Date.now();
+
+      // Debug logging for 400 errors
+      try {
+        if (currentContents.length > 0 && currentContents[0].parts && currentContents[0].parts.length > 0) {
+          // Check for empty/undefined text/data fields in the first part
+          const p0 = currentContents[0].parts[0];
+          if (!p0.text && !p0.inlineData && !p0.functionCall && !p0.functionResponse) {
+            console.error("!!! DETECTED MALFORMED PART 0 in CONTENT 0 !!!", JSON.stringify(p0));
+          }
+        }
+        // Always log the structure of the first content item to be sure
+        console.log(`[Gemini Request] Contents[0] type: ${currentContents[0]?.role}, parts: ${currentContents[0]?.parts?.length}`);
+      } catch (e) { }
+
       let responseResult = await model.generateContent({
         contents: currentContents,
         tools: inventoryTools,
@@ -1791,11 +2209,18 @@ export const post = async (req: Request, res: Response) => {
       // Provide non-blocking failure
     }
 
+    const usageMetadata = response.usageMetadata;
+
     res.json({
       message: "success",
       data: data,
       sessionId, // Return sessionId so client can update URL/state
-      warning
+      warning,
+      meta: {
+        usingCache,
+        modelName,
+        usageMetadata
+      }
     });
   } catch (error) {
     console.log("response error", error);
@@ -1961,39 +2386,41 @@ export const postStream = async (req: Request, res: Response) => {
         orderBy: { createdAt: 'asc' }
       });
 
-      history = messages.map(msg => {
-        let text = msg.content || '';
-        if (msg.type === 'recipe' && msg.recipeData) {
-          text = JSON.stringify({
-            items: [{ type: 'recipe', recipe: JSON.parse(msg.recipeData) }]
-          });
-        }
-
-        const parts: any[] = [];
-        if (text) {
-          parts.push({ text });
-        }
-
-        if (msg.imageUrl) {
-          const ext = path.extname(msg.imageUrl).toLowerCase();
-          let mime = 'image/jpeg';
-          if (ext === '.png') mime = 'image/png';
-          if (ext === '.webp') mime = 'image/webp';
-          if (ext === '.heic') mime = 'image/heic';
-          if (ext === '.heif') mime = 'image/heif';
-
-          try {
-            const fullPath = path.join(UPLOAD_DIR, msg.imageUrl);
-            if (fs.existsSync(fullPath)) {
-              parts.push(fileToGenerativePart(fullPath, mime));
-            }
-          } catch (e) {
-            console.error("Failed to load image for history", e);
+      history = messages
+        .filter(msg => msg.type !== 'tool_call') // Exclude tool calls from Gemini history (UI only)
+        .map(msg => {
+          let text = msg.content || '';
+          if (msg.type === 'recipe' && msg.recipeData) {
+            text = JSON.stringify({
+              items: [{ type: 'recipe', recipe: JSON.parse(msg.recipeData) }]
+            });
           }
-        }
 
-        return { role: msg.sender, parts } as Content;
-      });
+          const parts: any[] = [];
+          if (text) {
+            parts.push({ text });
+          }
+
+          if (msg.imageUrl) {
+            const ext = path.extname(msg.imageUrl).toLowerCase();
+            let mime = 'image/jpeg';
+            if (ext === '.png') mime = 'image/png';
+            if (ext === '.webp') mime = 'image/webp';
+            if (ext === '.heic') mime = 'image/heic';
+            if (ext === '.heif') mime = 'image/heif';
+
+            try {
+              const fullPath = path.join(UPLOAD_DIR, msg.imageUrl);
+              if (fs.existsSync(fullPath)) {
+                parts.push(fileToGenerativePart(fullPath, mime));
+              }
+            } catch (e) {
+              console.error("Failed to load image for history", e);
+            }
+          }
+
+          return { role: msg.sender, parts } as Content;
+        }).filter(content => content.parts.length > 0);
     }
 
     // Send session ID to client immediately
@@ -2015,9 +2442,79 @@ export const postStream = async (req: Request, res: Response) => {
       data: { updatedAt: new Date() }
     });
 
-    // Use context caching for better performance
-    const { model, modelName, usingCache, systemInstruction } = await getCachedModel("gemini_chat_model");
-    console.log(`[Stream] Using ${usingCache ? 'cached' : 'non-cached'} model: ${modelName}`);
+    // Define tools for streaming (subset of full tools - read-only context tools)
+    // Moved up for auto-routing
+    const streamTools = [
+      {
+        functionDeclarations: [
+          { name: "getWeatherForecast", description: "Get weather forecast.", parameters: { type: FunctionDeclarationSchemaType.OBJECT, properties: { days: { type: FunctionDeclarationSchemaType.INTEGER } } } },
+          { name: "getFamilyPreferences", description: "Get family dietary preferences and restrictions.", parameters: { type: FunctionDeclarationSchemaType.OBJECT, properties: {} } },
+          { name: "getAvailableEquipment", description: "Get available cooking equipment.", parameters: { type: FunctionDeclarationSchemaType.OBJECT, properties: {} } },
+          { name: "searchInventory", description: "Search inventory by name or tag.", parameters: { type: FunctionDeclarationSchemaType.OBJECT, properties: { query: { type: FunctionDeclarationSchemaType.STRING } }, required: ["query"] } },
+          { name: "getAllProducts", description: "Get all products with stock levels.", parameters: { type: FunctionDeclarationSchemaType.OBJECT, properties: {} } },
+          { name: "getStockExpiringSoon", description: "Get items expiring soon.", parameters: { type: FunctionDeclarationSchemaType.OBJECT, properties: { days: { type: FunctionDeclarationSchemaType.INTEGER } } } },
+          { name: "searchRecipes", description: "Search recipes by name.", parameters: { type: FunctionDeclarationSchemaType.OBJECT, properties: { query: { type: FunctionDeclarationSchemaType.STRING } } } },
+          { name: "getRecipeDetails", description: "Get full recipe details.", parameters: { type: FunctionDeclarationSchemaType.OBJECT, properties: { recipeId: { type: FunctionDeclarationSchemaType.INTEGER } }, required: ["recipeId"] } }
+        ]
+      }
+    ];
+
+    // Get the configured model setting
+    const systemInstruction = await buildSystemInstruction(additionalContext);
+    let modelSetting = "gemini-flash-latest";
+    try {
+      const setting = await prisma.systemSetting.findUnique({
+        where: { key: "gemini_chat_model" }
+      });
+      if (setting?.value) modelSetting = setting.value;
+    } catch (err) {
+      console.warn("Failed to get chat model setting");
+    }
+
+    let model: any;
+    let finalModelName: string;
+    let usingCache = false;
+    let preGeneratedStreamResult: GenerateContentStreamResult | null = null;
+
+    // Handle auto-routing
+    if (modelSetting === AUTO_MODEL) {
+      // Build preliminary contents for routing decision
+      const preliminaryContents: Content[] = [
+        ...history,
+        { role: "user", parts: [{ text: prompt }] }
+      ];
+
+
+
+      const { streamResult, finalModelName: routedModelName } = await routeAndExecute(
+        systemInstruction,
+        preliminaryContents,
+        streamTools,
+        geminiConfig,
+        additionalContext
+      );
+
+      preGeneratedStreamResult = streamResult;
+
+      finalModelName = routedModelName;
+      console.log(`[Stream] Auto-routed to: ${finalModelName}`);
+
+      // Get the routed model directly (no caching for auto to keep it simple)
+      model = googleAI.getGenerativeModel({
+        model: finalModelName,
+        ...geminiConfig
+      });
+    } else {
+      // Normal path: use context caching
+      const cached = await getCachedModel("gemini_chat_model", additionalContext);
+      model = cached.model;
+      finalModelName = cached.modelName;
+      usingCache = cached.usingCache;
+      console.log(`[Stream] Using ${usingCache ? 'cached' : 'non-cached'} model: ${finalModelName}`);
+    }
+
+    // Send model metadata event early so UI can display it while streaming
+    sendEvent('meta', { modelName: finalModelName, usingCache });
 
     const modelAck = {
       role: "model",
@@ -2034,29 +2531,301 @@ export const postStream = async (req: Request, res: Response) => {
       ];
     } else {
       // Non-cached: include full system instruction
+      // Validate system instruction is not empty
+      const sysInstrText = systemInstruction && systemInstruction.trim().length > 0 ? systemInstruction : "You are a helpful assistant.";
+
       contents = [
-        { role: "user", parts: [{ text: systemInstruction! }] },
+        { role: "user", parts: [{ text: sysInstrText }] },
         modelAck,
         ...history,
         { role: "user", parts: [{ text: prompt }] },
       ];
     }
 
-    // Use streaming generation
+    // DEBUG: Log contents structure to identify 400 error cause
+    try {
+      if (contents.length > 0 && contents[0].parts.length > 0) {
+        const p0 = contents[0].parts[0];
+        // Check for empty text or missing fields
+        if (!p0.text && !p0.inlineData && !p0.functionCall && !p0.functionResponse) {
+          console.error("!!! [Stream] DETECTED MALFORMED PART 0 !!!", JSON.stringify(p0));
+        }
+        if (typeof p0.text === 'string' && p0.text.length === 0) {
+          console.error("!!! [Stream] DETECTED EMPTY TEXT IN PART 0 !!!");
+          // Fix it
+          (p0 as any).text = " ";
+        }
+      }
+      console.log(`[Stream] Contents prepared. Length: ${contents.length}. First Item Role: ${contents[0]?.role}`);
+    } catch (e) { console.error("Debug log failed", e); }
+
+    // Tool display names for friendly UI messages (same as in post handler)
+    const toolDisplayNames: Record<string, string> = {
+      getWeatherForecast: "Checking weather forecast...",
+      getFamilyPreferences: "Checking family dietary preferences...",
+      getAvailableEquipment: "Checking available equipment...",
+      searchInventory: "Searching inventory...",
+      getAllProducts: "Loading product list...",
+      getStockExpiringSoon: "Checking expiration dates...",
+      searchRecipes: "Searching recipes...",
+      getRecipes: "Searching recipes...",
+      getRecipeDetails: "Loading recipe details...",
+      getStockEntries: "Loading stock entries...",
+      createStockEntry: "Adding stock entry...",
+      editStockEntry: "Updating stock entry...",
+      deleteStockEntry: "Removing stock entry...",
+      getShoppingList: "Loading shopping list...",
+      addToShoppingList: "Adding to shopping list...",
+      removeFromShoppingList: "Removing from shopping list...",
+      getMealPlan: "Loading meal plan...",
+      addToMealPlan: "Adding to meal plan...",
+      removeFromMealPlan: "Removing from meal plan...",
+      moveMealPlan: "Moving meal plan entry...",
+      getProducts: "Searching products...",
+      createRecipe: "Creating recipe...",
+      printReceipt: "Sending to printer...",
+      createCookingInstruction: "Saving cooking instructions...",
+      sendPushNotification: "Sending notification...",
+      getTimers: "Loading timers...",
+      createTimer: "Starting timer...",
+      deleteTimer: "Stopping timer..."
+    };
+
+    // Import the tool definitions and handler (reuse from post handler structure)
+    // We'll define a minimal handleToolCall inline for streaming
+    const handleStreamToolCall = async (name: string, args: any): Promise<any> => {
+      console.log(`[Stream] Executing tool ${name} with args:`, args);
+      try {
+        switch (name) {
+          case "getWeatherForecast":
+            const weatherDays = args.days || 5;
+            try {
+              const service = new WeatherService();
+              const today = new Date();
+              const endDate = new Date();
+              endDate.setDate(today.getDate() + weatherDays - 1);
+              const forecasts = await service.getForecast(today, endDate);
+              if (!forecasts || forecasts.length === 0) {
+                return { message: "No weather forecast available." };
+              }
+              return {
+                forecasts: forecasts.map(f => ({
+                  date: f.date.toISOString().split('T')[0],
+                  condition: f.condition,
+                  highTemp: f.highTemp,
+                  lowTemp: f.lowTemp,
+                  precipitationChance: f.precipitationChance
+                }))
+              };
+            } catch (e) {
+              return { error: "Weather service unavailable" };
+            }
+
+          case "getFamilyPreferences":
+            const members = await prisma.familyMember.findMany();
+            const generalPref = await prisma.systemSetting.findUnique({
+              where: { key: 'family_general_preferences' }
+            });
+            return {
+              generalPreferences: generalPref?.value || null,
+              members: members.map(m => ({
+                name: m.name,
+                dateOfBirth: m.dateOfBirth ? m.dateOfBirth.toISOString().split('T')[0] : null,
+                preferences: m.preferences
+              }))
+            };
+
+          case "getAvailableEquipment":
+            const equipment = await prisma.equipment.findMany();
+            return { equipment: equipment.map(e => ({ id: e.id, name: e.name, notes: e.notes })) };
+
+          case "searchInventory":
+            const searchQuery = args.query?.toLowerCase() || '';
+            const searchProducts = await prisma.product.findMany({
+              where: {
+                OR: [
+                  { title: { contains: searchQuery } },
+                  { tags: { some: { name: { contains: searchQuery } } } }
+                ]
+              },
+              include: { stockItems: { include: { reservations: true } }, tags: { select: { name: true } } }
+            });
+            return {
+              products: searchProducts.map(p => {
+                const totalQty = p.stockItems.reduce((sum, s) => sum + s.quantity, 0);
+                const totalReserved = p.stockItems.reduce((sum, s) => sum + s.reservations.reduce((rSum, r) => rSum + r.amount, 0), 0);
+                return {
+                  id: p.id, title: p.title, totalQuantity: totalQty, availableQuantity: totalQty - totalReserved,
+                  trackCountBy: p.trackCountBy, tags: p.tags.map(t => t.name)
+                };
+              })
+            };
+
+          case "getAllProducts":
+            const allProducts = await prisma.product.findMany({
+              include: { stockItems: { include: { reservations: true } }, tags: { select: { name: true } } }
+            });
+            return {
+              products: allProducts.map(p => {
+                const totalQty = p.stockItems.reduce((sum, s) => sum + s.quantity, 0);
+                const totalReserved = p.stockItems.reduce((sum, s) => sum + s.reservations.reduce((rSum, r) => rSum + r.amount, 0), 0);
+                return { id: p.id, title: p.title, totalQuantity: totalQty, availableQuantity: totalQty - totalReserved, tags: p.tags.map(t => t.name) };
+              })
+            };
+
+          case "getStockExpiringSoon":
+            const lookAheadDays = args.days || 7;
+            const futureDate = new Date();
+            futureDate.setDate(futureDate.getDate() + lookAheadDays);
+            const expiringStock = await prisma.stockItem.findMany({
+              where: { expirationDate: { gte: new Date(), lte: futureDate }, quantity: { gt: 0 } },
+              include: { product: { select: { id: true, title: true } } },
+              orderBy: { expirationDate: 'asc' }
+            });
+            return {
+              expiringItems: expiringStock.map(s => ({
+                productId: s.product.id, productTitle: s.product.title, quantity: s.quantity, unit: s.unit,
+                expirationDate: s.expirationDate?.toISOString().split('T')[0], frozen: s.frozen
+              }))
+            };
+
+          case "getRecipes":
+          case "searchRecipes":
+            const recipes = await prisma.recipe.findMany({
+              where: { name: { contains: args.query || '' } },
+              select: { id: true, name: true, prepTime: true, cookTime: true }
+            });
+            return { recipes };
+
+          case "getRecipeDetails":
+            const recipe = await prisma.recipe.findUnique({
+              where: { id: args.recipeId },
+              include: { ingredients: true, steps: { orderBy: { stepNumber: 'asc' } } }
+            });
+            if (!recipe) return { error: "Recipe not found" };
+            return recipe;
+
+          default:
+            return { error: `Tool ${name} not available in streaming mode. Please try again.` };
+        }
+      } catch (e: any) {
+        return { error: e.message };
+      }
+    };
+
+    // Define tools for streaming (subset of full tools - read-only context tools)
+
+
+    // Use streaming generation with tool support
     let fullText = '';
+    let currentContents = [...contents];
+    let loopCount = 0;
+    const maxLoops = 5;
 
     try {
-      const streamResult = await model.generateContentStream({
-        contents,
-        // Note: Tools are not included in stream for simplicity
-        // Complex tool calling scenarios fall back to non-streaming
-      });
+      while (loopCount < maxLoops) {
+        loopCount++;
 
-      for await (const chunk of streamResult.stream) {
-        const chunkText = chunk.text();
-        if (chunkText) {
-          fullText += chunkText;
-          sendEvent('chunk', { text: chunkText });
+        let streamResult;
+
+        // Use pre-generated stream from router if available (first loop only)
+        if (loopCount === 1 && typeof preGeneratedStreamResult !== 'undefined' && preGeneratedStreamResult) {
+          streamResult = preGeneratedStreamResult;
+          preGeneratedStreamResult = null; // Use only once
+        } else {
+          streamResult = await model.generateContentStream({
+            contents: currentContents,
+            tools: streamTools
+          });
+        }
+
+        let hasToolCall = false;
+        let toolCalls: any[] = [];
+
+        // Stream text chunks to UI as they arrive
+        for await (const chunk of streamResult.stream) {
+          try {
+            const chunkText = chunk.text();
+            if (chunkText) {
+              fullText += chunkText;
+              sendEvent('chunk', { text: chunkText });
+            }
+          } catch (e) {
+            // No text in this chunk - might be a function call, handled below
+          }
+
+          // Check for function calls in chunks to emit UI events early
+          const candidate = chunk.candidates?.[0];
+          if (candidate?.content?.parts) {
+            for (const part of candidate.content.parts) {
+              if (part.functionCall) {
+                const displayName = toolDisplayNames[part.functionCall.name] || `Using ${part.functionCall.name}...`;
+                sendEvent('tool_call', {
+                  toolCall: { name: part.functionCall.name, args: part.functionCall.args },
+                  displayName
+                });
+              }
+            }
+          }
+        }
+
+        // IMPORTANT: Await the full response to get parts WITH thought_signature
+        // Stream chunks don't include thought_signature, but the final response does
+        const finalResponse = await streamResult.response;
+        const responseParts = finalResponse.candidates?.[0]?.content?.parts || [];
+
+        // Check if there are function calls in the final response
+        for (const part of responseParts) {
+          if (part.functionCall) {
+            hasToolCall = true;
+            toolCalls.push(part.functionCall);
+          }
+        }
+
+        // If there were tool calls, execute them and continue
+        if (hasToolCall && toolCalls.length > 0) {
+          // Add model's response to context - use the FULL response parts with thought_signature
+          currentContents.push({
+            role: "model",
+            parts: responseParts // This includes thought_signature from the final response
+          });
+
+          // Execute tools and add responses, tracking duration and saving to DB
+          const toolResponses: any[] = [];
+          for (const call of toolCalls) {
+            const toolStartTime = Date.now();
+            const result = await handleStreamToolCall(call.name, call.args);
+            const toolDurationMs = Date.now() - toolStartTime;
+
+            const displayName = toolDisplayNames[call.name] || `Using ${call.name}...`;
+
+            // Save tool call to DB (async, don't await to keep stream fast)
+            prisma.chatMessage.create({
+              data: {
+                sessionId: sessionId as number,
+                sender: 'system',
+                type: 'tool_call',
+                content: displayName,
+                toolCallData: JSON.stringify({ name: call.name, displayName }),
+                toolCallDurationMs: toolDurationMs
+              }
+            }).catch(err => console.error("Failed to save tool call:", err));
+
+            toolResponses.push({
+              functionResponse: { name: call.name, response: { result } }
+            });
+          }
+
+          currentContents.push({
+            role: "function",
+            parts: toolResponses
+          });
+
+          // Reset for next iteration
+          fullText = '';
+        } else {
+          // No more tool calls, we're done
+          break;
         }
       }
     } catch (streamError: any) {
@@ -2092,84 +2861,121 @@ export const postStream = async (req: Request, res: Response) => {
       data = { items: [{ type: 'chat', content: fullText }] };
     }
 
-    // Save Model Response to DB
-    if (data.items && Array.isArray(data.items)) {
-      for (const item of data.items) {
-        if (item.type === 'recipe' && item.recipe) {
-          await prisma.chatMessage.create({
-            data: {
-              sessionId: sessionId as number,
-              sender: 'model',
-              type: 'recipe',
-              recipeData: JSON.stringify(item.recipe)
+    // Note: usageMetadata not available with multi-turn tool calling in streaming mode
+    const usageMetadata = undefined;
+
+    // Send final complete event with parsed data and metadata IMMEDIATELY
+    // Don't wait for DB saves or title generation
+    sendEvent('done', {
+      data,
+      meta: {
+        usingCache,
+        modelName: finalModelName,
+        usageMetadata
+      }
+    });
+    res.end();
+
+    // --- ASYNC POST-PROCESSING (non-blocking) ---
+    // These operations happen after the response is sent to the client
+
+    // Save Model Response to DB (async, no await needed for client)
+    const saveToDb = async () => {
+      try {
+        if (data.items && Array.isArray(data.items)) {
+          for (const item of data.items) {
+            if (item.type === 'recipe' && item.recipe) {
+              await prisma.chatMessage.create({
+                data: {
+                  sessionId: sessionId as number,
+                  sender: 'model',
+                  type: 'recipe',
+                  recipeData: JSON.stringify(item.recipe),
+                  modelUsed: finalModelName
+                }
+              });
+            } else {
+              await prisma.chatMessage.create({
+                data: {
+                  sessionId: sessionId as number,
+                  sender: 'model',
+                  type: 'chat',
+                  content: item.content || JSON.stringify(item),
+                  modelUsed: finalModelName
+                }
+              });
             }
-          });
+          }
         } else {
-          await prisma.chatMessage.create({
-            data: {
-              sessionId: sessionId as number,
-              sender: 'model',
-              type: 'chat',
-              content: item.content || JSON.stringify(item)
-            }
-          });
-        }
-      }
-    } else {
-      const isRecipe = (data.type && data.type.toLowerCase() === 'recipe') || (data.recipe && typeof data.recipe === 'object');
-      if (isRecipe && data.recipe) {
-        await prisma.chatMessage.create({
-          data: {
-            sessionId: sessionId as number,
-            sender: 'model',
-            type: 'recipe',
-            recipeData: JSON.stringify(data.recipe)
-          }
-        });
-      } else {
-        let content = data.content;
-        if (typeof content === 'object') content = JSON.stringify(content, null, 2);
-        else if (!content) content = JSON.stringify(data, null, 2);
-        await prisma.chatMessage.create({
-          data: {
-            sessionId: sessionId as number,
-            sender: 'model',
-            type: 'chat',
-            content: content
-          }
-        });
-      }
-    }
-
-    // Generate title for new sessions
-    try {
-      const currentSession = await prisma.chatSession.findUnique({ where: { id: sessionId as number } });
-      if (currentSession) {
-        const messageCount = await prisma.chatMessage.count({ where: { sessionId: sessionId as number } });
-        if (messageCount <= 2 || currentSession.title === 'New Chat') {
-          const titlePrompt = `Based on the following conversation, generate a short, concise, and descriptive title (max 6 words). Return ONLY the title text, no quotes or "Title:".\n\nUser: ${prompt}\nInternal Model Response: ${JSON.stringify(data).substring(0, 500)}...`;
-
-          const { result: titleResult } = await executeWithFallback(
-            "gemini_chat_model",
-            async (m) => await m.generateContent(titlePrompt)
-          );
-
-          let newTitle = titleResult.response.text().trim().replace(/^"|"$/g, '').trim();
-          if (newTitle) {
-            await prisma.chatSession.update({
-              where: { id: sessionId as number },
-              data: { title: newTitle }
+          const isRecipe = (data.type && data.type.toLowerCase() === 'recipe') || (data.recipe && typeof data.recipe === 'object');
+          if (isRecipe && data.recipe) {
+            await prisma.chatMessage.create({
+              data: {
+                sessionId: sessionId as number,
+                sender: 'model',
+                type: 'recipe',
+                recipeData: JSON.stringify(data.recipe),
+                modelUsed: finalModelName
+              }
+            });
+          } else {
+            let content = data.content;
+            if (typeof content === 'object') content = JSON.stringify(content, null, 2);
+            else if (!content) content = JSON.stringify(data, null, 2);
+            await prisma.chatMessage.create({
+              data: {
+                sessionId: sessionId as number,
+                sender: 'model',
+                type: 'chat',
+                content: content,
+                modelUsed: finalModelName
+              }
             });
           }
         }
+      } catch (dbError) {
+        console.error("Failed to save model response to DB:", dbError);
       }
-    } catch (titleError) {
-      console.warn("Failed to generate chat title (stream):", titleError);
-    }
+    };
 
-    // Send final complete event with parsed data
-    sendEvent('done', { data });
-    res.end();
+    // Get io reference before res.end() for async notifications
+    const io = req.app.get("io");
+
+    // Generate title for new sessions (async, no await needed for client)
+    const generateTitle = async () => {
+      try {
+        const currentSession = await prisma.chatSession.findUnique({ where: { id: sessionId as number } });
+        if (currentSession) {
+          const messageCount = await prisma.chatMessage.count({ where: { sessionId: sessionId as number } });
+          if (messageCount <= 2 || currentSession.title === 'New Chat') {
+            const titlePrompt = `Based on the following conversation, generate a short, concise, and descriptive title (max 6 words). Return ONLY the title text, no quotes or "Title:".\n\nUser: ${prompt}\nInternal Model Response: ${JSON.stringify(data).substring(0, 500)}...`;
+
+            const { result: titleResult } = await executeWithFallback(
+              "gemini_chat_model",
+              async (m) => await m.generateContent(titlePrompt)
+            );
+
+            let newTitle = titleResult.response.text().trim().replace(/^"|"$/g, '').trim();
+            if (newTitle) {
+              await prisma.chatSession.update({
+                where: { id: sessionId as number },
+                data: { title: newTitle }
+              });
+
+              // Notify frontend that session title was updated
+              if (io) {
+                io.emit('chat_session_updated', { sessionId, title: newTitle });
+              }
+            }
+          }
+        }
+      } catch (titleError) {
+        console.warn("Failed to generate chat title (stream):", titleError);
+      }
+    };
+
+    // Fire and forget - don't block
+    saveToDb().then(() => generateTitle());
 
   } catch (error) {
     console.error("Stream error:", error);
