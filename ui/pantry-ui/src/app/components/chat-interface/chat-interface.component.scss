@@ -122,23 +122,23 @@
     }
 }
 
-/* Typing Indicator */
-.typing-indicator {
-    display: inline-flex;
+/* Loading Indicator - Above input */
+.loading-indicator {
+    display: flex;
     align-items: center;
-    gap: 4px;
-    padding: 12px 16px;
-    background: var(--mat-sys-surface-container-high, #f0f0f0);
-    border-radius: 18px;
-    border-bottom-left-radius: 4px;
+    justify-content: center;
+    gap: 6px;
+    padding: 8px 16px;
+    background: var(--mat-sys-surface-container, #f5f5f5);
+    border-top: 1px solid var(--mat-sys-outline-variant, #e0e0e0);
 
     .dot {
         width: 6px;
         height: 6px;
-        background: var(--mat-sys-on-surface-variant, #666);
+        background: var(--mat-sys-primary, #6750A4);
         border-radius: 50%;
         animation: bounce 1.4s infinite ease-in-out;
-        opacity: 0.6;
+        opacity: 0.8;
 
         &:nth-child(1) {
             animation-delay: -0.32s;
@@ -147,6 +147,12 @@
         &:nth-child(2) {
             animation-delay: -0.16s;
         }
+    }
+
+    .loading-text {
+        font-size: 0.85rem;
+        color: var(--mat-sys-on-surface-variant, #666);
+        margin-left: 4px;
     }
 }
 
@@ -164,9 +170,10 @@
 }
 
 .input-area {
+    flex-shrink: 0;
     padding: 16px;
-    background: transparent;
-    /* Or a subtle gradient if desired */
+    background: var(--mat-sys-surface, #fff);
+    border-top: 1px solid var(--mat-sys-outline-variant, #e0e0e0);
 }
 
 /* Dark Mode supported via global theme variables */

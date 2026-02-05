@@ -1,7 +1,15 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable } from '@angular/core';
-import { Observable } from 'rxjs';
+import { Observable, Subject, of } from 'rxjs';
 import { EnvironmentService } from './environment.service';
+
+export interface StreamEvent {
+  type: 'session' | 'chunk' | 'done' | 'error';
+  sessionId?: number;
+  text?: string;
+  data?: any;
+  message?: string;
+}
 
 @Injectable({
   providedIn: 'root'
@@ -31,6 +39,92 @@ export class GeminiService {
       return this.http.post<any>(this.apiUrl, formData);
     }
     return this.http.post<any>(this.apiUrl, { prompt, history, sessionId, additionalContext, entityType, entityId });
+  }
+
+  /**
+   * Sends a message with streaming enabled using Server-Sent Events.
+   * Returns an Observable that emits StreamEvents for each chunk received.
+   * Note: Images are not supported with streaming; use sendMessage for images.
+   */
+  sendMessageStream(prompt: string, sessionId?: number, additionalContext?: string, entityType?: string, entityId?: number): Observable<StreamEvent> {
+    const subject = new Subject<StreamEvent>();
+
+    const body = JSON.stringify({
+      prompt,
+      sessionId,
+      additionalContext,
+      entityType,
+      entityId
+    });
+
+    // We need to use fetch with ReadableStream for SSE over POST
+    fetch(`${this.apiUrl}/stream`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      credentials: 'include', // Important for cookies/auth
+      body
+    }).then(async response => {
+      if (!response.ok) {
+        subject.error(new Error(`HTTP ${response.status}: ${response.statusText}`));
+        return;
+      }
+
+      const reader = response.body?.getReader();
+      if (!reader) {
+        subject.error(new Error('Response body is not readable'));
+        return;
+      }
+
+      const decoder = new TextDecoder();
+      let buffer = '';
+
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          buffer += decoder.decode(value, { stream: true });
+
+          // Parse SSE events from buffer
+          const lines = buffer.split('\n');
+          buffer = lines.pop() || ''; // Keep incomplete line in buffer
+
+          let currentEvent = '';
+          let currentData = '';
+
+          for (const line of lines) {
+            if (line.startsWith('event: ')) {
+              currentEvent = line.substring(7);
+            } else if (line.startsWith('data: ')) {
+              currentData = line.substring(6);
+            } else if (line === '' && currentEvent && currentData) {
+              // End of event, emit it
+              try {
+                const parsed = JSON.parse(currentData);
+                subject.next({
+                  type: currentEvent as StreamEvent['type'],
+                  ...parsed
+                });
+              } catch (e) {
+                console.warn('Failed to parse SSE data:', currentData);
+              }
+              currentEvent = '';
+              currentData = '';
+            }
+          }
+        }
+      } catch (err) {
+        subject.error(err);
+      } finally {
+        subject.complete();
+      }
+    }).catch(err => {
+      subject.error(err);
+    });
+
+    return subject.asObservable();
   }
 
   getSessions(): Observable<any> {

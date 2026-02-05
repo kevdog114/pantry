@@ -42,20 +42,18 @@
         </div>
     </div>
 
-    <!-- Loading Indicator -->
-    <div *ngIf="isLoading" class="message bot-message">
-        <span class="sender-label">Smart Chat</span>
-        <div class="typing-indicator">
-            <span class="dot"></span>
-            <span class="dot"></span>
-            <span class="dot"></span>
-        </div>
+    <!-- Loading Indicator - Above input box -->
+    <div *ngIf="isLoading" class="loading-indicator">
+        <span class="dot"></span>
+        <span class="dot"></span>
+        <span class="dot"></span>
+        <span class="loading-text">{{ loadingText }}</span>
     </div>
-</div>
 
-<!-- Input Area -->
-<div class="input-area">
-    <app-smart-chat-input [placeholder]="placeholder" [disabled]="isLoading" [enableAudio]="enableAudio"
-        [autoSendAudio]="autoSendAudio" (send)="handleSend($event)">
-    </app-smart-chat-input>
+    <!-- Input Area -->
+    <div class="input-area">
+        <app-smart-chat-input [placeholder]="placeholder" [disabled]="isLoading" [enableAudio]="enableAudio"
+            [autoSendAudio]="autoSendAudio" (send)="handleSend($event)">
+        </app-smart-chat-input>
+    </div>
 </div>

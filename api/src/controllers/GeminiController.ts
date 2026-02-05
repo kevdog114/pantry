@@ -1,4 +1,6 @@
 import { GoogleGenerativeAI, Content, FunctionDeclarationSchemaType } from "@google/generative-ai";
+import { GoogleAICacheManager, CachedContent } from "@google/generative-ai/server";
+import * as crypto from "crypto";
 import dotenv from "dotenv";
 import { Request, Response } from "express";
 import prisma from '../lib/prisma';
@@ -19,8 +21,16 @@ if (!gemini_api_key) {
   throw new Error("GEMINI_API_KEY is not set");
 }
 const googleAI = new GoogleGenerativeAI(gemini_api_key);
+const cacheManager = new GoogleAICacheManager(gemini_api_key);
 
 const DEFAULT_FALLBACK_MODEL = "gemini-flash-latest";
+// Models that support caching (flash models generally support it)
+const CACHE_SUPPORTED_MODELS = ["gemini-1.5-flash", "gemini-1.5-flash-latest", "gemini-2.0-flash", "gemini-2.0-flash-001", "gemini-flash-latest"];
+
+// In-memory cache reference to avoid repeated API calls
+let currentCache: CachedContent | null = null;
+let currentCacheHash: string | null = null;
+let cacheExpiresAt: Date | null = null;
 
 const geminiConfig = {
   temperature: 0.9,
@@ -240,6 +250,157 @@ const getWeatherContext = async (): Promise<string> => {
     return "";
   }
 };
+
+
+// ==============================
+// CONTEXT CACHING HELPERS
+// ==============================
+
+/**
+ * Generate a hash of the context content to detect changes
+ */
+function hashContext(content: string): string {
+  return crypto.createHash('md5').update(content).digest('hex');
+}
+
+/**
+ * Build the system instruction with all context
+ */
+async function buildSystemInstruction(additionalContext?: string): Promise<string> {
+  const [productContext, familyContext, equipmentContext, weatherContext] = await Promise.all([
+    getProductContext(),
+    getFamilyContext(),
+    getEquipmentContext(),
+    getWeatherContext()
+  ]);
+
+  return `
+    You are a smart cooking assistant managing a pantry.
+    Date: ${new Date().toLocaleDateString()}.
+    
+    **Core Rules:**
+    1. **Response Format:** ALWAYS return a JSON object with a root 'items' array. Items can be type 'chat' (content string) or 'recipe' (structured object).
+    2. **Printing:** To print a recipe, first call 'getRecipeDetails', then 'printReceipt' (max 1 call/turn). Confirm with "Sent [title] to printer."
+    3. **Stock & Cooking Instructions:** Use provided tools. For package images, use 'createCookingInstruction' for each method (e.g., Microwave, Oven).
+    4. **Quantities:** Respect 'trackCountBy' in inventory context. If 'weight', use weight; if 'quantity', use count.
+
+    **JSON Structure:**
+    {
+      "items": [
+        { "type": "chat", "content": "Markdown text..." },
+        { "type": "recipe", "recipe": { "title": "...", "ingredients": [{"name":"...", "amount":1, "productId":123}], "instructions": ["..."], "time": { "prep": "...", "cook": "..." } } }
+      ]
+    }
+
+    **Context:**
+    Inventory: ${productContext}
+    Family: ${familyContext}
+    Equipment: ${equipmentContext}
+    Weather: ${weatherContext}
+    ${additionalContext ? `User View: ${additionalContext}` : ''}
+  `;
+}
+
+/**
+ * Get or create a context cache for the chat model.
+ * Returns the cache name if caching is supported and successful, otherwise null.
+ */
+async function getOrCreateContextCache(modelName: string, additionalContext?: string): Promise<string | null> {
+  // Check if the model supports caching
+  const supportsCaching = CACHE_SUPPORTED_MODELS.some(m => modelName.includes(m) || m.includes(modelName));
+  if (!supportsCaching) {
+    console.log(`[Context Cache] Model ${modelName} does not support caching, skipping`);
+    return null;
+  }
+
+  try {
+    // Build the full context
+    const systemInstruction = await buildSystemInstruction(additionalContext);
+    const contextHash = hashContext(systemInstruction);
+
+    // Check if current cache is still valid
+    const now = new Date();
+    if (currentCache && currentCacheHash === contextHash && cacheExpiresAt && cacheExpiresAt > now) {
+      console.log(`[Context Cache] Using existing cache: ${currentCache.name}`);
+      return currentCache.name || null;
+    }
+
+    // If we have an old cache with different content, try to delete it
+    if (currentCache && currentCache.name && currentCacheHash !== contextHash) {
+      try {
+        console.log(`[Context Cache] Context changed, deleting old cache: ${currentCache.name}`);
+        await cacheManager.delete(currentCache.name);
+      } catch (e) {
+        console.warn("[Context Cache] Failed to delete old cache:", e);
+      }
+    }
+
+    // Create a new cache
+    console.log(`[Context Cache] Creating new cache for model ${modelName}`);
+
+    // The cache needs some initial content to cache along with system instruction
+    // We'll cache the system instruction and a priming acknowledgment
+    const cache = await cacheManager.create({
+      model: modelName,
+      displayName: `pantry-chat-context-${Date.now()}`,
+      systemInstruction: systemInstruction,
+      contents: [
+        {
+          role: "user",
+          parts: [{ text: "You are ready to assist with pantry management. Confirm you understand the rules." }]
+        },
+        {
+          role: "model",
+          parts: [{ text: "Understood. I will always return valid JSON with a root 'items' array containing objects with 'type': 'recipe' or 'type': 'chat'. I have access to your inventory, family preferences, equipment, and weather context." }]
+        }
+      ],
+      ttlSeconds: 3600 // 1 hour TTL
+    });
+
+    currentCache = cache;
+    currentCacheHash = contextHash;
+    cacheExpiresAt = new Date(now.getTime() + 3600 * 1000); // 1 hour from now
+
+    console.log(`[Context Cache] Cache created: ${cache.name}, expires: ${cacheExpiresAt.toISOString()}`);
+    return cache.name || null;
+
+  } catch (error) {
+    console.error("[Context Cache] Failed to create cache:", error);
+    return null;
+  }
+}
+
+/**
+ * Get a model instance that uses the cached content if available.
+ * Falls back to regular model if caching fails or is not supported.
+ */
+async function getCachedModel(featureKey: string): Promise<{
+  model: any;
+  modelName: string;
+  usingCache: boolean;
+  systemInstruction?: string;
+}> {
+  const { model, modelName } = await getGeminiModel(featureKey);
+
+  try {
+    const cacheName = await getOrCreateContextCache(modelName);
+
+    if (cacheName) {
+      // Get the full cache object to pass to the model
+      const cachedContent = await cacheManager.get(cacheName);
+
+      // Create a model that uses the cached content
+      const cachedModel = googleAI.getGenerativeModelFromCachedContent(cachedContent);
+      return { model: cachedModel, modelName, usingCache: true };
+    }
+  } catch (error) {
+    console.warn("[Context Cache] Failed to get cached model, falling back to regular model:", error);
+  }
+
+  // Build system instruction for non-cached fallback
+  const systemInstruction = await buildSystemInstruction();
+  return { model, modelName, usingCache: false, systemInstruction };
+}
 
 
 export const extractRecipeQuickActions = async (req: Request, res: Response) => {
@@ -495,48 +656,16 @@ export const post = async (req: Request, res: Response) => {
       }
     });
 
-    // Update session timestamp
     await prisma.chatSession.update({
       where: { id: sessionId as number },
       data: { updatedAt: new Date() }
     });
 
+    // Try to get a cached model for better performance
     const contextStart = Date.now();
-    const [productContext, familyContext, equipmentContext, weatherContext] = await Promise.all([
-      getProductContext(),
-      getFamilyContext(),
-      getEquipmentContext(),
-      getWeatherContext()
-    ]);
+    const { model: cachedModel, modelName, usingCache, systemInstruction } = await getCachedModel("gemini_chat_model");
     const contextDuration = Date.now() - contextStart;
-    console.log(`Context generation time: ${contextDuration}ms`);
-
-    const systemInstruction = `
-      You are a smart cooking assistant managing a pantry.
-      Date: ${new Date().toLocaleDateString()}.
-      
-      **Core Rules:**
-      1. **Response Format:** ALWAYS return a JSON object with a root 'items' array. Items can be type 'chat' (content string) or 'recipe' (structured object).
-      2. **Printing:** To print a recipe, first call 'getRecipeDetails', then 'printReceipt' (max 1 call/turn). Confirm with "Sent [title] to printer."
-      3. **Stock & Cooking Instructions:** Use provided tools. For package images, use 'createCookingInstruction' for each method (e.g., Microwave, Oven).
-      4. **Quantities:** Respect 'trackCountBy' in inventory context. If 'weight', use weight; if 'quantity', use count.
-
-      **JSON Structure:**
-      {
-        "items": [
-          { "type": "chat", "content": "Markdown text..." },
-          { "type": "recipe", "recipe": { "title": "...", "ingredients": [{"name":"...", "amount":1, "productId":123}], "instructions": ["..."], "time": { "prep": "...", "cook": "..." } } }
-        ]
-      }
-
-      **Context:**
-      Inventory: ${productContext}
-      Family: ${familyContext}
-      Equipment: ${equipmentContext}
-      Weather: ${weatherContext}
-      ${additionalContext ? `User View: ${additionalContext}` : ''}
-    `;
-
+    console.log(`Context ${usingCache ? '(cached)' : '(fresh)'} generation time: ${contextDuration}ms`);
 
     const modelAck = {
       role: "model",
@@ -552,18 +681,35 @@ export const post = async (req: Request, res: Response) => {
       userParts.push(imagePart);
     }
 
-    const contents: Content[] = [
-      {
-        role: "user",
-        parts: [{ text: systemInstruction }]
-      },
-      modelAck, // Artificial Ack to reinforce JSON behavior
-      ...history,
-      {
-        role: "user",
-        parts: userParts,
-      },
-    ];
+    // Build contents based on whether we're using cache
+    let contents: Content[];
+    if (usingCache) {
+      // When using cache, the system instruction is already cached
+      // We only need to include the priming exchange (which is also cached) + history + new prompt
+      contents = [
+        ...history,
+        {
+          role: "user",
+          parts: userParts,
+        },
+      ];
+      console.log("[Context Cache] Using cached context, contents length:", contents.length);
+    } else {
+      // Non-cached: include full system instruction
+      contents = [
+        {
+          role: "user",
+          parts: [{ text: systemInstruction! }]
+        },
+        modelAck,
+        ...history,
+        {
+          role: "user",
+          parts: userParts,
+        },
+      ];
+      console.log("[Context Cache] Using non-cached context, contents length:", contents.length);
+    }
 
     const inventoryTools = [
       {
@@ -1320,155 +1466,177 @@ export const post = async (req: Request, res: Response) => {
     const isDbLogging = dbLogSetting?.value === 'true';
     let printedInThisTurn = false;
 
-    const { result, warning } = await executeWithFallback(
-      "gemini_chat_model",
-      async (model) => {
-        let currentContents = [...contents];
-        let currentLoop = 0;
-        const maxLoops = 5;
-        let printedOnce = false;
+    // Use cached model directly if available, otherwise fallback to executeWithFallback
+    const executeGeneration = async (model: any) => {
+      let currentContents = [...contents];
+      let currentLoop = 0;
+      const maxLoops = 5;
+      let printedOnce = false;
 
-        // Initial generation
-        if (isGeminiDebug) {
-          console.log("--- GEMINI DEBUG CONTEXT (Initial) ---");
-          console.log(JSON.stringify(currentContents, null, 2));
-          console.log("--------------------------------------");
-        }
+      // Initial generation
+      if (isGeminiDebug) {
+        console.log("--- GEMINI DEBUG CONTEXT (Initial) ---");
+        console.log(JSON.stringify(currentContents, null, 2));
+        console.log("--------------------------------------");
+      }
 
 
-        const reqStart = Date.now();
-        let responseResult = await model.generateContent({
-          contents: currentContents,
-          tools: inventoryTools,
-          // We remove explicit JSON enforcement here to allow tool calls to happen naturally
-          // The system prompt still demands JSON for the final answer.
-        });
-        const reqEnd = Date.now();
+      const reqStart = Date.now();
+      let responseResult = await model.generateContent({
+        contents: currentContents,
+        tools: inventoryTools,
+        // We remove explicit JSON enforcement here to allow tool calls to happen naturally
+        // The system prompt still demands JSON for the final answer.
+      });
+      const reqEnd = Date.now();
 
-        if (isDbLogging) {
+      if (isDbLogging) {
+        try {
+          // Safely serialize response
+          // Note: responseResult.response may contain circular refs or methods, we want the data
+          const rawResponse = responseResult.response;
+          let serializedResponse = '';
           try {
-            // Safely serialize response
-            // Note: responseResult.response may contain circular refs or methods, we want the data
-            const rawResponse = responseResult.response;
-            let serializedResponse = '';
-            try {
-              serializedResponse = JSON.stringify(rawResponse);
-            } catch (e) {
-              serializedResponse = "Could not serialize response: " + (e as Error).message;
-            }
-
-            await prisma.geminiDebugLog.create({
-              data: {
-                sessionId: sessionId as number,
-                requestTimestamp: new Date(reqStart),
-                responseTimestamp: new Date(reqEnd),
-                durationMs: reqEnd - reqStart,
-                statusCode: 200,
-                requestData: JSON.stringify(currentContents),
-                responseData: serializedResponse,
-                toolCalls: JSON.stringify(rawResponse.functionCalls ? rawResponse.functionCalls() : [])
-              }
-            });
-          } catch (logErr) {
-            console.error("Failed to write debug log", logErr);
+            serializedResponse = JSON.stringify(rawResponse);
+          } catch (e) {
+            serializedResponse = "Could not serialize response: " + (e as Error).message;
           }
+
+          await prisma.geminiDebugLog.create({
+            data: {
+              sessionId: sessionId as number,
+              requestTimestamp: new Date(reqStart),
+              responseTimestamp: new Date(reqEnd),
+              durationMs: reqEnd - reqStart,
+              statusCode: 200,
+              requestData: JSON.stringify(currentContents),
+              responseData: serializedResponse,
+              toolCalls: JSON.stringify(rawResponse.functionCalls ? rawResponse.functionCalls() : [])
+            }
+          });
+        } catch (logErr) {
+          console.error("Failed to write debug log", logErr);
         }
+      }
 
-        while (currentLoop < maxLoops) {
-          const response = responseResult.response;
-          const calls = response.functionCalls ? response.functionCalls() : [];
+      while (currentLoop < maxLoops) {
+        const response = responseResult.response;
+        const calls = response.functionCalls ? response.functionCalls() : [];
 
-          if (calls && calls.length > 0) {
-            // 1. Add model's tool call message to history
-            // Note: In some SDK versions, we need to construct the part carefully
-            currentContents.push({
-              role: "model",
-              parts: response.parts,
-            });
+        if (calls && calls.length > 0) {
+          // 1. Add model's tool call message to history
+          // Note: In some SDK versions, we need to construct the part carefully
+          currentContents.push({
+            role: "model",
+            parts: response.parts,
+          });
 
-            // 2. Execute tools
-            const parts: any[] = [];
-            for (const call of calls) {
-              // Loop Protection for Printing
-              if (call.name === 'printReceipt') {
-                if (printedOnce) {
-                  parts.push({
-                    functionResponse: {
-                      name: call.name,
-                      response: { result: { error: "You have already printed in this turn. Do not loop." } }
-                    }
-                  });
-                  continue;
-                }
-                printedOnce = true; // Mark as printed
-                printedInThisTurn = true;
-              }
-
-              const toolResult = await handleToolCall(call.name, call.args);
-              parts.push({
-                functionResponse: {
-                  name: call.name,
-                  response: { result: toolResult }
-                }
-              });
-            }
-
-            // 3. Add function responses
-            currentContents.push({
-              role: "function",
-              parts: parts
-            });
-
-            // 4. Generate again
-            if (isGeminiDebug) {
-              console.log("--- GEMINI DEBUG CONTEXT (Follow-up) ---");
-              console.log(JSON.stringify(currentContents, null, 2));
-              console.log("--------------------------------------");
-            }
-
-            const loopReqStart = Date.now();
-            responseResult = await model.generateContent({
-              contents: currentContents,
-              tools: inventoryTools
-            });
-            const loopReqEnd = Date.now();
-
-            if (isDbLogging) {
-              try {
-                const rawResponse = responseResult.response;
-                let serializedResponse = '';
-                try {
-                  serializedResponse = JSON.stringify(rawResponse);
-                } catch (e) {
-                  serializedResponse = "Could not serialize response: " + (e as Error).message;
-                }
-
-                await prisma.geminiDebugLog.create({
-                  data: {
-                    sessionId: sessionId as number,
-                    requestTimestamp: new Date(loopReqStart),
-                    responseTimestamp: new Date(loopReqEnd),
-                    durationMs: loopReqEnd - loopReqStart,
-                    statusCode: 200,
-                    requestData: JSON.stringify(currentContents),
-                    responseData: serializedResponse,
-                    toolCalls: JSON.stringify(rawResponse.functionCalls ? rawResponse.functionCalls() : [])
+          // 2. Execute tools
+          const parts: any[] = [];
+          for (const call of calls) {
+            // Loop Protection for Printing
+            if (call.name === 'printReceipt') {
+              if (printedOnce) {
+                parts.push({
+                  functionResponse: {
+                    name: call.name,
+                    response: { result: { error: "You have already printed in this turn. Do not loop." } }
                   }
                 });
-              } catch (logErr) {
-                console.error("Failed to write debug log (loop)", logErr);
+                continue;
               }
+              printedOnce = true; // Mark as printed
+              printedInThisTurn = true;
             }
 
-            currentLoop++;
-          } else {
-            // No more calls, this is the final response
-            break;
+            const toolResult = await handleToolCall(call.name, call.args);
+            parts.push({
+              functionResponse: {
+                name: call.name,
+                response: { result: toolResult }
+              }
+            });
           }
+
+          // 3. Add function responses
+          currentContents.push({
+            role: "function",
+            parts: parts
+          });
+
+          // 4. Generate again
+          if (isGeminiDebug) {
+            console.log("--- GEMINI DEBUG CONTEXT (Follow-up) ---");
+            console.log(JSON.stringify(currentContents, null, 2));
+            console.log("--------------------------------------");
+          }
+
+          const loopReqStart = Date.now();
+          responseResult = await model.generateContent({
+            contents: currentContents,
+            tools: inventoryTools
+          });
+          const loopReqEnd = Date.now();
+
+          if (isDbLogging) {
+            try {
+              const rawResponse = responseResult.response;
+              let serializedResponse = '';
+              try {
+                serializedResponse = JSON.stringify(rawResponse);
+              } catch (e) {
+                serializedResponse = "Could not serialize response: " + (e as Error).message;
+              }
+
+              await prisma.geminiDebugLog.create({
+                data: {
+                  sessionId: sessionId as number,
+                  requestTimestamp: new Date(loopReqStart),
+                  responseTimestamp: new Date(loopReqEnd),
+                  durationMs: loopReqEnd - loopReqStart,
+                  statusCode: 200,
+                  requestData: JSON.stringify(currentContents),
+                  responseData: serializedResponse,
+                  toolCalls: JSON.stringify(rawResponse.functionCalls ? rawResponse.functionCalls() : [])
+                }
+              });
+            } catch (logErr) {
+              console.error("Failed to write debug log (loop)", logErr);
+            }
+          }
+
+          currentLoop++;
+        } else {
+          // No more calls, this is the final response
+          break;
         }
-        return responseResult;
       }
-    );
+      return responseResult;
+    };
+
+    // Execute with cached model or fallback
+    let result: any;
+    let warning: string | undefined;
+
+    if (usingCache) {
+      // Use cached model directly
+      console.log("[Context Cache] Executing with cached model");
+      try {
+        result = await executeGeneration(cachedModel);
+      } catch (cacheError) {
+        console.warn("[Context Cache] Cached model execution failed, falling back:", cacheError);
+        // Fall back to non-cached execution
+        const fallbackResult = await executeWithFallback("gemini_chat_model", executeGeneration);
+        result = fallbackResult.result;
+        warning = fallbackResult.warning;
+      }
+    } else {
+      // Use executeWithFallback for non-cached execution
+      console.log("[Context Cache] Executing without cache");
+      const fallbackResult = await executeWithFallback("gemini_chat_model", executeGeneration);
+      result = fallbackResult.result;
+      warning = fallbackResult.warning;
+    }
 
     const response = result.response;
     let data;
@@ -1638,16 +1806,377 @@ export const post = async (req: Request, res: Response) => {
   }
 };
 
-
-
-function fileToGenerativePart(path: string, mimeType: string) {
+function fileToGenerativePart(filePath: string, mimeType: string) {
   return {
     inlineData: {
-      data: Buffer.from(fs.readFileSync(path)).toString("base64"),
+      data: Buffer.from(fs.readFileSync(filePath)).toString("base64"),
       mimeType
     },
   };
 }
+
+// ==============================
+// STREAMING CHAT ENDPOINT (SSE)
+// ==============================
+
+export const postStream = async (req: Request, res: Response) => {
+  // Set up SSE headers
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  res.setHeader('X-Accel-Buffering', 'no'); // Disable nginx buffering
+  res.flushHeaders();
+
+  const sendEvent = (event: string, data: any) => {
+    res.write(`event: ${event}\n`);
+    res.write(`data: ${JSON.stringify(data)}\n\n`);
+  };
+
+  try {
+    let { prompt, sessionId, additionalContext, entityType, entityId } = req.body as {
+      prompt: string;
+      sessionId?: number | string;
+      additionalContext?: string;
+      entityType?: string;
+      entityId?: number | string;
+    };
+
+    if (sessionId) {
+      sessionId = parseInt(sessionId as string, 10);
+    }
+
+    // --- SMART CHAT LOCAL INTENT PROCESSING ---
+    try {
+      const intentRes = await intentEngine.process(prompt);
+      if (intentRes.intent === 'shopping.add' && intentRes.score > 0.8) {
+        console.log(`[SmartChat Stream] Detected local intent: ${intentRes.intent}`);
+
+        let itemToAdd = null;
+        const patterns = [
+          /add (.*) to (?:the |my )?shopping list/i,
+          /add (.*) to (?:the |my )?list/i,
+          /put (.*) on (?:the |my )?shopping list/i,
+          /put (.*) on (?:the |my )?list/i,
+          /^buy (.*)$/i,
+          /^need (.*)$/i,
+          /remind me to buy (.*)/i
+        ];
+
+        for (const p of patterns) {
+          const match = prompt.match(p);
+          if (match && match[1]) {
+            itemToAdd = match[1].trim().replace(/[.!?]$/, '');
+            break;
+          }
+        }
+
+        if (itemToAdd) {
+          if (!sessionId) {
+            const session = await prisma.chatSession.create({
+              data: {
+                title: prompt.substring(0, 50) + (prompt.length > 50 ? '...' : ''),
+                entityType: entityType || null,
+                entityId: entityId ? parseInt(entityId.toString(), 10) : null
+              }
+            });
+            sessionId = session.id;
+          } else {
+            await prisma.chatSession.update({
+              where: { id: sessionId as number },
+              data: { updatedAt: new Date() }
+            });
+          }
+
+          await prisma.chatMessage.create({
+            data: {
+              sessionId: sessionId as number,
+              sender: 'user',
+              type: 'chat',
+              content: prompt
+            }
+          });
+
+          let shoppingList = await prisma.shoppingList.findFirst();
+          if (!shoppingList) {
+            shoppingList = await prisma.shoppingList.create({ data: { name: "My Shopping List" } });
+          }
+
+          const existingItem = await prisma.shoppingListItem.findFirst({
+            where: { shoppingListId: shoppingList.id, name: itemToAdd }
+          });
+
+          if (existingItem) {
+            await prisma.shoppingListItem.update({
+              where: { id: existingItem.id },
+              data: { quantity: (existingItem.quantity || 1) + 1 }
+            });
+          } else {
+            await prisma.shoppingListItem.create({
+              data: { shoppingListId: shoppingList.id, name: itemToAdd, quantity: 1 }
+            });
+          }
+
+          const botResponseText = `I've added **${itemToAdd}** to your shopping list.`;
+
+          await prisma.chatMessage.create({
+            data: {
+              sessionId: sessionId as number,
+              sender: 'model',
+              type: 'chat',
+              content: botResponseText
+            }
+          });
+
+          sendEvent('session', { sessionId });
+          sendEvent('chunk', { text: botResponseText });
+          sendEvent('done', {
+            data: { items: [{ type: 'chat', content: botResponseText }] }
+          });
+          res.end();
+          return;
+        }
+      }
+    } catch (err) {
+      console.warn("Intent engine processing failed (stream), falling back to Gemini", err);
+    }
+
+    // Note: Streaming does not support image uploads in this implementation
+    // Images require multipart form data which is complex with SSE
+
+    // If no sessionId, create a new session
+    let history: Content[] = [];
+    if (!sessionId) {
+      const session = await prisma.chatSession.create({
+        data: {
+          title: prompt.substring(0, 50) + (prompt.length > 50 ? '...' : ''),
+          entityType: entityType || null,
+          entityId: entityId ? parseInt(entityId.toString(), 10) : null
+        }
+      });
+      sessionId = session.id;
+    } else {
+      // Load history from DB
+      const messages = await prisma.chatMessage.findMany({
+        where: { sessionId: sessionId as number },
+        orderBy: { createdAt: 'asc' }
+      });
+
+      history = messages.map(msg => {
+        let text = msg.content || '';
+        if (msg.type === 'recipe' && msg.recipeData) {
+          text = JSON.stringify({
+            items: [{ type: 'recipe', recipe: JSON.parse(msg.recipeData) }]
+          });
+        }
+
+        const parts: any[] = [];
+        if (text) {
+          parts.push({ text });
+        }
+
+        if (msg.imageUrl) {
+          const ext = path.extname(msg.imageUrl).toLowerCase();
+          let mime = 'image/jpeg';
+          if (ext === '.png') mime = 'image/png';
+          if (ext === '.webp') mime = 'image/webp';
+          if (ext === '.heic') mime = 'image/heic';
+          if (ext === '.heif') mime = 'image/heif';
+
+          try {
+            const fullPath = path.join(UPLOAD_DIR, msg.imageUrl);
+            if (fs.existsSync(fullPath)) {
+              parts.push(fileToGenerativePart(fullPath, mime));
+            }
+          } catch (e) {
+            console.error("Failed to load image for history", e);
+          }
+        }
+
+        return { role: msg.sender, parts } as Content;
+      });
+    }
+
+    // Send session ID to client immediately
+    sendEvent('session', { sessionId });
+
+    // Save User Message to DB
+    await prisma.chatMessage.create({
+      data: {
+        sessionId: sessionId as number,
+        sender: 'user',
+        type: 'chat',
+        content: prompt
+      }
+    });
+
+    // Update session timestamp
+    await prisma.chatSession.update({
+      where: { id: sessionId as number },
+      data: { updatedAt: new Date() }
+    });
+
+    // Use context caching for better performance
+    const { model, modelName, usingCache, systemInstruction } = await getCachedModel("gemini_chat_model");
+    console.log(`[Stream] Using ${usingCache ? 'cached' : 'non-cached'} model: ${modelName}`);
+
+    const modelAck = {
+      role: "model",
+      parts: [{ text: "Understood. I will always return valid JSON with a root 'items' array containing objects with 'type': 'recipe' or 'type': 'chat'." }],
+    };
+
+    // Build contents based on whether we're using cache
+    let contents: Content[];
+    if (usingCache) {
+      // When using cache, the system instruction is already cached
+      contents = [
+        ...history,
+        { role: "user", parts: [{ text: prompt }] },
+      ];
+    } else {
+      // Non-cached: include full system instruction
+      contents = [
+        { role: "user", parts: [{ text: systemInstruction! }] },
+        modelAck,
+        ...history,
+        { role: "user", parts: [{ text: prompt }] },
+      ];
+    }
+
+    // Use streaming generation
+    let fullText = '';
+
+    try {
+      const streamResult = await model.generateContentStream({
+        contents,
+        // Note: Tools are not included in stream for simplicity
+        // Complex tool calling scenarios fall back to non-streaming
+      });
+
+      for await (const chunk of streamResult.stream) {
+        const chunkText = chunk.text();
+        if (chunkText) {
+          fullText += chunkText;
+          sendEvent('chunk', { text: chunkText });
+        }
+      }
+    } catch (streamError: any) {
+      console.error("Streaming error:", streamError);
+      sendEvent('error', { message: streamError.message || 'Streaming failed' });
+      res.end();
+      return;
+    }
+
+    // Parse the full response
+    const cleanJson = (text: string) => {
+      const jsonStart = text.indexOf('{');
+      const jsonEnd = text.lastIndexOf('}');
+      if (jsonStart !== -1 && jsonEnd !== -1 && jsonEnd > jsonStart) {
+        const potentialJson = text.substring(jsonStart, jsonEnd + 1);
+        try {
+          JSON.parse(potentialJson);
+          return potentialJson;
+        } catch (e) { /* fall through */ }
+      }
+      let cleaned = text.trim();
+      if (cleaned.startsWith('```json')) cleaned = cleaned.substring(7);
+      else if (cleaned.startsWith('```')) cleaned = cleaned.substring(3);
+      if (cleaned.endsWith('```')) cleaned = cleaned.substring(0, cleaned.length - 3);
+      return cleaned.trim();
+    };
+
+    let data;
+    try {
+      data = JSON.parse(cleanJson(fullText));
+    } catch (e) {
+      console.warn("Failed to parse JSON response (stream), using raw text", e);
+      data = { items: [{ type: 'chat', content: fullText }] };
+    }
+
+    // Save Model Response to DB
+    if (data.items && Array.isArray(data.items)) {
+      for (const item of data.items) {
+        if (item.type === 'recipe' && item.recipe) {
+          await prisma.chatMessage.create({
+            data: {
+              sessionId: sessionId as number,
+              sender: 'model',
+              type: 'recipe',
+              recipeData: JSON.stringify(item.recipe)
+            }
+          });
+        } else {
+          await prisma.chatMessage.create({
+            data: {
+              sessionId: sessionId as number,
+              sender: 'model',
+              type: 'chat',
+              content: item.content || JSON.stringify(item)
+            }
+          });
+        }
+      }
+    } else {
+      const isRecipe = (data.type && data.type.toLowerCase() === 'recipe') || (data.recipe && typeof data.recipe === 'object');
+      if (isRecipe && data.recipe) {
+        await prisma.chatMessage.create({
+          data: {
+            sessionId: sessionId as number,
+            sender: 'model',
+            type: 'recipe',
+            recipeData: JSON.stringify(data.recipe)
+          }
+        });
+      } else {
+        let content = data.content;
+        if (typeof content === 'object') content = JSON.stringify(content, null, 2);
+        else if (!content) content = JSON.stringify(data, null, 2);
+        await prisma.chatMessage.create({
+          data: {
+            sessionId: sessionId as number,
+            sender: 'model',
+            type: 'chat',
+            content: content
+          }
+        });
+      }
+    }
+
+    // Generate title for new sessions
+    try {
+      const currentSession = await prisma.chatSession.findUnique({ where: { id: sessionId as number } });
+      if (currentSession) {
+        const messageCount = await prisma.chatMessage.count({ where: { sessionId: sessionId as number } });
+        if (messageCount <= 2 || currentSession.title === 'New Chat') {
+          const titlePrompt = `Based on the following conversation, generate a short, concise, and descriptive title (max 6 words). Return ONLY the title text, no quotes or "Title:".\n\nUser: ${prompt}\nInternal Model Response: ${JSON.stringify(data).substring(0, 500)}...`;
+
+          const { result: titleResult } = await executeWithFallback(
+            "gemini_chat_model",
+            async (m) => await m.generateContent(titlePrompt)
+          );
+
+          let newTitle = titleResult.response.text().trim().replace(/^"|"$/g, '').trim();
+          if (newTitle) {
+            await prisma.chatSession.update({
+              where: { id: sessionId as number },
+              data: { title: newTitle }
+            });
+          }
+        }
+      }
+    } catch (titleError) {
+      console.warn("Failed to generate chat title (stream):", titleError);
+    }
+
+    // Send final complete event with parsed data
+    sendEvent('done', { data });
+    res.end();
+
+  } catch (error) {
+    console.error("Stream error:", error);
+    sendEvent('error', { message: (error as Error).message });
+    res.end();
+  }
+};
 
 export const postImage = async (req: Request, res: Response) => {
   try {

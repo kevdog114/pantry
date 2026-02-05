@@ -35,8 +35,8 @@
         View Debug Log</button>
     </div>
 
-    <app-chat-interface [messages]="messages" [isLoading]="isLoading" [showWelcomeMessage]="true"
-      (send)="handleSend($event)">
+    <app-chat-interface [messages]="messages" [isLoading]="isLoading" [loadingText]="loadingText"
+      [showWelcomeMessage]="true" (send)="handleSend($event)">
     </app-chat-interface>
   </main>
 </div>

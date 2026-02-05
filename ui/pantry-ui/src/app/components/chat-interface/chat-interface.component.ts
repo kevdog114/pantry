@@ -31,6 +31,7 @@ export interface ChatMessage {
 export class ChatInterfaceComponent implements AfterViewChecked, OnInit, OnChanges {
     @Input() messages: ChatMessage[] = [];
     @Input() isLoading: boolean = false;
+    @Input() loadingText: string = 'Thinking...';
     @Input() placeholder: string = 'Type a message...';
     @Input() enableAudio: boolean = true;
     @Input() autoSendAudio: boolean = false;
