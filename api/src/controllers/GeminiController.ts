@@ -1,5 +1,5 @@
-import { GoogleGenerativeAI, Content, SchemaType, EnhancedGenerateContentResponse, GenerateContentStreamResult } from "@google/generative-ai";
-import { GoogleAICacheManager, CachedContent } from "@google/generative-ai/server";
+// New SDK that properly exposes thoughtSignature
+// Using dynamic import since @google/genai is ESM-only
 import * as crypto from "crypto";
 import dotenv from "dotenv";
 import { Request, Response } from "express";
@@ -15,13 +15,47 @@ import { sendNotificationToUser } from "./PushController";
 
 dotenv.config();
 
-
 const gemini_api_key = process.env.GEMINI_API_KEY;
 if (!gemini_api_key) {
   throw new Error("GEMINI_API_KEY is not set");
 }
-const googleAI = new GoogleGenerativeAI(gemini_api_key);
-const cacheManager = new GoogleAICacheManager(gemini_api_key);
+
+// Lazy-loaded SDK instances (ESM module requires dynamic import)
+let _ai: any = null;
+let _Type: any = null;
+
+async function getAI(): Promise<any> {
+  if (!_ai) {
+    const { GoogleGenAI, Type } = await import("@google/genai");
+    _ai = new GoogleGenAI({ apiKey: gemini_api_key });
+    _Type = Type;
+  }
+  return _ai;
+}
+
+async function getType(): Promise<any> {
+  if (!_Type) {
+    await getAI(); // This also initializes _Type
+  }
+  return _Type;
+}
+
+// SchemaType compatibility - maps old SDK's SchemaType to new SDK's Type
+// This allows existing code using SchemaType.OBJECT, SchemaType.STRING, etc. to work
+const SchemaType = {
+  OBJECT: "OBJECT",
+  STRING: "STRING",
+  NUMBER: "NUMBER",
+  INTEGER: "INTEGER",
+  BOOLEAN: "BOOLEAN",
+  ARRAY: "ARRAY"
+};
+
+// Content type for history/messages
+type Content = {
+  role: string;
+  parts: any[];
+};
 
 const DEFAULT_FALLBACK_MODEL = "gemini-flash-latest";
 // Models that support caching (flash models generally support it)
@@ -35,7 +69,7 @@ const PRO_MODEL_SETTING = "gemini_pro_model";
 const DEFAULT_PRO_MODEL = "gemini-3-pro-preview";
 
 // In-memory cache reference to avoid repeated API calls
-let currentCache: CachedContent | null = null;
+let currentCacheName: string | null = null;
 let currentCacheHash: string | null = null;
 let cacheExpiresAt: Date | null = null;
 
@@ -46,8 +80,8 @@ const geminiConfig = {
   maxOutputTokens: 4096,
 };
 
-// Helper to get the model based on feature setting or fallback
-export async function getGeminiModel(featureKey: string, fallbackModelName: string = DEFAULT_FALLBACK_MODEL) {
+// Helper to get the model name based on feature setting or fallback
+export async function getModelName(featureKey: string, fallbackModelName: string = DEFAULT_FALLBACK_MODEL): Promise<string> {
   let modelName = fallbackModelName;
   try {
     const setting = await prisma.systemSetting.findUnique({
@@ -62,12 +96,43 @@ export async function getGeminiModel(featureKey: string, fallbackModelName: stri
   } catch (err) {
     console.warn(`Failed to fetch setting for ${featureKey}, using default: ${modelName}`, err);
   }
+  return modelName;
+}
 
+// Legacy compatibility - creates a model-like wrapper for old code that expects model.generateContent()
+export async function getGeminiModel(featureKey: string, fallbackModelName: string = DEFAULT_FALLBACK_MODEL) {
+  const modelName = await getModelName(featureKey, fallbackModelName);
+  const ai = await getAI();
+  const Type = await getType();
+
+  // Return a wrapper object that mimics the old SDK's model interface
   return {
-    model: googleAI.getGenerativeModel({
-      model: modelName,
-      ...geminiConfig,
-    }),
+    model: {
+      generateContent: async (request: any) => {
+        const response = await ai.models.generateContent({
+          model: modelName,
+          contents: request.contents || request,
+          config: {
+            ...geminiConfig,
+            systemInstruction: request.systemInstruction,
+            tools: adaptTools(request.tools)
+          }
+        });
+        return response;
+      },
+      generateContentStream: async (request: any) => {
+        const response = await ai.models.generateContentStream({
+          model: modelName,
+          contents: request.contents || request,
+          config: {
+            ...geminiConfig,
+            systemInstruction: request.systemInstruction,
+            tools: adaptTools(request.tools)
+          }
+        });
+        return response;
+      }
+    },
     modelName
   };
 }
@@ -84,17 +149,11 @@ export async function executeWithFallback<T>(
     const result = await operation(model);
     return { result };
   } catch (error: any) {
-    // Check for 404 or other errors indicating model unavailability
-    // The SDK might throw different errors, but typically 404 or specific status codes indicating model not found.
-    // We'll catch generic errors for now and check if it seems related to model availability or try fallback anyway.
     console.warn(`Error using model ${modelName}:`, error);
 
     if (modelName !== fallbackModelName) {
       console.warn(`Attempting fallback to ${fallbackModelName}`);
-      const fallbackModel = googleAI.getGenerativeModel({
-        model: fallbackModelName,
-        ...geminiConfig,
-      });
+      const { model: fallbackModel } = await getGeminiModel(featureKey, fallbackModelName);
       try {
         const result = await operation(fallbackModel);
         return {
@@ -102,13 +161,12 @@ export async function executeWithFallback<T>(
           warning: `Preferred model '${modelName}' was unavailable. Fell back to '${fallbackModelName}'.`
         };
       } catch (fallbackError) {
-        throw fallbackError; // Fallback also failed
+        throw fallbackError;
       }
     }
-    throw error; // Initial model was already fallback or error is fatal
+    throw error;
   }
 }
-
 
 /**
  * Optimized Router: Uses Flash to attempt a direct answer.
@@ -127,7 +185,9 @@ async function routeAndExecute(
   tools: any[],
   geminiConfig: any,
   additionalContext?: string
-): Promise<{ streamResult: GenerateContentStreamResult; finalModelName: string }> {
+): Promise<{ streamResult: any; finalModelName: string }> {
+  const ai = await getAI();
+
   // 1. Resolve Model Names
   let routerModelName = DEFAULT_ROUTER_MODEL;
   let proModelName = DEFAULT_PRO_MODEL;
@@ -166,23 +226,22 @@ Example Summary Format:
 
 ${systemInstruction}`;
 
-  const routerModel = googleAI.getGenerativeModel({
-    model: routerModelName,
-    ...geminiConfig
-  });
-
   console.log(`[Auto Router] Attempting direct answer with ${routerModelName}...`);
 
   try {
-    // 3. Start Flash Stream
-    const routerStreamResult = await routerModel.generateContentStream({
+    // 3. Start Flash Stream using new SDK
+    const routerStreamResult = await ai.models.generateContentStream({
+      model: routerModelName,
       contents,
-      systemInstruction: routingInstruction,
-      tools,
+      config: {
+        ...geminiConfig,
+        systemInstruction: routingInstruction,
+        tools: adaptTools(tools)
+      }
     });
 
     // 4. Robust Peeking: Buffer chunks until we have enough text to check for escalation or confirm regular response
-    const iterator = routerStreamResult.stream[Symbol.asyncIterator]();
+    const iterator = routerStreamResult[Symbol.asyncIterator]();
     let accumulatedText = "";
     const bufferedResults: any[] = [];
     let isEscalating = false;
@@ -193,7 +252,7 @@ ${systemInstruction}`;
       if (next.done) break;
 
       bufferedResults.push(next);
-      accumulatedText += next.value.text();
+      accumulatedText += next.value.text || "";
 
       if (accumulatedText.includes(ESCALATION_TOKEN)) {
         isEscalating = true;
@@ -233,15 +292,14 @@ ${systemInstruction}`;
       console.log(`[Auto Router] Escalation token detected. Switching to Pro (${proModelName}).`);
 
       // Start Pro Stream
-      const proModel = googleAI.getGenerativeModel({
+      const proStreamResult = await ai.models.generateContentStream({
         model: proModelName,
-        ...geminiConfig
-      });
-
-      const proStreamResult = await proModel.generateContentStream({
         contents,
-        systemInstruction, // Use original instruction without routing directive
-        tools
+        config: {
+          ...geminiConfig,
+          systemInstruction, // Use original instruction without routing directive
+          tools: adaptTools(tools)
+        }
       });
 
       // BACKGROUND: Continue consuming Flash stream to get summary
@@ -251,7 +309,7 @@ ${systemInstruction}`;
           let buffer = accumulatedText;
           let next = await iterator.next();
           while (!next.done) {
-            buffer += next.value.text();
+            buffer += next.value.text || "";
             next = await iterator.next();
           }
           await saveSummaryFromText(buffer);
@@ -290,26 +348,26 @@ ${systemInstruction}`;
       };
 
       for (const result of bufferedResults) {
-        const text = result.value.text();
+        const text = result.value.text || "";
         const safeText = processChunk(text);
         if (safeText) {
           yield {
-            text: () => safeText,
-            functionCalls: result.value.functionCalls,
-            functionResponse: result.value.functionResponse
+            text: safeText,
+            candidates: result.value.candidates,
+            functionCalls: result.value.functionCalls
           } as any;
         }
       }
 
       let next = await iterator.next();
       while (!next.done) {
-        const text = next.value.text();
+        const text = next.value.text || "";
         const safeText = processChunk(text);
         if (safeText) {
           yield {
-            text: () => safeText,
-            functionCalls: next.value.functionCalls,
-            functionResponse: next.value.functionResponse
+            text: safeText,
+            candidates: next.value.candidates,
+            functionCalls: next.value.functionCalls
           } as any;
         }
         next = await iterator.next();
@@ -339,23 +397,20 @@ ${systemInstruction}`;
     }
 
     return {
-      streamResult: {
-        stream: combinedStream() as any,
-        response: routerStreamResult.response
-      },
+      streamResult: combinedStream(),
       finalModelName: routerModelName
     };
 
   } catch (error) {
     console.error("[Auto Router] Router failed, falling back to Pro:", error);
-    const proModel = googleAI.getGenerativeModel({
+    const proStreamResult = await ai.models.generateContentStream({
       model: proModelName,
-      ...geminiConfig
-    });
-    const proStreamResult = await proModel.generateContentStream({
       contents,
-      systemInstruction,
-      tools
+      config: {
+        ...geminiConfig,
+        systemInstruction,
+        tools: adaptTools(tools)
+      }
     });
     return { streamResult: proStreamResult, finalModelName: proModelName };
   }
@@ -572,6 +627,8 @@ async function getOrCreateContextCache(modelName: string, additionalContext?: st
   }
 
   try {
+    const ai = await getAI();
+
     // Build the full context
     const systemInstruction = await buildSystemInstruction(additionalContext);
 
@@ -591,12 +648,12 @@ async function getOrCreateContextCache(modelName: string, additionalContext?: st
     const now = new Date();
 
     // Debug logging for cache hit/miss analysis
-    if (currentCache) {
+    if (currentCacheName) {
       console.log(`[Context Cache] Hash Check - Current: ${currentCacheHash}, New: ${contextHash}`);
       console.log(`[Context Cache] Expiration Check - Expires: ${cacheExpiresAt?.toISOString()}, Now: ${now.toISOString()}`);
       if (currentCacheHash === contextHash && cacheExpiresAt && cacheExpiresAt > now) {
-        console.log(`[Context Cache] HIT - Using existing cache: ${currentCache.name}`);
-        return { name: currentCache.name, isHit: true };
+        console.log(`[Context Cache] HIT - Using existing cache: ${currentCacheName}`);
+        return { name: currentCacheName, isHit: true };
       } else {
         console.log(`[Context Cache] MISS - ${currentCacheHash !== contextHash ? 'Hash mismatch (content changed)' : 'Expired'}`);
         // If content changed, let's log what changed if we can (simplified: just length)
@@ -609,10 +666,10 @@ async function getOrCreateContextCache(modelName: string, additionalContext?: st
     }
 
     // If we have an old cache with different content, try to delete it
-    if (currentCache && currentCache.name && currentCacheHash !== contextHash) {
+    if (currentCacheName && currentCacheHash !== contextHash) {
       try {
-        console.log(`[Context Cache] Context changed, deleting old cache: ${currentCache.name}`);
-        await cacheManager.delete(currentCache.name);
+        console.log(`[Context Cache] Context changed, deleting old cache: ${currentCacheName}`);
+        await ai.caches.delete({ name: currentCacheName });
       } catch (e) {
         console.warn("[Context Cache] Failed to delete old cache:", e);
       }
@@ -623,29 +680,31 @@ async function getOrCreateContextCache(modelName: string, additionalContext?: st
 
     // The cache needs some initial content to cache along with system instruction
     // We'll cache the system instruction and a priming acknowledgment
-    const cache = await cacheManager.create({
+    const cache = await ai.caches.create({
       model: modelName,
-      displayName: `pantry-chat-context-${Date.now()}`,
-      systemInstruction: systemInstruction,
-      contents: [
-        {
-          role: "user",
-          parts: [{ text: "You are ready to assist with pantry management. Confirm you understand the rules." }]
-        },
-        {
-          role: "model",
-          parts: [{ text: "Understood. I will always return valid JSON with a root 'items' array containing objects with 'type': 'recipe' or 'type': 'chat'. I have access to your inventory, family preferences, equipment, and weather context." }]
-        }
-      ],
-      ttlSeconds: 3600 // 1 hour TTL
+      config: {
+        displayName: `pantry-chat-context-${Date.now()}`,
+        systemInstruction: systemInstruction,
+        contents: [
+          {
+            role: "user",
+            parts: [{ text: "You are ready to assist with pantry management. Confirm you understand the rules." }]
+          },
+          {
+            role: "model",
+            parts: [{ text: "Understood. I will always return valid JSON with a root 'items' array containing objects with 'type': 'recipe' or 'type': 'chat'. I have access to your inventory, family preferences, equipment, and weather context." }]
+          }
+        ],
+        ttl: "3600s" // 1 hour TTL
+      }
     });
 
-    currentCache = cache;
+    currentCacheName = cache.name || null;
     currentCacheHash = contextHash;
     cacheExpiresAt = new Date(now.getTime() + 3600 * 1000); // 1 hour from now
 
     console.log(`[Context Cache] Cache created: ${cache.name}, expires: ${cacheExpiresAt.toISOString()}`);
-    return { name: cache.name, isHit: false };
+    return { name: cache.name!, isHit: false };
 
   } catch (error) {
     console.error("[Context Cache] Failed to create cache:", error);
@@ -662,8 +721,10 @@ async function getCachedModel(featureKey: string, additionalContext?: string): P
   modelName: string;
   usingCache: boolean;
   systemInstruction?: string;
+  cacheName?: string;
 }> {
-  const { model, modelName } = await getGeminiModel(featureKey);
+  const ai = await getAI();
+  const modelName = await getModelName(featureKey);
 
   try {
     const cacheResult = await getOrCreateContextCache(modelName, additionalContext);
@@ -671,12 +732,32 @@ async function getCachedModel(featureKey: string, additionalContext?: string): P
     if (cacheResult) {
       const { name, isHit } = cacheResult;
 
-      // Get the full cache object to pass to the model
-      const cachedContent = await cacheManager.get(name);
-
-      // Create a model that uses the cached content
-      const cachedModel = googleAI.getGenerativeModelFromCachedContent(cachedContent);
-      return { model: cachedModel, modelName, usingCache: isHit };
+      // Return a wrapper that uses the cached content
+      // The new SDK uses the cache name in the generateContent call
+      return {
+        model: {
+          // Wrapper that passes cache name to generateContent
+          generateContentWithCache: async (request: any) => {
+            return ai.models.generateContent({
+              model: modelName,
+              cachedContent: name,
+              contents: request.contents || request,
+              config: request.config
+            });
+          },
+          generateContentStreamWithCache: async (request: any) => {
+            return ai.models.generateContentStream({
+              model: modelName,
+              cachedContent: name,
+              contents: request.contents || request,
+              config: request.config
+            });
+          }
+        },
+        modelName,
+        usingCache: isHit,
+        cacheName: name
+      };
     }
   } catch (error) {
     console.warn("[Context Cache] Failed to get cached model, falling back to regular model:", error);
@@ -684,6 +765,7 @@ async function getCachedModel(featureKey: string, additionalContext?: string): P
 
   // Build system instruction for non-cached fallback
   const systemInstruction = await buildSystemInstruction(additionalContext);
+  const { model } = await getGeminiModel(featureKey);
   return { model, modelName, usingCache: false, systemInstruction };
 }
 
@@ -2520,7 +2602,7 @@ export const postStream = async (req: Request, res: Response) => {
       const messages = await prisma.chatMessage.findMany({
         where: { sessionId: sessionId as number },
         orderBy: { createdAt: 'asc' }
-      });
+      }) as any[]; // Cast to any to access toolCallData (schema has it but Prisma types may be stale)
 
       // Check for Summary
       const chatSummary = await prisma.chatSummary.findUnique({
@@ -2662,7 +2744,7 @@ export const postStream = async (req: Request, res: Response) => {
     let model: any;
     let finalModelName: string;
     let usingCache = false;
-    let preGeneratedStreamResult: GenerateContentStreamResult | null = null;
+    let preGeneratedStreamResult: any = null;
 
     // Handle auto-routing
     if (modelSetting === AUTO_MODEL) {
@@ -2687,12 +2769,6 @@ export const postStream = async (req: Request, res: Response) => {
 
       finalModelName = routedModelName;
       console.log(`[Stream] Auto-routed to: ${finalModelName}`);
-
-      // Get the routed model directly (no caching for auto to keep it simple)
-      model = googleAI.getGenerativeModel({
-        model: finalModelName,
-        ...geminiConfig
-      });
     } else {
       // Normal path: use context caching
       const cached = await getCachedModel("gemini_chat_model", additionalContext);
@@ -2915,7 +2991,8 @@ export const postStream = async (req: Request, res: Response) => {
       while (loopCount < maxLoops) {
         loopCount++;
 
-        let streamResult;
+        let streamResult: any;
+        let collectedChunks: any[] = [];
 
         // Use pre-generated stream from router if available (first loop only)
         if (loopCount === 1 && typeof preGeneratedStreamResult !== 'undefined' && preGeneratedStreamResult) {
@@ -2928,9 +3005,14 @@ export const postStream = async (req: Request, res: Response) => {
           ).join(', ');
           console.log(`[Stream Loop ${loopCount}] Calling generateContentStream: [${contentSummary}]`);
 
-          streamResult = await model.generateContentStream({
+          const ai = await getAI();
+          streamResult = await ai.models.generateContentStream({
+            model: finalModelName,
             contents: currentContents,
-            tools: streamTools
+            config: {
+              ...geminiConfig,
+              tools: adaptTools(streamTools)
+            }
           });
         }
 
@@ -2938,9 +3020,13 @@ export const postStream = async (req: Request, res: Response) => {
         let toolCalls: any[] = [];
 
         // Stream text chunks to UI as they arrive
-        for await (const chunk of streamResult.stream) {
+        // New SDK returns AsyncIterable directly (not wrapped in .stream)
+        const streamIterable = streamResult.stream ? streamResult.stream : streamResult;
+        for await (const chunk of streamIterable) {
+          collectedChunks.push(chunk);
           try {
-            const chunkText = chunk.text();
+            // New SDK uses .text property, old SDK uses .text() method
+            const chunkText = typeof chunk.text === 'function' ? chunk.text() : chunk.text;
             if (chunkText) {
               fullText += chunkText;
               sendEvent('chunk', { text: chunkText });
@@ -2964,10 +3050,25 @@ export const postStream = async (req: Request, res: Response) => {
           }
         }
 
-        // IMPORTANT: Await the full response to get parts WITH thought_signature
-        // Stream chunks don't include thought_signature, but the final response does
-        const finalResponse = await streamResult.response;
-        const rawResponseParts = finalResponse.candidates?.[0]?.content?.parts || [];
+        // Get the final response parts with thoughtSignature
+        // For the new SDK, we need to get parts from the last chunk or aggregate
+        let rawResponseParts: any[] = [];
+        if (collectedChunks.length > 0) {
+          const lastChunk = collectedChunks[collectedChunks.length - 1];
+          rawResponseParts = lastChunk.candidates?.[0]?.content?.parts || [];
+
+          // If the last chunk doesn't have parts, aggregate from all chunks
+          if (rawResponseParts.length === 0) {
+            for (const chunk of collectedChunks) {
+              const parts = chunk.candidates?.[0]?.content?.parts || [];
+              for (const part of parts) {
+                if (part.functionCall || part.text || part.thoughtSignature) {
+                  rawResponseParts.push(part);
+                }
+              }
+            }
+          }
+        }
 
         // Log response summary (reduced from verbose per-part logging)
         const fcParts = rawResponseParts.filter((p: any) => p.functionCall);
@@ -4184,3 +4285,51 @@ export const getDebugLogs = async (req: Request, res: Response) => {
     res.status(500).json({ error: "Failed to fetch logs" });
   }
 };
+
+// Helper to adapt tools from old SDK format to new SDK format
+// Handles:
+// 1. Rename 'parameters' -> 'parametersJsonSchema'
+// 2. Lowercase 'type' values (OBJECT -> object)
+function adaptTools(tools: any[]): any[] {
+  if (!tools || !Array.isArray(tools)) return tools;
+  return tools.map((tool: any) => {
+    if (tool.functionDeclarations) {
+      return {
+        functionDeclarations: tool.functionDeclarations.map((fn: any) => {
+          const newFn = { ...fn };
+
+          // Rename parameters -> parametersJsonSchema
+          if (newFn.parameters) {
+            newFn.parametersJsonSchema = newFn.parameters;
+            delete newFn.parameters;
+          }
+
+          // Helper to recursively lowercase types
+          const normalizeSchema = (schema: any) => {
+            if (!schema || typeof schema !== 'object') return;
+
+            if (schema.type && typeof schema.type === 'string') {
+              schema.type = schema.type.toLowerCase();
+            }
+
+            if (schema.properties) {
+              Object.values(schema.properties).forEach(normalizeSchema);
+            }
+            if (schema.items) {
+              normalizeSchema(schema.items);
+            }
+          };
+
+          if (newFn.parametersJsonSchema) {
+            // Clone schema to avoid mutating original if referenced elsewhere
+            newFn.parametersJsonSchema = JSON.parse(JSON.stringify(newFn.parametersJsonSchema));
+            normalizeSchema(newFn.parametersJsonSchema);
+          }
+
+          return newFn;
+        })
+      };
+    }
+    return tool;
+  });
+}
