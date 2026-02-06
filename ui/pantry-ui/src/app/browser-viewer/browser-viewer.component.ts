@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { PlaywrightService, PlaywrightStatus, PlaywrightConfig, McpResponse } from '../services/playwright.service';
+import { SalesService } from '../services/sales.service';
 import { EnvironmentService } from '../services/environment.service';
 
 @Component({
@@ -23,6 +24,7 @@ export class BrowserViewerComponent implements OnInit, OnDestroy {
     loading = true;
     error: string | null = null;
     activeTab: 'viewer' | 'controls' | 'console' = 'viewer';
+    searchingSales = false;
 
     // Navigation
     urlInput = '';
@@ -39,6 +41,7 @@ export class BrowserViewerComponent implements OnInit, OnDestroy {
 
     constructor(
         private playwrightService: PlaywrightService,
+        private salesService: SalesService,
         private sanitizer: DomSanitizer,
         private cdr: ChangeDetectorRef,
         private env: EnvironmentService
@@ -198,6 +201,23 @@ export class BrowserViewerComponent implements OnInit, OnDestroy {
         this.playwrightService.resize(this.screenWidth, this.screenHeight).subscribe({
             error: (err) => {
                 this.error = 'Resize failed: ' + (err.message || 'Unknown error');
+            }
+        });
+    }
+
+    searchCostcoSales(): void {
+        this.searchingSales = true;
+        this.error = null;
+        this.salesService.searchCostcoSales().subscribe({
+            next: (response) => {
+                this.searchingSales = false;
+                alert('Sales search completed successfully!');
+                this.cdr.detectChanges();
+            },
+            error: (err) => {
+                this.searchingSales = false;
+                this.error = 'Sales search failed: ' + (err.message || 'Unknown error');
+                this.cdr.detectChanges();
             }
         });
     }

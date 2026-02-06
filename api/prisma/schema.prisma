@@ -458,3 +458,18 @@ model GeminiDebugLog {
   toolCalls         String? 
   createdAt         DateTime @default(now())
 }
+
+model RetailerSale {
+  id          Int      @id @default(autoincrement())
+  productName String
+  productUrl  String?
+  retailer    String   // e.g., "Costco", "Target"
+  salePrice   Float?
+  originalPrice Float?
+  validFrom   DateTime?
+  validTo     DateTime?
+  imageUrl    String?
+  isActive    Boolean  @default(true)
+  foundAt     DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}

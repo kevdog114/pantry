@@ -21,6 +21,15 @@
         </div>
     </div>
 
+    <!-- Automation Spinner Overlay -->
+    <div class="automation-overlay" *ngIf="searchingSales">
+        <div class="automation-spinner-container">
+            <div class="loading-spinner"></div>
+            <h3>Searching Costco Sales...</h3>
+            <p>This may take a minute as we explore the site.</p>
+        </div>
+    </div>
+
     <!-- Error Banner -->
     <div class="error-banner" *ngIf="error">
         <span class="error-icon">⚠️</span>
@@ -114,6 +123,10 @@
                     <button class="btn" (click)="takeScreenshot()">
                         <span class="btn-icon">📷</span>
                         Screenshot
+                    </button>
+                    <button class="btn btn-automation" (click)="searchCostcoSales()" [disabled]="searchingSales">
+                        <span class="btn-icon">🔍</span>
+                        Search Costco Sales
                     </button>
                     <button class="btn btn-danger" (click)="closeBrowser()">
                         <span class="btn-icon">✖️</span>

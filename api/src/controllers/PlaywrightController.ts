@@ -20,7 +20,7 @@ interface McpResponse {
 /**
  * Proxy a request to the Playwright MCP server
  */
-async function proxyToMcp(data: McpToolCall): Promise<McpResponse> {
+export async function proxyToMcp(data: McpToolCall): Promise<McpResponse> {
     return new Promise((resolve, reject) => {
         const postData = JSON.stringify(data);
 

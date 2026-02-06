@@ -48,7 +48,11 @@ services:
     volumes:
       - /etc/localtime:/etc/localtime:ro
       - /etc/timezone:/etc/timezone:ro
+      - pantry_playwright_data:/app/browser-data
 
 volumes:
   pantry_data:
   pantry_whisper:
+  pantry_playwright_data:
+
+

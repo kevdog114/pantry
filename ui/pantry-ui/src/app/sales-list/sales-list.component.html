@@ -1,0 +1,54 @@
+<div class="header-section">
+    <h1 class="page-title">Retailer Sales</h1>
+    <div class="actions-group">
+        <a mat-stroked-button color="primary" routerLink="/browser">
+            <mat-icon>open_in_browser</mat-icon> Browser Viewer
+        </a>
+    </div>
+</div>
+
+<div class="content-container">
+    <div *ngIf="loading" class="loading-state">
+        <mat-spinner diameter="40"></mat-spinner>
+        <p>Loading sales...</p>
+    </div>
+
+    <div *ngIf="error" class="error-state">
+        <mat-icon color="warn">error</mat-icon>
+        <p>{{ error }}</p>
+        <button mat-button (click)="loadSales()">Retry</button>
+    </div>
+
+    <div *ngIf="!loading && !error && sales.length === 0" class="empty-state">
+        <mat-icon>info</mat-icon>
+        <p>No active sales found. Use the Browser Viewer to search for Costco sales.</p>
+    </div>
+
+    <div class="sales-grid" *ngIf="!loading && !error && sales.length > 0">
+        <div class="sale-card interactive-card" *ngFor="let sale of sales">
+            <div class="sale-image-wrapper">
+                <img *ngIf="sale.imageUrl" [src]="sale.imageUrl" [alt]="sale.productName" class="sale-image">
+                <div *ngIf="!sale.imageUrl" class="sale-image-placeholder">
+                    <mat-icon>shopping_cart</mat-icon>
+                </div>
+                <div class="retailer-badge">{{ sale.retailer }}</div>
+            </div>
+            <div class="sale-content">
+                <h3 class="sale-title">{{ sale.productName }}</h3>
+                <div class="price-info">
+                    <span class="sale-price">{{ formatPrice(sale.salePrice) }}</span>
+                    <span class="original-price" *ngIf="sale.originalPrice">{{ formatPrice(sale.originalPrice) }}</span>
+                </div>
+                <div class="valid-info" *ngIf="sale.validTo">
+                    Valid until {{ sale.validTo | date:'mediumDate' }}
+                </div>
+                <div class="actions">
+                    <a *ngIf="sale.productUrl" [href]="sale.productUrl" target="_blank" mat-button color="primary"
+                        (click)="$event.stopPropagation()">
+                        View Item <mat-icon>open_in_new</mat-icon>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
