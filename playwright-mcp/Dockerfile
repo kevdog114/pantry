@@ -4,7 +4,8 @@ FROM mcr.microsoft.com/playwright:v1.52.0-noble
 # Install necessary packages
 RUN apt-get update && apt-get install -y \
     xvfb \
-    x11vnc \
+    tigervnc-standalone-server \
+    tigervnc-common \
     fluxbox \
     net-tools \
     python3 \
