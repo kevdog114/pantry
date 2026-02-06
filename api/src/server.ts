@@ -41,6 +41,18 @@ const io = new Server(httpServer, {
     }
 });
 
+// Handle WebSocket upgrade for noVNC proxy
+import * as PlaywrightProxyController from './controllers/PlaywrightProxyController';
+httpServer.on('upgrade', (req, socket, head) => {
+    // Only proxy WebSocket requests to /playwright/vnc/websockify
+    if (req.url?.startsWith('/playwright/vnc/websockify')) {
+        PlaywrightProxyController.proxyNoVncWebSocket(req, socket, head);
+    } else {
+        // Let Socket.IO handle its own upgrade requests
+        // Socket.IO will handle this internally
+    }
+});
+
 // Store io instance in app to use in controllers if needed, or export it
 app.set("io", io);
 

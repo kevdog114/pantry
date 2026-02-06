@@ -68,11 +68,9 @@ export class BrowserViewerComponent implements OnInit, OnDestroy {
             this.playwrightService.getConfig().subscribe({
                 next: (config) => {
                     this.config = config;
-                    // Build the noVNC URL with autoconnect
-                    // For dev, we connect directly; for prod, we'd proxy through the API
+                    // Build the noVNC URL using the API proxy
                     const vncHost = this.getVncHost();
-                    const vncPort = config.vnc.port;
-                    const noVncUrl = `http://${vncHost}:${vncPort}/vnc.html?autoconnect=true&resize=scale&reconnect=true`;
+                    const noVncUrl = `${vncHost}/playwright/vnc/vnc.html?autoconnect=true&resize=scale&reconnect=true`;
                     this.vncUrl = this.sanitizer.bypassSecurityTrustResourceUrl(noVncUrl);
                     this.loading = false;
                     this.cdr.detectChanges();
@@ -92,11 +90,10 @@ export class BrowserViewerComponent implements OnInit, OnDestroy {
     }
 
     private getVncHost(): string {
-        // In development, connect directly to localhost
-        // In production, you'd want to proxy through the API or use the Docker network
+        // Use the API proxy instead of connecting directly
+        // This avoids CORS and mixed content issues
         const apiBaseUrl = this.env.apiUrl;
-        const url = new URL(apiBaseUrl);
-        return url.hostname;
+        return apiBaseUrl;
     }
 
     refreshStatus(): void {

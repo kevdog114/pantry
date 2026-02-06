@@ -30,6 +30,7 @@ import * as EquipmentController from "./controllers/EquipmentController";
 import * as LocationController from "./controllers/LocationController";
 import * as DiagnosticsController from "./controllers/DiagnosticsController";
 import * as PlaywrightController from "./controllers/PlaywrightController";
+import * as PlaywrightProxyController from "./controllers/PlaywrightProxyController";
 import * as SalesController from "./controllers/SalesController";
 import cors from "cors";
 import fileUpload from "express-fileupload";
@@ -329,6 +330,9 @@ app.post("/playwright/resize", PlaywrightController.resize);
 app.post("/playwright/wait-for", PlaywrightController.waitForElement);
 app.get("/playwright/console", PlaywrightController.getConsoleMessages);
 app.post("/playwright/tool", PlaywrightController.executeTool);
+
+// noVNC proxy - must be after specific routes
+app.use("/playwright/vnc", PlaywrightProxyController.proxyNoVncHttp);
 
 // Retailer Sales
 app.get("/sales", SalesController.getSales);
