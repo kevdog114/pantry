@@ -8,6 +8,11 @@ services:
       - 4300:4300
     env_file:
       - stack.dev.env
+    environment:
+      - PLAYWRIGHT_MCP_HOST=${PLAYWRIGHT_MCP_HOST:-playwright-mcp-dev}
+      - PLAYWRIGHT_MCP_PORT=${PLAYWRIGHT_MCP_PORT:-8931}
+      - PLAYWRIGHT_NOVNC_HOST=${PLAYWRIGHT_NOVNC_HOST:-playwright-mcp-dev}
+      - PLAYWRIGHT_NOVNC_PORT=${PLAYWRIGHT_NOVNC_PORT:-6080}
     volumes:
       - pantry_data:/app/data
   pantry-ui:
