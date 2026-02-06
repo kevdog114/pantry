@@ -14,10 +14,9 @@ services:
       - PLAYWRIGHT_MCP_PORT=${PLAYWRIGHT_MCP_PORT:-8931}
       - PLAYWRIGHT_NOVNC_HOST=${PLAYWRIGHT_NOVNC_HOST:-playwright-mcp}
       - PLAYWRIGHT_NOVNC_PORT=${PLAYWRIGHT_NOVNC_PORT:-6080}
+      - TZ=${TZ:-UTC}
     volumes:
       - pantry_data:/app/data
-      - /etc/localtime:/etc/localtime:ro
-      - /etc/timezone:/etc/timezone:ro
   pantry-ui:
     image: klschaefer/pantry-ui:latest
     pull_policy: always
@@ -26,9 +25,8 @@ services:
     environment:
       - API_BASEURL=${API_BASEURL}
       - SITE_TITLE=${SITE_TITLE}
-    volumes:
-      - /etc/localtime:/etc/localtime:ro
-      - /etc/timezone:/etc/timezone:ro
+      - TZ=${TZ:-UTC}
+    # Removed host-dependent timezone volumes to fix Portainer deployment issues
 
   wyoming-whisper:
     image: rhasspy/wyoming-whisper
@@ -49,9 +47,8 @@ services:
       - VNC_PASSWORD=playwright
       - SCREEN_WIDTH=1920
       - SCREEN_HEIGHT=1080
+      - TZ=${TZ:-UTC}
     volumes:
-      - /etc/localtime:/etc/localtime:ro
-      - /etc/timezone:/etc/timezone:ro
       - pantry_playwright_data:/app/browser-data
 
 volumes:
