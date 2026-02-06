@@ -1,4 +1,4 @@
-import { GoogleGenerativeAI, Content, FunctionDeclarationSchemaType, EnhancedGenerateContentResponse, GenerateContentStreamResult } from "@google/generative-ai";
+import { GoogleGenerativeAI, Content, SchemaType, EnhancedGenerateContentResponse, GenerateContentStreamResult } from "@google/generative-ai";
 import { GoogleAICacheManager, CachedContent } from "@google/generative-ai/server";
 import * as crypto from "crypto";
 import dotenv from "dotenv";
@@ -115,7 +115,13 @@ export async function executeWithFallback<T>(
  * If Flash outputs the escalation token, it discards the stream and switches to Pro.
  * Otherwise, it streams the Flash response directly.
  */
+/**
+ * Optimized Router: Uses Flash to attempt a direct answer.
+ * If Flash outputs the escalation token, it discards the stream and switches to Pro.
+ * Otherwise, it streams the Flash response directly.
+ */
 async function routeAndExecute(
+  sessionId: number,
   systemInstruction: string,
   contents: Content[],
   tools: any[],
@@ -142,11 +148,22 @@ async function routeAndExecute(
 
   // 2. Prepare Router (Flash) with escalation instruction
   const ESCALATION_TOKEN = "[[ROUTER_ESCALATE]]";
+  const SUMMARY_TAG = "summary";
+
   const routingInstruction = `
 [INTERNAL ROUTING INSTRUCTION]
 You are acting as the primary responder. Analyze the user request.
-If it requires complex reasoning, advanced creative writing, or capabilities beyond a standard efficient model, output EXACTLY the token "${ESCALATION_TOKEN}" and nothing else.
-Otherwise, answer the request directly and helpfully as the assistant.
+If it requires complex reasoning, advanced creative writing, or capabilities beyond a standard efficient model:
+1. Output the token "${ESCALATION_TOKEN}" immediately.
+2. On a new line, provide a comprehensive summary of the entire chat session up to this point (<${SUMMARY_TAG}>...</${SUMMARY_TAG}>).
+
+Otherwise:
+1. Answer the request directly and helpfully as the assistant.
+2. Provide the summary (<${SUMMARY_TAG}>...</${SUMMARY_TAG}>) at the very end.
+
+Example Summary Format:
+<${SUMMARY_TAG}>User asked x, I provided y.</${SUMMARY_TAG}>
+
 ${systemInstruction}`;
 
   const routerModel = googleAI.getGenerativeModel({
@@ -186,13 +203,35 @@ ${systemInstruction}`;
       if (accumulatedText.trimStart().length > 50) break;
     }
 
+    // Helper to extract and save summary
+    const saveSummaryFromText = async (text: string) => {
+      if (text.includes(`<${SUMMARY_TAG}>`)) {
+        let summaryContent = text.replace(new RegExp(`.*?<${SUMMARY_TAG}>`, 's'), '');
+        if (summaryContent.includes(`</${SUMMARY_TAG}>`)) {
+          summaryContent = summaryContent.split(`</${SUMMARY_TAG}>`)[0];
+        }
+        summaryContent = summaryContent.trim();
 
+        if (summaryContent) {
+          console.log(`[Auto Router] Extracted Summary: "${summaryContent.substring(0, 50)}..."`);
+          try {
+            await prisma.chatSummary.upsert({
+              where: { sessionId: sessionId },
+              update: { summary: summaryContent },
+              create: { sessionId: sessionId, summary: summaryContent }
+            });
+            console.log("[Auto Router] Summary saved to DB.");
+          } catch (dbErr) {
+            console.error("[Auto Router] Failed to save summary:", dbErr);
+          }
+        }
+      }
+    };
 
     // 5. Check for Escalation Token
     if (isEscalating) {
       console.log(`[Auto Router] Escalation token detected. Switching to Pro (${proModelName}).`);
 
-      // Discard Flash stream (it will complete naturally as we stop iterating, or we can ignore it)
       // Start Pro Stream
       const proModel = googleAI.getGenerativeModel({
         model: proModelName,
@@ -205,26 +244,103 @@ ${systemInstruction}`;
         tools
       });
 
+      // BACKGROUND: Continue consuming Flash stream to get summary
+      (async () => {
+        try {
+          console.log("[Auto Router] Background: Consuming Flash stream for summary...");
+          let buffer = accumulatedText;
+          let next = await iterator.next();
+          while (!next.done) {
+            buffer += next.value.text();
+            next = await iterator.next();
+          }
+          await saveSummaryFromText(buffer);
+        } catch (e) { /* ignore stream errors in background */ }
+      })();
+
       return { streamResult: proStreamResult, finalModelName: proModelName };
     }
 
-    // 6. Direct Answer - Reconstruct Stream
+    // 6. Direct Answer - Reconstruct Stream AND Filter Summary
     console.log(`[Auto Router] Flash accepted request. Streaming directly. Buffer size: ${bufferedResults.length}`);
 
     async function* combinedStream() {
-      for (const result of bufferedResults) yield result.value;
+      let streamBuffer = "";
+
+      const processChunk = (text: string) => {
+        streamBuffer += text;
+        const openTagIndex = streamBuffer.indexOf(`<${SUMMARY_TAG}>`);
+
+        if (openTagIndex !== -1) {
+          const yieldable = streamBuffer.substring(0, openTagIndex);
+          streamBuffer = streamBuffer.substring(openTagIndex);
+          return yieldable;
+        } else {
+          const lastOpen = streamBuffer.lastIndexOf('<');
+          if (lastOpen !== -1 && streamBuffer.length - lastOpen < 10) {
+            const yieldable = streamBuffer.substring(0, lastOpen);
+            streamBuffer = streamBuffer.substring(lastOpen);
+            return yieldable;
+          } else {
+            const yieldable = streamBuffer;
+            streamBuffer = "";
+            return yieldable;
+          }
+        }
+      };
+
+      for (const result of bufferedResults) {
+        const text = result.value.text();
+        const safeText = processChunk(text);
+        if (safeText) {
+          yield {
+            text: () => safeText,
+            functionCalls: result.value.functionCalls,
+            functionResponse: result.value.functionResponse
+          } as any;
+        }
+      }
 
       let next = await iterator.next();
       while (!next.done) {
-        yield next.value;
+        const text = next.value.text();
+        const safeText = processChunk(text);
+        if (safeText) {
+          yield {
+            text: () => safeText,
+            functionCalls: next.value.functionCalls,
+            functionResponse: next.value.functionResponse
+          } as any;
+        }
         next = await iterator.next();
+      }
+
+      if (streamBuffer.includes(`<${SUMMARY_TAG}>`)) {
+        let summaryContent = streamBuffer.replace(`<${SUMMARY_TAG}>`, '');
+        if (summaryContent.includes(`</${SUMMARY_TAG}>`)) {
+          summaryContent = summaryContent.split(`</${SUMMARY_TAG}>`)[0];
+        }
+
+        summaryContent = summaryContent.trim();
+        if (summaryContent) {
+          console.log(`[Auto Router] Extracted Summary: "${summaryContent.substring(0, 50)}..."`);
+          try {
+            await prisma.chatSummary.upsert({
+              where: { sessionId: sessionId },
+              update: { summary: summaryContent },
+              create: { sessionId: sessionId, summary: summaryContent }
+            });
+            console.log("[Auto Router] Summary saved to DB.");
+          } catch (dbErr) {
+            console.error("[Auto Router] Failed to save summary:", dbErr);
+          }
+        }
       }
     }
 
-    // Return the seamless stream
     return {
       streamResult: {
-        stream: combinedStream(),
+        stream: combinedStream() as any,
         response: routerStreamResult.response
       },
       finalModelName: routerModelName
@@ -232,7 +348,6 @@ ${systemInstruction}`;
 
   } catch (error) {
     console.error("[Auto Router] Router failed, falling back to Pro:", error);
-    // If Flash fails completely, fallback to Pro
     const proModel = googleAI.getGenerativeModel({
       model: proModelName,
       ...geminiConfig
@@ -929,9 +1044,9 @@ export const post = async (req: Request, res: Response) => {
             name: "getWeatherForecast",
             description: "Get the weather forecast for the next few days. Useful for meal planning based on weather.",
             parameters: {
-              type: FunctionDeclarationSchemaType.OBJECT,
+              type: SchemaType.OBJECT,
               properties: {
-                days: { type: FunctionDeclarationSchemaType.INTEGER, description: "Number of days to forecast (default 5)" }
+                days: { type: SchemaType.INTEGER, description: "Number of days to forecast (default 5)" }
               }
             }
           },
@@ -939,7 +1054,7 @@ export const post = async (req: Request, res: Response) => {
             name: "getFamilyPreferences",
             description: "Get family member dietary preferences, restrictions, and allergies. ALWAYS call this before recommending recipes.",
             parameters: {
-              type: FunctionDeclarationSchemaType.OBJECT,
+              type: SchemaType.OBJECT,
               properties: {}
             }
           },
@@ -947,7 +1062,7 @@ export const post = async (req: Request, res: Response) => {
             name: "getAvailableEquipment",
             description: "Get the list of available cooking equipment and appliances.",
             parameters: {
-              type: FunctionDeclarationSchemaType.OBJECT,
+              type: SchemaType.OBJECT,
               properties: {}
             }
           },
@@ -955,9 +1070,9 @@ export const post = async (req: Request, res: Response) => {
             name: "searchInventory",
             description: "Search for products in inventory by name, category, or tag. Returns matching products with their current stock levels.",
             parameters: {
-              type: FunctionDeclarationSchemaType.OBJECT,
+              type: SchemaType.OBJECT,
               properties: {
-                query: { type: FunctionDeclarationSchemaType.STRING, description: "Search term (matches product title or tags)" }
+                query: { type: SchemaType.STRING, description: "Search term (matches product title or tags)" }
               },
               required: ["query"]
             }
@@ -966,7 +1081,7 @@ export const post = async (req: Request, res: Response) => {
             name: "getAllProducts",
             description: "Get a list of ALL products in the system with their stock levels. Use when you need to browse or see everything available.",
             parameters: {
-              type: FunctionDeclarationSchemaType.OBJECT,
+              type: SchemaType.OBJECT,
               properties: {}
             }
           },
@@ -974,9 +1089,9 @@ export const post = async (req: Request, res: Response) => {
             name: "getStockExpiringSoon",
             description: "Get products with stock that will expire within a specified number of days.",
             parameters: {
-              type: FunctionDeclarationSchemaType.OBJECT,
+              type: SchemaType.OBJECT,
               properties: {
-                days: { type: FunctionDeclarationSchemaType.INTEGER, description: "Number of days to look ahead (default 7)" }
+                days: { type: SchemaType.INTEGER, description: "Number of days to look ahead (default 7)" }
               }
             }
           },
@@ -985,9 +1100,9 @@ export const post = async (req: Request, res: Response) => {
             name: "getStockEntries",
             description: "Get a list of stock entries for a specific product. Returns details including ID.",
             parameters: {
-              type: FunctionDeclarationSchemaType.OBJECT,
+              type: SchemaType.OBJECT,
               properties: {
-                productId: { type: FunctionDeclarationSchemaType.INTEGER, description: "ID of the product" }
+                productId: { type: SchemaType.INTEGER, description: "ID of the product" }
               },
               required: ["productId"]
             }
@@ -996,14 +1111,14 @@ export const post = async (req: Request, res: Response) => {
             name: "createStockEntry",
             description: "Add a new stock entry for a product.",
             parameters: {
-              type: FunctionDeclarationSchemaType.OBJECT,
+              type: SchemaType.OBJECT,
               properties: {
-                productId: { type: FunctionDeclarationSchemaType.INTEGER, description: "ID of the product" },
-                quantity: { type: FunctionDeclarationSchemaType.NUMBER, description: "Quantity/Amount" },
-                unit: { type: FunctionDeclarationSchemaType.STRING, description: "Unit of measure (e.g. 'grams', 'lbs', 'count')" },
-                expirationDate: { type: FunctionDeclarationSchemaType.STRING, description: "YYYY-MM-DD" },
-                frozen: { type: FunctionDeclarationSchemaType.BOOLEAN },
-                opened: { type: FunctionDeclarationSchemaType.BOOLEAN }
+                productId: { type: SchemaType.INTEGER, description: "ID of the product" },
+                quantity: { type: SchemaType.NUMBER, description: "Quantity/Amount" },
+                unit: { type: SchemaType.STRING, description: "Unit of measure (e.g. 'grams', 'lbs', 'count')" },
+                expirationDate: { type: SchemaType.STRING, description: "YYYY-MM-DD" },
+                frozen: { type: SchemaType.BOOLEAN },
+                opened: { type: SchemaType.BOOLEAN }
               },
               required: ["productId", "quantity"]
             }
@@ -1012,14 +1127,14 @@ export const post = async (req: Request, res: Response) => {
             name: "editStockEntry",
             description: "Update an existing stock entry.",
             parameters: {
-              type: FunctionDeclarationSchemaType.OBJECT,
+              type: SchemaType.OBJECT,
               properties: {
-                stockId: { type: FunctionDeclarationSchemaType.INTEGER, description: "ID of the stock item" },
-                quantity: { type: FunctionDeclarationSchemaType.NUMBER, nullable: true },
-                unit: { type: FunctionDeclarationSchemaType.STRING, nullable: true },
-                expirationDate: { type: FunctionDeclarationSchemaType.STRING, nullable: true, description: "YYYY-MM-DD or null to clear" },
-                frozen: { type: FunctionDeclarationSchemaType.BOOLEAN, nullable: true },
-                opened: { type: FunctionDeclarationSchemaType.BOOLEAN, nullable: true }
+                stockId: { type: SchemaType.INTEGER, description: "ID of the stock item" },
+                quantity: { type: SchemaType.NUMBER, nullable: true },
+                unit: { type: SchemaType.STRING, nullable: true },
+                expirationDate: { type: SchemaType.STRING, nullable: true, description: "YYYY-MM-DD or null to clear" },
+                frozen: { type: SchemaType.BOOLEAN, nullable: true },
+                opened: { type: SchemaType.BOOLEAN, nullable: true }
               },
               required: ["stockId"]
             }
@@ -1028,9 +1143,9 @@ export const post = async (req: Request, res: Response) => {
             name: "deleteStockEntry",
             description: "Delete a stock entry.",
             parameters: {
-              type: FunctionDeclarationSchemaType.OBJECT,
+              type: SchemaType.OBJECT,
               properties: {
-                stockId: { type: FunctionDeclarationSchemaType.INTEGER, description: "ID of the stock item" }
+                stockId: { type: SchemaType.INTEGER, description: "ID of the stock item" }
               },
               required: ["stockId"]
             }
@@ -1039,7 +1154,7 @@ export const post = async (req: Request, res: Response) => {
             name: "getShoppingList",
             description: "Get the current shopping list items.",
             parameters: {
-              type: FunctionDeclarationSchemaType.OBJECT,
+              type: SchemaType.OBJECT,
               properties: {},
             }
           },
@@ -1047,11 +1162,11 @@ export const post = async (req: Request, res: Response) => {
             name: "addToShoppingList",
             description: "Add an item to the shopping list.",
             parameters: {
-              type: FunctionDeclarationSchemaType.OBJECT,
+              type: SchemaType.OBJECT,
               properties: {
-                item: { type: FunctionDeclarationSchemaType.STRING, description: "Name of the item" },
-                quantity: { type: FunctionDeclarationSchemaType.NUMBER, description: "Quantity" },
-                unit: { type: FunctionDeclarationSchemaType.STRING, description: "Unit (e.g. 'pkg', 'oz')" }
+                item: { type: SchemaType.STRING, description: "Name of the item" },
+                quantity: { type: SchemaType.NUMBER, description: "Quantity" },
+                unit: { type: SchemaType.STRING, description: "Unit (e.g. 'pkg', 'oz')" }
               },
               required: ["item"]
             }
@@ -1060,9 +1175,9 @@ export const post = async (req: Request, res: Response) => {
             name: "removeFromShoppingList",
             description: "Remove an item from the shopping list by item name.",
             parameters: {
-              type: FunctionDeclarationSchemaType.OBJECT,
+              type: SchemaType.OBJECT,
               properties: {
-                item: { type: FunctionDeclarationSchemaType.STRING, description: "Name of the item to remove" }
+                item: { type: SchemaType.STRING, description: "Name of the item to remove" }
               },
               required: ["item"]
             }
@@ -1071,9 +1186,9 @@ export const post = async (req: Request, res: Response) => {
             name: "getProducts",
             description: "Search for products in inventory by name/keyword. Returns list of matches with IDs.",
             parameters: {
-              type: FunctionDeclarationSchemaType.OBJECT,
+              type: SchemaType.OBJECT,
               properties: {
-                query: { type: FunctionDeclarationSchemaType.STRING, description: "Search term" }
+                query: { type: SchemaType.STRING, description: "Search term" }
               },
               required: ["query"]
             }
@@ -1082,9 +1197,9 @@ export const post = async (req: Request, res: Response) => {
             name: "getRecipes",
             description: "Search for recipes by name/keyword. Returns list of matches with IDs.",
             parameters: {
-              type: FunctionDeclarationSchemaType.OBJECT,
+              type: SchemaType.OBJECT,
               properties: {
-                query: { type: FunctionDeclarationSchemaType.STRING, description: "Search term" }
+                query: { type: SchemaType.STRING, description: "Search term" }
               },
               required: ["query"]
             }
@@ -1093,10 +1208,10 @@ export const post = async (req: Request, res: Response) => {
             name: "getMealPlan",
             description: "Get the meal plan for a date range.",
             parameters: {
-              type: FunctionDeclarationSchemaType.OBJECT,
+              type: SchemaType.OBJECT,
               properties: {
-                startDate: { type: FunctionDeclarationSchemaType.STRING, description: "StartDate (YYYY-MM-DD)" },
-                endDate: { type: FunctionDeclarationSchemaType.STRING, description: "EndDate (YYYY-MM-DD)" }
+                startDate: { type: SchemaType.STRING, description: "StartDate (YYYY-MM-DD)" },
+                endDate: { type: SchemaType.STRING, description: "EndDate (YYYY-MM-DD)" }
               },
               required: ["startDate", "endDate"]
             }
@@ -1105,11 +1220,11 @@ export const post = async (req: Request, res: Response) => {
             name: "addToMealPlan",
             description: "Add a recipe OR a product to the meal plan.",
             parameters: {
-              type: FunctionDeclarationSchemaType.OBJECT,
+              type: SchemaType.OBJECT,
               properties: {
-                date: { type: FunctionDeclarationSchemaType.STRING, description: "Date (YYYY-MM-DD)" },
-                recipeId: { type: FunctionDeclarationSchemaType.INTEGER, description: "ID of the recipe (optional)" },
-                productId: { type: FunctionDeclarationSchemaType.INTEGER, description: "ID of the product (optional)" }
+                date: { type: SchemaType.STRING, description: "Date (YYYY-MM-DD)" },
+                recipeId: { type: SchemaType.INTEGER, description: "ID of the recipe (optional)" },
+                productId: { type: SchemaType.INTEGER, description: "ID of the product (optional)" }
               },
               required: ["date"]
             }
@@ -1118,9 +1233,9 @@ export const post = async (req: Request, res: Response) => {
             name: "removeFromMealPlan",
             description: "Remove a meal from the plan using its unique plan ID.",
             parameters: {
-              type: FunctionDeclarationSchemaType.OBJECT,
+              type: SchemaType.OBJECT,
               properties: {
-                mealPlanId: { type: FunctionDeclarationSchemaType.INTEGER, description: "ID of the meal plan entry" }
+                mealPlanId: { type: SchemaType.INTEGER, description: "ID of the meal plan entry" }
               },
               required: ["mealPlanId"]
             }
@@ -1129,10 +1244,10 @@ export const post = async (req: Request, res: Response) => {
             name: "moveMealPlan",
             description: "Move a meal plan entry to a new date.",
             parameters: {
-              type: FunctionDeclarationSchemaType.OBJECT,
+              type: SchemaType.OBJECT,
               properties: {
-                mealPlanId: { type: FunctionDeclarationSchemaType.INTEGER },
-                newDate: { type: FunctionDeclarationSchemaType.STRING, description: "New Date (YYYY-MM-DD)" }
+                mealPlanId: { type: SchemaType.INTEGER },
+                newDate: { type: SchemaType.STRING, description: "New Date (YYYY-MM-DD)" }
               },
               required: ["mealPlanId", "newDate"]
             }
@@ -1141,37 +1256,37 @@ export const post = async (req: Request, res: Response) => {
             name: "createRecipe",
             description: "Create a new recipe in the recipe book.",
             parameters: {
-              type: FunctionDeclarationSchemaType.OBJECT,
+              type: SchemaType.OBJECT,
               properties: {
-                title: { type: FunctionDeclarationSchemaType.STRING, description: "Title of the recipe" },
-                description: { type: FunctionDeclarationSchemaType.STRING, description: "Description or summary" },
+                title: { type: SchemaType.STRING, description: "Title of the recipe" },
+                description: { type: SchemaType.STRING, description: "Description or summary" },
                 ingredients: {
-                  type: FunctionDeclarationSchemaType.ARRAY,
+                  type: SchemaType.ARRAY,
                   description: "List of ingredients",
                   items: {
-                    type: FunctionDeclarationSchemaType.OBJECT,
+                    type: SchemaType.OBJECT,
                     properties: {
-                      name: { type: FunctionDeclarationSchemaType.STRING },
-                      amount: { type: FunctionDeclarationSchemaType.NUMBER },
-                      unit: { type: FunctionDeclarationSchemaType.STRING },
-                      productId: { type: FunctionDeclarationSchemaType.INTEGER, description: "Optional: ID of matching product in inventory" }
+                      name: { type: SchemaType.STRING },
+                      amount: { type: SchemaType.NUMBER },
+                      unit: { type: SchemaType.STRING },
+                      productId: { type: SchemaType.INTEGER, description: "Optional: ID of matching product in inventory" }
                     },
                     required: ["name"]
                   }
                 },
                 steps: {
-                  type: FunctionDeclarationSchemaType.ARRAY,
+                  type: SchemaType.ARRAY,
                   description: "List of step-by-step instructions",
-                  items: { type: FunctionDeclarationSchemaType.STRING }
+                  items: { type: SchemaType.STRING }
                 },
                 printSteps: {
-                  type: FunctionDeclarationSchemaType.ARRAY,
+                  type: SchemaType.ARRAY,
                   description: "Simplified, concise steps optimized for printing on a receipt printer.",
-                  items: { type: FunctionDeclarationSchemaType.STRING }
+                  items: { type: SchemaType.STRING }
                 },
-                prepTime: { type: FunctionDeclarationSchemaType.NUMBER, description: "Prep time in minutes" },
-                cookTime: { type: FunctionDeclarationSchemaType.NUMBER, description: "Cook time in minutes" },
-                yield: { type: FunctionDeclarationSchemaType.STRING, description: "Servings/Yield" }
+                prepTime: { type: SchemaType.NUMBER, description: "Prep time in minutes" },
+                cookTime: { type: SchemaType.NUMBER, description: "Cook time in minutes" },
+                yield: { type: SchemaType.STRING, description: "Servings/Yield" }
               },
               required: ["title", "ingredients", "steps"]
             }
@@ -1180,9 +1295,9 @@ export const post = async (req: Request, res: Response) => {
             name: "getRecipeDetails",
             description: "Get the full details (ingredients, steps) of a recipe by ID.",
             parameters: {
-              type: FunctionDeclarationSchemaType.OBJECT,
+              type: SchemaType.OBJECT,
               properties: {
-                recipeId: { type: FunctionDeclarationSchemaType.INTEGER, description: "ID of the recipe" }
+                recipeId: { type: SchemaType.INTEGER, description: "ID of the recipe" }
               },
               required: ["recipeId"]
             }
@@ -1191,23 +1306,23 @@ export const post = async (req: Request, res: Response) => {
             name: "printReceipt",
             description: "Print a receipt, shopping list, or recipe to the Kiosk thermal printer.",
             parameters: {
-              type: FunctionDeclarationSchemaType.OBJECT,
+              type: SchemaType.OBJECT,
               properties: {
-                title: { type: FunctionDeclarationSchemaType.STRING, description: "Title of the receipt" },
-                text: { type: FunctionDeclarationSchemaType.STRING, description: "Main body text or description" },
+                title: { type: SchemaType.STRING, description: "Title of the receipt" },
+                text: { type: SchemaType.STRING, description: "Main body text or description" },
                 items: {
-                  type: FunctionDeclarationSchemaType.ARRAY,
+                  type: SchemaType.ARRAY,
                   description: "List of items to print (optional)",
                   items: {
-                    type: FunctionDeclarationSchemaType.OBJECT,
+                    type: SchemaType.OBJECT,
                     properties: {
-                      name: { type: FunctionDeclarationSchemaType.STRING },
-                      quantity: { type: FunctionDeclarationSchemaType.STRING }
+                      name: { type: SchemaType.STRING },
+                      quantity: { type: SchemaType.STRING }
                     },
                     required: ["name"]
                   }
                 },
-                footer: { type: FunctionDeclarationSchemaType.STRING, description: "Optional footer text" }
+                footer: { type: SchemaType.STRING, description: "Optional footer text" }
               },
               required: ["title"]
             }
@@ -1220,18 +1335,18 @@ export const post = async (req: Request, res: Response) => {
             name: "createCookingInstruction",
             description: "Save specific cooking instructions for a product (e.g. Microwave vs Oven).",
             parameters: {
-              type: FunctionDeclarationSchemaType.OBJECT,
+              type: SchemaType.OBJECT,
               properties: {
-                productId: { type: FunctionDeclarationSchemaType.INTEGER, description: "ID of the product these instructions belong to." },
-                method: { type: FunctionDeclarationSchemaType.STRING, description: "Cooking method or title (e.g. 'Microwave Instructions')" },
-                description: { type: FunctionDeclarationSchemaType.STRING, description: "Brief description of the method." },
+                productId: { type: SchemaType.INTEGER, description: "ID of the product these instructions belong to." },
+                method: { type: SchemaType.STRING, description: "Cooking method or title (e.g. 'Microwave Instructions')" },
+                description: { type: SchemaType.STRING, description: "Brief description of the method." },
                 steps: {
-                  type: FunctionDeclarationSchemaType.ARRAY,
-                  items: { type: FunctionDeclarationSchemaType.STRING },
+                  type: SchemaType.ARRAY,
+                  items: { type: SchemaType.STRING },
                   description: "List of instruction steps."
                 },
-                prepTime: { type: FunctionDeclarationSchemaType.NUMBER },
-                cookTime: { type: FunctionDeclarationSchemaType.NUMBER }
+                prepTime: { type: SchemaType.NUMBER },
+                cookTime: { type: SchemaType.NUMBER }
               },
               required: ["productId", "method", "steps"]
             }
@@ -1240,10 +1355,10 @@ export const post = async (req: Request, res: Response) => {
             name: "sendPushNotification",
             description: "Send a push notification to the user's devices.",
             parameters: {
-              type: FunctionDeclarationSchemaType.OBJECT,
+              type: SchemaType.OBJECT,
               properties: {
-                title: { type: FunctionDeclarationSchemaType.STRING, description: "Notification title" },
-                body: { type: FunctionDeclarationSchemaType.STRING, description: "Notification body text" }
+                title: { type: SchemaType.STRING, description: "Notification title" },
+                body: { type: SchemaType.STRING, description: "Notification body text" }
               },
               required: ["title", "body"]
             }
@@ -1943,10 +2058,31 @@ export const post = async (req: Request, res: Response) => {
 
         if (calls && calls.length > 0) {
           // 1. Add model's tool call message to history
-          // Note: In some SDK versions, we need to construct the part carefully
+          // The SDK v0.24.1 strips out thoughtSignature from response.parts, but Gemini 3 models require it.
+          // We need to inject the dummy signature "skip_thought_signature_validator" per the documentation.
+          let hasFunctionCallNeedingSignature = false;
+          const partsWithSignature = (response.parts || []).map((part: any) => {
+            const copiedPart: any = {};
+            if (part.text !== undefined) copiedPart.text = part.text;
+            if (part.inlineData) copiedPart.inlineData = part.inlineData;
+            if (part.functionCall) {
+              copiedPart.functionCall = {
+                name: part.functionCall.name,
+                args: part.functionCall.args
+              };
+              // Inject dummy signature on the first function call part
+              if (!hasFunctionCallNeedingSignature) {
+                hasFunctionCallNeedingSignature = true;
+                copiedPart.thoughtSignature = part.thoughtSignature || "skip_thought_signature_validator";
+              }
+            }
+            if (part.functionResponse) copiedPart.functionResponse = part.functionResponse;
+            return copiedPart;
+          });
+
           currentContents.push({
             role: "model",
-            parts: response.parts,
+            parts: partsWithSignature,
           });
 
           // 2. Execute tools
@@ -2386,41 +2522,93 @@ export const postStream = async (req: Request, res: Response) => {
         orderBy: { createdAt: 'asc' }
       });
 
-      history = messages
-        .filter(msg => msg.type !== 'tool_call') // Exclude tool calls from Gemini history (UI only)
-        .map(msg => {
-          let text = msg.content || '';
-          if (msg.type === 'recipe' && msg.recipeData) {
-            text = JSON.stringify({
-              items: [{ type: 'recipe', recipe: JSON.parse(msg.recipeData) }]
-            });
-          }
+      // Check for Summary
+      const chatSummary = await prisma.chatSummary.findUnique({
+        where: { sessionId: sessionId as number }
+      });
 
-          const parts: any[] = [];
-          if (text) {
-            parts.push({ text });
-          }
+      if (chatSummary && chatSummary.summary) {
+        console.log(`[Stream] Using Chat Summary for Session ${sessionId}`);
+        history = [
+          { role: "user", parts: [{ text: `[SYSTEM: CONVERSATION SUMMARY]\nThe following is a summary of the conversation history so far. Use this context to answer the latest user request.\n\n${chatSummary.summary}` }] },
+          { role: "model", parts: [{ text: "Understood. I will use this summary as context." }] }
+        ];
+      } else {
+        // Build history including tool calls for full context
+        const historyItems: Content[] = [];
 
-          if (msg.imageUrl) {
-            const ext = path.extname(msg.imageUrl).toLowerCase();
-            let mime = 'image/jpeg';
-            if (ext === '.png') mime = 'image/png';
-            if (ext === '.webp') mime = 'image/webp';
-            if (ext === '.heic') mime = 'image/heic';
-            if (ext === '.heif') mime = 'image/heif';
-
+        for (const msg of messages) {
+          if (msg.type === 'tool_call' && msg.toolCallData) {
+            // Reconstruct tool call as proper functionCall/functionResponse parts
             try {
-              const fullPath = path.join(UPLOAD_DIR, msg.imageUrl);
-              if (fs.existsSync(fullPath)) {
-                parts.push(fileToGenerativePart(fullPath, mime));
+              const toolData = JSON.parse(msg.toolCallData);
+              if (toolData.name && toolData.args !== undefined && toolData.result !== undefined) {
+                // Model's function call part (with dummy signature for Gemini 3)
+                historyItems.push({
+                  role: 'model',
+                  parts: [{
+                    functionCall: {
+                      name: toolData.name,
+                      args: toolData.args
+                    },
+                    // Use dummy signature for historical tool calls (SDK workaround)
+                    thoughtSignature: "skip_thought_signature_validator"
+                  } as any]
+                });
+                // User's function response part
+                historyItems.push({
+                  role: 'user',
+                  parts: [{
+                    functionResponse: {
+                      name: toolData.name,
+                      response: { result: toolData.result }
+                    }
+                  }]
+                });
               }
             } catch (e) {
-              console.error("Failed to load image for history", e);
+              console.warn("Failed to parse tool call data for history:", e);
+            }
+          } else {
+            // Regular message (user, model, recipe)
+            let text = msg.content || '';
+            if (msg.type === 'recipe' && msg.recipeData) {
+              text = JSON.stringify({
+                items: [{ type: 'recipe', recipe: JSON.parse(msg.recipeData) }]
+              });
+            }
+
+            const parts: any[] = [];
+            if (text) {
+              parts.push({ text });
+            }
+
+            if (msg.imageUrl) {
+              const ext = path.extname(msg.imageUrl).toLowerCase();
+              let mime = 'image/jpeg';
+              if (ext === '.png') mime = 'image/png';
+              if (ext === '.webp') mime = 'image/webp';
+              if (ext === '.heic') mime = 'image/heic';
+              if (ext === '.heif') mime = 'image/heif';
+
+              try {
+                const fullPath = path.join(UPLOAD_DIR, msg.imageUrl);
+                if (fs.existsSync(fullPath)) {
+                  parts.push(fileToGenerativePart(fullPath, mime));
+                }
+              } catch (e) {
+                console.error("Failed to load image for history", e);
+              }
+            }
+
+            if (parts.length > 0) {
+              historyItems.push({ role: msg.sender, parts } as Content);
             }
           }
+        }
 
-          return { role: msg.sender, parts } as Content;
-        }).filter(content => content.parts.length > 0);
+        history = historyItems;
+      }
     }
 
     // Send session ID to client immediately
@@ -2447,14 +2635,14 @@ export const postStream = async (req: Request, res: Response) => {
     const streamTools = [
       {
         functionDeclarations: [
-          { name: "getWeatherForecast", description: "Get weather forecast.", parameters: { type: FunctionDeclarationSchemaType.OBJECT, properties: { days: { type: FunctionDeclarationSchemaType.INTEGER } } } },
-          { name: "getFamilyPreferences", description: "Get family dietary preferences and restrictions.", parameters: { type: FunctionDeclarationSchemaType.OBJECT, properties: {} } },
-          { name: "getAvailableEquipment", description: "Get available cooking equipment.", parameters: { type: FunctionDeclarationSchemaType.OBJECT, properties: {} } },
-          { name: "searchInventory", description: "Search inventory by name or tag.", parameters: { type: FunctionDeclarationSchemaType.OBJECT, properties: { query: { type: FunctionDeclarationSchemaType.STRING } }, required: ["query"] } },
-          { name: "getAllProducts", description: "Get all products with stock levels.", parameters: { type: FunctionDeclarationSchemaType.OBJECT, properties: {} } },
-          { name: "getStockExpiringSoon", description: "Get items expiring soon.", parameters: { type: FunctionDeclarationSchemaType.OBJECT, properties: { days: { type: FunctionDeclarationSchemaType.INTEGER } } } },
-          { name: "searchRecipes", description: "Search recipes by name.", parameters: { type: FunctionDeclarationSchemaType.OBJECT, properties: { query: { type: FunctionDeclarationSchemaType.STRING } } } },
-          { name: "getRecipeDetails", description: "Get full recipe details.", parameters: { type: FunctionDeclarationSchemaType.OBJECT, properties: { recipeId: { type: FunctionDeclarationSchemaType.INTEGER } }, required: ["recipeId"] } }
+          { name: "getWeatherForecast", description: "Get weather forecast.", parameters: { type: SchemaType.OBJECT, properties: { days: { type: SchemaType.INTEGER } } } },
+          { name: "getFamilyPreferences", description: "Get family dietary preferences and restrictions.", parameters: { type: SchemaType.OBJECT, properties: {} } },
+          { name: "getAvailableEquipment", description: "Get available cooking equipment.", parameters: { type: SchemaType.OBJECT, properties: {} } },
+          { name: "searchInventory", description: "Search inventory by name or tag.", parameters: { type: SchemaType.OBJECT, properties: { query: { type: SchemaType.STRING } }, required: ["query"] } },
+          { name: "getAllProducts", description: "Get all products with stock levels.", parameters: { type: SchemaType.OBJECT, properties: {} } },
+          { name: "getStockExpiringSoon", description: "Get items expiring soon.", parameters: { type: SchemaType.OBJECT, properties: { days: { type: SchemaType.INTEGER } } } },
+          { name: "searchRecipes", description: "Search recipes by name.", parameters: { type: SchemaType.OBJECT, properties: { query: { type: SchemaType.STRING } } } },
+          { name: "getRecipeDetails", description: "Get full recipe details.", parameters: { type: SchemaType.OBJECT, properties: { recipeId: { type: SchemaType.INTEGER } }, required: ["recipeId"] } }
         ]
       }
     ];
@@ -2487,6 +2675,7 @@ export const postStream = async (req: Request, res: Response) => {
 
 
       const { streamResult, finalModelName: routedModelName } = await routeAndExecute(
+        sessionId as number,
         systemInstruction,
         preliminaryContents,
         streamTools,
@@ -2733,6 +2922,12 @@ export const postStream = async (req: Request, res: Response) => {
           streamResult = preGeneratedStreamResult;
           preGeneratedStreamResult = null; // Use only once
         } else {
+          // Log summary of contents being sent (reduced from verbose per-part logging)
+          const contentSummary = currentContents.map((c: any) =>
+            `${c.role}(${c.parts.length} parts${c.parts.some((p: any) => p.thoughtSignature) ? '+sig' : ''})`
+          ).join(', ');
+          console.log(`[Stream Loop ${loopCount}] Calling generateContentStream: [${contentSummary}]`);
+
           streamResult = await model.generateContentStream({
             contents: currentContents,
             tools: streamTools
@@ -2772,7 +2967,44 @@ export const postStream = async (req: Request, res: Response) => {
         // IMPORTANT: Await the full response to get parts WITH thought_signature
         // Stream chunks don't include thought_signature, but the final response does
         const finalResponse = await streamResult.response;
-        const responseParts = finalResponse.candidates?.[0]?.content?.parts || [];
+        const rawResponseParts = finalResponse.candidates?.[0]?.content?.parts || [];
+
+        // Log response summary (reduced from verbose per-part logging)
+        const fcParts = rawResponseParts.filter((p: any) => p.functionCall);
+        const sigParts = rawResponseParts.filter((p: any) => p.thoughtSignature);
+        console.log(`[Stream Loop ${loopCount}] Response: ${rawResponseParts.length} parts, ${fcParts.length} function calls${fcParts.length > 0 ? ` (${fcParts.map((p: any) => p.functionCall.name).join(', ')})` : ''}, SDK provides signature: ${sigParts.length > 0}`);
+
+        // IMPORTANT: Explicitly copy part properties and ensure thoughtSignature is present
+        // The SDK v0.24.1 strips out thoughtSignature from the response, but Gemini 3 models require it.
+        // According to Google's documentation, when signatures are missing, we can use the dummy
+        // signature "skip_thought_signature_validator" to bypass validation.
+        // See: https://ai.google.dev/gemini-api/docs/thought-signatures#FAQs
+        let hasFunctionCallNeedingSignature = false;
+        const responseParts = rawResponseParts.map((part: any, index: number) => {
+          const copiedPart: any = {};
+          if (part.text !== undefined) copiedPart.text = part.text;
+          if (part.inlineData) copiedPart.inlineData = part.inlineData;
+          if (part.functionCall) {
+            copiedPart.functionCall = {
+              name: part.functionCall.name,
+              args: part.functionCall.args
+            };
+            // Gemini 3 models require thoughtSignature on the FIRST functionCall part
+            if (!hasFunctionCallNeedingSignature) {
+              hasFunctionCallNeedingSignature = true;
+              // Check if SDK provided the signature (it currently doesn't in v0.24.1)
+              if (part.thoughtSignature) {
+                copiedPart.thoughtSignature = part.thoughtSignature;
+              } else {
+                // Inject the dummy signature as documented workaround
+                // "skip_thought_signature_validator" allows requests without proper signatures
+                copiedPart.thoughtSignature = "skip_thought_signature_validator";
+              }
+            }
+          }
+          if (part.functionResponse) copiedPart.functionResponse = part.functionResponse;
+          return copiedPart;
+        });
 
         // Check if there are function calls in the final response
         for (const part of responseParts) {
@@ -2784,10 +3016,10 @@ export const postStream = async (req: Request, res: Response) => {
 
         // If there were tool calls, execute them and continue
         if (hasToolCall && toolCalls.length > 0) {
-          // Add model's response to context - use the FULL response parts with thought_signature
+          // Add model's response to context - use the copied parts with thought_signature
           currentContents.push({
             role: "model",
-            parts: responseParts // This includes thought_signature from the final response
+            parts: responseParts // Now contains properly copied thoughtSignature
           });
 
           // Execute tools and add responses, tracking duration and saving to DB
@@ -2799,14 +3031,19 @@ export const postStream = async (req: Request, res: Response) => {
 
             const displayName = toolDisplayNames[call.name] || `Using ${call.name}...`;
 
-            // Save tool call to DB (async, don't await to keep stream fast)
+            // Save tool call to DB with full data for history reconstruction
             prisma.chatMessage.create({
               data: {
                 sessionId: sessionId as number,
-                sender: 'system',
+                sender: 'model',  // Changed from 'system' - it's the model making the call
                 type: 'tool_call',
                 content: displayName,
-                toolCallData: JSON.stringify({ name: call.name, displayName }),
+                toolCallData: JSON.stringify({
+                  name: call.name,
+                  displayName,
+                  args: call.args,  // Include args for history reconstruction
+                  result: result    // Include result for functionResponse
+                }),
                 toolCallDurationMs: toolDurationMs
               }
             }).catch(err => console.error("Failed to save tool call:", err));
@@ -2817,7 +3054,7 @@ export const postStream = async (req: Request, res: Response) => {
           }
 
           currentContents.push({
-            role: "function",
+            role: "user",
             parts: toolResponses
           });
 
@@ -3070,13 +3307,13 @@ export const postProductDetails = async (req: Request, res: Response) => {
       Use integer values for days. If unknown or if you are not sure for days, return null for that field. default trackCountBy to 'quantity' if unsure.`;
 
     const schema = {
-      type: FunctionDeclarationSchemaType.OBJECT,
+      type: SchemaType.OBJECT,
       properties: {
-        freezerLifespanDays: { type: FunctionDeclarationSchemaType.INTEGER, nullable: true },
-        refrigeratorLifespanDays: { type: FunctionDeclarationSchemaType.INTEGER, nullable: true },
-        openedLifespanDays: { type: FunctionDeclarationSchemaType.INTEGER, nullable: true },
-        pantryLifespanDays: { type: FunctionDeclarationSchemaType.INTEGER, nullable: true },
-        trackCountBy: { type: FunctionDeclarationSchemaType.STRING, enum: ["quantity", "weight"] }
+        freezerLifespanDays: { type: SchemaType.INTEGER, nullable: true },
+        refrigeratorLifespanDays: { type: SchemaType.INTEGER, nullable: true },
+        openedLifespanDays: { type: SchemaType.INTEGER, nullable: true },
+        pantryLifespanDays: { type: SchemaType.INTEGER, nullable: true },
+        trackCountBy: { type: SchemaType.STRING, enum: ["quantity", "weight"] }
       },
       required: [
         "freezerLifespanDays",
@@ -3166,17 +3403,17 @@ export const postQuickSuggest = async (req: Request, res: Response) => {
     `;
 
     const schema = {
-      type: FunctionDeclarationSchemaType.OBJECT,
+      type: SchemaType.OBJECT,
       properties: {
         suggestions: {
-          type: FunctionDeclarationSchemaType.ARRAY,
+          type: SchemaType.ARRAY,
           items: {
-            type: FunctionDeclarationSchemaType.OBJECT,
+            type: SchemaType.OBJECT,
             properties: {
-              name: { type: FunctionDeclarationSchemaType.STRING },
-              prepTime: { type: FunctionDeclarationSchemaType.STRING },
-              description: { type: FunctionDeclarationSchemaType.STRING },
-              ingredients: { type: FunctionDeclarationSchemaType.ARRAY, items: { type: FunctionDeclarationSchemaType.STRING } }
+              name: { type: SchemaType.STRING },
+              prepTime: { type: SchemaType.STRING },
+              description: { type: SchemaType.STRING },
+              ingredients: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING } }
             },
             required: ["name", "prepTime", "description", "ingredients"]
           }
@@ -3238,16 +3475,16 @@ export const postThawAdvice = async (req: Request, res: Response) => {
     `;
 
     const schema = {
-      type: FunctionDeclarationSchemaType.OBJECT,
+      type: SchemaType.OBJECT,
       properties: {
         items: {
-          type: FunctionDeclarationSchemaType.ARRAY,
+          type: SchemaType.ARRAY,
           items: {
-            type: FunctionDeclarationSchemaType.OBJECT,
+            type: SchemaType.OBJECT,
             properties: {
-              name: { type: FunctionDeclarationSchemaType.STRING },
-              hoursToThaw: { type: FunctionDeclarationSchemaType.NUMBER },
-              advice: { type: FunctionDeclarationSchemaType.STRING }
+              name: { type: SchemaType.STRING },
+              hoursToThaw: { type: SchemaType.NUMBER },
+              advice: { type: SchemaType.STRING }
             },
             required: ["name", "hoursToThaw", "advice"]
           }
@@ -3314,9 +3551,9 @@ export const postProductMatch = async (req: Request, res: Response) => {
     `;
 
     const schema = {
-      type: FunctionDeclarationSchemaType.OBJECT,
+      type: SchemaType.OBJECT,
       properties: {
-        matchId: { type: FunctionDeclarationSchemaType.INTEGER, nullable: true }
+        matchId: { type: SchemaType.INTEGER, nullable: true }
       },
       required: ["matchId"]
     } as any;
@@ -3382,18 +3619,18 @@ export const postBarcodeDetails = async (req: Request, res: Response) => {
         `;
 
     const schema = {
-      type: FunctionDeclarationSchemaType.OBJECT,
+      type: SchemaType.OBJECT,
       properties: {
-        title: { type: FunctionDeclarationSchemaType.STRING },
-        brand: { type: FunctionDeclarationSchemaType.STRING },
-        description: { type: FunctionDeclarationSchemaType.STRING },
-        tags: { type: FunctionDeclarationSchemaType.ARRAY, items: { type: FunctionDeclarationSchemaType.STRING } },
-        pantryLifespanDays: { type: FunctionDeclarationSchemaType.NUMBER, nullable: true },
-        refrigeratorLifespanDays: { type: FunctionDeclarationSchemaType.NUMBER, nullable: true },
-        freezerLifespanDays: { type: FunctionDeclarationSchemaType.NUMBER, nullable: true },
-        openedLifespanDays: { type: FunctionDeclarationSchemaType.NUMBER, nullable: true },
-        trackCountBy: { type: FunctionDeclarationSchemaType.STRING, enum: ["quantity", "weight"] },
-        autoPrintLabel: { type: FunctionDeclarationSchemaType.BOOLEAN }
+        title: { type: SchemaType.STRING },
+        brand: { type: SchemaType.STRING },
+        description: { type: SchemaType.STRING },
+        tags: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING } },
+        pantryLifespanDays: { type: SchemaType.NUMBER, nullable: true },
+        refrigeratorLifespanDays: { type: SchemaType.NUMBER, nullable: true },
+        freezerLifespanDays: { type: SchemaType.NUMBER, nullable: true },
+        openedLifespanDays: { type: SchemaType.NUMBER, nullable: true },
+        trackCountBy: { type: SchemaType.STRING, enum: ["quantity", "weight"] },
+        autoPrintLabel: { type: SchemaType.BOOLEAN }
       },
       required: ["title", "brand", "description", "tags"]
     } as any;
