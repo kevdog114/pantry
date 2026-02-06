@@ -1,0 +1,169 @@
+<div class="browser-viewer">
+    <!-- Header -->
+    <div class="viewer-header">
+        <div class="header-left">
+            <h1>
+                <span class="icon">🌐</span>
+                Browser Automation
+            </h1>
+            <div class="status-badge" [class]="getStatusClass()">
+                <span class="status-dot"></span>
+                {{ getStatusText() }}
+            </div>
+        </div>
+        <div class="header-right">
+            <button class="btn btn-icon" (click)="refreshStatus()" title="Refresh Status">
+                🔄
+            </button>
+            <button class="btn btn-icon" (click)="reloadVnc()" title="Reload VNC">
+                ↻
+            </button>
+        </div>
+    </div>
+
+    <!-- Error Banner -->
+    <div class="error-banner" *ngIf="error">
+        <span class="error-icon">⚠️</span>
+        <span class="error-text">{{ error }}</span>
+        <button class="btn-close" (click)="clearError()">×</button>
+    </div>
+
+    <!-- Loading State -->
+    <div class="loading-container" *ngIf="loading">
+        <div class="loading-spinner"></div>
+        <p>Connecting to browser...</p>
+    </div>
+
+    <!-- Main Content -->
+    <div class="viewer-content" *ngIf="!loading">
+        <!-- Tab Navigation -->
+        <div class="tab-nav">
+            <button class="tab-btn" [class.active]="activeTab === 'viewer'" (click)="setActiveTab('viewer')">
+                <span class="tab-icon">📺</span>
+                Viewer
+            </button>
+            <button class="tab-btn" [class.active]="activeTab === 'controls'" (click)="setActiveTab('controls')">
+                <span class="tab-icon">⚙️</span>
+                Controls
+            </button>
+            <button class="tab-btn" [class.active]="activeTab === 'console'" (click)="setActiveTab('console')">
+                <span class="tab-icon">📋</span>
+                Console
+            </button>
+        </div>
+
+        <!-- Viewer Tab -->
+        <div class="tab-content" *ngIf="activeTab === 'viewer'">
+            <!-- Navigation Bar -->
+            <div class="nav-bar">
+                <button class="nav-btn" (click)="goBack()" title="Back">
+                    ←
+                </button>
+                <button class="nav-btn" (click)="goForward()" title="Forward">
+                    →
+                </button>
+                <button class="nav-btn" (click)="refresh()" title="Refresh">
+                    ↻
+                </button>
+                <div class="url-input-container">
+                    <input type="text" class="url-input" [(ngModel)]="urlInput" placeholder="Enter URL..."
+                        (keydown.enter)="navigate()" />
+                </div>
+                <button class="nav-btn go-btn" (click)="navigate()">
+                    Go
+                </button>
+            </div>
+
+            <!-- VNC Container -->
+            <div class="vnc-container">
+                <iframe #vncFrame *ngIf="vncUrl" [src]="vncUrl" class="vnc-frame"
+                    allow="clipboard-read; clipboard-write" allowfullscreen>
+                </iframe>
+                <div class="vnc-placeholder" *ngIf="!vncUrl">
+                    <div class="placeholder-icon">🖥️</div>
+                    <p>VNC viewer not available</p>
+                    <p class="placeholder-hint">Make sure the Playwright container is running</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Controls Tab -->
+        <div class="tab-content controls-tab" *ngIf="activeTab === 'controls'">
+            <div class="control-section">
+                <h3>🖼️ Screen Size</h3>
+                <div class="control-row">
+                    <div class="input-group">
+                        <label>Width</label>
+                        <input type="number" [(ngModel)]="screenWidth" min="800" max="3840" />
+                    </div>
+                    <div class="input-group">
+                        <label>Height</label>
+                        <input type="number" [(ngModel)]="screenHeight" min="600" max="2160" />
+                    </div>
+                    <button class="btn btn-primary" (click)="resizeBrowser()">Apply</button>
+                </div>
+            </div>
+
+            <div class="control-section">
+                <h3>📸 Actions</h3>
+                <div class="control-row actions-row">
+                    <button class="btn" (click)="takeSnapshot()">
+                        <span class="btn-icon">📋</span>
+                        Take Snapshot
+                    </button>
+                    <button class="btn" (click)="takeScreenshot()">
+                        <span class="btn-icon">📷</span>
+                        Screenshot
+                    </button>
+                    <button class="btn btn-danger" (click)="closeBrowser()">
+                        <span class="btn-icon">✖️</span>
+                        Close Browser
+                    </button>
+                </div>
+            </div>
+
+            <div class="control-section" *ngIf="snapshot">
+                <h3>📄 Page Snapshot</h3>
+                <div class="snapshot-preview">
+                    <pre>{{ snapshot | json }}</pre>
+                </div>
+            </div>
+
+            <div class="control-section">
+                <h3>📊 Connection Info</h3>
+                <div class="info-grid" *ngIf="config">
+                    <div class="info-item">
+                        <span class="info-label">MCP Endpoint</span>
+                        <span class="info-value">{{ config.mcp.endpoint }}</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">VNC Port</span>
+                        <span class="info-value">{{ config.vnc.port }}</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">MCP Port</span>
+                        <span class="info-value">{{ config.mcp.port }}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Console Tab -->
+        <div class="tab-content console-tab" *ngIf="activeTab === 'console'">
+            <div class="console-header">
+                <h3>Browser Console</h3>
+                <button class="btn btn-sm" (click)="loadConsoleMessages()">
+                    🔄 Refresh
+                </button>
+            </div>
+            <div class="console-output">
+                <div class="console-empty" *ngIf="consoleMessages.length === 0">
+                    No console messages
+                </div>
+                <div class="console-message" *ngFor="let msg of consoleMessages">
+                    {{ msg }}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

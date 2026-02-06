@@ -34,6 +34,21 @@ services:
       - pantry_whisper:/data
     command: --model tiny --language en --initial-prompt "pantry kitchen food ingredients recipe shopping list add remove cook bake fridge freezer canned dry goods spices dairy meat vegetables fruit"
 
+  playwright-mcp:
+    build: ./playwright-mcp
+    container_name: playwright-mcp
+    ports:
+      - 5900:5900 # VNC
+      - 6080:6080 # noVNC web interface
+      - 8931:8931 # Playwright MCP HTTP API
+    environment:
+      - VNC_PASSWORD=playwright
+      - SCREEN_WIDTH=1920
+      - SCREEN_HEIGHT=1080
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - /etc/timezone:/etc/timezone:ro
+
 volumes:
   pantry_data:
   pantry_whisper:

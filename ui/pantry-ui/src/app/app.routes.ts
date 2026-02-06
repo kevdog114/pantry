@@ -220,6 +220,11 @@ export const routes: Routes = [
         canActivate: [AuthGuard]
     },
     {
+        path: "browser",
+        loadComponent: () => import('./browser-viewer/browser-viewer.component').then(m => m.BrowserViewerComponent),
+        canActivate: [AuthGuard]
+    },
+    {
         path: "**",
         redirectTo: "home"
     }

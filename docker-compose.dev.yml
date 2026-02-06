@@ -18,5 +18,17 @@ services:
     env_file:
       - stack.dev.env
 
+  playwright-mcp:
+    build: ./playwright-mcp
+    container_name: playwright-mcp-dev
+    ports:
+      - 5900:5900 # VNC
+      - 6080:6080 # noVNC web interface
+      - 8931:8931 # Playwright MCP HTTP API
+    environment:
+      - VNC_PASSWORD=playwright
+      - SCREEN_WIDTH=1920
+      - SCREEN_HEIGHT=1080
+
 volumes:
   pantry_data:

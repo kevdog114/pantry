@@ -29,6 +29,7 @@ import * as LabelPrinterController from "./controllers/labelPrinterController";
 import * as EquipmentController from "./controllers/EquipmentController";
 import * as LocationController from "./controllers/LocationController";
 import * as DiagnosticsController from "./controllers/DiagnosticsController";
+import * as PlaywrightController from "./controllers/PlaywrightController";
 import cors from "cors";
 import fileUpload from "express-fileupload";
 import session from "express-session";
@@ -306,6 +307,27 @@ app.post("/push/subscribe", PushController.subscribe);
 app.post("/push/test", PushController.sendTestNotification);
 app.get("/push/subscriptions", PushController.getSubscriptions);
 app.delete("/push/subscriptions/:id", PushController.deleteSubscription);
+
+
+// Playwright MCP Browser Automation
+app.get("/playwright/status", PlaywrightController.getStatus);
+app.get("/playwright/config", PlaywrightController.getConfig);
+app.post("/playwright/navigate", PlaywrightController.navigate);
+app.get("/playwright/snapshot", PlaywrightController.snapshot);
+app.post("/playwright/click", PlaywrightController.click);
+app.post("/playwright/type", PlaywrightController.type);
+app.post("/playwright/fill", PlaywrightController.fill);
+app.post("/playwright/hover", PlaywrightController.hover);
+app.post("/playwright/press-key", PlaywrightController.pressKey);
+app.post("/playwright/select", PlaywrightController.select);
+app.post("/playwright/screenshot", PlaywrightController.screenshot);
+app.post("/playwright/go-back", PlaywrightController.goBack);
+app.post("/playwright/go-forward", PlaywrightController.goForward);
+app.post("/playwright/close", PlaywrightController.closeBrowser);
+app.post("/playwright/resize", PlaywrightController.resize);
+app.post("/playwright/wait-for", PlaywrightController.waitForElement);
+app.get("/playwright/console", PlaywrightController.getConsoleMessages);
+app.post("/playwright/tool", PlaywrightController.executeTool);
 
 
 app.get('/*', (req: Request, res: Response) => {
