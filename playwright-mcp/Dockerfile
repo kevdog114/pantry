@@ -13,9 +13,9 @@ RUN apt-get update && apt-get install -y \
     supervisor \
     && rm -rf /var/lib/apt/lists/*
 
-# Install noVNC
-RUN git clone https://github.com/novnc/noVNC.git /opt/novnc \
-    && git clone https://github.com/novnc/websockify.git /opt/novnc/utils/websockify
+# Install websockify and noVNC
+RUN pip3 install --break-system-packages websockify \
+    && git clone https://github.com/novnc/noVNC.git /opt/novnc
 
 # Install Playwright MCP
 RUN npm install -g @playwright/mcp@latest
