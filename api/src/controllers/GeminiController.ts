@@ -12,11 +12,11 @@ import { intentEngine } from "../lib/IntentEngine";
 import { WeatherService } from "../services/WeatherService";
 import { determineQuickActions, generateReceiptSteps, determineSafeCookingTemps } from "../services/RecipeAIService";
 import { sendNotificationToUser } from "./PushController";
-import { 
-  toolDisplayNames as sharedToolDisplayNames, 
-  getAllToolDefinitions, 
-  executeToolHandler, 
-  ToolContext 
+import {
+  toolDisplayNames as sharedToolDisplayNames,
+  getAllToolDefinitions,
+  executeToolHandler,
+  ToolContext
 } from "../gemini";
 
 dotenv.config();
@@ -252,13 +252,29 @@ ${systemInstruction}`;
     const bufferedResults: any[] = [];
     let isEscalating = false;
 
+    // Helper to safely extract text from a chunk without triggering SDK warning
+    const safeChunkText = (chunk: any): string => {
+      const parts = chunk.candidates?.[0]?.content?.parts;
+      if (parts) {
+        return parts.filter((p: any) => p.text).map((p: any) => p.text).join('');
+      }
+      return typeof chunk.text === 'string' ? chunk.text : '';
+    };
+
+    // Helper to check if a chunk has function calls
+    const hasFunctionCalls = (chunk: any): boolean => {
+      const parts = chunk.candidates?.[0]?.content?.parts;
+      if (parts) return parts.some((p: any) => p.functionCall);
+      return !!(chunk.functionCalls && chunk.functionCalls.length > 0);
+    };
+
     // Buffer up to ~50 chars or until we see the token.
     while (true) {
       const next = await iterator.next();
       if (next.done) break;
 
       bufferedResults.push(next);
-      accumulatedText += next.value.text || "";
+      accumulatedText += safeChunkText(next.value);
 
       if (accumulatedText.includes(ESCALATION_TOKEN)) {
         isEscalating = true;
@@ -315,7 +331,7 @@ ${systemInstruction}`;
           let buffer = accumulatedText;
           let next = await iterator.next();
           while (!next.done) {
-            buffer += next.value.text || "";
+            buffer += safeChunkText(next.value);
             next = await iterator.next();
           }
           await saveSummaryFromText(buffer);
@@ -354,9 +370,10 @@ ${systemInstruction}`;
       };
 
       for (const result of bufferedResults) {
-        const text = result.value.text || "";
+        const text = safeChunkText(result.value);
         const safeText = processChunk(text);
-        if (safeText) {
+        const hasFc = hasFunctionCalls(result.value);
+        if (safeText || hasFc) {
           yield {
             text: safeText,
             candidates: result.value.candidates,
@@ -367,9 +384,10 @@ ${systemInstruction}`;
 
       let next = await iterator.next();
       while (!next.done) {
-        const text = next.value.text || "";
+        const text = safeChunkText(next.value);
         const safeText = processChunk(text);
-        if (safeText) {
+        const hasFc = hasFunctionCalls(next.value);
+        if (safeText || hasFc) {
           yield {
             text: safeText,
             candidates: next.value.candidates,
@@ -809,156 +827,133 @@ export const extractRecipeQuickActions = async (req: Request, res: Response) => 
   }
 }
 
-export const post = async (req: Request, res: Response) => {
-  try {
-    let { prompt, history = [], sessionId, additionalContext, entityType, entityId } = req.body as {
-      prompt: string;
-      history: Content[];
-      sessionId?: number | string;
-      additionalContext?: string;
-      entityType?: string;
-      entityId?: number | string;
-    };
+// ========================================
+// SHARED CHAT HELPERS
+// ========================================
 
-    if (sessionId) {
-      sessionId = parseInt(sessionId as string, 10);
-    }
+function fileToGenerativePart(filePath: string, mimeType: string) {
+  return {
+    inlineData: {
+      data: Buffer.from(fs.readFileSync(filePath)).toString("base64"),
+      mimeType
+    },
+  };
+}
 
-    // --- SMART CHAT LOCAL INTENT PROCESSING ---
+/**
+ * Strip markdown code fences and extract valid JSON from model output.
+ */
+function cleanJson(text: string): string {
+  const jsonStart = text.indexOf('{');
+  const jsonEnd = text.lastIndexOf('}');
+  if (jsonStart !== -1 && jsonEnd !== -1 && jsonEnd > jsonStart) {
+    const potentialJson = text.substring(jsonStart, jsonEnd + 1);
     try {
-      const intentRes = await intentEngine.process(prompt);
-      // Threshold 0.8 to be safe
-      if (intentRes.intent === 'shopping.add' && intentRes.score > 0.8) {
-        console.log(`[SmartChat] Detected local intent: ${intentRes.intent}`);
+      JSON.parse(potentialJson);
+      return potentialJson;
+    } catch (e) { /* fall through */ }
+  }
+  let cleaned = text.trim();
+  if (cleaned.startsWith('```json')) cleaned = cleaned.substring(7);
+  else if (cleaned.startsWith('```')) cleaned = cleaned.substring(3);
+  if (cleaned.endsWith('```')) cleaned = cleaned.substring(0, cleaned.length - 3);
+  return cleaned.trim();
+}
 
-        // Extract Item Name (Regex Fallback as NLP entities not fully trained)
-        let itemToAdd = null;
-        const patterns = [
-          /add (.*) to (?:the |my )?shopping list/i,
-          /add (.*) to (?:the |my )?list/i,
-          /put (.*) on (?:the |my )?shopping list/i,
-          /put (.*) on (?:the |my )?list/i,
-          /^buy (.*)$/i,
-          /^need (.*)$/i,
-          /remind me to buy (.*)/i
-        ];
+/**
+ * Normalize non-standard model responses into {items: [...]} format.
+ * Gemini 3 models sometimes return {type: "message", message: "text"} or similar.
+ */
+function normalizeResponse(data: any, label: string = 'Gemini'): any {
+  if (!data.items || !Array.isArray(data.items)) {
+    const textContent = data.content || data.message || data.text || data.response;
+    if (textContent && typeof textContent === 'string') {
+      console.log(`[${label}] Normalizing non-standard response format (had keys: ${Object.keys(data).join(', ')})`);
+      return { items: [{ type: 'chat', content: textContent }] };
+    } else if (data.recipe && typeof data.recipe === 'object') {
+      return { items: [{ type: 'recipe', recipe: data.recipe }] };
+    }
+  }
+  return data;
+}
 
-        for (const p of patterns) {
-          const match = prompt.match(p);
-          if (match && match[1]) {
-            itemToAdd = match[1].trim();
-            // Clean up common suffix punctuation if user typed "buy milk."
-            itemToAdd = itemToAdd.replace(/[.!?]$/, '');
-            break;
-          }
-        }
+/**
+ * Read debug/logging settings from the database.
+ */
+async function getDebugSettings(): Promise<{ isGeminiDebug: boolean; isDbLogging: boolean }> {
+  const [debugSetting, dbLogSetting] = await Promise.all([
+    prisma.systemSetting.findUnique({ where: { key: 'gemini_debug' } }),
+    prisma.systemSetting.findUnique({ where: { key: 'gemini_debug_logging' } })
+  ]);
+  return {
+    isGeminiDebug: debugSetting?.value === 'true',
+    isDbLogging: dbLogSetting?.value === 'true'
+  };
+}
 
-        if (itemToAdd) {
-          // Verify session exists or create one to maintain chat history appearance
-          if (!sessionId) {
-            const session = await prisma.chatSession.create({
-              data: {
-                title: prompt.substring(0, 50) + (prompt.length > 50 ? '...' : ''),
-                entityType: entityType || null,
-                entityId: entityId ? parseInt(entityId.toString(), 10) : null
-              }
-            });
-            sessionId = session.id;
-          } else {
-            await prisma.chatSession.update({
-              where: { id: sessionId as number },
-              data: { updatedAt: new Date() }
-            });
-          }
+/**
+ * Write a debug log entry to the database (fire-and-forget).
+ */
+function writeDebugLog(
+  sessionId: number,
+  reqStart: number,
+  reqEnd: number,
+  requestContents: any,
+  responseText: string,
+  toolCalls?: any[]
+): void {
+  prisma.geminiDebugLog.create({
+    data: {
+      sessionId,
+      requestTimestamp: new Date(reqStart),
+      responseTimestamp: new Date(reqEnd),
+      durationMs: reqEnd - reqStart,
+      statusCode: 200,
+      requestData: JSON.stringify(requestContents),
+      responseData: responseText,
+      toolCalls: JSON.stringify(toolCalls || [])
+    }
+  }).catch(err => console.error("Failed to write debug log:", err));
+}
 
-          // Save User Message
-          await prisma.chatMessage.create({
-            data: {
-              sessionId: sessionId as number,
-              sender: 'user',
-              type: 'chat',
-              content: prompt
-            }
-          });
+/**
+ * Process local intents (e.g., adding to shopping list) before hitting the Gemini API.
+ * Returns the intent result if handled, or null if no local intent matched.
+ */
+async function processLocalIntent(
+  prompt: string,
+  sessionId: number | undefined,
+  entityType?: string,
+  entityId?: number | string
+): Promise<{ sessionId: number; responseText: string; responseData: any } | null> {
+  try {
+    const intentRes = await intentEngine.process(prompt);
+    if (intentRes.intent !== 'shopping.add' || intentRes.score <= 0.8) return null;
 
-          // Logic: Add to Shopping List
-          let shoppingList = await prisma.shoppingList.findFirst();
-          if (!shoppingList) {
-            shoppingList = await prisma.shoppingList.create({ data: { name: "My Shopping List" } });
-          }
+    console.log(`[SmartChat] Detected local intent: ${intentRes.intent}`);
 
-          const existingItem = await prisma.shoppingListItem.findFirst({
-            where: {
-              shoppingListId: shoppingList.id,
-              name: itemToAdd
-            }
-          });
+    let itemToAdd = null;
+    const patterns = [
+      /add (.*) to (?:the |my )?shopping list/i,
+      /add (.*) to (?:the |my )?list/i,
+      /put (.*) on (?:the |my )?shopping list/i,
+      /put (.*) on (?:the |my )?list/i,
+      /^buy (.*)$/i,
+      /^need (.*)$/i,
+      /remind me to buy (.*)/i
+    ];
 
-          if (existingItem) {
-            await prisma.shoppingListItem.update({
-              where: { id: existingItem.id },
-              data: { quantity: (existingItem.quantity || 1) + 1 }
-            });
-          } else {
-            await prisma.shoppingListItem.create({
-              data: {
-                shoppingListId: shoppingList.id,
-                name: itemToAdd,
-                quantity: 1
-              }
-            });
-          }
-
-          const botResponseText = `I've added **${itemToAdd}** to your shopping list.`;
-
-          // Save Bot Message
-          await prisma.chatMessage.create({
-            data: {
-              sessionId: sessionId as number,
-              sender: 'model', // Use 'model' to appear as the AI
-              type: 'chat',
-              content: botResponseText
-            }
-          });
-
-          // Return JSON response format
-          return res.json({
-            message: "success",
-            sessionId: sessionId,
-            result: {
-              items: [
-                {
-                  type: 'chat',
-                  content: botResponseText
-                }
-              ]
-            }
-          });
-        }
+    for (const p of patterns) {
+      const match = prompt.match(p);
+      if (match && match[1]) {
+        itemToAdd = match[1].trim().replace(/[.!?]$/, '');
+        break;
       }
-    } catch (err) {
-      console.warn("Intent engine processing failed, falling back to Gemini", err);
-    }
-    // --- END SMART CHAT LOCAL PROCESSING ---
-
-    // Handle Image Upload
-    let imageFilename: string | null = null;
-    let imageMimeType: string | null = null;
-    let imagePart: any = null;
-
-    if (req.files && req.files.image) {
-      const image = req.files.image as UploadedFile;
-      const ext = path.extname(image.name);
-      imageFilename = `chat_${Date.now()}_${Math.floor(Math.random() * 1000)}${ext}`;
-      imageMimeType = image.mimetype;
-
-      storeFile(image.tempFilePath, imageFilename);
-
-      // Prepare for Gemini
-      imagePart = fileToGenerativePart(path.join(UPLOAD_DIR, imageFilename), imageMimeType);
     }
 
-    // If no sessionId, create a new session
+    if (!itemToAdd) return null;
+
+    // Ensure session exists
     if (!sessionId) {
       const session = await prisma.chatSession.create({
         data: {
@@ -969,31 +964,128 @@ export const post = async (req: Request, res: Response) => {
       });
       sessionId = session.id;
     } else {
-      // Load history from DB
-      const messages = await prisma.chatMessage.findMany({
-        where: { sessionId: sessionId as number },
-        orderBy: { createdAt: 'asc' }
+      await prisma.chatSession.update({
+        where: { id: sessionId },
+        data: { updatedAt: new Date() }
       });
+    }
 
-      // Convert messages to history Content[] - filter out tool_call types (UI only)
-      history = messages
-        .filter(msg => msg.type !== 'tool_call')
-        .map(msg => {
+    // Save user message
+    await prisma.chatMessage.create({
+      data: { sessionId, sender: 'user', type: 'chat', content: prompt }
+    });
+
+    // Add to shopping list
+    let shoppingList = await prisma.shoppingList.findFirst();
+    if (!shoppingList) {
+      shoppingList = await prisma.shoppingList.create({ data: { name: "My Shopping List" } });
+    }
+
+    const existingItem = await prisma.shoppingListItem.findFirst({
+      where: { shoppingListId: shoppingList.id, name: itemToAdd }
+    });
+
+    if (existingItem) {
+      await prisma.shoppingListItem.update({
+        where: { id: existingItem.id },
+        data: { quantity: (existingItem.quantity || 1) + 1 }
+      });
+    } else {
+      await prisma.shoppingListItem.create({
+        data: { shoppingListId: shoppingList.id, name: itemToAdd, quantity: 1 }
+      });
+    }
+
+    const botResponseText = `I've added **${itemToAdd}** to your shopping list.`;
+
+    await prisma.chatMessage.create({
+      data: { sessionId, sender: 'model', type: 'chat', content: botResponseText }
+    });
+
+    return {
+      sessionId,
+      responseText: botResponseText,
+      responseData: { items: [{ type: 'chat', content: botResponseText }] }
+    };
+  } catch (err) {
+    console.warn("Intent engine processing failed, falling back to Gemini", err);
+    return null;
+  }
+}
+
+/**
+ * Create or load a chat session with full history reconstruction.
+ * Handles chat summaries, tool call history, and image parts.
+ */
+async function prepareSession(
+  sessionId: number | undefined,
+  prompt: string,
+  entityType?: string,
+  entityId?: number | string,
+  imageFilename?: string
+): Promise<{ sessionId: number; history: Content[] }> {
+  let history: Content[] = [];
+
+  if (!sessionId) {
+    const session = await prisma.chatSession.create({
+      data: {
+        title: prompt.substring(0, 50) + (prompt.length > 50 ? '...' : ''),
+        entityType: entityType || null,
+        entityId: entityId ? parseInt(entityId.toString(), 10) : null
+      }
+    });
+    sessionId = session.id;
+  } else {
+    const messages = await prisma.chatMessage.findMany({
+      where: { sessionId },
+      orderBy: { createdAt: 'asc' }
+    }) as any[];
+
+    // Check for chat summary (used for long conversations)
+    const chatSummary = await prisma.chatSummary.findUnique({
+      where: { sessionId }
+    });
+
+    if (chatSummary && chatSummary.summary) {
+      console.log(`[Session] Using Chat Summary for Session ${sessionId}`);
+      history = [
+        { role: "user", parts: [{ text: `[SYSTEM: CONVERSATION SUMMARY]\nThe following is a summary of the conversation history so far. Use this context to answer the latest user request.\n\n${chatSummary.summary}` }] },
+        { role: "model", parts: [{ text: "Understood. I will use this summary as context." }] }
+      ];
+    } else {
+      // Full history reconstruction including tool calls
+      const historyItems: Content[] = [];
+
+      for (const msg of messages) {
+        if (msg.type === 'tool_call' && msg.toolCallData) {
+          try {
+            const toolData = JSON.parse(msg.toolCallData);
+            if (toolData.name && toolData.args !== undefined && toolData.result !== undefined) {
+              historyItems.push({
+                role: 'model',
+                parts: [{
+                  functionCall: { name: toolData.name, args: toolData.args },
+                  thoughtSignature: "skip_thought_signature_validator"
+                } as any]
+              });
+              historyItems.push({
+                role: 'user',
+                parts: [{
+                  functionResponse: { name: toolData.name, response: { result: toolData.result } }
+                }]
+              });
+            }
+          } catch (e) {
+            console.warn("Failed to parse tool call data for history:", e);
+          }
+        } else {
           let text = msg.content || '';
-          // If it was a recipe, we construct a JSON representation to simulate what the model outputted
           if (msg.type === 'recipe' && msg.recipeData) {
-            text = JSON.stringify({
-              items: [{
-                type: 'recipe',
-                recipe: JSON.parse(msg.recipeData)
-              }]
-            });
+            text = JSON.stringify({ items: [{ type: 'recipe', recipe: JSON.parse(msg.recipeData) }] });
           }
 
           const parts: any[] = [];
-          if (text) {
-            parts.push({ text });
-          }
+          if (text) parts.push({ text });
 
           if (msg.imageUrl) {
             const ext = path.extname(msg.imageUrl).toLowerCase();
@@ -1013,491 +1105,309 @@ export const post = async (req: Request, res: Response) => {
             }
           }
 
-          return {
-            role: msg.sender,
-            parts: parts
-          } as Content;
-        }).filter(content => content.parts.length > 0);
-    }
-
-    // Save User Message to DB
-    await prisma.chatMessage.create({
-      data: {
-        sessionId: sessionId as number,
-        sender: 'user',
-        type: 'chat',
-        content: prompt,
-        imageUrl: imageFilename
-      }
-    });
-
-    await prisma.chatSession.update({
-      where: { id: sessionId as number },
-      data: { updatedAt: new Date() }
-    });
-
-    // Try to get a cached model for better performance
-    const contextStart = Date.now();
-    const { model: cachedModel, modelName, usingCache, systemInstruction } = await getCachedModel("gemini_chat_model", additionalContext);
-    const contextDuration = Date.now() - contextStart;
-    console.log(`Context ${usingCache ? '(cached)' : '(fresh)'} generation time: ${contextDuration}ms`);
-
-    const modelAck = {
-      role: "model",
-      parts: [
-        {
-          text: "Understood. I will always return valid JSON with a root 'items' array containing objects with 'type': 'recipe' or 'type': 'chat'.",
-        },
-      ],
-    };
-
-    const userParts: any[] = [{ text: prompt }];
-    if (imagePart) {
-      userParts.push(imagePart);
-    }
-
-    // Build contents based on whether we're using cache
-    let contents: Content[];
-    if (usingCache) {
-      // When using cache, the system instruction is already cached
-      // We only need to include the priming exchange (which is also cached) + history + new prompt
-      contents = [
-        ...history,
-        {
-          role: "user",
-          parts: userParts,
-        },
-      ];
-      console.log("[Context Cache] Using cached context, contents length:", contents.length);
-    } else {
-      // Non-cached: include full system instruction
-      contents = [
-        {
-          role: "user",
-          parts: [{ text: systemInstruction! }]
-        },
-        modelAck,
-        ...history,
-        {
-          role: "user",
-          parts: userParts,
-        },
-      ];
-      console.log("[Context Cache] Using non-cached context, contents length:", contents.length);
-    }
-
-    // Tool display names from shared module
-    const toolDisplayNames = sharedToolDisplayNames;
-
-    // Tool definitions from shared module
-    const inventoryTools = getAllToolDefinitions();
-
-    // Tool handler using shared module
-    const toolContext: ToolContext = {
-      userId: (req as any).userId || (req.user as any)?.id,
-      io: req.app.get("io")
-    };
-    
-    async function handleToolCall(name: string, args: any): Promise<any> {
-      return executeToolHandler(name, args, toolContext);
-    }
-
-    const debugSetting = await prisma.systemSetting.findUnique({ where: { key: 'gemini_debug' } });
-    const isGeminiDebug = debugSetting?.value === 'true';
-    const dbLogSetting = await prisma.systemSetting.findUnique({ where: { key: 'gemini_debug_logging' } });
-    const isDbLogging = dbLogSetting?.value === 'true';
-    let printedInThisTurn = false;
-
-    // Use cached model directly if available, otherwise fallback to executeWithFallback
-    const executeGeneration = async (model: any) => {
-      let currentContents = [...contents];
-      let currentLoop = 0;
-      const maxLoops = 5;
-      let printedOnce = false;
-
-      // Initial generation
-      if (isGeminiDebug) {
-        console.log("--- GEMINI DEBUG CONTEXT (Initial) ---");
-        console.log(JSON.stringify(currentContents, null, 2));
-        console.log("--------------------------------------");
-      }
-
-
-      const reqStart = Date.now();
-
-      // Debug logging for 400 errors
-      try {
-        if (currentContents.length > 0 && currentContents[0].parts && currentContents[0].parts.length > 0) {
-          // Check for empty/undefined text/data fields in the first part
-          const p0 = currentContents[0].parts[0];
-          if (!p0.text && !p0.inlineData && !p0.functionCall && !p0.functionResponse) {
-            console.error("!!! DETECTED MALFORMED PART 0 in CONTENT 0 !!!", JSON.stringify(p0));
+          if (parts.length > 0) {
+            historyItems.push({ role: msg.sender, parts } as Content);
           }
         }
-        // Always log the structure of the first content item to be sure
-        console.log(`[Gemini Request] Contents[0] type: ${currentContents[0]?.role}, parts: ${currentContents[0]?.parts?.length}`);
-      } catch (e) { }
-
-      let responseResult = await model.generateContent({
-        contents: currentContents,
-        tools: inventoryTools,
-        // We remove explicit JSON enforcement here to allow tool calls to happen naturally
-        // The system prompt still demands JSON for the final answer.
-      });
-      const reqEnd = Date.now();
-
-      if (isDbLogging) {
-        try {
-          // Safely serialize response
-          // Note: responseResult.response may contain circular refs or methods, we want the data
-          const rawResponse = responseResult.response;
-          let serializedResponse = '';
-          try {
-            serializedResponse = JSON.stringify(rawResponse);
-          } catch (e) {
-            serializedResponse = "Could not serialize response: " + (e as Error).message;
-          }
-
-          await prisma.geminiDebugLog.create({
-            data: {
-              sessionId: sessionId as number,
-              requestTimestamp: new Date(reqStart),
-              responseTimestamp: new Date(reqEnd),
-              durationMs: reqEnd - reqStart,
-              statusCode: 200,
-              requestData: JSON.stringify(currentContents),
-              responseData: serializedResponse,
-              toolCalls: JSON.stringify(rawResponse.functionCalls ? rawResponse.functionCalls() : [])
-            }
-          });
-        } catch (logErr) {
-          console.error("Failed to write debug log", logErr);
-        }
       }
-
-      while (currentLoop < maxLoops) {
-        const response = responseResult.response;
-        const calls = response.functionCalls ? response.functionCalls() : [];
-
-        if (calls && calls.length > 0) {
-          // 1. Add model's tool call message to history
-          // The SDK v0.24.1 strips out thoughtSignature from response.parts, but Gemini 3 models require it.
-          // We need to inject the dummy signature "skip_thought_signature_validator" per the documentation.
-          let hasFunctionCallNeedingSignature = false;
-          const partsWithSignature = (response.parts || []).map((part: any) => {
-            const copiedPart: any = {};
-            if (part.text !== undefined) copiedPart.text = part.text;
-            if (part.inlineData) copiedPart.inlineData = part.inlineData;
-            if (part.functionCall) {
-              copiedPart.functionCall = {
-                name: part.functionCall.name,
-                args: part.functionCall.args
-              };
-              // Inject dummy signature on the first function call part
-              if (!hasFunctionCallNeedingSignature) {
-                hasFunctionCallNeedingSignature = true;
-                copiedPart.thoughtSignature = part.thoughtSignature || "skip_thought_signature_validator";
-              }
-            }
-            if (part.functionResponse) copiedPart.functionResponse = part.functionResponse;
-            return copiedPart;
-          });
-
-          currentContents.push({
-            role: "model",
-            parts: partsWithSignature,
-          });
-
-          // 2. Execute tools
-          const parts: any[] = [];
-          for (const call of calls) {
-            // Loop Protection for Printing
-            if (call.name === 'printReceipt') {
-              if (printedOnce) {
-                parts.push({
-                  functionResponse: {
-                    name: call.name,
-                    response: { result: { error: "You have already printed in this turn. Do not loop." } }
-                  }
-                });
-                continue;
-              }
-              printedOnce = true; // Mark as printed
-              printedInThisTurn = true;
-            }
-
-            const toolResult = await handleToolCall(call.name, call.args);
-            parts.push({
-              functionResponse: {
-                name: call.name,
-                response: { result: toolResult }
-              }
-            });
-          }
-
-          // 3. Add function responses
-          currentContents.push({
-            role: "function",
-            parts: parts
-          });
-
-          // 4. Generate again
-          if (isGeminiDebug) {
-            console.log("--- GEMINI DEBUG CONTEXT (Follow-up) ---");
-            console.log(JSON.stringify(currentContents, null, 2));
-            console.log("--------------------------------------");
-          }
-
-          const loopReqStart = Date.now();
-          responseResult = await model.generateContent({
-            contents: currentContents,
-            tools: inventoryTools
-          });
-          const loopReqEnd = Date.now();
-
-          if (isDbLogging) {
-            try {
-              const rawResponse = responseResult.response;
-              let serializedResponse = '';
-              try {
-                serializedResponse = JSON.stringify(rawResponse);
-              } catch (e) {
-                serializedResponse = "Could not serialize response: " + (e as Error).message;
-              }
-
-              await prisma.geminiDebugLog.create({
-                data: {
-                  sessionId: sessionId as number,
-                  requestTimestamp: new Date(loopReqStart),
-                  responseTimestamp: new Date(loopReqEnd),
-                  durationMs: loopReqEnd - loopReqStart,
-                  statusCode: 200,
-                  requestData: JSON.stringify(currentContents),
-                  responseData: serializedResponse,
-                  toolCalls: JSON.stringify(rawResponse.functionCalls ? rawResponse.functionCalls() : [])
-                }
-              });
-            } catch (logErr) {
-              console.error("Failed to write debug log (loop)", logErr);
-            }
-          }
-
-          currentLoop++;
-        } else {
-          // No more calls, this is the final response
-          break;
-        }
-      }
-      return responseResult;
-    };
-
-    // Execute with cached model or fallback
-    let result: any;
-    let warning: string | undefined;
-
-    if (usingCache) {
-      // Use cached model directly
-      console.log("[Context Cache] Executing with cached model");
-      try {
-        result = await executeGeneration(cachedModel);
-      } catch (cacheError) {
-        console.warn("[Context Cache] Cached model execution failed, falling back:", cacheError);
-        // Fall back to non-cached execution
-        const fallbackResult = await executeWithFallback("gemini_chat_model", executeGeneration);
-        result = fallbackResult.result;
-        warning = fallbackResult.warning;
-      }
-    } else {
-      // Use executeWithFallback for non-cached execution
-      console.log("[Context Cache] Executing without cache");
-      const fallbackResult = await executeWithFallback("gemini_chat_model", executeGeneration);
-      result = fallbackResult.result;
-      warning = fallbackResult.warning;
+      history = historyItems;
     }
+  }
 
-    const response = result.response;
-    let data;
-    const responseText = response.text();
+  // Save user message to DB
+  await prisma.chatMessage.create({
+    data: { sessionId, sender: 'user', type: 'chat', content: prompt, imageUrl: imageFilename }
+  });
 
-    // Helper to strip markdown code blocks if present
-    const cleanJson = (text: string) => {
-      // 1. Try to locate the JSON block specifically.
-      // We look for the outer-most braces structure that looks like our schema.
-      const jsonStart = text.indexOf('{');
-      const jsonEnd = text.lastIndexOf('}');
+  await prisma.chatSession.update({
+    where: { id: sessionId },
+    data: { updatedAt: new Date() }
+  });
 
-      if (jsonStart !== -1 && jsonEnd !== -1 && jsonEnd > jsonStart) {
-        const potentialJson = text.substring(jsonStart, jsonEnd + 1);
-        try {
-          // Verify it parses
-          JSON.parse(potentialJson);
-          return potentialJson;
-        } catch (e) {
-          // If the substring fails, fall back to loose cleaning
-        }
-      }
+  return { sessionId, history };
+}
 
-      // Remove ```json ... ``` or just ``` ... ```
-      let cleaned = text.trim();
-      if (cleaned.startsWith('```json')) {
-        cleaned = cleaned.substring(7);
-      } else if (cleaned.startsWith('```')) {
-        cleaned = cleaned.substring(3);
-      }
-      if (cleaned.endsWith('```')) {
-        cleaned = cleaned.substring(0, cleaned.length - 3);
-      }
-      return cleaned.trim();
-    };
-
-    try {
-      data = JSON.parse(cleanJson(responseText));
-    } catch (e) {
-      // Fallback if model fails to return JSON
-      console.warn("Failed to parse JSON response, using raw text", e);
-      data = {
-        items: [
-          {
-            type: 'chat',
-            content: responseText
-          }
-        ]
-      };
-    }
-
-    // Safety Net: If printed but no items returned (model thought action was sufficient), inject confirmation
-    if (printedInThisTurn) {
-      if (!data.items) data.items = [];
-      if (Array.isArray(data.items) && data.items.length === 0) {
-        data.items.push({
-          type: 'chat',
-          content: "I've sent that to the printer."
-        });
-      }
-    }
-
-    // Save Model Response to DB
-    // We need to handle multiple items in the response
+/**
+ * Save parsed Gemini response items to the database.
+ */
+async function saveResponseToDb(sessionId: number, data: any, modelUsed?: string): Promise<void> {
+  try {
     if (data.items && Array.isArray(data.items)) {
       for (const item of data.items) {
         if (item.type === 'recipe' && item.recipe) {
           await prisma.chatMessage.create({
-            data: {
-              sessionId: sessionId as number,
-              sender: 'model',
-              type: 'recipe',
-              recipeData: JSON.stringify(item.recipe)
-            }
+            data: { sessionId, sender: 'model', type: 'recipe', recipeData: JSON.stringify(item.recipe), modelUsed }
           });
         } else {
           await prisma.chatMessage.create({
-            data: {
-              sessionId: sessionId as number,
-              sender: 'model',
-              type: 'chat',
-              content: item.content || JSON.stringify(item)
-            }
+            data: { sessionId, sender: 'model', type: 'chat', content: item.content || JSON.stringify(item), modelUsed }
           });
         }
       }
     } else {
-      // Fallback for single item or malformed structure
-      // ... existing logic adaptation ...
-      // If it looks like a recipe
       const isRecipe = (data.type && data.type.toLowerCase() === 'recipe') || (data.recipe && typeof data.recipe === 'object');
       if (isRecipe && data.recipe) {
         await prisma.chatMessage.create({
-          data: {
-            sessionId: sessionId as number,
-            sender: 'model',
-            type: 'recipe',
-            recipeData: JSON.stringify(data.recipe)
-          }
+          data: { sessionId, sender: 'model', type: 'recipe', recipeData: JSON.stringify(data.recipe), modelUsed }
         });
       } else {
         let content = data.content;
-        if (typeof content === 'object') {
-          content = JSON.stringify(content, null, 2);
-        } else if (!content) {
-          content = JSON.stringify(data, null, 2);
-        }
+        if (typeof content === 'object') content = JSON.stringify(content, null, 2);
+        else if (!content) content = JSON.stringify(data, null, 2);
         await prisma.chatMessage.create({
-          data: {
-            sessionId: sessionId as number,
-            sender: 'model',
-            type: 'chat',
-            content: content
-          }
+          data: { sessionId, sender: 'model', type: 'chat', content, modelUsed }
         });
       }
     }
+  } catch (dbError) {
+    console.error("Failed to save model response to DB:", dbError);
+  }
+}
 
-    // Attempt to generate/update title if this is a new session or it looks like a default/simple title
-    // We do this after the model has responded to have full context of the first turn.
-    try {
-      const currentSession = await prisma.chatSession.findUnique({ where: { id: sessionId as number } });
-      // Update if it was just created (we assume prompt based title is temporary if we want gemini to do it)
-      // or if it is "New Chat"
-      if (currentSession) {
-        const messageCount = await prisma.chatMessage.count({ where: { sessionId: sessionId as number } });
-        // Only auto-update on the first exchange (2 messages: user + model) to avoid constantly changing titles,
-        // or if the user explicitly wants us to (maybe later).
-        // Let's stick to first turn logic.
-        if (messageCount <= 2 || currentSession.title === 'New Chat') {
-          const titlePrompt = `Based on the following conversation, generate a short, concise, and descriptive title (max 6 words). Return ONLY the title text, no quotes or "Title:".\n\nUser: ${prompt}\nInternal Model Response: ${JSON.stringify(data).substring(0, 500)}...`; // Truncate response to save tokens
+/**
+ * Generate or update the chat session title based on the first exchange.
+ */
+async function generateSessionTitle(sessionId: number, prompt: string, data: any, io?: any): Promise<void> {
+  try {
+    const currentSession = await prisma.chatSession.findUnique({ where: { id: sessionId } });
+    if (!currentSession) return;
 
-          const { result: titleResult } = await executeWithFallback(
-            "gemini_chat_model",
-            async (model) => await model.generateContent(titlePrompt)
-          );
+    const messageCount = await prisma.chatMessage.count({ where: { sessionId } });
+    if (messageCount > 2 && currentSession.title !== 'New Chat') return;
 
-          let newTitle = titleResult.response.text().trim();
-          // Clean up quotes if present
-          newTitle = newTitle.replace(/^"|"$/g, '').trim();
+    const titlePrompt = `Based on the following conversation, generate a short, concise, and descriptive title (max 6 words). Return ONLY the title text, no quotes or "Title:".\n\nUser: ${prompt}\nInternal Model Response: ${JSON.stringify(data).substring(0, 500)}...`;
 
-          if (newTitle) {
-            await prisma.chatSession.update({
-              where: { id: sessionId as number },
-              data: { title: newTitle }
-            });
-          }
-        }
+    const ai = await getAI();
+    const modelName = await getModelName("gemini_chat_model");
+    const titleResponse = await ai.models.generateContent({
+      model: modelName,
+      contents: titlePrompt
+    });
+
+    let newTitle = (titleResponse.text || '').trim().replace(/^"|"$/g, '').trim();
+    if (newTitle) {
+      await prisma.chatSession.update({ where: { id: sessionId }, data: { title: newTitle } });
+      if (io) {
+        io.emit('chat_session_updated', { sessionId, title: newTitle });
       }
-    } catch (titleError) {
-      console.warn("Failed to generate chat title:", titleError);
-      // Provide non-blocking failure
+    }
+  } catch (titleError) {
+    console.warn("Failed to generate chat title:", titleError);
+  }
+}
+
+/**
+ * Copy response parts and inject thoughtSignature for Gemini 3 tool calling.
+ * The SDK v0.24.1 strips thoughtSignature, but Gemini 3 models require it.
+ * Uses "skip_thought_signature_validator" per Google's documentation.
+ */
+function injectThoughtSignatures(rawParts: any[]): any[] {
+  let hasFunctionCallNeedingSignature = false;
+  return rawParts.map((part: any) => {
+    const copiedPart: any = {};
+    if (part.text !== undefined) copiedPart.text = part.text;
+    if (part.inlineData) copiedPart.inlineData = part.inlineData;
+    if (part.functionCall) {
+      copiedPart.functionCall = {
+        name: part.functionCall.name,
+        args: part.functionCall.args
+      };
+      if (!hasFunctionCallNeedingSignature) {
+        hasFunctionCallNeedingSignature = true;
+        copiedPart.thoughtSignature = part.thoughtSignature || "skip_thought_signature_validator";
+      }
+    }
+    if (part.functionResponse) copiedPart.functionResponse = part.functionResponse;
+    return copiedPart;
+  });
+}
+
+// ========================================
+// CHAT ENDPOINTS
+// ========================================
+
+export const post = async (req: Request, res: Response) => {
+  try {
+    let { prompt, sessionId, additionalContext, entityType, entityId } = req.body as {
+      prompt: string;
+      sessionId?: number | string;
+      additionalContext?: string;
+      entityType?: string;
+      entityId?: number | string;
+    };
+
+    if (sessionId) sessionId = parseInt(sessionId as string, 10);
+
+    // --- LOCAL INTENT PROCESSING ---
+    const intentResult = await processLocalIntent(prompt, sessionId as number | undefined, entityType, entityId);
+    if (intentResult) {
+      return res.json({
+        message: "success",
+        sessionId: intentResult.sessionId,
+        result: intentResult.responseData
+      });
     }
 
-    const usageMetadata = response.usageMetadata;
+    // --- IMAGE UPLOAD ---
+    let imageFilename: string | null = null;
+    let imagePart: any = null;
+
+    if (req.files && req.files.image) {
+      const image = req.files.image as UploadedFile;
+      const ext = path.extname(image.name);
+      imageFilename = `chat_${Date.now()}_${Math.floor(Math.random() * 1000)}${ext}`;
+      storeFile(image.tempFilePath, imageFilename);
+      imagePart = fileToGenerativePart(path.join(UPLOAD_DIR, imageFilename), image.mimetype);
+    }
+
+    // --- SESSION + HISTORY ---
+    const session = await prepareSession(
+      sessionId as number | undefined, prompt, entityType, entityId, imageFilename || undefined
+    );
+    sessionId = session.sessionId;
+    const history = session.history;
+
+    // --- MODEL + CACHING ---
+    const { modelName, usingCache, systemInstruction, cacheName } = await getCachedModel("gemini_chat_model", additionalContext);
+    const ai = await getAI();
+
+    // --- BUILD CONTENTS ---
+    const userParts: any[] = [{ text: prompt }];
+    if (imagePart) userParts.push(imagePart);
+
+    const contents: Content[] = [
+      ...history,
+      { role: "user", parts: userParts },
+    ];
+
+    // --- DEBUG + TOOLS ---
+    const { isGeminiDebug, isDbLogging } = await getDebugSettings();
+    const tools = getAllToolDefinitions();
+    const toolDisplayNames = sharedToolDisplayNames;
+    const toolContext: ToolContext = {
+      userId: (req as any).userId || (req.user as any)?.id,
+      io: req.app.get("io")
+    };
+
+    // --- GENERATE + TOOL LOOP ---
+    let currentContents = [...contents];
+    let loopCount = 0;
+    const maxLoops = 5;
+    let printedInThisTurn = false;
+    let printedOnce = false;
+    let responseResult: any;
+
+    while (loopCount <= maxLoops) {
+      if (isGeminiDebug) {
+        console.log(`--- GEMINI DEBUG CONTEXT (Loop ${loopCount}) ---`);
+        const contentSummary = currentContents.map((c: any) =>
+          `${c.role}(${c.parts.length} parts)`
+        ).join(', ');
+        console.log(`[Post Loop ${loopCount}] Contents: [${contentSummary}]`);
+        console.log("--------------------------------------");
+      }
+
+      const reqStart = Date.now();
+      const effectiveSystemInstruction = !usingCache && systemInstruction
+        ? systemInstruction
+        : undefined;
+
+      responseResult = await ai.models.generateContent({
+        model: modelName,
+        contents: currentContents,
+        ...(cacheName ? { cachedContent: cacheName } : {}),
+        config: {
+          ...geminiConfig,
+          systemInstruction: effectiveSystemInstruction,
+          tools: adaptTools(tools)
+        }
+      });
+      const reqEnd = Date.now();
+
+      if (isDbLogging) {
+        let serializedResponse = '';
+        try { serializedResponse = JSON.stringify(responseResult); }
+        catch (e) { serializedResponse = "Could not serialize response: " + (e as Error).message; }
+
+        const fcParts = (responseResult.candidates?.[0]?.content?.parts || [])
+          .filter((p: any) => p.functionCall);
+        writeDebugLog(sessionId as number, reqStart, reqEnd, currentContents, serializedResponse,
+          fcParts.map((p: any) => p.functionCall));
+      }
+
+      // Extract function calls from response
+      const responseParts = responseResult.candidates?.[0]?.content?.parts || [];
+      const functionCalls = responseParts.filter((p: any) => p.functionCall).map((p: any) => p.functionCall);
+
+      if (functionCalls.length === 0) break; // No tool calls, done
+
+      // Add model's response with thought signatures
+      currentContents.push({
+        role: "model",
+        parts: injectThoughtSignatures(responseParts)
+      });
+
+      // Execute tools
+      const toolResponseParts: any[] = [];
+      for (const call of functionCalls) {
+        // Print loop protection
+        if (call.name === 'printReceipt') {
+          if (printedOnce) {
+            toolResponseParts.push({
+              functionResponse: { name: call.name, response: { result: { error: "You have already printed in this turn. Do not loop." } } }
+            });
+            continue;
+          }
+          printedOnce = true;
+          printedInThisTurn = true;
+        }
+
+        const toolResult = await executeToolHandler(call.name, call.args, toolContext);
+        toolResponseParts.push({
+          functionResponse: { name: call.name, response: { result: toolResult } }
+        });
+      }
+
+      currentContents.push({ role: "user", parts: toolResponseParts });
+      loopCount++;
+    }
+
+    // --- PARSE RESPONSE ---
+    const responseText = responseResult.text || '';
+    let data;
+    try {
+      data = JSON.parse(cleanJson(responseText));
+    } catch (e) {
+      console.warn("Failed to parse JSON response, using raw text", e);
+      data = { items: [{ type: 'chat', content: responseText }] };
+    }
+    data = normalizeResponse(data, 'Post');
+
+    // Print safety net
+    if (printedInThisTurn) {
+      if (!data.items) data.items = [];
+      if (Array.isArray(data.items) && data.items.length === 0) {
+        data.items.push({ type: 'chat', content: "I've sent that to the printer." });
+      }
+    }
+
+    // --- SAVE + TITLE ---
+    await saveResponseToDb(sessionId as number, data, modelName);
+    generateSessionTitle(sessionId as number, prompt, data).catch(() => { });
+
+    const usageMetadata = responseResult.usageMetadata;
 
     res.json({
       message: "success",
-      data: data,
-      sessionId, // Return sessionId so client can update URL/state
-      warning,
-      meta: {
-        usingCache,
-        modelName,
-        usageMetadata
-      }
+      data,
+      sessionId,
+      meta: { usingCache, modelName, usageMetadata }
     });
   } catch (error) {
     console.log("response error", error);
-    res.status(500).json({
-      message: "error",
-      data: (error as Error).message,
-    });
+    res.status(500).json({ message: "error", data: (error as Error).message });
   }
 };
-
-function fileToGenerativePart(filePath: string, mimeType: string) {
-  return {
-    inlineData: {
-      data: Buffer.from(fs.readFileSync(filePath)).toString("base64"),
-      mimeType
-    },
-  };
-}
 
 // ==============================
 // STREAMING CHAT ENDPOINT (SSE)
@@ -1508,7 +1418,7 @@ export const postStream = async (req: Request, res: Response) => {
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache');
   res.setHeader('Connection', 'keep-alive');
-  res.setHeader('X-Accel-Buffering', 'no'); // Disable nginx buffering
+  res.setHeader('X-Accel-Buffering', 'no');
   res.flushHeaders();
 
   const sendEvent = (event: string, data: any) => {
@@ -1525,349 +1435,81 @@ export const postStream = async (req: Request, res: Response) => {
       entityId?: number | string;
     };
 
-    if (sessionId) {
-      sessionId = parseInt(sessionId as string, 10);
+    if (sessionId) sessionId = parseInt(sessionId as string, 10);
+
+    // --- LOCAL INTENT PROCESSING ---
+    const intentResult = await processLocalIntent(prompt, sessionId as number | undefined, entityType, entityId);
+    if (intentResult) {
+      sendEvent('session', { sessionId: intentResult.sessionId });
+      sendEvent('chunk', { text: intentResult.responseText });
+      sendEvent('done', { data: intentResult.responseData });
+      res.end();
+      return;
     }
 
-    // --- SMART CHAT LOCAL INTENT PROCESSING ---
-    try {
-      const intentRes = await intentEngine.process(prompt);
-      if (intentRes.intent === 'shopping.add' && intentRes.score > 0.8) {
-        console.log(`[SmartChat Stream] Detected local intent: ${intentRes.intent}`);
+    // --- SESSION + HISTORY ---
+    const session = await prepareSession(sessionId as number | undefined, prompt, entityType, entityId);
+    sessionId = session.sessionId;
+    const history = session.history;
 
-        let itemToAdd = null;
-        const patterns = [
-          /add (.*) to (?:the |my )?shopping list/i,
-          /add (.*) to (?:the |my )?list/i,
-          /put (.*) on (?:the |my )?shopping list/i,
-          /put (.*) on (?:the |my )?list/i,
-          /^buy (.*)$/i,
-          /^need (.*)$/i,
-          /remind me to buy (.*)/i
-        ];
-
-        for (const p of patterns) {
-          const match = prompt.match(p);
-          if (match && match[1]) {
-            itemToAdd = match[1].trim().replace(/[.!?]$/, '');
-            break;
-          }
-        }
-
-        if (itemToAdd) {
-          if (!sessionId) {
-            const session = await prisma.chatSession.create({
-              data: {
-                title: prompt.substring(0, 50) + (prompt.length > 50 ? '...' : ''),
-                entityType: entityType || null,
-                entityId: entityId ? parseInt(entityId.toString(), 10) : null
-              }
-            });
-            sessionId = session.id;
-          } else {
-            await prisma.chatSession.update({
-              where: { id: sessionId as number },
-              data: { updatedAt: new Date() }
-            });
-          }
-
-          await prisma.chatMessage.create({
-            data: {
-              sessionId: sessionId as number,
-              sender: 'user',
-              type: 'chat',
-              content: prompt
-            }
-          });
-
-          let shoppingList = await prisma.shoppingList.findFirst();
-          if (!shoppingList) {
-            shoppingList = await prisma.shoppingList.create({ data: { name: "My Shopping List" } });
-          }
-
-          const existingItem = await prisma.shoppingListItem.findFirst({
-            where: { shoppingListId: shoppingList.id, name: itemToAdd }
-          });
-
-          if (existingItem) {
-            await prisma.shoppingListItem.update({
-              where: { id: existingItem.id },
-              data: { quantity: (existingItem.quantity || 1) + 1 }
-            });
-          } else {
-            await prisma.shoppingListItem.create({
-              data: { shoppingListId: shoppingList.id, name: itemToAdd, quantity: 1 }
-            });
-          }
-
-          const botResponseText = `I've added **${itemToAdd}** to your shopping list.`;
-
-          await prisma.chatMessage.create({
-            data: {
-              sessionId: sessionId as number,
-              sender: 'model',
-              type: 'chat',
-              content: botResponseText
-            }
-          });
-
-          sendEvent('session', { sessionId });
-          sendEvent('chunk', { text: botResponseText });
-          sendEvent('done', {
-            data: { items: [{ type: 'chat', content: botResponseText }] }
-          });
-          res.end();
-          return;
-        }
-      }
-    } catch (err) {
-      console.warn("Intent engine processing failed (stream), falling back to Gemini", err);
-    }
-
-    // Note: Streaming does not support image uploads in this implementation
-    // Images require multipart form data which is complex with SSE
-
-    // If no sessionId, create a new session
-    let history: Content[] = [];
-    if (!sessionId) {
-      const session = await prisma.chatSession.create({
-        data: {
-          title: prompt.substring(0, 50) + (prompt.length > 50 ? '...' : ''),
-          entityType: entityType || null,
-          entityId: entityId ? parseInt(entityId.toString(), 10) : null
-        }
-      });
-      sessionId = session.id;
-    } else {
-      // Load history from DB
-      const messages = await prisma.chatMessage.findMany({
-        where: { sessionId: sessionId as number },
-        orderBy: { createdAt: 'asc' }
-      }) as any[]; // Cast to any to access toolCallData (schema has it but Prisma types may be stale)
-
-      // Check for Summary
-      const chatSummary = await prisma.chatSummary.findUnique({
-        where: { sessionId: sessionId as number }
-      });
-
-      if (chatSummary && chatSummary.summary) {
-        console.log(`[Stream] Using Chat Summary for Session ${sessionId}`);
-        history = [
-          { role: "user", parts: [{ text: `[SYSTEM: CONVERSATION SUMMARY]\nThe following is a summary of the conversation history so far. Use this context to answer the latest user request.\n\n${chatSummary.summary}` }] },
-          { role: "model", parts: [{ text: "Understood. I will use this summary as context." }] }
-        ];
-      } else {
-        // Build history including tool calls for full context
-        const historyItems: Content[] = [];
-
-        for (const msg of messages) {
-          if (msg.type === 'tool_call' && msg.toolCallData) {
-            // Reconstruct tool call as proper functionCall/functionResponse parts
-            try {
-              const toolData = JSON.parse(msg.toolCallData);
-              if (toolData.name && toolData.args !== undefined && toolData.result !== undefined) {
-                // Model's function call part (with dummy signature for Gemini 3)
-                historyItems.push({
-                  role: 'model',
-                  parts: [{
-                    functionCall: {
-                      name: toolData.name,
-                      args: toolData.args
-                    },
-                    // Use dummy signature for historical tool calls (SDK workaround)
-                    thoughtSignature: "skip_thought_signature_validator"
-                  } as any]
-                });
-                // User's function response part
-                historyItems.push({
-                  role: 'user',
-                  parts: [{
-                    functionResponse: {
-                      name: toolData.name,
-                      response: { result: toolData.result }
-                    }
-                  }]
-                });
-              }
-            } catch (e) {
-              console.warn("Failed to parse tool call data for history:", e);
-            }
-          } else {
-            // Regular message (user, model, recipe)
-            let text = msg.content || '';
-            if (msg.type === 'recipe' && msg.recipeData) {
-              text = JSON.stringify({
-                items: [{ type: 'recipe', recipe: JSON.parse(msg.recipeData) }]
-              });
-            }
-
-            const parts: any[] = [];
-            if (text) {
-              parts.push({ text });
-            }
-
-            if (msg.imageUrl) {
-              const ext = path.extname(msg.imageUrl).toLowerCase();
-              let mime = 'image/jpeg';
-              if (ext === '.png') mime = 'image/png';
-              if (ext === '.webp') mime = 'image/webp';
-              if (ext === '.heic') mime = 'image/heic';
-              if (ext === '.heif') mime = 'image/heif';
-
-              try {
-                const fullPath = path.join(UPLOAD_DIR, msg.imageUrl);
-                if (fs.existsSync(fullPath)) {
-                  parts.push(fileToGenerativePart(fullPath, mime));
-                }
-              } catch (e) {
-                console.error("Failed to load image for history", e);
-              }
-            }
-
-            if (parts.length > 0) {
-              historyItems.push({ role: msg.sender, parts } as Content);
-            }
-          }
-        }
-
-        history = historyItems;
-      }
-    }
-
-    // Send session ID to client immediately
     sendEvent('session', { sessionId });
 
-    // Save User Message to DB
-    await prisma.chatMessage.create({
-      data: {
-        sessionId: sessionId as number,
-        sender: 'user',
-        type: 'chat',
-        content: prompt
-      }
-    });
-
-    // Update session timestamp
-    await prisma.chatSession.update({
-      where: { id: sessionId as number },
-      data: { updatedAt: new Date() }
-    });
-
-    // Define tools for streaming - use all tools from shared module
-    const streamTools = getAllToolDefinitions();
-
-    // Get the configured model setting
+    // --- MODEL + ROUTING ---
     const systemInstruction = await buildSystemInstruction(additionalContext);
+    const streamTools = getAllToolDefinitions();
+    const toolDisplayNames = sharedToolDisplayNames;
+    const { isGeminiDebug, isDbLogging } = await getDebugSettings();
+
     let modelSetting = "gemini-flash-latest";
     try {
-      const setting = await prisma.systemSetting.findUnique({
-        where: { key: "gemini_chat_model" }
-      });
+      const setting = await prisma.systemSetting.findUnique({ where: { key: "gemini_chat_model" } });
       if (setting?.value) modelSetting = setting.value;
-    } catch (err) {
-      console.warn("Failed to get chat model setting");
-    }
+    } catch (err) { console.warn("Failed to get chat model setting"); }
 
-    let model: any;
     let finalModelName: string;
     let usingCache = false;
     let preGeneratedStreamResult: any = null;
+    let cacheName: string | undefined;
 
-    // Handle auto-routing
     if (modelSetting === AUTO_MODEL) {
-      // Build preliminary contents for routing decision
       const preliminaryContents: Content[] = [
         ...history,
         { role: "user", parts: [{ text: prompt }] }
       ];
 
-
-
       const { streamResult, finalModelName: routedModelName } = await routeAndExecute(
-        sessionId as number,
-        systemInstruction,
-        preliminaryContents,
-        streamTools,
-        geminiConfig,
-        additionalContext
+        sessionId as number, systemInstruction, preliminaryContents,
+        streamTools, geminiConfig, additionalContext
       );
 
       preGeneratedStreamResult = streamResult;
-
       finalModelName = routedModelName;
       console.log(`[Stream] Auto-routed to: ${finalModelName}`);
     } else {
-      // Normal path: use context caching
       const cached = await getCachedModel("gemini_chat_model", additionalContext);
-      model = cached.model;
       finalModelName = cached.modelName;
       usingCache = cached.usingCache;
+      cacheName = cached.cacheName;
       console.log(`[Stream] Using ${usingCache ? 'cached' : 'non-cached'} model: ${finalModelName}`);
     }
 
-    // Send model metadata event early so UI can display it while streaming
     sendEvent('meta', { modelName: finalModelName, usingCache });
 
-    const modelAck = {
-      role: "model",
-      parts: [{ text: "Understood. I will always return valid JSON with a root 'items' array containing objects with 'type': 'recipe' or 'type': 'chat'." }],
-    };
+    // --- BUILD CONTENTS ---
+    const effectiveSystemInstruction = systemInstruction && systemInstruction.trim().length > 0
+      ? systemInstruction : "You are a helpful assistant.";
+    const contents: Content[] = [
+      ...history,
+      { role: "user", parts: [{ text: prompt }] },
+    ];
 
-    // Build contents based on whether we're using cache
-    let contents: Content[];
-    if (usingCache) {
-      // When using cache, the system instruction is already cached
-      contents = [
-        ...history,
-        { role: "user", parts: [{ text: prompt }] },
-      ];
-    } else {
-      // Non-cached: include full system instruction
-      // Validate system instruction is not empty
-      const sysInstrText = systemInstruction && systemInstruction.trim().length > 0 ? systemInstruction : "You are a helpful assistant.";
-
-      contents = [
-        { role: "user", parts: [{ text: sysInstrText }] },
-        modelAck,
-        ...history,
-        { role: "user", parts: [{ text: prompt }] },
-      ];
-    }
-
-    // DEBUG: Log contents structure to identify 400 error cause
-    try {
-      if (contents.length > 0 && contents[0].parts.length > 0) {
-        const p0 = contents[0].parts[0];
-        // Check for empty text or missing fields
-        if (!p0.text && !p0.inlineData && !p0.functionCall && !p0.functionResponse) {
-          console.error("!!! [Stream] DETECTED MALFORMED PART 0 !!!", JSON.stringify(p0));
-        }
-        if (typeof p0.text === 'string' && p0.text.length === 0) {
-          console.error("!!! [Stream] DETECTED EMPTY TEXT IN PART 0 !!!");
-          // Fix it
-          (p0 as any).text = " ";
-        }
-      }
-      console.log(`[Stream] Contents prepared. Length: ${contents.length}. First Item Role: ${contents[0]?.role}`);
-    } catch (e) { console.error("Debug log failed", e); }
-
-    // Tool display names from shared module
-    const toolDisplayNames = sharedToolDisplayNames;
-
-    // Streaming tool handler - delegates to shared handler
+    // --- TOOL CONTEXT ---
     const streamToolContext: ToolContext = {
       userId: (req as any).userId || (req.user as any)?.id,
       io: req.app.get("io")
     };
-    
-    const handleStreamToolCall = async (name: string, args: any): Promise<any> => {
-      return executeToolHandler(name, args, streamToolContext);
-    };
 
-    // Define tools for streaming (subset of full tools - read-only context tools)
-
-
-    // Use streaming generation with tool support
+    // --- STREAMING GENERATION + TOOL LOOP ---
     let fullText = '';
     let currentContents = [...contents];
     let loopCount = 0;
@@ -1876,27 +1518,30 @@ export const postStream = async (req: Request, res: Response) => {
     try {
       while (loopCount < maxLoops) {
         loopCount++;
-
         let streamResult: any;
         let collectedChunks: any[] = [];
 
-        // Use pre-generated stream from router if available (first loop only)
-        if (loopCount === 1 && typeof preGeneratedStreamResult !== 'undefined' && preGeneratedStreamResult) {
+        const reqStart = Date.now();
+
+        if (loopCount === 1 && preGeneratedStreamResult) {
           streamResult = preGeneratedStreamResult;
-          preGeneratedStreamResult = null; // Use only once
+          preGeneratedStreamResult = null;
         } else {
-          // Log summary of contents being sent (reduced from verbose per-part logging)
-          const contentSummary = currentContents.map((c: any) =>
-            `${c.role}(${c.parts.length} parts${c.parts.some((p: any) => p.thoughtSignature) ? '+sig' : ''})`
-          ).join(', ');
-          console.log(`[Stream Loop ${loopCount}] Calling generateContentStream: [${contentSummary}]`);
+          if (isGeminiDebug) {
+            const contentSummary = currentContents.map((c: any) =>
+              `${c.role}(${c.parts.length} parts${c.parts.some((p: any) => p.thoughtSignature) ? '+sig' : ''})`
+            ).join(', ');
+            console.log(`[Stream Loop ${loopCount}] Calling generateContentStream: [${contentSummary}]`);
+          }
 
           const ai = await getAI();
           streamResult = await ai.models.generateContentStream({
             model: finalModelName,
             contents: currentContents,
+            ...(cacheName ? { cachedContent: cacheName } : {}),
             config: {
               ...geminiConfig,
+              systemInstruction: usingCache ? undefined : effectiveSystemInstruction,
               tools: adaptTools(streamTools)
             }
           });
@@ -1905,46 +1550,46 @@ export const postStream = async (req: Request, res: Response) => {
         let hasToolCall = false;
         let toolCalls: any[] = [];
 
-        // Stream text chunks to UI as they arrive
-        // New SDK returns AsyncIterable directly (not wrapped in .stream)
+        // Stream text chunks to UI
         const streamIterable = streamResult.stream ? streamResult.stream : streamResult;
         for await (const chunk of streamIterable) {
           collectedChunks.push(chunk);
-          try {
-            // New SDK uses .text property, old SDK uses .text() method
-            const chunkText = typeof chunk.text === 'function' ? chunk.text() : chunk.text;
-            if (chunkText) {
-              fullText += chunkText;
-              sendEvent('chunk', { text: chunkText });
-            }
-          } catch (e) {
-            // No text in this chunk - might be a function call, handled below
-          }
 
-          // Check for function calls in chunks to emit UI events early
+          // Extract text from candidates' parts (safe) or from reconstituted stream's text property
+          let chunkText = '';
           const candidate = chunk.candidates?.[0];
           if (candidate?.content?.parts) {
+            // Extract text only from text parts, skip function call parts
             for (const part of candidate.content.parts) {
+              if (part.text) {
+                chunkText += part.text;
+              }
               if (part.functionCall) {
                 const displayName = toolDisplayNames[part.functionCall.name] || `Using ${part.functionCall.name}...`;
-                sendEvent('tool_call', {
-                  toolCall: { name: part.functionCall.name, args: part.functionCall.args },
-                  displayName
-                });
+                sendEvent('tool_call', { toolCall: { name: part.functionCall.name, args: part.functionCall.args }, displayName });
               }
             }
+          } else if (typeof chunk.text === 'string' && chunk.text) {
+            // Reconstituted stream from routeAndExecute — text is a plain property
+            chunkText = chunk.text;
+          }
+
+          if (chunkText) {
+            fullText += chunkText;
+            sendEvent('chunk', { text: chunkText });
           }
         }
 
-        // Get the final response parts with thoughtSignature
-        // For the new SDK, we need to get parts from the last chunk or aggregate
+        const reqEnd = Date.now();
+
+        // Get response parts from chunks
         let rawResponseParts: any[] = [];
         if (collectedChunks.length > 0) {
+          // Try last chunk first (usually has aggregated parts)
           const lastChunk = collectedChunks[collectedChunks.length - 1];
           rawResponseParts = lastChunk.candidates?.[0]?.content?.parts || [];
-
-          // If the last chunk doesn't have parts, aggregate from all chunks
           if (rawResponseParts.length === 0) {
+            // Fall back to aggregating from all chunks
             for (const chunk of collectedChunks) {
               const parts = chunk.candidates?.[0]?.content?.parts || [];
               for (const part of parts) {
@@ -1954,46 +1599,34 @@ export const postStream = async (req: Request, res: Response) => {
               }
             }
           }
-        }
-
-        // Log response summary (reduced from verbose per-part logging)
-        const fcParts = rawResponseParts.filter((p: any) => p.functionCall);
-        const sigParts = rawResponseParts.filter((p: any) => p.thoughtSignature);
-        console.log(`[Stream Loop ${loopCount}] Response: ${rawResponseParts.length} parts, ${fcParts.length} function calls${fcParts.length > 0 ? ` (${fcParts.map((p: any) => p.functionCall.name).join(', ')})` : ''}, SDK provides signature: ${sigParts.length > 0}`);
-
-        // IMPORTANT: Explicitly copy part properties and ensure thoughtSignature is present
-        // The SDK v0.24.1 strips out thoughtSignature from the response, but Gemini 3 models require it.
-        // According to Google's documentation, when signatures are missing, we can use the dummy
-        // signature "skip_thought_signature_validator" to bypass validation.
-        // See: https://ai.google.dev/gemini-api/docs/thought-signatures#FAQs
-        let hasFunctionCallNeedingSignature = false;
-        const responseParts = rawResponseParts.map((part: any, index: number) => {
-          const copiedPart: any = {};
-          if (part.text !== undefined) copiedPart.text = part.text;
-          if (part.inlineData) copiedPart.inlineData = part.inlineData;
-          if (part.functionCall) {
-            copiedPart.functionCall = {
-              name: part.functionCall.name,
-              args: part.functionCall.args
-            };
-            // Gemini 3 models require thoughtSignature on the FIRST functionCall part
-            if (!hasFunctionCallNeedingSignature) {
-              hasFunctionCallNeedingSignature = true;
-              // Check if SDK provided the signature (it currently doesn't in v0.24.1)
-              if (part.thoughtSignature) {
-                copiedPart.thoughtSignature = part.thoughtSignature;
-              } else {
-                // Inject the dummy signature as documented workaround
-                // "skip_thought_signature_validator" allows requests without proper signatures
-                copiedPart.thoughtSignature = "skip_thought_signature_validator";
+          // If still no parts but reconstituted stream had functionCalls property, use that
+          if (rawResponseParts.length === 0) {
+            for (const chunk of collectedChunks) {
+              if (chunk.functionCalls) {
+                for (const fc of chunk.functionCalls) {
+                  rawResponseParts.push({ functionCall: fc });
+                }
               }
             }
           }
-          if (part.functionResponse) copiedPart.functionResponse = part.functionResponse;
-          return copiedPart;
-        });
+        }
 
-        // Check if there are function calls in the final response
+        // Debug logging
+        if (isDbLogging) {
+          const fcParts = rawResponseParts.filter((p: any) => p.functionCall);
+          writeDebugLog(sessionId as number, reqStart, reqEnd, currentContents, fullText,
+            fcParts.map((p: any) => p.functionCall));
+        }
+
+        if (isGeminiDebug) {
+          const fcParts = rawResponseParts.filter((p: any) => p.functionCall);
+          console.log(`[Stream Loop ${loopCount}] Response: ${rawResponseParts.length} parts, ${fcParts.length} function calls${fcParts.length > 0 ? ` (${fcParts.map((p: any) => p.functionCall.name).join(', ')})` : ''}`);
+        }
+
+        // Inject thought signatures
+        const responseParts = injectThoughtSignatures(rawResponseParts);
+
+        // Check for function calls
         for (const part of responseParts) {
           if (part.functionCall) {
             hasToolCall = true;
@@ -2001,36 +1634,25 @@ export const postStream = async (req: Request, res: Response) => {
           }
         }
 
-        // If there were tool calls, execute them and continue
         if (hasToolCall && toolCalls.length > 0) {
-          // Add model's response to context - use the copied parts with thought_signature
-          currentContents.push({
-            role: "model",
-            parts: responseParts // Now contains properly copied thoughtSignature
-          });
+          currentContents.push({ role: "model", parts: responseParts });
 
-          // Execute tools and add responses, tracking duration and saving to DB
           const toolResponses: any[] = [];
           for (const call of toolCalls) {
             const toolStartTime = Date.now();
-            const result = await handleStreamToolCall(call.name, call.args);
+            const result = await executeToolHandler(call.name, call.args, streamToolContext);
             const toolDurationMs = Date.now() - toolStartTime;
 
             const displayName = toolDisplayNames[call.name] || `Using ${call.name}...`;
 
-            // Save tool call to DB with full data for history reconstruction
+            // Save tool call to DB (fire-and-forget)
             prisma.chatMessage.create({
               data: {
                 sessionId: sessionId as number,
-                sender: 'model',  // Changed from 'system' - it's the model making the call
+                sender: 'model',
                 type: 'tool_call',
                 content: displayName,
-                toolCallData: JSON.stringify({
-                  name: call.name,
-                  displayName,
-                  args: call.args,  // Include args for history reconstruction
-                  result: result    // Include result for functionResponse
-                }),
+                toolCallData: JSON.stringify({ name: call.name, displayName, args: call.args, result }),
                 toolCallDurationMs: toolDurationMs
               }
             }).catch(err => console.error("Failed to save tool call:", err));
@@ -2040,16 +1662,10 @@ export const postStream = async (req: Request, res: Response) => {
             });
           }
 
-          currentContents.push({
-            role: "user",
-            parts: toolResponses
-          });
-
-          // Reset for next iteration
-          fullText = '';
+          currentContents.push({ role: "user", parts: toolResponses });
+          fullText = ''; // Reset for next iteration
         } else {
-          // No more tool calls, we're done
-          break;
+          break; // No more tool calls
         }
       }
     } catch (streamError: any) {
@@ -2059,24 +1675,7 @@ export const postStream = async (req: Request, res: Response) => {
       return;
     }
 
-    // Parse the full response
-    const cleanJson = (text: string) => {
-      const jsonStart = text.indexOf('{');
-      const jsonEnd = text.lastIndexOf('}');
-      if (jsonStart !== -1 && jsonEnd !== -1 && jsonEnd > jsonStart) {
-        const potentialJson = text.substring(jsonStart, jsonEnd + 1);
-        try {
-          JSON.parse(potentialJson);
-          return potentialJson;
-        } catch (e) { /* fall through */ }
-      }
-      let cleaned = text.trim();
-      if (cleaned.startsWith('```json')) cleaned = cleaned.substring(7);
-      else if (cleaned.startsWith('```')) cleaned = cleaned.substring(3);
-      if (cleaned.endsWith('```')) cleaned = cleaned.substring(0, cleaned.length - 3);
-      return cleaned.trim();
-    };
-
+    // --- PARSE RESPONSE ---
     let data;
     try {
       data = JSON.parse(cleanJson(fullText));
@@ -2084,122 +1683,20 @@ export const postStream = async (req: Request, res: Response) => {
       console.warn("Failed to parse JSON response (stream), using raw text", e);
       data = { items: [{ type: 'chat', content: fullText }] };
     }
+    data = normalizeResponse(data, 'Stream');
 
-    // Note: usageMetadata not available with multi-turn tool calling in streaming mode
-    const usageMetadata = undefined;
-
-    // Send final complete event with parsed data and metadata IMMEDIATELY
-    // Don't wait for DB saves or title generation
+    // Send final event immediately
     sendEvent('done', {
       data,
-      meta: {
-        usingCache,
-        modelName: finalModelName,
-        usageMetadata
-      }
+      meta: { usingCache, modelName: finalModelName, usageMetadata: undefined }
     });
     res.end();
 
-    // --- ASYNC POST-PROCESSING (non-blocking) ---
-    // These operations happen after the response is sent to the client
-
-    // Save Model Response to DB (async, no await needed for client)
-    const saveToDb = async () => {
-      try {
-        if (data.items && Array.isArray(data.items)) {
-          for (const item of data.items) {
-            if (item.type === 'recipe' && item.recipe) {
-              await prisma.chatMessage.create({
-                data: {
-                  sessionId: sessionId as number,
-                  sender: 'model',
-                  type: 'recipe',
-                  recipeData: JSON.stringify(item.recipe),
-                  modelUsed: finalModelName
-                }
-              });
-            } else {
-              await prisma.chatMessage.create({
-                data: {
-                  sessionId: sessionId as number,
-                  sender: 'model',
-                  type: 'chat',
-                  content: item.content || JSON.stringify(item),
-                  modelUsed: finalModelName
-                }
-              });
-            }
-          }
-        } else {
-          const isRecipe = (data.type && data.type.toLowerCase() === 'recipe') || (data.recipe && typeof data.recipe === 'object');
-          if (isRecipe && data.recipe) {
-            await prisma.chatMessage.create({
-              data: {
-                sessionId: sessionId as number,
-                sender: 'model',
-                type: 'recipe',
-                recipeData: JSON.stringify(data.recipe),
-                modelUsed: finalModelName
-              }
-            });
-          } else {
-            let content = data.content;
-            if (typeof content === 'object') content = JSON.stringify(content, null, 2);
-            else if (!content) content = JSON.stringify(data, null, 2);
-            await prisma.chatMessage.create({
-              data: {
-                sessionId: sessionId as number,
-                sender: 'model',
-                type: 'chat',
-                content: content,
-                modelUsed: finalModelName
-              }
-            });
-          }
-        }
-      } catch (dbError) {
-        console.error("Failed to save model response to DB:", dbError);
-      }
-    };
-
-    // Get io reference before res.end() for async notifications
+    // --- ASYNC POST-PROCESSING ---
     const io = req.app.get("io");
-
-    // Generate title for new sessions (async, no await needed for client)
-    const generateTitle = async () => {
-      try {
-        const currentSession = await prisma.chatSession.findUnique({ where: { id: sessionId as number } });
-        if (currentSession) {
-          const messageCount = await prisma.chatMessage.count({ where: { sessionId: sessionId as number } });
-          if (messageCount <= 2 || currentSession.title === 'New Chat') {
-            const titlePrompt = `Based on the following conversation, generate a short, concise, and descriptive title (max 6 words). Return ONLY the title text, no quotes or "Title:".\n\nUser: ${prompt}\nInternal Model Response: ${JSON.stringify(data).substring(0, 500)}...`;
-
-            const { result: titleResult } = await executeWithFallback(
-              "gemini_chat_model",
-              async (m) => await m.generateContent(titlePrompt)
-            );
-
-            let newTitle = titleResult.response.text().trim().replace(/^"|"$/g, '').trim();
-            if (newTitle) {
-              await prisma.chatSession.update({
-                where: { id: sessionId as number },
-                data: { title: newTitle }
-              });
-
-              // Notify frontend that session title was updated
-              if (io) {
-                io.emit('chat_session_updated', { sessionId, title: newTitle });
-              }
-            }
-          }
-        }
-      } catch (titleError) {
-        console.warn("Failed to generate chat title (stream):", titleError);
-      }
-    };
-
-    // Fire and forget - don't block
-    saveToDb().then(() => generateTitle());
+    saveResponseToDb(sessionId as number, data, finalModelName)
+      .then(() => generateSessionTitle(sessionId as number, prompt, data, io))
+      .catch(err => console.error("Post-processing error:", err));
 
   } catch (error) {
     console.error("Stream error:", error);
@@ -2645,35 +2142,8 @@ export const postBarcodeDetails = async (req: Request, res: Response) => {
   }
 };
 
-const cleanJson = (text: string) => {
-  // 1. Try to locate the JSON block specifically.
-  // We look for the outer-most braces structure that looks like our schema.
-  const jsonStart = text.indexOf('{');
-  const jsonEnd = text.lastIndexOf('}');
 
-  if (jsonStart !== -1 && jsonEnd !== -1 && jsonEnd > jsonStart) {
-    const potentialJson = text.substring(jsonStart, jsonEnd + 1);
-    try {
-      // Verify it parses
-      JSON.parse(potentialJson);
-      return potentialJson;
-    } catch (e) {
-      // If the substring fails, fall back to loose cleaning
-    }
-  }
 
-  // Remove ```json ... ``` or just ``` ... ```
-  let cleaned = text.trim();
-  if (cleaned.startsWith('```json')) {
-    cleaned = cleaned.substring(7);
-  } else if (cleaned.startsWith('```')) {
-    cleaned = cleaned.substring(3);
-  }
-  if (cleaned.endsWith('```')) {
-    cleaned = cleaned.substring(0, cleaned.length - 3);
-  }
-  return cleaned.trim();
-};
 
 export const postShoppingListSort = async (req: Request, res: Response) => {
   try {
@@ -3165,7 +2635,7 @@ export const getDebugLogs = async (req: Request, res: Response) => {
       orderBy: { requestTimestamp: 'asc' }
     });
 
-    res.json(logs);
+    res.json({ data: logs });
   } catch (err) {
     console.error("Error fetching debug logs:", err);
     res.status(500).json({ error: "Failed to fetch logs" });

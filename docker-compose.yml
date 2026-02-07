@@ -11,7 +11,7 @@ services:
     environment:
       - DEFAULT_ADMIN_PASSWORD=${DEFAULT_ADMIN_PASSWORD}
       - PLAYWRIGHT_MCP_HOST=${PLAYWRIGHT_MCP_HOST:-playwright-mcp}
-      - PLAYWRIGHT_MCP_PORT=${PLAYWRIGHT_MCP_PORT:-8931}
+      - PLAYWRIGHT_MCP_PORT=${PLAYWRIGHT_MCP_PORT:-8930}
       - PLAYWRIGHT_NOVNC_HOST=${PLAYWRIGHT_NOVNC_HOST:-playwright-mcp}
       - PLAYWRIGHT_NOVNC_PORT=${PLAYWRIGHT_NOVNC_PORT:-6080}
       - TZ=${TZ:-UTC}
@@ -42,7 +42,7 @@ services:
     ports:
       - 5900:5900 # VNC
       - 6080:6080 # noVNC web interface
-      - 8931:8931 # Playwright MCP HTTP API
+      - 8930:8930 # Playwright MCP HTTP API (via socat forwarder)
     environment:
       - VNC_PASSWORD=playwright
       - SCREEN_WIDTH=1920

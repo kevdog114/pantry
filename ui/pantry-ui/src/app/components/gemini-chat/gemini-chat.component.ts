@@ -421,9 +421,16 @@ export class GeminiChatComponent implements OnInit, OnDestroy {
             return displayParts.join('\n\n');
           }
         }
-        // Single item with content
+        // Single item with content or message
         if (parsed.content) {
           return parsed.content;
+        }
+        // Handle non-standard format: {type: "message", message: "..."}
+        if (parsed.message) {
+          return parsed.message;
+        }
+        if (parsed.text) {
+          return parsed.text;
         }
       } catch (e) {
         // JSON not complete yet, try to extract partial content
@@ -448,13 +455,29 @@ export class GeminiChatComponent implements OnInit, OnDestroy {
       }
     }
 
+    // Also search for "message" fields (Gemini 3 sometimes uses this)
+    const messageMatches = text.matchAll(/"message"\s*:\s*"((?:[^"\\]|\\.)*)"/g);
+    for (const match of messageMatches) {
+      if (match[1]) {
+        const content = match[1]
+          .replace(/\\n/g, '\n')
+          .replace(/\\"/g, '"')
+          .replace(/\\\\/g, '\\');
+        if (content.trim().length > 0) {
+          displayParts.push(content);
+        }
+      }
+    }
+
     // Check if there's a partial content at the end (still being written)
-    // Find the last "content": " that doesn't have a closing quote
+    // Find the last "content" or "message": " that doesn't have a closing quote
     const lastContentIndex = text.lastIndexOf('"content"');
-    if (lastContentIndex !== -1) {
-      const afterContent = text.substring(lastContentIndex);
+    const lastMessageIndex = text.lastIndexOf('"message"');
+    const lastFieldIndex = Math.max(lastContentIndex, lastMessageIndex);
+    if (lastFieldIndex !== -1) {
+      const afterContent = text.substring(lastFieldIndex);
       // Check if this content field is incomplete (no closing quote after the opening)
-      const partialMatch = afterContent.match(/^"content"\s*:\s*"((?:[^"\\]|\\.)*?)$/);
+      const partialMatch = afterContent.match(/^"(?:content|message)"\s*:\s*"((?:[^"\\]|\\.)*?)$/);
       if (partialMatch && partialMatch[1]) {
         const partialContent = partialMatch[1]
           .replace(/\\n/g, '\n')
@@ -528,11 +551,19 @@ export class GeminiChatComponent implements OnInit, OnDestroy {
           expanded: false
         });
       } else {
-        let content = data.content;
+        // Try multiple common field names the model might use for text content
+        let content = data.content || data.message || data.text || data.response;
         if (typeof content === 'object') {
           content = JSON.stringify(content, null, 2);
         } else if (!content) {
-          content = JSON.stringify(data, null, 2);
+          // Last resort: if data only has type + empty fields, show a fallback
+          const keys = Object.keys(data).filter(k => k !== 'type');
+          const hasOnlyEmptyValues = keys.every(k => !data[k] || (typeof data[k] === 'string' && data[k].trim() === ''));
+          if (hasOnlyEmptyValues) {
+            content = 'I received your message but couldn\'t generate a response. Please try again.';
+          } else {
+            content = JSON.stringify(data, null, 2);
+          }
         }
 
         geminiContents.push({
