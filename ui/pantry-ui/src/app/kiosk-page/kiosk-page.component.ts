@@ -13,6 +13,7 @@ import { LabelService } from '../services/label.service';
 import { KioskService } from '../services/kiosk.service';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { HttpClient } from '@angular/common/http';
 import { EnvironmentService } from '../services/environment.service';
 import { HardwareBarcodeScannerService } from '../hardware-barcode-scanner.service';
@@ -46,7 +47,8 @@ import { HardwareService } from '../services/hardware.service';
         MatDatepickerModule,
         MatNativeDateModule,
         FormsModule,
-        MarkdownModule
+        MarkdownModule,
+        MatProgressSpinnerModule
     ],
     templateUrl: './kiosk-page.component.html',
     styleUrls: ['./kiosk-page.component.css']
@@ -378,6 +380,26 @@ export class KioskPageComponent implements OnInit, OnDestroy {
         this.status = 'Ready';
         this.statusSubtext = '';
         this.hardwareScanner.setCustomHandler(() => { });
+    }
+
+    async extendTimer(id: number, seconds: number) {
+        try {
+            await firstValueFrom(this.http.patch(`${this.env.apiUrl}/timers/${id}/extend`, { seconds }));
+            this.snackBar.open(`Added ${seconds / 60}m`, "Close", { duration: 2000 });
+            this.fetchTimers();
+        } catch (err) {
+            console.error("Failed to extend timer", err);
+        }
+    }
+
+    async restartTimer(id: number) {
+        try {
+            await firstValueFrom(this.http.patch(`${this.env.apiUrl}/timers/${id}/restart`, {}));
+            this.snackBar.open("Timer Restarted", "Close", { duration: 2000 });
+            this.fetchTimers();
+        } catch (err) {
+            console.error("Failed to restart timer", err);
+        }
     }
 
     async resolveBarcode(rawBarcode: string): Promise<{ product: Product | null, stockItem: StockItem | null }> {

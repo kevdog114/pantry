@@ -9,57 +9,91 @@
     </div>
 
     <!-- Create Mode -->
-    <div *ngIf="isCreateMode" class="mb-8 p-6 bg-white dark:bg-zinc-800 rounded-xl shadow-lg animate-fade-in">
-        <h2 class="text-xl font-semibold mb-4 dark:text-gray-200">Set New Timer</h2>
+    <mat-card *ngIf="isCreateMode" class="mb-8 animate-fade-in dark:bg-zinc-800 border border-white/10 shadow-xl">
+        <mat-card-content class="p-8">
+            <h2 class="text-2xl font-bold mb-6 dark:text-white">Set New Timer</h2>
 
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-            <button mat-stroked-button class="h-12" (click)="startTimer(5, '5 Minutes')">5m</button>
-            <button mat-stroked-button class="h-12" (click)="startTimer(10, '10 Minutes')">10m</button>
-            <button mat-stroked-button class="h-12" (click)="startTimer(15, '15 Minutes')">15m</button>
-            <button mat-stroked-button class="h-12" (click)="startTimer(30, '30 Minutes')">30m</button>
-            <button mat-stroked-button class="h-12" (click)="startTimer(45, '45 Minutes')">45m</button>
-            <button mat-stroked-button class="h-12" (click)="startTimer(60, '1 Hour')">1h</button>
-        </div>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+                <button mat-stroked-button class="h-12" (click)="startTimer(5, '5 Minutes')">5m</button>
+                <button mat-stroked-button class="h-12" (click)="startTimer(10, '10 Minutes')">10m</button>
+                <button mat-stroked-button class="h-12" (click)="startTimer(15, '15 Minutes')">15m</button>
+                <button mat-stroked-button class="h-12" (click)="startTimer(30, '30 Minutes')">30m</button>
+                <button mat-stroked-button class="h-12" (click)="startTimer(45, '45 Minutes')">45m</button>
+                <button mat-stroked-button class="h-12" (click)="startTimer(60, '1 Hour')">1h</button>
+            </div>
 
-        <div class="flex gap-4 items-end">
-            <mat-form-field appearance="outline" class="flex-1">
-                <mat-label>Custom Minutes</mat-label>
-                <input matInput type="number" [(ngModel)]="customDuration" (keyup.enter)="startCustom()">
-            </mat-form-field>
-            <mat-form-field appearance="outline" class="flex-1">
-                <mat-label>Name (Optional)</mat-label>
-                <input matInput [(ngModel)]="customName" placeholder="e.g. Pasta" (keyup.enter)="startCustom()">
-            </mat-form-field>
-            <button mat-flat-button color="accent" class="h-[56px] mb-[22px]" (click)="startCustom()"
-                [disabled]="!customDuration || customDuration <= 0">START</button>
-        </div>
-    </div>
+            <div class="flex gap-4 items-end">
+                <mat-form-field appearance="outline" class="flex-1">
+                    <mat-label>Custom Minutes</mat-label>
+                    <input matInput type="number" [(ngModel)]="customDuration" (keyup.enter)="startCustom()">
+                </mat-form-field>
+                <mat-form-field appearance="outline" class="flex-1">
+                    <mat-label>Name (Optional)</mat-label>
+                    <input matInput [(ngModel)]="customName" placeholder="e.g. Pasta" (keyup.enter)="startCustom()">
+                </mat-form-field>
+                <button mat-flat-button color="accent" class="h-[56px] mb-[22px]" (click)="startCustom()"
+                    [disabled]="!customDuration || customDuration <= 0">START</button>
+            </div>
+        </mat-card-content>
+    </mat-card>
 
     <!-- Active Timers Grid -->
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+    <div style="display: flex; flex-wrap: wrap; gap: 24px; justify-content: center;">
         <mat-card *ngFor="let timer of activeTimers"
-            class="timer-card relative overflow-hidden transition-all hover:shadow-xl dark:bg-zinc-800">
-            <div class="absolute top-0 left-0 w-1 h-full bg-orange-500"></div>
-            <mat-card-content class="p-6">
-                <div class="flex justify-between items-start mb-2">
-                    <span class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">{{
-                        timer.name || 'Timer' }}</span>
-                    <button mat-icon-button color="warn" (click)="deleteTimer(timer.id)" matTooltip="Stop Timer">
-                        <mat-icon>delete</mat-icon>
-                    </button>
-                </div>
+            class="timer-card relative overflow-hidden transition-all hover:shadow-xl dark:bg-zinc-800"
+            style="flex: 0 0 340px; max-width: 340px;"
+            [class.pulse-urgent]="timer.remainingSeconds > 0 && timer.remainingSeconds < 30"
+            [class.bg-red-50]="timer.isCompleted" [class.dark:bg-red-900]="timer.isCompleted">
 
-                <div class="text-center py-4">
-                    <div class="text-5xl font-mono font-bold text-gray-800 dark:text-white mb-2">
-                        {{ formatTimer(timer.remainingSeconds) }}
-                    </div>
+            <div class="absolute top-0 left-0 w-1 h-full"
+                [ngClass]="timer.isCompleted ? 'bg-red-500' : 'bg-orange-500'"></div>
 
-                    <!-- Progress Bar Background -->
-                    <div class="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
-                        <div class="h-full bg-orange-500 transition-all duration-1000 ease-linear"
-                            [style.width.%]="(timer.remainingSeconds / timer.totalSeconds) * 100">
+            <!-- Delete button pinned to top-right of card -->
+            <button mat-icon-button color="warn" (click)="deleteTimer(timer.id)" matTooltip="Stop & Remove"
+                style="position: absolute; top: 8px; right: 8px; z-index: 20;">
+                <mat-icon>close</mat-icon>
+            </button>
+
+            <mat-card-content style="padding: 16px;">
+                <!-- Spinner area -->
+                <div style="position: relative; width: 240px; height: 240px; margin: 8px auto 16px auto;">
+                    <mat-progress-spinner style="position: absolute; top: 0; left: 0;"
+                        [color]="timer.isCompleted ? 'warn' : 'accent'" [mode]="'determinate'"
+                        [value]="timer.isCompleted ? 100 : (timer.remainingSeconds / timer.totalSeconds) * 100"
+                        [strokeWidth]="8" [diameter]="240">
+                    </mat-progress-spinner>
+
+                    <!-- Centered text overlay -->
+                    <div
+                        style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; z-index: 10;">
+                        <div class="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest mb-1">
+                            {{ timer.name || 'Timer' }}
+                        </div>
+                        <div class="text-4xl font-mono font-bold tracking-tight leading-none"
+                            [class.text-red-600]="timer.isCompleted" [class.dark:text-red-400]="timer.isCompleted"
+                            [class.text-gray-800]="!timer.isCompleted" [class.dark:text-white]="!timer.isCompleted">
+                            {{ formatTimer(timer.remainingSeconds) }}
+                        </div>
+                        <div *ngIf="timer.isCompleted" class="text-red-600 font-bold animate-pulse text-sm mt-2">
+                            COMPLETED</div>
+                        <div *ngIf="!timer.isCompleted"
+                            class="text-sm text-gray-400 dark:text-gray-500 font-medium mt-2">
+                            of {{ formatTimer(timer.totalSeconds) }}
                         </div>
                     </div>
+                </div>
+
+                <!-- Timer Actions -->
+                <div class="grid grid-cols-2 gap-2">
+                    <button mat-stroked-button (click)="extendTimer(timer.id, 60)" [disabled]="timer.isCompleted">
+                        <mat-icon class="scale-75">add</mat-icon>1m
+                    </button>
+                    <button mat-stroked-button (click)="extendTimer(timer.id, 300)" [disabled]="timer.isCompleted">
+                        <mat-icon class="scale-75">add</mat-icon>5m
+                    </button>
+                    <button mat-flat-button color="primary" class="col-span-2" (click)="restartTimer(timer.id)">
+                        <mat-icon class="scale-75">replay</mat-icon>RESTART
+                    </button>
                 </div>
             </mat-card-content>
         </mat-card>

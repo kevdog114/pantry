@@ -519,19 +519,51 @@
             </div>
 
             <div class="active-timers-list">
-                <div *ngIf="activeTimers.length === 0" class="text-center text-gray-500 mt-10 text-4xl">
-                    NO ACTIVE TIMERS
+                <div *ngIf="activeTimers.length === 0" class="text-center text-gray-400 mt-20">
+                    <mat-icon class="text-8xl mb-4 opacity-20">timer_off</mat-icon>
+                    <div class="text-3xl">NO ACTIVE TIMERS</div>
                 </div>
 
-                <div *ngFor="let timer of activeTimers" class="timer-card">
-                    <div>
-                        <div class="timer-label">{{ timer.name || 'Timer' }}</div>
-                        <div class="timer-time">{{ formatTimer(timer.remainingSeconds) }}</div>
+                <div *ngFor="let timer of activeTimers" class="timer-card"
+                    [class.urgent]="timer.remainingSeconds > 0 && timer.remainingSeconds < 30"
+                    [class.completed]="timer.remainingSeconds === 0">
+
+                    <div class="timer-header">
+                        <div class="timer-info">
+                            <span class="timer-label">{{ timer.name || 'Timer' }}</span>
+                            <span *ngIf="timer.remainingSeconds === 0"
+                                class="timer-status animate-pulse">COMPLETED</span>
+                        </div>
+                        <button class="k-icon-btn"
+                            style="border-color: var(--k-warn); color: var(--k-warn); transform: scale(0.8);"
+                            (click)="deleteTimer(timer.id)">
+                            <mat-icon>close</mat-icon>
+                        </button>
                     </div>
-                    <button class="k-icon-btn" style="border-color: var(--k-warn); color: var(--k-warn);"
-                        (click)="deleteTimer(timer.id)">
-                        <mat-icon>delete</mat-icon>
-                    </button>
+
+                    <div class="timer-spinner-container">
+                        <mat-progress-spinner style="position: absolute" [mode]="'determinate'"
+                            [color]="timer.remainingSeconds === 0 ? 'warn' : 'accent'"
+                            [value]="timer.remainingSeconds === 0 ? 100 : (timer.remainingSeconds / timer.duration) * 100"
+                            [strokeWidth]="12" [diameter]="180">
+                        </mat-progress-spinner>
+                        <span class="timer-time">{{ formatTimer(timer.remainingSeconds) }}</span>
+                    </div>
+
+                    <div class="timer-actions">
+                        <button class="k-btn px-4" (click)="extendTimer(timer.id, 60)"
+                            [disabled]="timer.remainingSeconds === 0">
+                            <mat-icon style="font-size: 24px; width: 24px; height: 24px; margin: 0">add</mat-icon> 1m
+                        </button>
+                        <button class="k-btn px-4" (click)="extendTimer(timer.id, 300)"
+                            [disabled]="timer.remainingSeconds === 0">
+                            <mat-icon style="font-size: 24px; width: 24px; height: 24px; margin: 0">add</mat-icon> 5m
+                        </button>
+                        <button class="k-btn primary px-4" (click)="restartTimer(timer.id)">
+                            <mat-icon style="font-size: 24px; width: 24px; height: 24px; margin: 0">replay</mat-icon>
+                            RESTART
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>

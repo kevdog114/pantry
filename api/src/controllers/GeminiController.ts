@@ -1582,45 +1582,52 @@ export const postStream = async (req: Request, res: Response) => {
 
         const reqEnd = Date.now();
 
-        // Get response parts from chunks
+        // Get response parts from chunks - ALWAYS aggregate from all chunks
+        // The last chunk may only have the final text/FC, not all of them
         let rawResponseParts: any[] = [];
-        if (collectedChunks.length > 0) {
-          // Try last chunk first (usually has aggregated parts)
-          const lastChunk = collectedChunks[collectedChunks.length - 1];
-          rawResponseParts = lastChunk.candidates?.[0]?.content?.parts || [];
-          if (rawResponseParts.length === 0) {
-            // Fall back to aggregating from all chunks
-            for (const chunk of collectedChunks) {
-              const parts = chunk.candidates?.[0]?.content?.parts || [];
-              for (const part of parts) {
-                if (part.functionCall || part.text || part.thoughtSignature) {
-                  rawResponseParts.push(part);
-                }
+        const seenFunctionNames = new Set<string>();
+
+        for (const chunk of collectedChunks) {
+          const parts = chunk.candidates?.[0]?.content?.parts || [];
+          for (const part of parts) {
+            if (part.functionCall) {
+              // Deduplicate function calls (streaming may repeat across chunks)
+              const key = `${part.functionCall.name}:${JSON.stringify(part.functionCall.args)}`;
+              if (!seenFunctionNames.has(key)) {
+                seenFunctionNames.add(key);
+                rawResponseParts.push(part);
               }
+            } else if (part.text || part.thoughtSignature) {
+              rawResponseParts.push(part);
             }
           }
-          // If still no parts but reconstituted stream had functionCalls property, use that
-          if (rawResponseParts.length === 0) {
-            for (const chunk of collectedChunks) {
-              if (chunk.functionCalls) {
-                for (const fc of chunk.functionCalls) {
-                  rawResponseParts.push({ functionCall: fc });
-                }
+          // Also check reconstituted stream's functionCalls property
+          if (chunk.functionCalls) {
+            for (const fc of chunk.functionCalls) {
+              const key = `${fc.name}:${JSON.stringify(fc.args)}`;
+              if (!seenFunctionNames.has(key)) {
+                seenFunctionNames.add(key);
+                rawResponseParts.push({ functionCall: fc });
               }
             }
           }
         }
 
-        // Debug logging
+        // Always log tool loop info for debugging
+        const fcParts = rawResponseParts.filter((p: any) => p.functionCall);
+        const textParts = rawResponseParts.filter((p: any) => p.text);
+        console.log(`[Stream Loop ${loopCount}] ${collectedChunks.length} chunks, ${rawResponseParts.length} parts (${fcParts.length} FCs, ${textParts.length} text), fullText length: ${fullText.length}`);
+        if (fcParts.length > 0) {
+          console.log(`[Stream Loop ${loopCount}] Function calls: ${fcParts.map((p: any) => p.functionCall.name).join(', ')}`);
+        }
+        if (fullText.length > 0 && fullText.length < 200) {
+          console.log(`[Stream Loop ${loopCount}] fullText: "${fullText}"`);
+        }
+
+        // DB debug logging
         if (isDbLogging) {
-          const fcParts = rawResponseParts.filter((p: any) => p.functionCall);
           writeDebugLog(sessionId as number, reqStart, reqEnd, currentContents, fullText,
             fcParts.map((p: any) => p.functionCall));
-        }
-
-        if (isGeminiDebug) {
-          const fcParts = rawResponseParts.filter((p: any) => p.functionCall);
-          console.log(`[Stream Loop ${loopCount}] Response: ${rawResponseParts.length} parts, ${fcParts.length} function calls${fcParts.length > 0 ? ` (${fcParts.map((p: any) => p.functionCall.name).join(', ')})` : ''}`);
         }
 
         // Inject thought signatures
@@ -1635,6 +1642,7 @@ export const postStream = async (req: Request, res: Response) => {
         }
 
         if (hasToolCall && toolCalls.length > 0) {
+          console.log(`[Stream Loop ${loopCount}] Executing ${toolCalls.length} tool(s): ${toolCalls.map(tc => tc.name).join(', ')}`);
           currentContents.push({ role: "model", parts: responseParts });
 
           const toolResponses: any[] = [];
@@ -1644,6 +1652,7 @@ export const postStream = async (req: Request, res: Response) => {
             const toolDurationMs = Date.now() - toolStartTime;
 
             const displayName = toolDisplayNames[call.name] || `Using ${call.name}...`;
+            console.log(`[Stream Loop ${loopCount}] Tool ${call.name} completed in ${toolDurationMs}ms`);
 
             // Save tool call to DB (fire-and-forget)
             prisma.chatMessage.create({
@@ -1665,6 +1674,7 @@ export const postStream = async (req: Request, res: Response) => {
           currentContents.push({ role: "user", parts: toolResponses });
           fullText = ''; // Reset for next iteration
         } else {
+          console.log(`[Stream Loop ${loopCount}] No tool calls, breaking. fullText length: ${fullText.length}`);
           break; // No more tool calls
         }
       }

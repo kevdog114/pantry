@@ -298,9 +298,9 @@ app.post("/diagnostics/log", DiagnosticsController.logMessage);
 
 app.get("/timers", TimerController.getTimers);
 app.post("/timers", TimerController.createTimer);
-app.get("/timers", TimerController.getTimers);
-app.post("/timers", TimerController.createTimer);
 app.delete("/timers/:id", TimerController.deleteTimer);
+app.patch("/timers/:id/extend", TimerController.extendTimer);
+app.patch("/timers/:id/restart", TimerController.restartTimer);
 
 // Push Notifications
 import * as PushController from "./controllers/PushController";
