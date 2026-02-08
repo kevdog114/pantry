@@ -23,7 +23,7 @@ import { Product, ProductTags, StockItem } from '../types/product';
 import { firstValueFrom, Subscription } from 'rxjs';
 import { MarkdownModule } from 'ngx-markdown';
 
-type ViewState = 'MAIN' | 'UTILITIES' | 'PRINT_LABELS' | 'QUICK_LABEL' | 'SCALE' | 'COOK' | 'TIMERS' | 'HARDWARE';
+type ViewState = 'MAIN' | 'UTILITIES' | 'PRINT_LABELS' | 'QUICK_LABEL' | 'SCALE' | 'COOK' | 'TIMERS' | 'TIMER_KEYPAD' | 'HARDWARE';
 import { Recipe, RecipeQuickAction } from '../types/recipe';
 
 import { SocketService } from '../services/socket.service';
@@ -114,6 +114,7 @@ export class KioskPageComponent implements OnInit, OnDestroy {
     selectedRecipe: Recipe | null = null;
     availableInstructions: Recipe[] = [];
     activeTimers: any[] = [];
+    keypadMinutes: string = '';
     targetWeight: number | null = null;
     showRecipeDetails: boolean = false;
     activeMealPlanId: number | null | undefined = null;
@@ -1335,12 +1336,43 @@ export class KioskPageComponent implements OnInit, OnDestroy {
     createTimer(minutes: number, name?: string) {
         const duration = minutes * 60;
         this.http.post(`${this.env.apiUrl}/timers`, {
-            name: name || `${minutes}m Timer`,
+            name: name || `${minutes} Minutes`,
             duration: duration
         }).subscribe(() => {
             this.snackBar.open("Timer Started", "Close", { duration: 1000 });
             this.fetchTimers();
         });
+    }
+
+    openTimerKeypad() {
+        this.keypadMinutes = '';
+        this.viewState = 'TIMER_KEYPAD';
+    }
+
+    closeTimerKeypad() {
+        this.viewState = 'TIMERS';
+    }
+
+    keypadPress(n: number) {
+        if (this.keypadMinutes.length < 3) {
+            this.keypadMinutes += n.toString();
+        }
+    }
+
+    keypadClear() {
+        this.keypadMinutes = '';
+    }
+
+    keypadBackspace() {
+        this.keypadMinutes = this.keypadMinutes.slice(0, -1);
+    }
+
+    keypadStartTimer() {
+        const minutes = parseInt(this.keypadMinutes, 10);
+        if (minutes > 0) {
+            this.createTimer(minutes);
+            this.viewState = 'TIMERS';
+        }
     }
 
     removeTimer(arg: any) {

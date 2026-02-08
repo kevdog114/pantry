@@ -54,21 +54,7 @@
                         <h3 class="text-3xl text-cyan-400 font-mono">{{ lastScan.status }}</h3>
                     </div>
 
-                    <!-- Session Mini Log -->
-                    <div
-                        class="absolute bottom-0 left-0 right-0 h-40 bg-black/40 backdrop-blur border-t border-white/10 p-4 overflow-hidden mask-fade-bottom">
-                        <div class="text-xs text-gray-400 font-bold mb-2 uppercase tracking-wider">Recent</div>
-                        <div class="flex flex-col gap-3">
-                            <div *ngFor="let log of sessionLog | slice:0:4" class="flex items-center text-lg">
-                                <span [class.text-green-400]="log.type === 'success'"
-                                    [class.text-red-400]="log.type === 'error'"
-                                    class="font-mono text-sm opacity-50 mr-3">
-                                    {{ log.time | date:'HH:mm:ss' }}
-                                </span>
-                                <span class="font-bold truncate">{{ log.title }}</span>
-                            </div>
-                        </div>
-                    </div>
+
                 </div>
 
                 <button class="k-btn success h-32" (click)="finishAction()">
@@ -171,9 +157,9 @@
                         <button class="k-btn text-3xl font-bold text-green-400" (click)="numpadConfirm()">OK</button>
                     </div>
                 </div>
-                <button class="k-btn h-32" (click)="backToRestockOptions()">
-                    <mat-icon>arrow_back</mat-icon> <span class="text-2xl ml-4">CANCEL EDIT</span>
-                </button>
+                <div class="back-btn-row">
+                    <button class="k-icon-btn" (click)="backToRestockOptions()"><mat-icon>arrow_back</mat-icon></button>
+                </div>
             </div>
 
             <!-- STATE: EXPIRATION -->
@@ -188,9 +174,9 @@
                     <button class="k-btn text-3xl" (click)="setRestockExpiration('2y')">2 Years</button>
                     <button class="k-btn warn col-span-2 text-3xl" (click)="setRestockExpiration('none')">NONE</button>
                 </div>
-                <button class="k-btn h-32" (click)="backToRestockOptions()">
-                    <mat-icon>arrow_back</mat-icon> <span class="text-2xl ml-4">BACK</span>
-                </button>
+                <div class="back-btn-row">
+                    <button class="k-icon-btn" (click)="backToRestockOptions()"><mat-icon>arrow_back</mat-icon></button>
+                </div>
             </div>
 
         </div>
@@ -218,20 +204,7 @@
                     <h3 class="text-3xl text-orange-400 font-mono">{{ lastScan.status }}</h3>
                 </div>
 
-                <!-- Session Mini Log -->
-                <div
-                    class="absolute bottom-0 left-0 right-0 h-40 bg-black/40 backdrop-blur border-t border-white/10 p-4 overflow-hidden mask-fade-bottom">
-                    <div class="text-xs text-gray-400 font-bold mb-2 uppercase tracking-wider">Recent</div>
-                    <div class="flex flex-col gap-3">
-                        <div *ngFor="let log of sessionLog | slice:0:4" class="flex items-center text-lg">
-                            <span [class.text-green-400]="log.type === 'success'"
-                                [class.text-red-400]="log.type === 'error'" class="font-mono text-sm opacity-50 mr-3">
-                                {{ log.time | date:'HH:mm:ss' }}
-                            </span>
-                            <span class="font-bold truncate">{{ log.title }}</span>
-                        </div>
-                    </div>
-                </div>
+
             </div>
 
             <button class="k-btn primary h-32 bg-cyan-900" (click)="finishAction()">
@@ -242,10 +215,9 @@
 
         <!-- INVENTORY -->
         <div *ngIf="activeMode === 'INVENTORY'" class="h-full flex items-center justify-center">
-            <button class="k-btn h-[120px] w-[300px]" (click)="finishAction()">
-                <mat-icon>arrow_back</mat-icon>
-                <span>BACK</span>
-            </button>
+            <div class="back-btn-row" style="justify-content: center;">
+                <button class="k-icon-btn" (click)="finishAction()"><mat-icon>arrow_back</mat-icon></button>
+            </div>
         </div>
 
         <!-- --- VIEW STATES --- -->
@@ -379,9 +351,7 @@
         <!-- QUICK LABEL -->
         <div *ngIf="viewState === 'QUICK_LABEL'" class="quick-label-layout">
             <div class="back-btn-row">
-                <button class="k-btn px-6 h-16 w-auto" (click)="openUtilities()">
-                    <mat-icon>arrow_back</mat-icon><span class="ml-2">BACK</span>
-                </button>
+                <button class="k-icon-btn" (click)="openUtilities()"><mat-icon>arrow_back</mat-icon></button>
             </div>
 
             <div class="ql-type-grid">
@@ -503,75 +473,95 @@
                     </div>
                 </ng-container>
 
-                <!-- Custom Timers Section -->
-                <div class="text-gray-400 font-bold mb-2 fs-lg border-b border-gray-700 pb-1">CUSTOM TIMERS</div>
-                <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px;"
-                    class="mb-6">
-                    <button *ngFor="let m of [5, 10, 15, 20, 30, 45, 60, 90]" class="timer-preset"
-                        style="min-height: 100px;" (click)="createTimer(m)">
-                        {{m}}m
-                    </button>
-                </div>
+                <!-- New Timer Button -->
+                <button class="timer-new-btn" (click)="openTimerKeypad()">
+                    <mat-icon style="font-size: 36px; width: 36px; height: 36px;">add</mat-icon>
+                    NEW TIMER
+                </button>
 
                 <!-- Active Timers Section -->
                 <div class="text-k-primary font-bold mb-2 fs-lg border-b border-k-primary pb-1"
-                    *ngIf="activeTimers.length > 0">ACTIVE</div>
+                    style="margin-top: 24px;" *ngIf="activeTimers.length > 0">ACTIVE</div>
             </div>
 
             <div class="active-timers-list">
                 <div *ngIf="activeTimers.length === 0" class="text-center text-gray-400 mt-20">
-                    <mat-icon class="text-8xl mb-4 opacity-20">timer_off</mat-icon>
-                    <div class="text-3xl">NO ACTIVE TIMERS</div>
+                    <mat-icon style="font-size: 80px; width: 80px; height: 80px; opacity: 0.15;">timer_off</mat-icon>
+                    <div style="font-size: 2rem; margin-top: 16px;">NO ACTIVE TIMERS</div>
                 </div>
 
                 <div *ngFor="let timer of activeTimers" class="timer-card"
                     [class.urgent]="timer.remainingSeconds > 0 && timer.remainingSeconds < 30"
                     [class.completed]="timer.remainingSeconds === 0">
 
-                    <div class="timer-header">
-                        <div class="timer-info">
-                            <span class="timer-label">{{ timer.name || 'Timer' }}</span>
-                            <span *ngIf="timer.remainingSeconds === 0"
-                                class="timer-status animate-pulse">COMPLETED</span>
-                        </div>
-                        <button class="k-icon-btn"
-                            style="border-color: var(--k-warn); color: var(--k-warn); transform: scale(0.8);"
-                            (click)="deleteTimer(timer.id)">
-                            <mat-icon>close</mat-icon>
-                        </button>
-                    </div>
+                    <!-- Timer name -->
+                    <div class="timer-label">{{ timer.name || 'Timer' }}</div>
 
+                    <!-- Spinner with centered time -->
                     <div class="timer-spinner-container">
-                        <mat-progress-spinner style="position: absolute" [mode]="'determinate'"
-                            [color]="timer.remainingSeconds === 0 ? 'warn' : 'accent'"
-                            [value]="timer.remainingSeconds === 0 ? 100 : (timer.remainingSeconds / timer.duration) * 100"
-                            [strokeWidth]="12" [diameter]="180">
+                        <mat-progress-spinner
+                            style="position: absolute; top: 0; left: 50%; transform: translateX(-50%);"
+                            [mode]="'determinate'" [color]="timer.remainingSeconds === 0 ? 'warn' : 'accent'"
+                            [value]="timer.remainingSeconds === 0 ? 100 : (timer.remainingSeconds / timer.totalSeconds) * 100"
+                            [strokeWidth]="10" [diameter]="200">
                         </mat-progress-spinner>
-                        <span class="timer-time">{{ formatTimer(timer.remainingSeconds) }}</span>
+                        <div class="timer-center-text">
+                            <span class="timer-time">{{ formatTimer(timer.remainingSeconds) }}</span>
+                            <span *ngIf="timer.remainingSeconds > 0" class="timer-total">
+                                of {{ formatTimer(timer.totalSeconds) }}
+                            </span>
+                            <span *ngIf="timer.remainingSeconds === 0" class="timer-completed-label">
+                                DONE
+                            </span>
+                        </div>
                     </div>
 
-                    <div class="timer-actions">
-                        <button class="k-btn px-4" (click)="extendTimer(timer.id, 60)"
-                            [disabled]="timer.remainingSeconds === 0">
-                            <mat-icon style="font-size: 24px; width: 24px; height: 24px; margin: 0">add</mat-icon> 1m
-                        </button>
-                        <button class="k-btn px-4" (click)="extendTimer(timer.id, 300)"
-                            [disabled]="timer.remainingSeconds === 0">
-                            <mat-icon style="font-size: 24px; width: 24px; height: 24px; margin: 0">add</mat-icon> 5m
-                        </button>
-                        <button class="k-btn primary px-4" (click)="restartTimer(timer.id)">
-                            <mat-icon style="font-size: 24px; width: 24px; height: 24px; margin: 0">replay</mat-icon>
-                            RESTART
-                        </button>
-                    </div>
+                    <!-- Cancel button -->
+                    <button class="timer-cancel-btn" (click)="deleteTimer(timer.id)">
+                        <mat-icon style="font-size: 28px; width: 28px; height: 28px;">close</mat-icon>
+                        CANCEL
+                    </button>
                 </div>
+            </div>
+        </div>
+
+        <!-- TIMER KEYPAD -->
+        <div *ngIf="viewState === 'TIMER_KEYPAD'" class="timers-layout">
+            <div class="back-btn-row">
+                <button class="k-icon-btn" (click)="closeTimerKeypad()"><mat-icon>arrow_back</mat-icon></button>
+            </div>
+
+            <div class="keypad-container">
+                <!-- Display -->
+                <div class="keypad-display">
+                    <span class="keypad-value">{{ keypadMinutes || '0' }}</span>
+                    <span class="keypad-unit">minutes</span>
+                </div>
+
+                <!-- Keypad Grid -->
+                <div class="keypad-grid">
+                    <button *ngFor="let n of [1,2,3,4,5,6,7,8,9]" class="keypad-btn" (click)="keypadPress(n)">{{ n
+                        }}</button>
+                    <button class="keypad-btn keypad-clear" (click)="keypadClear()">C</button>
+                    <button class="keypad-btn" (click)="keypadPress(0)">0</button>
+                    <button class="keypad-btn keypad-backspace" (click)="keypadBackspace()">
+                        <mat-icon>backspace</mat-icon>
+                    </button>
+                </div>
+
+                <!-- Start Button -->
+                <button class="keypad-start-btn" [disabled]="!keypadMinutes || keypadMinutes === '0'"
+                    (click)="keypadStartTimer()">
+                    <mat-icon style="font-size: 32px; width: 32px; height: 32px;">timer</mat-icon>
+                    START TIMER
+                </button>
             </div>
         </div>
 
         <!-- PHONE -->
         <div *ngIf="viewState === 'PHONE'" class="phone-layout">
-            <div class="back-btn-row w-full">
-                <button class="k-icon-btn" (click)="closePhone()"><mat-icon>close</mat-icon></button>
+            <div class="back-btn-row">
+                <button class="k-icon-btn" (click)="closePhone()"><mat-icon>arrow_back</mat-icon></button>
             </div>
 
             <div class="phone-display">
@@ -602,9 +592,7 @@
         <!-- COOK -->
         <div *ngIf="viewState === 'COOK'" class="cook-layout">
             <div class="d-flex align-items-center justify-content-between">
-                <button class="k-btn warn w-auto px-8 h-20 flex-row" (click)="closeCook()">
-                    <mat-icon>arrow_back</mat-icon><span class="text-xl">EXIT COOK MODE</span>
-                </button>
+                <button class="k-icon-btn" (click)="closeCook()"><mat-icon>arrow_back</mat-icon></button>
                 <h2 class="fs-2xl fw-bold truncate ml-4" *ngIf="selectedRecipe">{{ selectedRecipe.title }}</h2>
             </div>
 
@@ -844,9 +832,10 @@
                     <button class="k-btn text-3xl" (click)="setLeftoverExpiration('6m')">6 Months</button>
                     <button class="k-btn warn col-span-2 text-3xl" (click)="setLeftoverExpiration('none')">NONE</button>
                 </div>
-                <button class="k-btn h-32" (click)="backToLeftoverOptions()">
-                    <mat-icon>arrow_back</mat-icon> <span class="text-2xl ml-4">BACK</span>
-                </button>
+                <div class="back-btn-row">
+                    <button class="k-icon-btn"
+                        (click)="backToLeftoverOptions()"><mat-icon>arrow_back</mat-icon></button>
+                </div>
             </div>
 
         </div>
