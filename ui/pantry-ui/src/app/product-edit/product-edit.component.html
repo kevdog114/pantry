@@ -1,13 +1,27 @@
 <div class="page-container" *ngIf="product">
+    <!-- Breadcrumb Navigation -->
+    <nav class="breadcrumb-nav">
+        <a routerLink="/products">
+            <mat-icon>inventory_2</mat-icon> Products
+        </a>
+        <span class="breadcrumb-separator">›</span>
+        <span class="breadcrumb-current">{{ isCreate ? 'New Product' : (product.title || 'Edit Product') }}</span>
+    </nav>
+
     <!-- Header Section -->
     <div class="header-section">
         <h1 class="page-title">{{ isCreate ? 'New Product' : 'Edit Product' }}</h1>
         <div class="action-bar">
-            <button mat-stroked-button color="warn" (click)="delete()" *ngIf="!isCreate">
-                <mat-icon>delete</mat-icon> Delete
+            <button mat-stroked-button color="warn" (click)="delete()" *ngIf="!isCreate"
+                [disabled]="isDeleting || isSaving">
+                <mat-spinner *ngIf="isDeleting" [diameter]="20" class="btn-spinner-inline"></mat-spinner>
+                <mat-icon *ngIf="!isDeleting">delete</mat-icon>
+                {{ isDeleting ? 'Deleting…' : 'Delete' }}
             </button>
-            <button mat-flat-button color="primary" (click)="save()">
-                <mat-icon>save</mat-icon> Save Changes
+            <button mat-flat-button color="primary" (click)="save()" [disabled]="isSaving || isDeleting">
+                <mat-spinner *ngIf="isSaving" [diameter]="20" class="btn-spinner-inline"></mat-spinner>
+                <mat-icon *ngIf="!isSaving">save</mat-icon>
+                {{ isSaving ? 'Saving…' : 'Save Changes' }}
             </button>
         </div>
     </div>

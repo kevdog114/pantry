@@ -3,11 +3,11 @@
 }
 
 .settings-card {
-    background: var(--card-bg, #fff);
+    background: var(--mat-sys-surface-container);
     border-radius: 12px;
     padding: 32px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
-    border: 1px solid rgba(0, 0, 0, 0.05);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    border: 1px solid var(--mat-sys-outline-variant);
     margin-bottom: 24px;
 }
 
@@ -16,7 +16,7 @@
     font-size: 1.25rem;
     font-weight: 500;
     margin-bottom: 20px;
-    color: var(--text-primary, #333);
+    color: var(--mat-sys-on-surface);
 }
 
 .form-grid {
@@ -44,30 +44,16 @@ mat-form-field {
     font-size: 1.25rem;
     margin-bottom: 16px;
     font-weight: 500;
+    color: var(--mat-sys-on-surface);
 }
 
 table {
     width: 100%;
     border-radius: 8px;
     overflow: hidden;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
 }
 
 tr.mat-mdc-header-row {
-    background-color: #f5f5f5;
-}
-
-@media (prefers-color-scheme: dark) {
-    .settings-card {
-        background: #1e1e1e;
-        border-color: #333;
-    }
-
-    .settings-card h3 {
-        color: #e0e0e0;
-    }
-
-    tr.mat-mdc-header-row {
-        background-color: #2c2c2c;
-    }
+    background-color: var(--mat-sys-surface-container-highest);
 }

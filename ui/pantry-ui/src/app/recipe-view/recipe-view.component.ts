@@ -19,6 +19,7 @@ import { KioskService } from '../services/kiosk.service';
 
 import { EnvironmentService } from '../services/environment.service';
 import { RecipePdfService } from '../services/recipe-pdf.service';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 
 @Component({
     selector: 'app-recipe-view',
@@ -33,7 +34,8 @@ import { RecipePdfService } from '../services/recipe-pdf.service';
         MatDialogModule,
         MatSnackBarModule,
         MatTooltipModule,
-        MatMenuModule
+        MatMenuModule,
+        MatProgressSpinnerModule
     ],
     templateUrl: './recipe-view.component.html',
     styleUrl: './recipe-view.component.scss'
@@ -46,6 +48,7 @@ export class RecipeViewComponent implements OnInit, OnDestroy {
     currentUrl: string = '';
     labelSizeCode: string = 'continuous';
     labelSizeDescription: string = 'Continuous';
+    isDeleting: boolean = false;
 
     constructor(
         private route: ActivatedRoute,
@@ -189,9 +192,17 @@ export class RecipeViewComponent implements OnInit, OnDestroy {
 
     deleteRecipe() {
         if (this.recipe && confirm('Are you sure you want to delete this recipe?')) {
-            this.recipeService.delete(this.recipe.id).subscribe(() => {
-                this.snackBar.open("Successfully deleted the recipe", "Close", { duration: 3000 });
-                this.router.navigate(['/recipes']);
+            this.isDeleting = true;
+            this.recipeService.delete(this.recipe.id).subscribe({
+                next: () => {
+                    this.snackBar.open("Successfully deleted the recipe", "Close", { duration: 3000 });
+                    this.router.navigate(['/recipes']);
+                },
+                error: (err) => {
+                    this.isDeleting = false;
+                    console.error('Failed to delete recipe', err);
+                    this.snackBar.open("Failed to delete recipe", "Close", { duration: 3000 });
+                }
             });
         }
     }

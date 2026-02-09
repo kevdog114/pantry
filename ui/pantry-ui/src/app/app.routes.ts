@@ -230,6 +230,21 @@ export const routes: Routes = [
         canActivate: [AuthGuard]
     },
     {
+        path: "custom-barcodes",
+        loadComponent: () => import('./custom-barcodes/custom-barcode-list/custom-barcode-list.component').then(m => m.CustomBarcodeListComponent),
+        canActivate: [AuthGuard]
+    },
+    {
+        path: "custom-barcodes/create",
+        loadComponent: () => import('./custom-barcodes/custom-barcode-edit/custom-barcode-edit.component').then(m => m.CustomBarcodeEditComponent),
+        canActivate: [AuthGuard]
+    },
+    {
+        path: "custom-barcodes/:id",
+        loadComponent: () => import('./custom-barcodes/custom-barcode-edit/custom-barcode-edit.component').then(m => m.CustomBarcodeEditComponent),
+        canActivate: [AuthGuard]
+    },
+    {
         path: "**",
         redirectTo: "home"
     }

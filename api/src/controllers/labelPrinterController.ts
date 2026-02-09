@@ -288,6 +288,72 @@ export const printAssetLabel = async (req: Request, res: Response, next: NextFun
 
 import { generateReceiptSteps, determineSafeCookingTemps } from '../services/RecipeAIService';
 
+export const printShoppingList = async (req: Request, res: Response, next: NextFunction): Promise<any> => {
+    try {
+        const io = req.app.get('io');
+        const targetSocket = await findTargetSocket(io, 'RECEIPT_PRINTER');
+
+        if (!targetSocket) {
+            res.status(503).json({ message: "No online receipt printers found." });
+            return;
+        }
+
+        // Fetch shopping list
+        let list = await prisma.shoppingList.findFirst({
+            include: {
+                items: {
+                    include: { product: true },
+                    orderBy: { checked: 'asc' }
+                }
+            }
+        });
+
+        if (!list || !list.items || list.items.length === 0) {
+            res.status(404).json({ message: "Shopping list is empty." });
+            return;
+        }
+
+        const uncheckedItems = list.items.filter(i => !i.checked);
+        const checkedItems = list.items.filter(i => i.checked);
+
+        const payload = {
+            type: 'SHOPPING_LIST',
+            data: {
+                title: 'Shopping List',
+                date: new Date().toLocaleString("en-US", {
+                    timeZone: "America/Chicago",
+                    dateStyle: 'medium',
+                    timeStyle: 'short'
+                }),
+                items: uncheckedItems.map(i => ({
+                    name: i.name || i.product?.title || 'Unknown',
+                    quantity: i.quantity || 1,
+                    checked: false
+                })),
+                checkedItems: checkedItems.map(i => ({
+                    name: i.name || i.product?.title || 'Unknown',
+                    quantity: i.quantity || 1,
+                    checked: true
+                })),
+                totalItems: list.items.length,
+                remainingItems: uncheckedItems.length
+            }
+        };
+
+        const result = await sendPrintCommandAndWait(targetSocket, payload);
+
+        if (result.success) {
+            res.json({ success: true, message: "Shopping list sent to printer." });
+        } else {
+            res.status(500).json({ success: false, message: "Print failed: " + result.message });
+        }
+
+    } catch (e) {
+        console.error('Error printing shopping list', e);
+        res.status(500).json({ message: "Failed to print shopping list" });
+    }
+};
+
 export const printReceipt = async (req: Request, res: Response, next: NextFunction): Promise<any> => {
     try {
         const recipeId = parseInt(req.params.id);

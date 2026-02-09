@@ -23,7 +23,7 @@ import { Product, ProductTags, StockItem } from '../types/product';
 import { firstValueFrom, Subscription } from 'rxjs';
 import { MarkdownModule } from 'ngx-markdown';
 
-type ViewState = 'MAIN' | 'UTILITIES' | 'PRINT_LABELS' | 'QUICK_LABEL' | 'SCALE' | 'COOK' | 'TIMERS' | 'TIMER_KEYPAD' | 'HARDWARE';
+type ViewState = 'MAIN' | 'INVENTORY_MENU' | 'UTILITIES' | 'PRINT_LABELS' | 'QUICK_LABEL' | 'SCALE' | 'COOK' | 'TIMERS' | 'TIMER_KEYPAD' | 'HARDWARE' | 'LABELS' | 'LABELS_CUSTOM_DATE';
 import { Recipe, RecipeQuickAction } from '../types/recipe';
 
 import { SocketService } from '../services/socket.service';
@@ -57,7 +57,13 @@ export class KioskPageComponent implements OnInit, OnDestroy {
     // Status Section
     status: string = 'Ready';
     statusSubtext: string = '';
-    activeMode: 'NONE' | 'RESTOCK' | 'CONSUME' | 'INVENTORY' = 'NONE';
+    activeMode: 'NONE' | 'RESTOCK' | 'CONSUME' | 'CHECK_STATUS' = 'NONE';
+
+    // Check Status State
+    checkStatusProduct: Product | null = null;
+    checkStatusStockItem: StockItem | null = null;
+    checkStatusStockItems: StockItem[] = [];
+    checkStatusIsStockScan: boolean = false;
 
     // Restock State
     restockState: 'SCAN' | 'OPTIONS' | 'WEIGH' | 'EXPIRATION' | 'QUANTITY_PAD' = 'SCAN';
@@ -101,6 +107,19 @@ export class KioskPageComponent implements OnInit, OnDestroy {
     quickLabelSelectedType: string = 'Prepared';
     quickLabelDate: Date = new Date();
 
+    // Labels Feature (merged Presets + Quick Label)
+    labelActions: string[] = ['Prepared', 'Opened', 'Thawed', 'Frozen', 'Best by'];
+    labelSelectedAction: string = 'Prepared';
+    labelDayOptions: { label: string; value: string }[] = [
+        { label: 'Today', value: 'today' },
+        { label: '+3 Days', value: '+3' },
+        { label: '+1 Week', value: '+7' },
+        { label: 'Custom', value: 'custom' }
+    ];
+    labelSelectedDay: string = 'today';
+    labelCustomDateDigits: string = '';
+    labelCustomDateConfirmed: string = ''; // The formatted date string once confirmed
+
     scannerClaimedBy: string | null = null;
     amIClaiming: boolean = false;
 
@@ -115,6 +134,9 @@ export class KioskPageComponent implements OnInit, OnDestroy {
     availableInstructions: Recipe[] = [];
     activeTimers: any[] = [];
     keypadMinutes: string = '';
+    expiredTimer: any = null;
+    private alarmInterval: any = null;
+    private alarmContext: AudioContext | null = null;
     targetWeight: number | null = null;
     showRecipeDetails: boolean = false;
     activeMealPlanId: number | null | undefined = null;
@@ -250,16 +272,19 @@ export class KioskPageComponent implements OnInit, OnDestroy {
         }, 10000);
 
         setInterval(() => {
-            // Local decrement for smoothness based on calculated end time if available, or just re-calc
-            // actually fetchTimers updates the list.
-            // But we need a smooth countdown between fetches.
+            // Local decrement for smoothness based on calculated end time if available
             const now = Date.now();
             this.activeTimers.forEach(t => {
+                const prevRemaining = t.remainingSeconds;
                 if (t.endTimestamp) {
                     const remaining = Math.max(0, Math.floor((t.endTimestamp - now) / 1000));
                     t.remainingSeconds = remaining;
                 } else if (t.remainingSeconds > 0) {
                     t.remainingSeconds--;
+                }
+                // Detect timer just expired (was > 0, now === 0)
+                if (prevRemaining > 0 && t.remainingSeconds === 0 && !this.expiredTimer) {
+                    this.triggerTimerExpired(t);
                 }
             });
         }, 1000);
@@ -269,6 +294,7 @@ export class KioskPageComponent implements OnInit, OnDestroy {
         this.activeTimers.forEach(t => clearInterval(t.interval));
         this.hardwareScanner.setCustomHandler(null);
         if (this.timersSub) this.timersSub.unsubscribe();
+        this.stopAlarm();
     }
 
     // ... (rest of methods)
@@ -352,7 +378,7 @@ export class KioskPageComponent implements OnInit, OnDestroy {
     }
 
     // Actions
-    setMode(mode: 'RESTOCK' | 'CONSUME' | 'INVENTORY') {
+    setMode(mode: 'RESTOCK' | 'CONSUME' | 'CHECK_STATUS') {
         this.activeMode = mode;
         this.status = 'Scan Barcode...';
         this.statusSubtext = '';
@@ -366,20 +392,41 @@ export class KioskPageComponent implements OnInit, OnDestroy {
         this.inventoryProduct = null;
         this.inventoryStockItems = [];
         this.inventorySelectedStockItem = null;
+        this.checkStatusProduct = null;
+        this.checkStatusStockItem = null;
+        this.checkStatusStockItems = [];
+        this.checkStatusIsStockScan = false;
 
         if (mode === 'RESTOCK') {
             this.hardwareScanner.setCustomHandler(this.handleRestockBarcode.bind(this));
         } else if (mode === 'CONSUME') {
             this.hardwareScanner.setCustomHandler(this.handleConsumeBarcode.bind(this));
-        } else if (mode === 'INVENTORY') {
-            this.hardwareScanner.setCustomHandler(this.handleInventoryBarcode.bind(this));
+        } else if (mode === 'CHECK_STATUS') {
+            this.hardwareScanner.setCustomHandler(this.handleCheckStatusBarcode.bind(this));
         }
+    }
+
+    openInventoryMenu() {
+        this.viewState = 'INVENTORY_MENU';
+        this.status = 'Inventory';
+        this.statusSubtext = '';
+        this.activeMode = 'NONE';
+        this.hardwareScanner.setCustomHandler(() => { });
+    }
+
+    closeInventoryMenu() {
+        this.viewState = 'MAIN';
+        this.status = 'Ready';
+        this.statusSubtext = '';
+        this.activeMode = 'NONE';
+        this.hardwareScanner.setCustomHandler(() => { });
     }
 
     finishAction() {
         this.activeMode = 'NONE';
-        this.status = 'Ready';
+        this.status = 'Inventory';
         this.statusSubtext = '';
+        this.viewState = 'INVENTORY_MENU';
         this.hardwareScanner.setCustomHandler(() => { });
     }
 
@@ -452,17 +499,10 @@ export class KioskPageComponent implements OnInit, OnDestroy {
         // RECIPE SCAN
         if (barcode.toLowerCase().startsWith('r-')) {
             const rId = barcode.substring(2);
-            // We need to fetch the recipe to set it as selected
-            // We can't just navigate because we want Kiosk Cook Mode
             try {
-                // Determine if we need to fetch full details
-                // Ideally use a service
                 const recipe = await firstValueFrom(this.http.get<Recipe>(`${this.env.apiUrl}/recipes/${rId}`));
                 if (recipe) {
                     this.selectedRecipe = recipe;
-
-                    // If recipe has instructions, we might need to load them?
-                    // Actually, let's just open Cook
                     this.openCook();
                     return;
                 }
@@ -473,9 +513,13 @@ export class KioskPageComponent implements OnInit, OnDestroy {
             }
         }
 
-        // GENERIC / PRODUCT SCAN
-        // Treat like Inventory Check for now
-        await this.handleInventoryBarcode(barcode);
+        // GENERIC / PRODUCT SCAN - Quick Check Status
+        await this.handleCheckStatusBarcode(barcode);
+        // Auto-navigate into check status view
+        if (this.checkStatusProduct) {
+            this.activeMode = 'CHECK_STATUS';
+            this.viewState = 'INVENTORY_MENU';
+        }
     }
 
     async handleRestockBarcode(barcode: string) {
@@ -641,7 +685,7 @@ export class KioskPageComponent implements OnInit, OnDestroy {
         }
     }
 
-    async handleInventoryBarcode(barcode: string) {
+    async handleCheckStatusBarcode(barcode: string) {
         if (!barcode) return;
 
         // HOME ASSISTANT SCAN — handled by backend MQTT
@@ -651,61 +695,87 @@ export class KioskPageComponent implements OnInit, OnDestroy {
             this.showTempStatus("Sent to Home Assistant", barcode.substring(3), 3000);
             return;
         }
-        this.status = "Loading Inventory...";
+        this.status = "Checking Status...";
         this.statusSubtext = "";
 
-        // Reset selection
-        this.inventoryState = 'SCAN';
-        this.inventoryProduct = null;
-        this.inventorySelectedStockItem = null;
+        // Reset
+        this.checkStatusProduct = null;
+        this.checkStatusStockItem = null;
+        this.checkStatusStockItems = [];
+        this.checkStatusIsStockScan = false;
 
         try {
             const { product, stockItem } = await this.resolveBarcode(barcode);
 
             if (product) {
-                this.inventoryProduct = product;
-                // Get fresh stock items list just in case
-                // product.stockItems is usually populated by resolveBarcode logic (if strictly from ProductService Get)
-                // But let's assume resolveBarcode uses http.get product which includes stockItems.
+                this.checkStatusProduct = product;
 
                 // Sort stock items
                 let allItems = product.stockItems || [];
-                // Sort: Expired -> Due Soon -> Good
                 allItems.sort((a, b) => {
                     const da = a.expirationDate ? new Date(a.expirationDate).getTime() : 9999999999999;
                     const db = b.expirationDate ? new Date(b.expirationDate).getTime() : 9999999999999;
                     return da - db;
                 });
-
-                this.inventoryStockItems = allItems;
+                this.checkStatusStockItems = allItems;
 
                 if (stockItem) {
-                    // Specific item scanned
-                    this.inventorySelectedStockItem = stockItem;
-                } else if (allItems.length > 0) {
-                    // Pick nearest expiring
-                    this.inventorySelectedStockItem = allItems[0];
-                } else {
-                    // No stock exists
-                    this.status = "No Stock Found";
-                    this.showTempStatus("No Stock Items", product.title, 3000);
-                    return;
+                    this.checkStatusIsStockScan = true;
+                    this.checkStatusStockItem = stockItem;
                 }
 
-                this.inventoryState = 'DETAILS';
-                this.status = "Edit Inventory";
+                this.status = "Check Status";
                 this.statusSubtext = product.title;
-
+                this.playSuccessSound();
             } else {
                 this.status = "Product Not Found";
                 this.statusSubtext = "";
                 this.showTempStatus("Product Not Found", "", 3000);
+                this.playErrorSound();
             }
         } catch (err) {
             console.error("Scan Error", err);
             this.status = "Error processing scan.";
+            this.playErrorSound();
             setTimeout(() => this.status = "Scan Barcode...", 3000);
         }
+    }
+
+    // Legacy inventory handler — delegates to check status
+    async handleInventoryBarcode(barcode: string) {
+        await this.handleCheckStatusBarcode(barcode);
+    }
+
+    get checkStatusTotalQty(): number {
+        return this.checkStatusStockItems.reduce((acc, item) => acc + item.quantity, 0);
+    }
+
+    get checkStatusNextExpire(): Date | null {
+        if (this.checkStatusStockItems.length === 0) return null;
+        const d = this.checkStatusStockItems[0].expirationDate;
+        return d ? new Date(d) : null;
+    }
+
+    isExpiringSoon(): boolean {
+        const expDate = this.getRelevantExpDate();
+        if (!expDate) return false;
+        const now = new Date();
+        const diff = expDate.getTime() - now.getTime();
+        const days = diff / (1000 * 60 * 60 * 24);
+        return days <= 7;
+    }
+
+    isExpired(): boolean {
+        const expDate = this.getRelevantExpDate();
+        if (!expDate) return false;
+        return expDate.getTime() < new Date().getTime();
+    }
+
+    private getRelevantExpDate(): Date | null {
+        if (this.checkStatusIsStockScan && this.checkStatusStockItem) {
+            return this.checkStatusStockItem.expirationDate ? new Date(this.checkStatusStockItem.expirationDate) : null;
+        }
+        return this.checkStatusNextExpire;
     }
 
     // --- INVENTORY ACTIONS ---
@@ -1280,7 +1350,7 @@ export class KioskPageComponent implements OnInit, OnDestroy {
         // We set the status immediately before calling this.
 
         setTimeout(() => {
-            if (this.activeMode === 'RESTOCK' || this.activeMode === 'CONSUME' || this.activeMode === 'INVENTORY') {
+            if (this.activeMode === 'RESTOCK' || this.activeMode === 'CONSUME' || this.activeMode === 'CHECK_STATUS') {
                 this.status = "Scan Barcode...";
                 this.statusSubtext = "";
             }
@@ -1312,6 +1382,172 @@ export class KioskPageComponent implements OnInit, OnDestroy {
         this.status = 'Print Labels';
     }
 
+    // --- LABELS FEATURE (Merged Presets + Quick Label) ---
+    openLabels() {
+        this.viewState = 'LABELS';
+        this.status = 'Labels';
+        this.statusSubtext = '';
+        this.labelSelectedAction = 'Prepared';
+        this.labelSelectedDay = 'today';
+        this.labelCustomDateDigits = '';
+        this.labelCustomDateConfirmed = '';
+    }
+
+    closeLabels() {
+        this.viewState = 'MAIN';
+        this.status = 'Ready';
+        this.statusSubtext = '';
+    }
+
+    selectLabelAction(action: string) {
+        this.labelSelectedAction = action;
+    }
+
+    selectLabelDay(value: string) {
+        if (value === 'custom') {
+            this.labelSelectedDay = 'custom';
+            this.openLabelsCustomDate();
+        } else {
+            this.labelSelectedDay = value;
+        }
+    }
+
+    getLabelActionIcon(action: string): string {
+        switch (action) {
+            case 'Prepared': return 'restaurant';
+            case 'Opened': return 'calendar_today';
+            case 'Thawed': return 'ac_unit';
+            case 'Frozen': return 'severe_cold';
+            case 'Best by': return 'verified';
+            default: return 'label';
+        }
+    }
+
+    getLabelDate(): Date {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        switch (this.labelSelectedDay) {
+            case 'today': return today;
+            case '+3': {
+                const d = new Date(today);
+                d.setDate(d.getDate() + 3);
+                return d;
+            }
+            case '+7': {
+                const d = new Date(today);
+                d.setDate(d.getDate() + 7);
+                return d;
+            }
+            case 'custom': {
+                if (this.labelCustomDateDigits.length === 8) {
+                    const mm = parseInt(this.labelCustomDateDigits.substring(0, 2), 10);
+                    const dd = parseInt(this.labelCustomDateDigits.substring(2, 4), 10);
+                    const yyyy = parseInt(this.labelCustomDateDigits.substring(4, 8), 10);
+                    return new Date(yyyy, mm - 1, dd);
+                }
+                return today;
+            }
+            default: return today;
+        }
+    }
+
+    get labelDayDisplayText(): string {
+        if (this.labelSelectedDay === 'custom' && this.labelCustomDateConfirmed) {
+            return this.labelCustomDateConfirmed;
+        }
+        const d = this.getLabelDate();
+        return d.toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' });
+    }
+
+    get customDayButtonText(): string {
+        if (this.labelCustomDateConfirmed) {
+            return this.labelCustomDateConfirmed;
+        }
+        return 'Custom';
+    }
+
+    printLabelNew() {
+        const date = this.getLabelDate();
+        this.labelService.printQuickLabel(
+            this.labelSelectedAction,
+            date,
+            this.labelSizeCode
+        ).subscribe({
+            next: () => {
+                this.snackBar.open('Label printed!', 'Close', { duration: 2000 });
+            },
+            error: (err) => {
+                console.error('Print failed', err);
+                this.snackBar.open('Failed to print label', 'Close', { duration: 2000 });
+            }
+        });
+    }
+
+    // --- LABELS CUSTOM DATE KEYPAD ---
+    openLabelsCustomDate() {
+        this.labelCustomDateDigits = '';
+        this.viewState = 'LABELS_CUSTOM_DATE';
+        this.status = 'Custom Date';
+    }
+
+    get labelCustomDateDisplay(): string {
+        const digits = this.labelCustomDateDigits;
+        const template = ['_', '_', '/', '_', '_', '/', '_', '_', '_', '_'];
+        // Map digits into positions: mm/dd/yyyy
+        // positions: 0,1 = month; 3,4 = day; 6,7,8,9 = year
+        const positions = [0, 1, 3, 4, 6, 7, 8, 9];
+        for (let i = 0; i < digits.length && i < 8; i++) {
+            template[positions[i]] = digits[i];
+        }
+        return template.join('');
+    }
+
+    get isCustomDateComplete(): boolean {
+        return this.labelCustomDateDigits.length === 8;
+    }
+
+    get isCustomDateValid(): boolean {
+        if (!this.isCustomDateComplete) return false;
+        const mm = parseInt(this.labelCustomDateDigits.substring(0, 2), 10);
+        const dd = parseInt(this.labelCustomDateDigits.substring(2, 4), 10);
+        const yyyy = parseInt(this.labelCustomDateDigits.substring(4, 8), 10);
+        if (mm < 1 || mm > 12) return false;
+        if (dd < 1 || dd > 31) return false;
+        if (yyyy < 2020 || yyyy > 2099) return false;
+        // Basic validation - check if the date is real
+        const testDate = new Date(yyyy, mm - 1, dd);
+        return testDate.getMonth() === mm - 1 && testDate.getDate() === dd;
+    }
+
+    labelDateKeypadPress(n: number) {
+        if (this.labelCustomDateDigits.length < 8) {
+            this.labelCustomDateDigits += n.toString();
+        }
+    }
+
+    labelDateKeypadBackspace() {
+        this.labelCustomDateDigits = this.labelCustomDateDigits.slice(0, -1);
+    }
+
+    labelDateKeypadCancel() {
+        this.labelCustomDateDigits = '';
+        this.labelCustomDateConfirmed = '';
+        this.labelSelectedDay = 'today';
+        this.viewState = 'LABELS';
+        this.status = 'Labels';
+    }
+
+    labelDateKeypadConfirm() {
+        if (this.isCustomDateValid) {
+            const mm = this.labelCustomDateDigits.substring(0, 2);
+            const dd = this.labelCustomDateDigits.substring(2, 4);
+            const yyyy = this.labelCustomDateDigits.substring(4, 8);
+            this.labelCustomDateConfirmed = `${mm}/${dd}/${yyyy}`;
+            this.viewState = 'LABELS';
+            this.status = 'Labels';
+        }
+    }
+
     // State for Cook Mode Scale Menu
     showScaleOptions: boolean = false;
 
@@ -1335,11 +1571,10 @@ export class KioskPageComponent implements OnInit, OnDestroy {
         if (this.selectedRecipe) {
             this.viewState = 'COOK';
             this.status = this.selectedRecipe.title;
-            // Return to scale options if we came from there? 
-            // Probably better to reset to main cook view for cleanliness
             this.showScaleOptions = false;
         } else {
-            this.openUtilities();
+            this.viewState = 'MAIN';
+            this.status = 'Ready';
         }
     }
 
@@ -1437,7 +1672,7 @@ export class KioskPageComponent implements OnInit, OnDestroy {
                         totalSeconds: t.duration,
                         endTimestamp: end // Store end time for local calc
                     };
-                }).filter((t: any) => t.remainingSeconds > 0);
+                }).filter((t: any) => t.remainingSeconds > 0 || (t.remainingSeconds === 0 && this.expiredTimer?.id === t.id));
             },
             error: (e) => console.error("Failed to fetch timers", e)
         });
@@ -1589,7 +1824,17 @@ export class KioskPageComponent implements OnInit, OnDestroy {
     }
 
     printShoppingList() {
-        this.snackBar.open('Printing shopping list... (Not implemented)', 'Close', { duration: 2000 });
+        this.snackBar.open('Printing shopping list...', 'Close', { duration: 2000 });
+        this.labelService.printShoppingList().subscribe({
+            next: () => {
+                this.snackBar.open('Shopping list sent to printer!', 'Close', { duration: 2000 });
+            },
+            error: (err) => {
+                console.error('Failed to print shopping list', err);
+                const msg = err?.error?.message || 'Failed to print shopping list';
+                this.snackBar.open(msg, 'Close', { duration: 3000 });
+            }
+        });
     }
 
     printLabel(type: 'Opened' | 'Expires', daysFromNow: number) {
@@ -1837,16 +2082,107 @@ export class KioskPageComponent implements OnInit, OnDestroy {
         return `${m}:${s < 10 ? '0' : ''}${s}`;
     }
 
-    playTimerAlarm() {
-        // Play simple beep? OR audio file?
-        // Using browser Audio if possible
+    triggerTimerExpired(timer: any) {
+        this.expiredTimer = { ...timer };
+        this.startAlarm();
+    }
+
+    dismissExpiredTimer() {
+        if (this.expiredTimer) {
+            const id = this.expiredTimer.id;
+            this.expiredTimer = null;
+            this.stopAlarm();
+            // Delete the expired timer from the server
+            this.http.delete(`${this.env.apiUrl}/timers/${id}`).subscribe(() => {
+                this.fetchTimers();
+            });
+        }
+    }
+
+    startAlarm() {
+        // Play alarm sound immediately, then repeat every 2 seconds
+        this.playAlarmBeep();
+        this.alarmInterval = setInterval(() => {
+            this.playAlarmBeep();
+        }, 2000);
+    }
+
+    stopAlarm() {
+        if (this.alarmInterval) {
+            clearInterval(this.alarmInterval);
+            this.alarmInterval = null;
+        }
+        if (this.alarmContext) {
+            try { this.alarmContext.close(); } catch (e) { }
+            this.alarmContext = null;
+        }
+    }
+
+    playAlarmBeep() {
         try {
-            // Simple beep sequence or use system bell?
-            // Kiosk might stick with visual only if no audio assets. 
-            // I'll try to use a simple oscillator if user interaction allows, but WebAudio requires interaction.
-            // We are in a handler (click -> interval), so obscure.
-            // Let's rely on SnackBar visual for now.
-        } catch (e) { }
+            const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+
+            // Create a loud, attention-grabbing alarm sequence
+            const now = ctx.currentTime;
+
+            // First beep (high)
+            const osc1 = ctx.createOscillator();
+            const gain1 = ctx.createGain();
+            osc1.connect(gain1);
+            gain1.connect(ctx.destination);
+            osc1.type = 'square';
+            osc1.frequency.setValueAtTime(880, now); // A5
+            gain1.gain.setValueAtTime(0.5, now);
+            gain1.gain.setValueAtTime(0, now + 0.15);
+            osc1.start(now);
+            osc1.stop(now + 0.15);
+
+            // Second beep (higher)
+            const osc2 = ctx.createOscillator();
+            const gain2 = ctx.createGain();
+            osc2.connect(gain2);
+            gain2.connect(ctx.destination);
+            osc2.type = 'square';
+            osc2.frequency.setValueAtTime(1108.73, now + 0.2); // C#6
+            gain2.gain.setValueAtTime(0, now);
+            gain2.gain.setValueAtTime(0.5, now + 0.2);
+            gain2.gain.setValueAtTime(0, now + 0.35);
+            osc2.start(now + 0.2);
+            osc2.stop(now + 0.35);
+
+            // Third beep (highest, sustained)
+            const osc3 = ctx.createOscillator();
+            const gain3 = ctx.createGain();
+            osc3.connect(gain3);
+            gain3.connect(ctx.destination);
+            osc3.type = 'square';
+            osc3.frequency.setValueAtTime(1318.51, now + 0.4); // E6
+            gain3.gain.setValueAtTime(0, now);
+            gain3.gain.setValueAtTime(0.5, now + 0.4);
+            gain3.gain.exponentialRampToValueAtTime(0.01, now + 1.0);
+            osc3.start(now + 0.4);
+            osc3.stop(now + 1.0);
+
+            setTimeout(() => ctx.close(), 1500);
+        } catch (e) {
+            console.error('Failed to play alarm sound', e);
+        }
+    }
+
+    get sortedSidebarTimers(): any[] {
+        return this.activeTimers
+            .filter(t => t.remainingSeconds > 0)
+            .sort((a, b) => a.remainingSeconds - b.remainingSeconds);
+    }
+
+    get showTimerSidebar(): boolean {
+        return this.sortedSidebarTimers.length > 0
+            && this.viewState !== 'TIMERS'
+            && this.viewState !== 'TIMER_KEYPAD';
+    }
+
+    sidebarTimerClick() {
+        this.openTimers();
     }
 
     fetchUpcomingMeals() {
@@ -1906,7 +2242,7 @@ export class KioskPageComponent implements OnInit, OnDestroy {
     }
 
     isFullScreen(state: string): boolean {
-        return ['COOK', 'PHONE', 'TIMERS', 'QUICK_LABEL', 'SCALE', 'HARDWARE'].includes(state);
+        return ['COOK', 'PHONE', 'TIMERS', 'QUICK_LABEL', 'SCALE', 'HARDWARE', 'INVENTORY_MENU', 'LABELS', 'LABELS_CUSTOM_DATE'].includes(state);
     }
 
     // Hardware Methods

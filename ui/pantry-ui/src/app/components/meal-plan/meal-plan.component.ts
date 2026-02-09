@@ -28,6 +28,7 @@ import { QuantityPromptDialogComponent } from '../quantity-prompt-dialog/quantit
 import { ShoppingTripService, ShoppingTrip } from '../../services/shopping-trip.service';
 import { ShoppingTripDialogComponent } from '../shopping-trip-dialog/shopping-trip-dialog.component';
 import { MealItemSearchDialogComponent } from '../meal-item-search-dialog/meal-item-search-dialog.component';
+import { MealPlanEditDialogComponent, MealPlanEditDialogData, MealPlanEditDialogResult } from '../meal-plan-edit-dialog/meal-plan-edit-dialog.component';
 import { SettingsService } from '../../settings/settings.service';
 import { MatMenuModule } from '@angular/material/menu';
 import { MatDividerModule } from '@angular/material/divider';
@@ -1049,6 +1050,102 @@ export class MealPlanComponent implements OnInit {
                     },
                     error: (err) => {
                         this.snackBar.open('Failed to update consumed quantity', 'Close', { duration: 2000 });
+                    }
+                });
+            }
+        });
+    }
+
+    openEditDialog(plan: MealPlan, event: MouseEvent) {
+        event.stopPropagation();
+        event.preventDefault();
+
+        const isProduct = !!plan.productId && !plan.recipeId;
+
+        const dialogData: MealPlanEditDialogData = {
+            planId: plan.id,
+            title: plan.recipe?.title || plan.product?.title || 'Unknown Item',
+            recipeId: plan.recipeId,
+            productId: plan.productId,
+            isLeftover: plan.isLeftover,
+            currentMealType: plan.mealType,
+            currentDate: plan.date,
+            mealTypes: this.mealTypes,
+            visibleDays: this.days,
+            servingsConsumed: plan.servingsConsumed,
+            recipeYield: plan.recipe?.yield,
+            quantity: plan.quantity,
+            isProduct: isProduct,
+        };
+
+        const dialogRef = this.dialog.open(MealPlanEditDialogComponent, {
+            width: '460px',
+            data: dialogData,
+            autoFocus: false,
+        });
+
+        dialogRef.afterClosed().subscribe((result: MealPlanEditDialogResult) => {
+            if (!result || result.action === 'cancel') return;
+
+            if (result.action === 'delete') {
+                this.removeMeal(plan);
+                return;
+            }
+
+            if (result.action === 'save') {
+                const newDate = result.date || new Date(plan.date);
+                const newMealType = result.mealType;
+                const newServingsConsumed = result.servingsConsumed;
+                const newQuantity = result.quantity;
+
+                // Determine if date or meal type changed (need to move)
+                const dateChanged = newDate.toDateString() !== new Date(plan.date).toDateString();
+                const mealTypeChanged = newMealType !== plan.mealType;
+
+                if (dateChanged || mealTypeChanged) {
+                    // Move: remove from old location, add to new
+                    const oldDateKey = new Date(plan.date).toDateString();
+                    if (this.mealPlans[oldDateKey]) {
+                        const idx = this.mealPlans[oldDateKey].findIndex(m => m.id === plan.id);
+                        if (idx > -1) {
+                            this.mealPlans[oldDateKey].splice(idx, 1);
+                        }
+                    }
+
+                    plan.date = newDate.toISOString();
+                    plan.mealType = newMealType;
+
+                    const newDateKey = newDate.toDateString();
+                    if (!this.mealPlans[newDateKey]) {
+                        this.mealPlans[newDateKey] = [];
+                    }
+                    this.mealPlans[newDateKey].push(plan);
+                    this.calculatePrepTasks();
+                }
+
+                // Update servings consumed or quantity
+                if (newServingsConsumed !== undefined) {
+                    plan.servingsConsumed = newServingsConsumed;
+                }
+                if (newQuantity !== undefined) {
+                    plan.quantity = newQuantity;
+                }
+
+                // API call to update everything
+                this.mealPlanService.updateMealPlan(
+                    plan.id,
+                    newDate,
+                    newQuantity,
+                    newMealType,
+                    newServingsConsumed
+                ).subscribe({
+                    next: () => {
+                        this.snackBar.open('Meal updated!', 'Close', { duration: 2000 });
+                    },
+                    error: (err) => {
+                        console.error('Failed to update meal', err);
+                        this.snackBar.open('Failed to update meal.', 'Error', { duration: 2000 });
+                        this.loadMealPlans(); // Revert on error
                     }
                 });
             }

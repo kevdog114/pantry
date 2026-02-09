@@ -1,0 +1,40 @@
+<div class="barcode-container">
+    <div class="header">
+        <h1>Custom QR Barcodes</h1>
+        <button mat-flat-button color="primary" routerLink="/custom-barcodes/create">
+            <mat-icon>add</mat-icon> New Barcode
+        </button>
+    </div>
+
+    <div class="info-note">
+        <mat-icon>info_outline</mat-icon>
+        <span>These barcodes are scannable by the Pantry app, but are only sent to the connected MQTT Home Assistant
+            instance (if configured). They are otherwise not processed by the Pantry app.</span>
+    </div>
+
+    <div class="grid" *ngIf="barcodes.length > 0; else empty">
+        <mat-card *ngFor="let barcode of barcodes" class="interactive-card"
+            [routerLink]="['/custom-barcodes', barcode.id]">
+            <mat-card-content>
+                <div class="barcode-icon">
+                    <mat-icon>qr_code_2</mat-icon>
+                </div>
+                <h2>{{ getDisplayTitle(barcode) }}</h2>
+                <p class="barcode-data">HA:{{ getPreviewData(barcode) }}</p>
+                <div class="meta">
+                    <span>Updated: {{ barcode.updatedAt | date:'short' }}</span>
+                </div>
+            </mat-card-content>
+        </mat-card>
+    </div>
+
+    <ng-template #empty>
+        <div class="empty-state">
+            <mat-icon>qr_code_2</mat-icon>
+            <p>No custom barcodes yet. Create one to get started!</p>
+            <button mat-flat-button color="primary" routerLink="/custom-barcodes/create">
+                <mat-icon>add</mat-icon> Create Barcode
+            </button>
+        </div>
+    </ng-template>
+</div>

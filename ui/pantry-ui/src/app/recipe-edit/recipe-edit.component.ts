@@ -8,7 +8,7 @@ import { CommonModule } from '@angular/common';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatCardModule } from '@angular/material/card';
-import { Router } from '@angular/router';
+import { Router, RouterModule } from '@angular/router';
 import { EnvironmentService } from '../services/environment.service';
 import { MatTabsModule } from '@angular/material/tabs';
 import { MatAutocompleteModule } from '@angular/material/autocomplete';
@@ -21,6 +21,7 @@ import { GeminiService } from '../services/gemini.service';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { MatSelectModule } from '@angular/material/select';
 import { MatOptionModule } from '@angular/material/core';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 
 @Component({
   selector: 'app-recipe-edit',
@@ -35,7 +36,9 @@ import { MatOptionModule } from '@angular/material/core';
     MatTabsModule,
     MatAutocompleteModule,
     MatSelectModule,
-    MatOptionModule
+    MatOptionModule,
+    RouterModule,
+    MatProgressSpinnerModule
   ],
   templateUrl: './recipe-edit.component.html',
   styleUrl: './recipe-edit.component.css'
@@ -45,6 +48,8 @@ export class RecipeEditComponent implements AfterViewInit {
   private isCreate: boolean = false;
   public recipe: Recipe | undefined = undefined;
   public isGeneratingImage: boolean = false;
+  public isSaving: boolean = false;
+  public isDeleting: boolean = false;
 
   @Input()
   set id(recipeId: string) {
@@ -305,12 +310,14 @@ export class RecipeEditComponent implements AfterViewInit {
   public delete = () => {
     if (this.recipe && this.recipe.id) {
       if (confirm('Are you sure you want to delete this recipe?')) {
+        this.isDeleting = true;
         this.svc.delete(this.recipe.id).subscribe({
           next: () => {
             this.snackBar.open("Successfully deleted the recipe", "Close", { duration: 3000 });
             this.router.navigate(["/recipes"]);
           },
           error: (err) => {
+            this.isDeleting = false;
             console.error("Error deleting recipe:", err);
             this.snackBar.open("Failed to delete recipe", "Close", { duration: 3000 });
           }
@@ -323,16 +330,34 @@ export class RecipeEditComponent implements AfterViewInit {
     if (this.recipe === undefined)
       return;
 
+    this.isSaving = true;
+
     if (this.isCreate) {
-      this.svc.create(this.recipe).subscribe(p => {
-        this.recipe = p;
-        this.router.navigate(["recipes"]);
+      this.svc.create(this.recipe).subscribe({
+        next: (p) => {
+          this.recipe = p;
+          this.snackBar.open("Recipe saved successfully", "Close", { duration: 3000 });
+          this.router.navigate(["recipes"]);
+        },
+        error: (err) => {
+          this.isSaving = false;
+          console.error("Error saving recipe:", err);
+          this.snackBar.open("Failed to save recipe", "Close", { duration: 3000 });
+        }
       });
     }
     else {
-      this.svc.update(this.recipe).subscribe(p => {
-        this.recipe = p;
-        this.router.navigate(["recipes"]);
+      this.svc.update(this.recipe).subscribe({
+        next: (p) => {
+          this.recipe = p;
+          this.snackBar.open("Recipe saved successfully", "Close", { duration: 3000 });
+          this.router.navigate(["recipes"]);
+        },
+        error: (err) => {
+          this.isSaving = false;
+          console.error("Error saving recipe:", err);
+          this.snackBar.open("Failed to save recipe", "Close", { duration: 3000 });
+        }
       });
     }
 

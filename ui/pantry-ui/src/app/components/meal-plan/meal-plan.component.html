@@ -94,10 +94,9 @@
 
                 <!-- Template for Meal Item Content to avoid duplication -->
                 <ng-template #mealItemTemplate let-plan>
-                    <div class="meal-header">
+                    <div class="meal-header" (click)="openEditDialog(plan, $event)" style="cursor: pointer;">
                         <div>
-                            <span class="meal-title-text" [routerLink]="plan.recipe ? ['/recipes', plan.recipeId] : []"
-                                [style.cursor]="plan.recipe ? 'pointer' : 'default'">
+                            <span class="meal-title-text">
                                 {{ plan.recipe?.title || plan.product?.title || 'Unknown Item' }}
                                 <span *ngIf="plan.isLeftover" class="badge bg-secondary ms-1"
                                     style="font-size: 0.7em; vertical-align: middle;">Leftover</span>
@@ -106,30 +105,25 @@
                                     matTooltip="Planned quantity exceeds available leftovers">
                                     Shortage!
                                 </span>
-                                <span *ngIf="plan.recipe?.yield && !plan.isLeftover" class="text-muted small ms-1"
-                                    style="font-size: 0.85em; cursor: pointer; text-decoration: underline dotted;"
-                                    (click)="$event.stopPropagation(); editConsumed(plan)"
-                                    matTooltip="Click to record consumed servings">
-                                    (Yield: {{plan.recipe?.yield}} <span *ngIf="plan.servingsConsumed">| Ate:
-                                        {{plan.servingsConsumed}}</span> | Rem: {{ getRemainingServings(plan) }})
-                                </span>
                             </span>
+                            <div class="meal-meta-row">
+                                <span *ngIf="plan.recipe?.yield && !plan.isLeftover" class="text-muted small"
+                                    style="font-size: 0.8em;">
+                                    Yield: {{plan.recipe?.yield}} <span *ngIf="plan.servingsConsumed">· Ate:
+                                        {{plan.servingsConsumed}}</span> · Rem: {{ getRemainingServings(plan) }}
+                                </span>
+                                <span *ngIf="(plan.product || plan.isLeftover)" class="quantity-badge">
+                                    x{{ plan.quantity || 1 }}
+                                </span>
+                            </div>
                             <div *ngIf="hasPrepTasks(plan)" class="prep-indicator text-muted"
                                 style="font-size: 0.8rem; display: flex; align-items: center; margin-top: 2px;">
                                 <mat-icon
                                     style="font-size: 14px; width: 14px; height: 14px; vertical-align: middle; margin-right: 4px;">content_cut</mat-icon>
                                 <span>Requires prep</span>
                             </div>
-                            <div *ngIf="plan.product || plan.isLeftover"
-                                (click)="$event.stopPropagation(); editQuantity(plan)"
-                                class="quantity-badge clickable-badge" matTooltip="Edit Quantity">
-                                x{{ plan.quantity || 1 }}
-                            </div>
                         </div>
-                        <button mat-icon-button class="action-btn" color="warn"
-                            (click)="$event.stopPropagation(); removeMeal(plan)">
-                            <mat-icon>close</mat-icon>
-                        </button>
+                        <mat-icon class="edit-hint-icon">edit</mat-icon>
                     </div>
 
                     <div class="indicators" *ngIf="getMissingIngredients(plan).length > 0">

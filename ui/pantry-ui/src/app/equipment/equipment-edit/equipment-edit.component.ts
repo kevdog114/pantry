@@ -12,24 +12,29 @@ import { EquipmentService } from '../../services/equipment.service';
 import { Equipment } from '../../types/equipment';
 import { EnvironmentService } from '../../services/environment.service';
 import { HttpClient } from '@angular/common/http';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 
 @Component({
     selector: 'app-equipment-edit',
     standalone: true,
-    imports: [CommonModule, FormsModule, MatFormFieldModule, MatInputModule, MatDatepickerModule, MatNativeDateModule, MatButtonModule, MatIconModule, RouterModule],
+    imports: [CommonModule, FormsModule, MatFormFieldModule, MatInputModule, MatDatepickerModule, MatNativeDateModule, MatButtonModule, MatIconModule, RouterModule, MatProgressSpinnerModule, MatSnackBarModule],
     templateUrl: './equipment-edit.component.html',
     styleUrls: ['./equipment-edit.component.css']
 })
 export class EquipmentEditComponent implements OnInit {
     item: Equipment = { id: 0, name: '', createdAt: new Date(), updatedAt: new Date(), files: [] };
     isNew = true;
+    isSaving = false;
+    isDeleting = false;
 
     constructor(
         private equipmentService: EquipmentService,
         private route: ActivatedRoute,
         private router: Router,
         private http: HttpClient,
-        private env: EnvironmentService
+        private env: EnvironmentService,
+        private snackBar: MatSnackBar
     ) { }
 
     ngOnInit(): void {
@@ -41,20 +46,48 @@ export class EquipmentEditComponent implements OnInit {
     }
 
     save() {
+        this.isSaving = true;
         if (this.isNew) {
-            this.equipmentService.create(this.item).subscribe(saved => {
-                this.router.navigate(['/equipment', 'edit', saved.id]);
+            this.equipmentService.create(this.item).subscribe({
+                next: (saved) => {
+                    this.snackBar.open('Equipment saved successfully', 'Close', { duration: 3000 });
+                    this.router.navigate(['/equipment']);
+                },
+                error: (err) => {
+                    this.isSaving = false;
+                    console.error('Error saving equipment:', err);
+                    this.snackBar.open('Failed to save equipment', 'Close', { duration: 3000 });
+                }
             });
         } else {
-            this.equipmentService.update(this.item.id, this.item).subscribe(() => {
-                this.router.navigate(['/equipment']);
+            this.equipmentService.update(this.item.id, this.item).subscribe({
+                next: () => {
+                    this.snackBar.open('Equipment saved successfully', 'Close', { duration: 3000 });
+                    this.router.navigate(['/equipment']);
+                },
+                error: (err) => {
+                    this.isSaving = false;
+                    console.error('Error saving equipment:', err);
+                    this.snackBar.open('Failed to save equipment', 'Close', { duration: 3000 });
+                }
             });
         }
     }
 
     delete() {
         if (confirm("Are you sure?")) {
-            this.equipmentService.delete(this.item.id).subscribe(() => this.router.navigate(['/equipment']));
+            this.isDeleting = true;
+            this.equipmentService.delete(this.item.id).subscribe({
+                next: () => {
+                    this.snackBar.open('Equipment deleted', 'Close', { duration: 3000 });
+                    this.router.navigate(['/equipment']);
+                },
+                error: (err) => {
+                    this.isDeleting = false;
+                    console.error('Error deleting equipment:', err);
+                    this.snackBar.open('Failed to delete equipment', 'Close', { duration: 3000 });
+                }
+            });
         }
     }
 

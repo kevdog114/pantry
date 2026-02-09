@@ -1,5 +1,14 @@
 <div *ngIf="product" class="h-100 d-flex flex-column">
 
+    <!-- Breadcrumb Navigation -->
+    <nav class="breadcrumb-nav">
+        <a routerLink="/products">
+            <mat-icon>inventory_2</mat-icon> Products
+        </a>
+        <span class="breadcrumb-separator">›</span>
+        <span class="breadcrumb-current">{{ product.title || 'Product' }}</span>
+    </nav>
+
     <!-- Header -->
     <div class="header-section">
         <h1 class="page-title">

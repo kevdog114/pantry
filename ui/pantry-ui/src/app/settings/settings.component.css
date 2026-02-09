@@ -1,7 +1,6 @@
 .settings-page {
     padding: 24px;
     max-width: 1000px;
-    /* Wider to accommodate side-by-side or comfortable reading */
     margin: 0 auto;
     font-family: 'Roboto', sans-serif;
 }
@@ -10,17 +9,16 @@
     font-size: 2.5rem;
     font-weight: 300;
     margin-bottom: 24px;
-    color: var(--text-primary, #333);
+    color: var(--mat-sys-on-background);
 }
 
 /* Customizing Tabs */
 ::ng-deep .custom-tabs .mat-mdc-tab-header {
-    border-bottom: 1px solid rgba(0, 0, 0, 0.12);
+    border-bottom: 1px solid var(--mat-sys-outline-variant);
 }
 
 ::ng-deep .custom-tabs .mat-mdc-tab-label-container {
     overflow: visible;
-    /* Ensure shadows/focus rings aren't clipped */
 }
 
 /* Tab Content & Card */
@@ -30,11 +28,11 @@
 }
 
 .settings-card {
-    background: var(--card-bg, #fff);
+    background: var(--mat-sys-surface-container);
     border-radius: 12px;
     padding: 32px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
-    border: 1px solid rgba(0, 0, 0, 0.05);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    border: 1px solid var(--mat-sys-outline-variant);
 }
 
 .settings-card h2 {
@@ -42,10 +40,11 @@
     margin-top: 0;
     margin-bottom: 8px;
     font-weight: 500;
+    color: var(--mat-sys-on-surface);
 }
 
 .subtitle {
-    color: var(--text-secondary, #666);
+    color: var(--mat-sys-on-surface-variant);
     margin-bottom: 32px;
     font-size: 0.95rem;
 }
@@ -61,9 +60,8 @@
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
-    /* Align top for multi-line description */
     padding-bottom: 24px;
-    border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+    border-bottom: 1px solid var(--mat-sys-outline-variant);
 }
 
 .setting-item:last-of-type {
@@ -79,11 +77,12 @@
     margin: 0 0 4px 0;
     font-size: 1.1rem;
     font-weight: 500;
+    color: var(--mat-sys-on-surface);
 }
 
 .setting-info p {
     margin: 0;
-    color: var(--text-secondary, #777);
+    color: var(--mat-sys-on-surface-variant);
     font-size: 0.9rem;
     line-height: 1.4;
 }
@@ -104,7 +103,7 @@ mat-form-field {
     display: flex;
     align-items: center;
     gap: 12px;
-    color: var(--text-secondary, #666);
+    color: var(--mat-sys-on-surface-variant);
     font-style: italic;
     padding: 24px;
 }
@@ -112,8 +111,8 @@ mat-form-field {
 .spinner {
     width: 20px;
     height: 20px;
-    border: 2px solid rgba(0, 0, 0, 0.1);
-    border-left-color: var(--primary-color, #3f51b5);
+    border: 2px solid var(--mat-sys-outline-variant);
+    border-left-color: var(--mat-sys-primary);
     border-radius: 50%;
     animation: spin 1s linear infinite;
 }
@@ -133,33 +132,5 @@ mat-form-field {
     to {
         opacity: 1;
         transform: translateY(0);
-    }
-}
-
-/* Dark Mode Adjustments (if applicable global vars aren't enough) */
-@media (prefers-color-scheme: dark) {
-    .settings-card {
-        background: #1e1e1e;
-        border-color: #333;
-    }
-
-    .header h1 {
-        color: #e0e0e0;
-    }
-
-    .subtitle {
-        color: #aaa;
-    }
-
-    .setting-info h3 {
-        color: #ddd;
-    }
-
-    .setting-info p {
-        color: #aaa;
-    }
-
-    ::ng-deep .custom-tabs .mat-mdc-tab-header {
-        border-bottom-color: rgba(255, 255, 255, 0.12);
     }
 }

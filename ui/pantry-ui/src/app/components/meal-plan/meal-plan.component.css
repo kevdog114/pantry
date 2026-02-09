@@ -440,3 +440,27 @@
     color: var(--mat-sys-on-secondary, #ffffff);
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 }
+
+/* Edit Hint Icon on Meal Items */
+.edit-hint-icon {
+    font-size: 18px;
+    width: 18px;
+    height: 18px;
+    color: var(--mat-sys-on-surface-variant);
+    opacity: 0;
+    transition: opacity 0.2s;
+    flex-shrink: 0;
+    align-self: center;
+}
+
+.meal-item:hover .edit-hint-icon {
+    opacity: 0.6;
+}
+
+.meal-meta-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 2px;
+    flex-wrap: wrap;
+}

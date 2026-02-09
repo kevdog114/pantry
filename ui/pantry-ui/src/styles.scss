@@ -189,3 +189,63 @@ body.kiosk-mode {
     box-shadow: 0 8px 16px rgba(0, 0, 0, 0.15);
   }
 }
+
+// Global Breadcrumb Styles
+.breadcrumb-nav {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 0;
+  margin-bottom: 8px;
+  font-size: 0.875rem;
+  color: var(--mat-sys-on-surface-variant, #666);
+
+  a {
+    color: var(--mat-sys-primary, #0097a7);
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    transition: color 0.2s;
+    font-weight: 500;
+
+    &:hover {
+      color: var(--mat-sys-primary, #00bcd4);
+      text-decoration: underline;
+    }
+
+    mat-icon {
+      font-size: 18px;
+      width: 18px;
+      height: 18px;
+    }
+  }
+
+  .breadcrumb-separator {
+    color: var(--mat-sys-outline, #999);
+    font-size: 1rem;
+    user-select: none;
+  }
+
+  .breadcrumb-current {
+    color: var(--mat-sys-on-surface, #333);
+    font-weight: 500;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 300px;
+  }
+}
+
+// Processing spinner overlay for buttons
+.btn-processing {
+  position: relative;
+  pointer-events: none;
+  opacity: 0.8;
+}
+
+.btn-spinner-inline {
+  display: inline-block;
+  vertical-align: middle;
+  margin-right: 8px;
+}

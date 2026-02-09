@@ -32,6 +32,7 @@ import * as DiagnosticsController from "./controllers/DiagnosticsController";
 import * as PlaywrightController from "./controllers/PlaywrightController";
 import * as PlaywrightProxyController from "./controllers/PlaywrightProxyController";
 import * as SalesController from "./controllers/SalesController";
+import * as CustomBarcodeController from "./controllers/CustomBarcodeController";
 import cors from "cors";
 import fileUpload from "express-fileupload";
 import session from "express-session";
@@ -285,6 +286,7 @@ app.post("/labels/modifier", LabelPrinterController.printModifierLabel);
 app.post("/labels/recipe/:id", LabelPrinterController.printRecipeLabel);
 app.post("/labels/receipt/:id", LabelPrinterController.printReceipt);
 app.post("/labels/asset/:id", LabelPrinterController.printAssetLabel);
+app.post("/labels/shopping-list", LabelPrinterController.printShoppingList);
 
 
 app.get("/equipment", EquipmentController.getAll);
@@ -338,6 +340,15 @@ app.use("/playwright/vnc", PlaywrightProxyController.proxyNoVncHttp);
 // Retailer Sales
 app.get("/sales", SalesController.getSales);
 app.post("/sales/search/costco", SalesController.triggerCostcoSearch);
+
+// Custom Barcodes
+app.get("/custom-barcodes", CustomBarcodeController.getAll);
+app.get("/custom-barcodes/:id", CustomBarcodeController.getById);
+app.post("/custom-barcodes", CustomBarcodeController.create);
+app.put("/custom-barcodes/:id", CustomBarcodeController.update);
+app.delete("/custom-barcodes/:id", CustomBarcodeController.deleteById);
+app.post("/custom-barcodes/:id/print-label", CustomBarcodeController.printLabel);
+app.post("/custom-barcodes/:id/print-receipt", CustomBarcodeController.printReceipt);
 
 
 app.get('/*', (req: Request, res: Response) => {

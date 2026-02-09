@@ -9,7 +9,7 @@ import { CommonModule } from '@angular/common';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatCardModule } from '@angular/material/card';
-import { Router } from '@angular/router';
+import { Router, RouterModule } from '@angular/router';
 import { EnvironmentService } from '../services/environment.service';
 import { MatTabsModule } from '@angular/material/tabs';
 import { GeminiService } from '../services/gemini.service';
@@ -33,7 +33,8 @@ import { MatTooltipModule } from '@angular/material/tooltip';
     MatProgressSpinnerModule,
     MatSnackBarModule,
     MatSelectModule,
-    MatTooltipModule
+    MatTooltipModule,
+    RouterModule
   ],
   templateUrl: './product-edit.component.html',
   styleUrl: './product-edit.component.css'
@@ -48,6 +49,8 @@ export class ProductEditComponent implements AfterViewInit {
   public isLookingUpBarcode: boolean = false;
   public showBarcodeInput: boolean = false;
   public barcodeInput: string = '';
+  public isSaving: boolean = false;
+  public isDeleting: boolean = false;
 
   private queryData = {
     productTitle: <string | undefined>"",
@@ -319,10 +322,22 @@ export class ProductEditComponent implements AfterViewInit {
   }
 
   public delete = () => {
-    if (this.product && this.product.id)
-      this.svc.Delete(this.product.id).subscribe(() => {
-        this.router.navigate(["/"]);
-      })
+    if (this.product && this.product.id) {
+      if (confirm('Are you sure you want to delete this product?')) {
+        this.isDeleting = true;
+        this.svc.Delete(this.product.id).subscribe({
+          next: () => {
+            this.snackBar.open("Product deleted successfully", "Close", { duration: 3000 });
+            this.router.navigate(["/products"]);
+          },
+          error: (err) => {
+            this.isDeleting = false;
+            console.error("Error deleting product:", err);
+            this.snackBar.open("Failed to delete product", "Close", { duration: 3000 });
+          }
+        });
+      }
+    }
   }
 
   public addBarcode = () => {
@@ -365,16 +380,34 @@ export class ProductEditComponent implements AfterViewInit {
       });
     }
 
+    this.isSaving = true;
+
     if (this.isCreate) {
-      this.svc.Create(this.product).subscribe(p => {
-        this.product = p;
-        this.router.navigate(["products", p.id]);
+      this.svc.Create(this.product).subscribe({
+        next: (p) => {
+          this.product = p;
+          this.snackBar.open("Product saved successfully", "Close", { duration: 3000 });
+          this.router.navigate(["products"]);
+        },
+        error: (err) => {
+          this.isSaving = false;
+          console.error("Error saving product:", err);
+          this.snackBar.open("Failed to save product", "Close", { duration: 3000 });
+        }
       });
     }
     else {
-      this.svc.Update(this.product).subscribe(p => {
-        this.product = p;
-        this.router.navigate(["products", p.id]);
+      this.svc.Update(this.product).subscribe({
+        next: (p) => {
+          this.product = p;
+          this.snackBar.open("Product saved successfully", "Close", { duration: 3000 });
+          this.router.navigate(["products"]);
+        },
+        error: (err) => {
+          this.isSaving = false;
+          console.error("Error saving product:", err);
+          this.snackBar.open("Failed to save product", "Close", { duration: 3000 });
+        }
       });
     }
 

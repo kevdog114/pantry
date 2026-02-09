@@ -1,0 +1,79 @@
+.edit-container {
+    padding: 24px;
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+.form-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.mono-input {
+    font-family: 'Roboto Mono', 'Courier New', monospace !important;
+    font-size: 0.95rem;
+    line-height: 1.6;
+}
+
+.preview {
+    margin-top: 24px;
+    padding: 16px;
+    background: var(--mat-sys-surface-container, rgba(0, 0, 0, 0.04));
+    border-radius: 12px;
+    border: 1px solid var(--mat-sys-outline-variant, #ddd);
+}
+
+.preview h3 {
+    margin: 0 0 8px 0;
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: var(--mat-sys-on-surface-variant, #666);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.preview-value {
+    font-family: 'Roboto Mono', 'Courier New', monospace;
+    font-size: 1rem;
+    padding: 12px;
+    background: var(--mat-sys-surface, #fff);
+    border-radius: 8px;
+    word-break: break-all;
+    border: 1px dashed var(--mat-sys-outline, #ccc);
+}
+
+.actions {
+    margin-top: 24px;
+    display: flex;
+    gap: 16px;
+    align-items: center;
+}
+
+.print-section {
+    margin-top: 48px;
+    border-top: 1px solid var(--mat-sys-outline-variant, #eee);
+    padding-top: 24px;
+}
+
+.print-section h3 {
+    margin: 0 0 16px 0;
+    font-size: 1rem;
+    font-weight: 500;
+}
+
+.print-actions {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+}
+
+.print-actions button {
+    flex: 1;
+    min-width: 180px;
+    padding: 12px 24px;
+}
+
+.print-actions mat-icon {
+    margin-right: 8px;
+}
