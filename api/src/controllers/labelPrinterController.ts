@@ -286,7 +286,7 @@ export const printAssetLabel = async (req: Request, res: Response, next: NextFun
     }
 }
 
-import { generateReceiptSteps } from '../services/RecipeAIService';
+import { generateReceiptSteps, determineSafeCookingTemps } from '../services/RecipeAIService';
 
 export const printReceipt = async (req: Request, res: Response, next: NextFunction): Promise<any> => {
     try {
@@ -294,7 +294,7 @@ export const printReceipt = async (req: Request, res: Response, next: NextFuncti
 
         const recipe = await prisma.recipe.findUnique({
             where: { id: recipeId },
-            include: { steps: { orderBy: { stepNumber: 'asc' } }, ingredients: true }
+            include: { steps: { orderBy: { stepNumber: 'asc' } }, ingredients: true, safeTemps: true }
         });
 
         if (!recipe) {
@@ -382,9 +382,43 @@ export const printReceipt = async (req: Request, res: Response, next: NextFuncti
             });
         }
 
-        // Add Safe Temps
-        if ((recipe as any).safeTemps && (recipe as any).safeTemps.length > 0) {
-            receiptData.safeTemps = (recipe as any).safeTemps.map((st: any) => ({
+        // Add Safe Temps — lazy load from Gemini if missing
+        let safeTemps = recipe.safeTemps || [];
+
+        if (safeTemps.length === 0 && !recipe.noSafeTemps && recipe.ingredients && recipe.ingredients.length > 0) {
+            console.log(`[LabelPrinter] No safe temps cached for recipe ${recipe.id}, querying Gemini...`);
+            try {
+                const generatedTemps = await determineSafeCookingTemps(recipe.ingredients);
+
+                if (generatedTemps && generatedTemps.length > 0) {
+                    // Store in DB for future prints
+                    await prisma.recipe.update({
+                        where: { id: recipe.id },
+                        data: {
+                            safeTemps: {
+                                create: generatedTemps.map(st => ({
+                                    item: st.item,
+                                    temperature: st.temperature
+                                }))
+                            }
+                        }
+                    });
+                    safeTemps = generatedTemps as any;
+                } else {
+                    // No key ingredients — set flag so we don't keep asking
+                    console.log(`[LabelPrinter] No safe temp ingredients for recipe ${recipe.id}, setting noSafeTemps flag.`);
+                    await prisma.recipe.update({
+                        where: { id: recipe.id },
+                        data: { noSafeTemps: true }
+                    });
+                }
+            } catch (tempErr) {
+                console.warn(`[LabelPrinter] Failed to generate safe temps for recipe ${recipe.id}:`, tempErr);
+            }
+        }
+
+        if (safeTemps.length > 0) {
+            receiptData.safeTemps = safeTemps.map((st: any) => ({
                 item: st.item,
                 temperature: st.temperature
             }));

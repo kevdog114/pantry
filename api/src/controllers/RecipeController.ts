@@ -92,6 +92,9 @@ export const create = async (req: Request, res: Response, next: NextFunction): P
                     temperature: st.temperature
                 }))
             };
+        } else {
+            // No key ingredients found — set flag to skip future lookups
+            updates.noSafeTemps = true;
         }
 
         if (quickActions && quickActions.length > 0) {
@@ -219,14 +222,9 @@ export const update = async (req: Request, res: Response, next: NextFunction): P
                 type: req.body.type,
                 instructionForProductId: req.body.instructionForProductId,
                 safeTemps: {
-                    deleteMany: {} // We will regenerate them potentially, or leave them? 
-                    // The user said "use gemini to determine... save this with the recipe"
-                    // If ingredients change, safe temps might change. Safer to regenerate or allowed to be manual?
-                    // For now, let's clear and regenerate if ingredients changed. 
-                    // Actually, simpler to just always regenerate for now since this is an "update" op.
-                    // But maybe only if ingredients changed? 
-                    // The user didn't specify, but regeneration is safer to keep in sync.
-                }
+                    deleteMany: {}
+                },
+                noSafeTemps: false // Reset flag since ingredients may have changed
             },
             include: {
                 steps: { orderBy: { stepNumber: 'asc' } },
@@ -259,6 +257,9 @@ export const update = async (req: Request, res: Response, next: NextFunction): P
                         temperature: st.temperature
                     }))
                 };
+            } else {
+                // No key ingredients found — set flag to skip future lookups
+                updates.noSafeTemps = true;
             }
 
             if (quickActions && quickActions.length > 0) {

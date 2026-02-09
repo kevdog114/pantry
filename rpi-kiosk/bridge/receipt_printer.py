@@ -236,18 +236,18 @@ def print_receipt_cmd(args):
         # Key-Value pairs if provided
         if 'items' in data and isinstance(data['items'], list):
             print("Printing Items...")
-            p.text("-" * 32 + "\n")
+            p.text("-" * 42 + "\n")
             p.text("INGREDIENTS:\n")
             for item in data['items']:
                 if isinstance(item, dict):
                     name = sanitize_text(item.get('name', ''))
                     qty = sanitize_text(item.get('quantity', ''))
                     # Truncate to ensure alignment
-                    name = name[:20]
-                    p.text(f"{name:<20} {qty:>10}\n")
+                    name = name[:28]
+                    p.text(f"{name:<28} {qty:>12}\n")
                 else:
                     p.text(f"{sanitize_text(item)}\n")
-            p.text("-" * 32 + "\n")
+            p.text("-" * 42 + "\n")
 
         # Recipe Steps
         if 'steps' in data and isinstance(data['steps'], list):
@@ -329,7 +329,7 @@ def print_receipt_cmd(args):
                     p.set(font='a')
                 
                 p.text("\n")
-            p.text("-" * 32 + "\n")
+            p.text("-" * 42 + "\n")
 
         # Safe Temps
         if 'safeTemps' in data and isinstance(data['safeTemps'], list):
@@ -342,9 +342,9 @@ def print_receipt_cmd(args):
                 safe_temp = sanitize_text(temp)
                 
                 # Truncate name if too long for the column
-                safe_name = name[:20]
-                p.text(f"{safe_name:<20} {safe_temp:>10}\n")
-            p.text("-" * 32 + "\n")
+                safe_name = name[:28]
+                p.text(f"{safe_name:<28} {safe_temp:>12}\n")
+            p.text("-" * 42 + "\n")
 
         # QR Code
         if 'qrData' in data:

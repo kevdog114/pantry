@@ -863,18 +863,53 @@ function cleanJson(text: string): string {
 /**
  * Normalize non-standard model responses into {items: [...]} format.
  * Gemini 3 models sometimes return {type: "message", message: "text"} or similar.
+ * Must ALWAYS return an object with a valid items array.
  */
 function normalizeResponse(data: any, label: string = 'Gemini'): any {
-  if (!data.items || !Array.isArray(data.items)) {
-    const textContent = data.content || data.message || data.text || data.response;
-    if (textContent && typeof textContent === 'string') {
-      console.log(`[${label}] Normalizing non-standard response format (had keys: ${Object.keys(data).join(', ')})`);
-      return { items: [{ type: 'chat', content: textContent }] };
-    } else if (data.recipe && typeof data.recipe === 'object') {
-      return { items: [{ type: 'recipe', recipe: data.recipe }] };
+  // Already in the correct format
+  if (data.items && Array.isArray(data.items) && data.items.length > 0) {
+    return data;
+  }
+
+  // Try to extract text content from various field names the model might use
+  const textFields = ['content', 'message', 'text', 'response'];
+  for (const field of textFields) {
+    if (data[field] !== undefined && data[field] !== null) {
+      const val = data[field];
+      if (typeof val === 'string' && val.trim().length > 0) {
+        console.log(`[${label}] Normalizing non-standard response: found '${field}' field (keys: ${Object.keys(data).join(', ')})`);
+        return { items: [{ type: 'chat', content: val }] };
+      } else if (typeof val === 'object') {
+        // Model returned an object/array in a text field — stringify it
+        console.log(`[${label}] Normalizing non-standard response: '${field}' is an object (keys: ${Object.keys(data).join(', ')})`);
+        return { items: [{ type: 'chat', content: JSON.stringify(val, null, 2) }] };
+      }
     }
   }
-  return data;
+
+  // Check for recipe format
+  if (data.recipe && typeof data.recipe === 'object') {
+    console.log(`[${label}] Normalizing non-standard response: found recipe object`);
+    return { items: [{ type: 'recipe', recipe: data.recipe }] };
+  }
+
+  // Final fallback: the model returned something we can't understand at all.
+  // Rather than returning the raw object (which gets stringified as ugly JSON),
+  // log it and return a user-friendly fallback.
+  const keys = Object.keys(data);
+  const hasOnlyEmptyValues = keys.every(k => {
+    const v = data[k];
+    return v === null || v === undefined || v === '' || (typeof v === 'string' && v.trim() === '');
+  });
+
+  if (hasOnlyEmptyValues) {
+    console.warn(`[${label}] Model returned empty/null-valued response (keys: ${keys.join(', ')}). Returning user-friendly fallback.`);
+    return { items: [{ type: 'chat', content: "I wasn't able to generate a response for that. Could you try rephrasing your question?" }] };
+  }
+
+  // Non-empty but unrecognized structure — log the full payload for debugging
+  console.warn(`[${label}] Model returned unrecognized response structure (keys: ${keys.join(', ')}). Data: ${JSON.stringify(data).substring(0, 500)}`);
+  return { items: [{ type: 'chat', content: JSON.stringify(data, null, 2) }] };
 }
 
 /**
@@ -1375,13 +1410,20 @@ export const post = async (req: Request, res: Response) => {
     // --- PARSE RESPONSE ---
     const responseText = responseResult.text || '';
     let data;
-    try {
-      data = JSON.parse(cleanJson(responseText));
-    } catch (e) {
-      console.warn("Failed to parse JSON response, using raw text", e);
-      data = { items: [{ type: 'chat', content: responseText }] };
+    if (!responseText || responseText.trim().length === 0) {
+      console.warn(`[Post] Empty responseText after generation. Tool loops: ${loopCount}. This likely means the model returned only tool calls or an empty response.`);
+      data = { items: [{ type: 'chat', content: "I processed your request but wasn't able to generate a text response. Please try again or rephrase your question." }] };
+    } else {
+      console.log(`[Post] Parsing responseText (${responseText.length} chars, first 200): ${responseText.substring(0, 200)}`);
+      try {
+        data = JSON.parse(cleanJson(responseText));
+      } catch (e) {
+        console.warn("Failed to parse JSON response, using raw text", e);
+        data = { items: [{ type: 'chat', content: responseText }] };
+      }
     }
     data = normalizeResponse(data, 'Post');
+
 
     // Print safety net
     if (printedInThisTurn) {
@@ -1687,12 +1729,19 @@ export const postStream = async (req: Request, res: Response) => {
 
     // --- PARSE RESPONSE ---
     let data;
-    try {
-      data = JSON.parse(cleanJson(fullText));
-    } catch (e) {
-      console.warn("Failed to parse JSON response (stream), using raw text", e);
-      data = { items: [{ type: 'chat', content: fullText }] };
+    if (!fullText || fullText.trim().length === 0) {
+      console.warn(`[Stream] Empty fullText after streaming. Tool loops: ${loopCount}. This likely means the model returned only tool calls or an empty response.`);
+      data = { items: [{ type: 'chat', content: "I processed your request but wasn't able to generate a text response. Please try again or rephrase your question." }] };
+    } else {
+      console.log(`[Stream] Parsing fullText (${fullText.length} chars, first 200): ${fullText.substring(0, 200)}`);
+      try {
+        data = JSON.parse(cleanJson(fullText));
+      } catch (e) {
+        console.warn("Failed to parse JSON response (stream), using raw text", e);
+        data = { items: [{ type: 'chat', content: fullText }] };
+      }
     }
+
     data = normalizeResponse(data, 'Stream');
 
     // Send final event immediately

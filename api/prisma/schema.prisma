@@ -136,6 +136,7 @@ model Recipe {
   receiptSteps   String?      // JSON string for receipt printer optimized steps
   quickActions   RecipeQuickAction[]
   safeTemps      RecipeSafeTemp[]
+  noSafeTemps    Boolean    @default(false) // True when Gemini confirms no key ingredients needing safe temps
   
   type           String     @default("recipe") // "recipe", "instruction"
   instructionForProductId Int?

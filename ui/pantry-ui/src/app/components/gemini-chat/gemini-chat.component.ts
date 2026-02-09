@@ -552,14 +552,28 @@ export class GeminiChatComponent implements OnInit, OnDestroy {
         });
       } else {
         // Try multiple common field names the model might use for text content
-        let content = data.content || data.message || data.text || data.response;
-        if (typeof content === 'object') {
-          content = JSON.stringify(content, null, 2);
-        } else if (!content) {
+        // Use explicit checks instead of || chain to avoid falsy empty strings
+        const textFields = ['content', 'message', 'text', 'response'];
+        let content: string | null = null;
+
+        for (const field of textFields) {
+          const val = data[field];
+          if (val !== undefined && val !== null) {
+            if (typeof val === 'string' && val.trim().length > 0) {
+              content = val;
+              break;
+            } else if (typeof val === 'object') {
+              content = JSON.stringify(val, null, 2);
+              break;
+            }
+          }
+        }
+
+        if (!content) {
           // Last resort: if data only has type + empty fields, show a fallback
           const keys = Object.keys(data).filter(k => k !== 'type');
           const hasOnlyEmptyValues = keys.every(k => !data[k] || (typeof data[k] === 'string' && data[k].trim() === ''));
-          if (hasOnlyEmptyValues) {
+          if (hasOnlyEmptyValues || keys.length === 0) {
             content = 'I received your message but couldn\'t generate a response. Please try again.';
           } else {
             content = JSON.stringify(data, null, 2);
@@ -571,6 +585,7 @@ export class GeminiChatComponent implements OnInit, OnDestroy {
           text: content
         });
       }
+
     }
 
     return geminiContents.length > 0 ? geminiContents : [{ type: 'chat', text: '' }];
