@@ -21,7 +21,6 @@ import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatNativeDateModule } from '@angular/material/core';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatSnackBar } from '@angular/material/snack-bar';
-import { DragDropModule, CdkDragDrop, moveItemInArray, transferArrayItem } from '@angular/cdk/drag-drop';
 import { KitchenLogisticsService, LogisticsTask } from '../../services/kitchen-logistics.service';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { QuantityPromptDialogComponent } from '../quantity-prompt-dialog/quantity-prompt-dialog.component';
@@ -51,7 +50,6 @@ import { MatExpansionModule } from '@angular/material/expansion';
         MatDatepickerModule,
         MatNativeDateModule,
         MatDialogModule,
-        DragDropModule,
         RouterModule,
         MatTooltipModule,
         MatProgressSpinnerModule
@@ -363,35 +361,8 @@ export class MealPlanComponent implements OnInit {
         }
     }
 
-    dropTrip(event: CdkDragDrop<ShoppingTrip[]>) {
-        if (event.previousContainer === event.container) {
-            return;
-        } else {
-            const trip = event.previousContainer.data[event.previousIndex];
-            transferArrayItem(
-                event.previousContainer.data,
-                event.container.data,
-                event.previousIndex,
-                event.currentIndex,
-            );
 
-            // Container ID format: "trip-list-Fri Jan 30 2026"
-            // We need to extract the date string carefully.
-            // Let's assume the ID is just the date string if possible, or construct it.
-            // Actually, in HTML we will likely do [id]="'trip-' + day.toDateString()"
-            const id = event.container.id;
-            const dateStr = id.replace('trip-', '');
-            const newDate = new Date(dateStr);
 
-            this.shoppingTripService.updateShoppingTrip(trip.id, newDate).subscribe({
-                next: () => this.snackBar.open('Trip moved!', 'Order', { duration: 2000 }),
-                error: () => {
-                    this.snackBar.open('Failed to move trip.', 'Error', { duration: 2000 });
-                    this.loadShoppingTrips(); // Revert
-                }
-            });
-        }
-    }
 
     getLeftoverCandidates(currentDate: Date): MealPlan[] {
         const candidates: MealPlan[] = [];
@@ -609,117 +580,8 @@ export class MealPlanComponent implements OnInit {
         return missing;
     }
 
-    drop(event: CdkDragDrop<any[]>) {
-        const itemData = event.item.data;
-
-        if (this.isShoppingTrip(itemData)) {
-            // Handle Shopping Trip Move
-            let previousDateStr = event.previousContainer.id;
-            let newDateStr = event.container.id;
-
-            // Normalize IDs (remove 'shopping-' prefix if present)
-            if (previousDateStr.startsWith('shopping-')) previousDateStr = previousDateStr.replace('shopping-', '');
-            if (newDateStr.startsWith('shopping-')) newDateStr = newDateStr.replace('shopping-', '');
-
-            if (previousDateStr === newDateStr) return; // No change
-
-            // Convert ISO string (from ID) to Map Key (toDateString)
-            // The ID comes from day.toISOString() in the template
-            const previousDateKey = new Date(previousDateStr).toDateString();
-            const newDateKey = new Date(newDateStr).toDateString();
-
-            // Update Local State
-            // Remove from old date
-            const oldList = this.shoppingTrips[previousDateKey];
-            if (oldList) {
-                const index = oldList.indexOf(itemData);
-                if (index > -1) {
-                    oldList.splice(index, 1);
-                }
-            }
-
-            // Add to new date
-            if (!this.shoppingTrips[newDateKey]) {
-                this.shoppingTrips[newDateKey] = [];
-            }
-            this.shoppingTrips[newDateKey].push(itemData);
-            itemData.date = new Date(newDateStr); // Update object directly
-
-            // Update Backend
-            this.shoppingTripService.updateShoppingTrip(itemData.id, new Date(newDateStr)).subscribe({
-                next: () => {
-                    this.snackBar.open('Shopping trip moved!', 'Cool', { duration: 2000 });
-                },
-                error: (err) => {
-                    console.error('Failed to move trip', err);
-                    this.snackBar.open('Failed to save move.', 'Error', { duration: 2000 });
-                    // Revert local change if needed... (omitted for brevity)
-                }
-            });
-
-        } else {
-            // Handle Meal Plan Move (Existing Logic)
-            // Handle Meal Plan Move
-            const item = itemData as MealPlan;
-            const previousContainerId = event.previousContainer.id;
-            const newContainerId = event.container.id;
-
-            if (previousContainerId === newContainerId && event.previousIndex === event.currentIndex) {
-                return;
-            }
-
-            // Parse ID: "meal-list-{{ISO_DATE}}--{{MEAL_TYPE}}"
-            // Assuming prefix "meal-list-"
-            const cleanNewId = newContainerId.replace('meal-list-', '');
-            const [newDateStr, newMealType] = cleanNewId.split('--');
-
-            const newDate = new Date(newDateStr);
-            const oldDate = new Date(item.date);
-
-            // Optimistic Update
-            // Remove from source list
-            const oldDateKey = oldDate.toDateString();
-            if (this.mealPlans[oldDateKey]) {
-                const idx = this.mealPlans[oldDateKey].findIndex(m => m.id === item.id);
-                if (idx > -1) {
-                    this.mealPlans[oldDateKey].splice(idx, 1);
-                }
-            }
-
-            // Update Item Properties
-            item.date = newDate.toISOString();
-            item.mealType = newMealType === 'Unassigned' ? undefined : newMealType;
-
-            // Add to destination list
-            const newDateKey = newDate.toDateString();
-            if (!this.mealPlans[newDateKey]) {
-                this.mealPlans[newDateKey] = [];
-            }
-            this.mealPlans[newDateKey].push(item);
-
-            // Recalculate tasks locally
-            this.calculatePrepTasks();
-
-            // API Call
-            this.mealPlanService.updateMealPlan(item.id, newDate, undefined, item.mealType).subscribe({
-                next: () => {
-                    this.snackBar.open('Meal moved!', 'Order', { duration: 2000 });
-                },
-                error: (err) => {
-                    console.error('Failed to move meal', err);
-                    this.snackBar.open('Failed to move meal.', 'Error', { duration: 2000 });
-                    // Revert is harder here, let's just reload
-                    this.loadMealPlans();
-                }
-            });
-        }
-    }
 
 
-    isShoppingTrip(item: any): item is ShoppingTrip {
-        // Simple check: ShoppingTrip doesn't have recipeId/productId usually, but has 'items' array
-        return (item as ShoppingTrip).items !== undefined && (item as any).recipeId === undefined;
-    }
     toggleHighlight(mealPlanId: number | number[]) {
         if (Array.isArray(mealPlanId)) {
             // If already highlighted (checking first item roughly), clear
@@ -1073,7 +935,7 @@ export class MealPlanComponent implements OnInit {
             mealTypes: this.mealTypes,
             visibleDays: this.days,
             servingsConsumed: plan.servingsConsumed,
-            recipeYield: plan.recipe?.yield,
+            recipeYield: plan.recipe?.yield ?? undefined,
             quantity: plan.quantity,
             isProduct: isProduct,
         };
@@ -1082,6 +944,8 @@ export class MealPlanComponent implements OnInit {
             width: '460px',
             data: dialogData,
             autoFocus: false,
+            panelClass: 'meal-plan-edit-panel',
+            backdropClass: 'meal-plan-edit-backdrop',
         });
 
         dialogRef.afterClosed().subscribe((result: MealPlanEditDialogResult) => {

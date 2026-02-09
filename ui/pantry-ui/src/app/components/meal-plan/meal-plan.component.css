@@ -17,6 +17,7 @@
     margin: 0;
     background: linear-gradient(45deg, var(--mat-sys-primary), var(--mat-sys-tertiary));
     -webkit-background-clip: text;
+    background-clip: text;
     -webkit-text-fill-color: transparent;
     letter-spacing: -0.5px;
 }
@@ -127,20 +128,13 @@
 
 .meals-list {
     min-height: 24px;
-    /* Drop zone area */
     display: flex;
     flex-direction: column;
     gap: 8px;
     flex-grow: 1;
-    transition: min-height 0.2s;
 }
 
-/* Ensure it expands when dragging over if needed, or rely on placeholder */
-.meals-list.cdk-drop-list-dragging {
-    min-height: 60px;
-    background: rgba(0, 0, 0, 0.02);
-    border-radius: 8px;
-}
+
 
 .meal-item {
     background: var(--mat-sys-surface, #ffffff);
@@ -149,7 +143,7 @@
     padding: 12px 16px;
     position: relative;
     transition: all 0.2s;
-    cursor: grab;
+    cursor: pointer;
     display: flex;
     flex-direction: column;
     gap: 8px;
@@ -160,9 +154,7 @@
     border-color: rgba(255, 255, 255, 0.1);
 }
 
-.meal-item:active {
-    cursor: grabbing;
-}
+
 
 .meal-item:hover {
     border-color: var(--mat-sys-primary);
@@ -235,31 +227,7 @@
     height: 16px;
 }
 
-/* Dragging Styles */
-.cdk-drag-preview {
-    box-sizing: border-box;
-    border-radius: 12px;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
-    background-color: var(--mat-sys-surface, #fff);
-    padding: 16px;
-    border: 1px solid var(--mat-sys-primary);
 
-    [data-bs-theme="dark"] & {
-        background-color: #333;
-    }
-}
-
-.cdk-drag-placeholder {
-    opacity: 0;
-}
-
-.cdk-drag-animating {
-    transition: transform 250ms cubic-bezier(0, 0, 0.2, 1);
-}
-
-.meals-list.cdk-drop-list-dragging .meal-item:not(.cdk-drag-placeholder) {
-    transition: transform 250ms cubic-bezier(0, 0, 0.2, 1);
-}
 
 /* Add Form */
 .add-meal-section {
@@ -292,7 +260,7 @@
     transition: all 0.2s ease;
 }
 
-[data-bs-theme="dark"] .highlighted {}
+
 
 /* Prep Task Styling */
 .prep-tasks-section {

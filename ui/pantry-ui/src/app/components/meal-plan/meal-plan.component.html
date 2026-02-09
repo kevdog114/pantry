@@ -21,7 +21,7 @@
         </div>
     </div>
 
-    <div class="calendar-grid" cdkDropListGroup>
+    <div class="calendar-grid">
         <div *ngFor="let day of days" class="day-card">
 
             <div class="card-header-content">
@@ -47,11 +47,10 @@
                     <div class="meal-type-header">
                         <span>Unassigned</span>
                     </div>
-                    <div class="meals-list" cdkDropList [cdkDropListData]="getMealsForDayUnassigned(day)"
-                        [id]="'meal-list-' + day.toISOString() + '--Unassigned'" (cdkDropListDropped)="drop($event)">
+                    <div class="meals-list">
 
-                        <div *ngFor="let plan of getMealsForDayUnassigned(day)" class="meal-item" cdkDrag
-                            [cdkDragData]="plan" [class.highlighted]="isHighlighted(plan.id)">
+                        <div *ngFor="let plan of getMealsForDayUnassigned(day)" class="meal-item"
+                            [class.highlighted]="isHighlighted(plan.id)">
 
                             <!-- Reusing the meal item content template -->
                             <ng-container
@@ -78,11 +77,10 @@
                         </mat-menu>
                     </div>
 
-                    <div class="meals-list type-list" cdkDropList [cdkDropListData]="getMealsForDayAndType(day, type)"
-                        [id]="'meal-list-' + day.toISOString() + '--' + type" (cdkDropListDropped)="drop($event)">
+                    <div class="meals-list type-list">
 
-                        <div *ngFor="let plan of getMealsForDayAndType(day, type)" class="meal-item" cdkDrag
-                            [cdkDragData]="plan" [class.highlighted]="isHighlighted(plan.id)">
+                        <div *ngFor="let plan of getMealsForDayAndType(day, type)" class="meal-item"
+                            [class.highlighted]="isHighlighted(plan.id)">
                             <ng-container
                                 *ngTemplateOutlet="mealItemTemplate; context: {$implicit: plan}"></ng-container>
                         </div>
@@ -167,14 +165,12 @@
                     </div>
                 </div>
 
-                <!-- Shopping Trips Drop List -->
-                <div class="shopping-trips-section mb-3" cdkDropList
-                    [cdkDropListData]="shoppingTrips[day.toDateString()]" [id]="'shopping-' + day.toISOString()"
-                    (cdkDropListDropped)="drop($event)">
+                <!-- Shopping Trips -->
+                <div class="shopping-trips-section mb-3">
 
                     <div *ngIf="shoppingTrips[day.toDateString()]?.length">
                         <div *ngFor="let trip of shoppingTrips[day.toDateString()]"
-                            class="meal-item shopping-trip-container" cdkDrag [cdkDragData]="trip">
+                            class="meal-item shopping-trip-container">
                             <mat-expansion-panel class="shopping-trip-panel"
                                 [class.no-items]="!trip.items || trip.items.length === 0">
                                 <mat-expansion-panel-header>
