@@ -362,6 +362,118 @@ function connectSocket() {
             return;
         }
 
+        // Handle Custom QR Receipt Printing
+        if (payload.type === 'CUSTOM_QR_RECEIPT') {
+            const dataObj = payload.data || {};
+            const requestId = payload.requestId;
+
+            // Find a receipt printer
+            let printerId = payload.printerId;
+            if (!printerId) {
+                const keys = Object.keys(knownReceiptPrinters);
+                if (keys.length > 0) printerId = keys[0];
+            }
+
+            if (!printerId) {
+                console.error("No receipt printer available for custom QR print job");
+                if (requestId) {
+                    socket.emit('print_complete', {
+                        requestId, success: false, message: "No receipt printer available"
+                    });
+                }
+                return;
+            }
+
+            const fs = require('fs');
+            const tmpFile = `/tmp/custom_qr_receipt_${requestId || Date.now()}.json`;
+
+            try {
+                fs.writeFileSync(tmpFile, JSON.stringify(dataObj));
+                const receiptCmd = `/opt/venv/bin/python3 receipt_printer.py print "${tmpFile}" --printer "${printerId}"`;
+
+                console.log("Executing custom QR receipt print...");
+                const { exec } = require('child_process');
+                exec(receiptCmd, { timeout: 15000 }, (err, stdout, stderr) => {
+                    let success = true;
+                    let message = 'Custom QR Receipt Printed';
+
+                    if (err) {
+                        console.error('Custom QR Receipt Print Error:', err);
+                        success = false;
+                        message = stderr || err.message;
+                        if (err.signal === 'SIGTERM') {
+                            message = "Printer script timed out (hung). Check hardware connection.";
+                        }
+                    } else {
+                        console.log('Custom QR Receipt Print Output:', stdout);
+                        if (stderr) console.error('Custom QR Receipt Print Stderr:', stderr);
+                    }
+
+                    if (requestId) {
+                        socket.emit('print_complete', {
+                            requestId, success, message
+                        });
+                    }
+                    try { fs.unlinkSync(tmpFile); } catch (e) { }
+                });
+            } catch (e) {
+                console.error("Error processing custom QR receipt:", e);
+                if (requestId) {
+                    socket.emit('print_complete', {
+                        requestId, success: false, message: "Bridge Error: " + e.message
+                    });
+                }
+            }
+            return;
+        }
+
+        // Handle Custom QR Label Printing
+        if (payload.type === 'CUSTOM_QR_LABEL') {
+            const dataObj = payload.data || {};
+            const requestId = payload.requestId;
+
+            const fs = require('fs');
+            const tmpFile = `/tmp/custom_qr_label_${requestId || Date.now()}.json`;
+
+            try {
+                fs.writeFileSync(tmpFile, JSON.stringify(dataObj));
+                console.log('Executing custom QR label print...');
+                const pythonCmd = '/opt/venv/bin/python3 print_label.py print ' + tmpFile;
+
+                exec(pythonCmd, { timeout: 15000 }, (err, stdout, stderr) => {
+                    let success = true;
+                    let message = 'Custom QR Label Printed';
+
+                    if (err) {
+                        console.error('Custom QR Label Print Error:', err);
+                        console.error('Stderr:', stderr);
+                        success = false;
+                        message = stderr || err.message || 'Unknown print error';
+                        if (err.signal === 'SIGTERM') {
+                            message = "Printer script timed out (hung). Check hardware connection.";
+                        }
+                    } else {
+                        console.log('Custom QR Label Print Output:', stdout);
+                    }
+
+                    if (requestId) {
+                        socket.emit('print_complete', {
+                            requestId, success, message
+                        });
+                    }
+                    try { fs.unlinkSync(tmpFile); } catch (e) { }
+                });
+            } catch (e) {
+                console.error("Error preparing custom QR label data file:", e);
+                if (requestId) {
+                    socket.emit('print_complete', {
+                        requestId, success: false, message: "Failed to prepare print data file: " + e.message
+                    });
+                }
+            }
+            return;
+        }
+
         if (payload.type === 'STOCK_LABEL' || payload.type === 'SAMPLE_LABEL' || payload.type === 'MODIFIER_LABEL' || payload.type === 'RECIPE_LABEL' || payload.type === 'QUICK_LABEL') {
 
             // Start with data from payload
