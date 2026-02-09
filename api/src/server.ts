@@ -289,7 +289,9 @@ io.on("connection", (socket) => {
 
     socket.on("barcode_scan", (data) => {
         if (kioskId) {
-            const barcode = data.barcode || '';
+            // Scanner is configured to prefix all barcodes with '/' — strip it
+            let barcode = (data.barcode || '').replace(/^\//, '');
+            data.barcode = barcode;
             const barcodeType = mqttService.determineBarcodeType(barcode);
             console.log(`Received barcode_scan from Kiosk ${kioskId}: ${barcode} (Type: ${barcodeType})`);
 
