@@ -1716,57 +1716,87 @@ export const postStream = async (req: Request, res: Response) => {
 };
 
 export const postImage = async (req: Request, res: Response) => {
+  // Legacy endpoint — kept for backwards compatibility but redirects to analyzeProductImage
+  return analyzeProductImage(req, res);
+}
+
+/**
+ * Analyzes a product image using Gemini Vision and returns structured product details.
+ * Does NOT create a product — just returns data for the frontend to populate a form.
+ */
+export const analyzeProductImage = async (req: Request, res: Response) => {
   try {
-    const image: UploadedFile = <any>req.files!.file;
+    const image: UploadedFile = <any>(req.files?.file || req.files?.image);
 
-    // If no image submitted, exit
-    if (!image) return res.sendStatus(400);
+    if (!image) {
+      res.status(400).json({ message: "No image file provided" });
+      return;
+    }
 
-    const prompt = "What is this product? Give me just the name of the product, with no other descriptive text. For example, if it is a can of Campbell's soup, just return 'Campbell's soup'. If you are not sure, just return 'Unknown'";
+    const prompt = `Analyze this product image and extract as much detail as possible.
+    
+    Return a JSON object with:
+    - title: The product name (clean, no brand unless it IS the product name like "Nutella"). Example: "Frosted Flakes" not "Kellogg's Frosted Flakes 15oz"
+    - brand: The brand name if visible
+    - trackCountBy: "quantity" or "weight" — how best to track remaining amount
+    - freezerLifespanDays: estimated days good in freezer (integer or null)
+    - refrigeratorLifespanDays: estimated days good in fridge (integer or null)
+    - openedLifespanDays: estimated days good after opening (integer or null)
+    - pantryLifespanDays: estimated days good on shelf unopened (integer or null)
+    - tags: array of category tags (e.g. "Dairy", "Snack", "Breakfast")
+    - description: a brief description of the specific variant/size if identifiable
+    
+    If you cannot identify the product, set title to "Unknown" and leave other fields null.`;
 
-    const { result, warning } = await executeWithFallback(
-      "gemini_vision_model",
-      async (model) => await model.generateContent([prompt, fileToGenerativePart(image.tempFilePath, image.mimetype)])
-    );
+    const ai = await getAI();
+    const modelName = await getModelName("gemini_vision_model", DEFAULT_FALLBACK_MODEL);
 
-    const response = result.response;
-    const productName = response.text();
+    const imagePart = fileToGenerativePart(image.tempFilePath, image.mimetype);
 
-    // create a new product with associated file
-    const product = await prisma.product.create({
-      data: {
-        title: productName,
-        files: {
-          create: {
-            path: image.name,
-            mimeType: image.mimetype
-          }
+    const result = await ai.models.generateContent({
+      model: modelName,
+      contents: [{ role: "user", parts: [{ text: prompt }, imagePart] }],
+      config: {
+        ...geminiConfig,
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: "OBJECT",
+          properties: {
+            title: { type: "STRING" },
+            brand: { type: "STRING", nullable: true },
+            trackCountBy: { type: "STRING", enum: ["quantity", "weight"] },
+            freezerLifespanDays: { type: "INTEGER", nullable: true },
+            refrigeratorLifespanDays: { type: "INTEGER", nullable: true },
+            openedLifespanDays: { type: "INTEGER", nullable: true },
+            pantryLifespanDays: { type: "INTEGER", nullable: true },
+            tags: { type: "ARRAY", items: { type: "STRING" } },
+            description: { type: "STRING", nullable: true }
+          },
+          required: ["title"]
         }
-      },
-      include: {
-        files: true
       }
     });
 
-    // Move the uploaded image to our upload folder
-    const fileId = product.files[0].id;
+    const jsonString = result.text;
+    const data = JSON.parse(jsonString);
 
-    storeFile(image.tempFilePath, fileId.toString());
-
-    // Append warning to response if exists (though we send the product object, we might wrap it or attach it)
-    // The current frontend expects just the product object likely. 
-    // We should probably check if we can modify the response structure or just log it.
-    // User requirement: "snackbar warning". Frontend needs to see it.
-    // Changing res.send(product) to res.json({ product, warning }) might break existing frontend.
-    // But since I'm editing frontend too, I can handle it.
+    // Also upload the image as a File record so the frontend can attach it to the product
+    const file = await prisma.file.create({
+      data: {
+        path: image.name,
+        mimeType: image.mimetype
+      }
+    });
+    storeFile(image.tempFilePath, file.id.toString());
 
     res.json({
-      ...product,
-      warning
+      message: "success",
+      data,
+      file
     });
 
   } catch (error) {
-    console.log("response error", error);
+    console.error("analyzeProductImage error", error);
     res.status(500).json({
       message: "error",
       data: (error as Error).message,

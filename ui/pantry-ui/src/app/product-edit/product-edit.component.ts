@@ -44,6 +44,10 @@ export class ProductEditComponent implements AfterViewInit {
   public product: Product | undefined = undefined;
   public isAskingAi: boolean = false;
   public isGeneratingImage: boolean = false;
+  public isAnalyzingPhoto: boolean = false;
+  public isLookingUpBarcode: boolean = false;
+  public showBarcodeInput: boolean = false;
+  public barcodeInput: string = '';
 
   private queryData = {
     productTitle: <string | undefined>"",
@@ -164,6 +168,130 @@ export class ProductEditComponent implements AfterViewInit {
         }
       });
     }
+  }
+
+  public onPhotoSelected(event: Event) {
+    const input = event.target as HTMLInputElement;
+    if (!input.files || input.files.length === 0) return;
+
+    const file = input.files[0];
+    this.isAnalyzingPhoto = true;
+
+    this.geminiService.analyzeProductImage(file).subscribe({
+      next: (res) => {
+        this.isAnalyzingPhoto = false;
+        if (res.message === 'success' && res.data) {
+          const data = res.data;
+          if (this.product) {
+            if (data.title && data.title !== 'Unknown') this.product.title = data.title;
+            if (data.freezerLifespanDays != null) this.product.freezerLifespanDays = data.freezerLifespanDays;
+            if (data.refrigeratorLifespanDays != null) this.product.refrigeratorLifespanDays = data.refrigeratorLifespanDays;
+            if (data.openedLifespanDays != null) this.product.openedLifespanDays = data.openedLifespanDays;
+            if (data.pantryLifespanDays != null) this.product.pantryLifespanDays = data.pantryLifespanDays;
+            if (data.trackCountBy) this.product.trackCountBy = data.trackCountBy;
+            // Attach the uploaded image file to the product
+            if (res.file) {
+              this.product.files.push(res.file);
+            }
+            // Add brand/tags to first barcode if available
+            if (data.brand && this.product.barcodes.length > 0) {
+              this.product.barcodes[0].brand = data.brand;
+            }
+            if (data.tags && this.product.barcodes.length > 0) {
+              this.product.barcodes[0].tags = data.tags;
+            }
+            if (data.description && this.product.barcodes.length > 0) {
+              this.product.barcodes[0].description = data.description;
+            }
+          }
+          this.snackBar.open('Details extracted from photo!', 'Close', { duration: 3000 });
+        }
+        // Reset file input so the same file can be re-selected
+        input.value = '';
+      },
+      error: (err) => {
+        this.isAnalyzingPhoto = false;
+        console.error('Error analyzing photo:', err);
+        this.snackBar.open('Failed to analyze photo: ' + (err.error?.data || err.message), 'Close', { duration: 5000 });
+        input.value = '';
+      }
+    });
+  }
+
+  public lookupBarcode() {
+    if (!this.barcodeInput || !this.product) return;
+
+    this.isLookingUpBarcode = true;
+    const barcode = this.barcodeInput.trim();
+
+    // Step 1: Look up on OpenFoodFacts
+    this.geminiService.lookupOpenFoodFacts(barcode).subscribe({
+      next: (offRes) => {
+        if (!offRes?.product?.product_name) {
+          this.isLookingUpBarcode = false;
+          this.snackBar.open('Product not found in OpenFoodFacts', 'Close', { duration: 4000 });
+          return;
+        }
+
+        const offProduct = offRes.product;
+        const productName = offProduct.product_name || 'Unknown';
+        const brand = offProduct.brands || '';
+
+        // Step 2: Send to Gemini for cleaning (same as kiosk restock flow)
+        this.geminiService.getBarcodeDetails(productName, brand).subscribe({
+          next: (detailsRes) => {
+            this.isLookingUpBarcode = false;
+            const details = detailsRes.data;
+
+            if (this.product && details) {
+              // Populate form fields
+              const candidateTitle = details.title || productName;
+              if (candidateTitle && candidateTitle !== 'Unknown Product') {
+                this.product.title = candidateTitle;
+              }
+              if (details.freezerLifespanDays != null) this.product.freezerLifespanDays = details.freezerLifespanDays;
+              if (details.refrigeratorLifespanDays != null) this.product.refrigeratorLifespanDays = details.refrigeratorLifespanDays;
+              if (details.openedLifespanDays != null) this.product.openedLifespanDays = details.openedLifespanDays;
+              if (details.pantryLifespanDays != null) this.product.pantryLifespanDays = details.pantryLifespanDays;
+              if (details.trackCountBy) this.product.trackCountBy = details.trackCountBy;
+              if (details.autoPrintLabel !== undefined) this.product.autoPrintLabel = details.autoPrintLabel;
+
+              // Add barcode entry to the product
+              const newBarcode: ProductBarcode = {
+                id: 0,
+                barcode: barcode,
+                brand: details.brand || brand,
+                description: details.description || '',
+                tags: details.tags || [],
+                quantity: 1,
+                ProductId: this.product.id || 0
+              };
+              this.product.barcodes.push(newBarcode);
+
+              if (detailsRes.warning) {
+                this.snackBar.open(detailsRes.warning, 'Close', { duration: 5000 });
+              } else {
+                this.snackBar.open('Details extracted from barcode!', 'Close', { duration: 3000 });
+              }
+
+              // Hide barcode input panel
+              this.showBarcodeInput = false;
+              this.barcodeInput = '';
+            }
+          },
+          error: (err) => {
+            this.isLookingUpBarcode = false;
+            console.error('Gemini barcode details failed:', err);
+            this.snackBar.open('AI analysis failed: ' + (err.error?.data || err.message), 'Close', { duration: 5000 });
+          }
+        });
+      },
+      error: (err) => {
+        this.isLookingUpBarcode = false;
+        console.error('OpenFoodFacts lookup failed:', err);
+        this.snackBar.open('Barcode not found — check the number and try again', 'Close', { duration: 4000 });
+      }
+    });
   }
 
   public GetFileDownloadUrl = (fileOrId: number | FileMeta): string => {

@@ -181,6 +181,24 @@ export class GeminiService {
     return this.http.post<any>(`${this.apiUrl.replace('/chat', '')}/shopping-list-sort`, { items });
   }
 
+  lookupOpenFoodFacts(barcode: string): Observable<any> {
+    return this.http.get<any>(`https://world.openfoodfacts.org/api/v2/product/${barcode}`);
+  }
+
+  getBarcodeDetails(productName: string, brand: string): Observable<any> {
+    return this.http.post<any>(`${this.env.apiUrl}/gemini/barcode-details`, {
+      productName,
+      brand,
+      existingProductTitle: ''
+    });
+  }
+
+  analyzeProductImage(image: File): Observable<any> {
+    const formData = new FormData();
+    formData.append('image', image);
+    return this.http.post<any>(`${this.env.apiUrl}/gemini/analyze-image`, formData);
+  }
+
   generateProductImage(productTitle: string): Observable<any> {
     return this.http.post<any>(`${this.env.apiUrl}/gemini/generate-image`, { productTitle });
   }

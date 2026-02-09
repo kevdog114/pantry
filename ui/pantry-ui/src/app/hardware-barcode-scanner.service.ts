@@ -113,6 +113,11 @@ export class HardwareBarcodeScannerService {
   }
 
   public searchForBarcode = (barcode: string) => {
+    if (barcode.toLowerCase().startsWith("ha:")) {
+      // HomeAssistant barcode — handled entirely by the backend via MQTT
+      console.log("HA barcode detected, handled by backend MQTT");
+      return;
+    }
     if (barcode.toLowerCase().startsWith("r-")) {
       // recipe barcode
       barcode = barcode.substring(2);

@@ -9,6 +9,7 @@ import * as crypto from "crypto";
 import * as bcrypt from 'bcryptjs';
 import * as cron from 'node-cron';
 import { WeatherService } from './services/WeatherService';
+import mqttService from './services/MqttService';
 
 const createDefaultAdmin = async () => {
     const users = await prisma.user.findMany();
@@ -288,7 +289,18 @@ io.on("connection", (socket) => {
 
     socket.on("barcode_scan", (data) => {
         if (kioskId) {
-            console.log(`Received barcode_scan from Kiosk ${kioskId}: ${data.barcode}`);
+            const barcode = data.barcode || '';
+            const barcodeType = mqttService.determineBarcodeType(barcode);
+            console.log(`Received barcode_scan from Kiosk ${kioskId}: ${barcode} (Type: ${barcodeType})`);
+
+            // Publish ALL barcode scans to MQTT (if configured)
+            mqttService.publishBarcodeScan(kioskId, barcode, barcodeType);
+
+            // HA: prefixed barcodes are MQTT-only — do not forward to clients
+            if (barcodeType === 'HomeAssistant') {
+                console.log(`HA barcode consumed by MQTT, not forwarding to clients`);
+                return;
+            }
 
             const claimant = scannerClaims.get(kioskId);
             if (claimant) {

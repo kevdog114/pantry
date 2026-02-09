@@ -17,8 +17,6 @@ import { MatOptionModule } from "@angular/material/core";
 import { LocalStorageService } from "../../local-storage.service";
 import { MatListModule } from "@angular/material/list";
 import { MatInputModule } from "@angular/material/input";
-import { MatDialog } from "@angular/material/dialog";
-import { PhotoUploadComponent } from "../photo-upload/photo-upload.component";
 import { MatBottomSheet, MatBottomSheetModule } from '@angular/material/bottom-sheet';
 import { QuickSnackComponent } from '../quick-snack/quick-snack.component';
 import { MatTooltipModule } from '@angular/material/tooltip';
@@ -45,7 +43,6 @@ type SortOption = "alphabetical" | "expire";
         MatIconModule,
         MatListModule,
         MatInputModule,
-        PhotoUploadComponent,
         MatBottomSheetModule,
         MatTooltipModule,
         MatOptionModule
@@ -62,7 +59,7 @@ export class ProductListComponent implements AfterViewInit {
         return this.localStorage.getItem("product-list-display-mode");
     }
 
-    constructor(private svc: ProductListService, private locationService: LocationService, private localStorage: LocalStorageService, private dialog: MatDialog, private bottomSheet: MatBottomSheet, private env: EnvironmentService) {
+    constructor(private svc: ProductListService, private locationService: LocationService, private localStorage: LocalStorageService, private bottomSheet: MatBottomSheet, private env: EnvironmentService) {
         console.log("display mode", this.DisplayMode);
         if (this.DisplayMode === null)
             this.DisplayMode = "grid";
@@ -123,17 +120,6 @@ export class ProductListComponent implements AfterViewInit {
             return this.env.apiUrl + "/files/" + product.files[0].id + "?size=small";
         else
             return "";
-    }
-
-    public openPhotoUploadDialog = () => {
-        const dialogRef = this.dialog.open(PhotoUploadComponent, {
-            width: '500px'
-        });
-
-        dialogRef.componentInstance.uploadComplete.subscribe(() => {
-            dialogRef.close();
-            this.refreshList();
-        });
     }
 
     public openQuickSnack() {

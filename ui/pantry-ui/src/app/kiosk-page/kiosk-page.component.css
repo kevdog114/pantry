@@ -716,13 +716,22 @@
 }
 
 .meal-item {
-    padding: 24px;
-    border-bottom: 1px solid var(--k-border);
+    width: 100%;
+    padding: 24px 28px;
+    margin-bottom: 12px;
+    border: 1px solid var(--k-border);
+    border-left: 4px solid var(--k-accent, #ff9800);
+    border-radius: 16px;
+    background: var(--k-surface-light, rgba(255, 255, 255, 0.05));
     display: flex;
     align-items: center;
     justify-content: space-between;
-    min-height: 100px;
-    /* Big touch target */
+    min-height: 120px;
+    transition: background 0.15s;
+}
+
+.meal-item:active {
+    background: rgba(255, 255, 255, 0.12);
 }
 
 /* Recipe Active View */

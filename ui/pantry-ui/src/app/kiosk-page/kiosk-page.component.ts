@@ -439,6 +439,16 @@ export class KioskPageComponent implements OnInit, OnDestroy {
         if (!barcode) return;
         this.status = "Analyzing...";
 
+        // HOME ASSISTANT SCAN — handled by backend MQTT, don't process locally
+        if (barcode.toLowerCase().startsWith('ha:')) {
+            this.status = "Sent to Home Assistant";
+            this.statusSubtext = barcode.substring(3);
+            this.addToLog("Home Assistant", barcode.substring(3), 'info');
+            this.playSuccessSound();
+            this.showTempStatus("Sent to Home Assistant", barcode.substring(3), 3000);
+            return;
+        }
+
         // RECIPE SCAN
         if (barcode.toLowerCase().startsWith('r-')) {
             const rId = barcode.substring(2);
@@ -470,6 +480,14 @@ export class KioskPageComponent implements OnInit, OnDestroy {
 
     async handleRestockBarcode(barcode: string) {
         if (!barcode) return;
+
+        // HOME ASSISTANT SCAN — handled by backend MQTT
+        if (barcode.toLowerCase().startsWith('ha:')) {
+            this.addToLog("Home Assistant", barcode.substring(3), 'info');
+            this.playSuccessSound();
+            this.showTempStatus("Sent to Home Assistant", barcode.substring(3), 3000);
+            return;
+        }
 
         // If we have a pending product in OPTIONS mode, save it first!
         if (this.restockState === 'OPTIONS' && this.pendingProduct) {
@@ -554,6 +572,14 @@ export class KioskPageComponent implements OnInit, OnDestroy {
 
     async handleConsumeBarcode(barcode: string) {
         if (!barcode) return;
+
+        // HOME ASSISTANT SCAN — handled by backend MQTT
+        if (barcode.toLowerCase().startsWith('ha:')) {
+            this.addToLog("Home Assistant", barcode.substring(3), 'info');
+            this.playSuccessSound();
+            this.showTempStatus("Sent to Home Assistant", barcode.substring(3), 3000);
+            return;
+        }
         this.status = "Looking up product...";
         this.lastScan = { title: 'Processing...', status: 'Looking up...', type: 'info' };
 
@@ -617,6 +643,14 @@ export class KioskPageComponent implements OnInit, OnDestroy {
 
     async handleInventoryBarcode(barcode: string) {
         if (!barcode) return;
+
+        // HOME ASSISTANT SCAN — handled by backend MQTT
+        if (barcode.toLowerCase().startsWith('ha:')) {
+            this.addToLog("Home Assistant", barcode.substring(3), 'info');
+            this.playSuccessSound();
+            this.showTempStatus("Sent to Home Assistant", barcode.substring(3), 3000);
+            return;
+        }
         this.status = "Loading Inventory...";
         this.statusSubtext = "";
 

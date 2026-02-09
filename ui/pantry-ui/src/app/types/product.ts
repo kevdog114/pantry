@@ -68,6 +68,7 @@ export interface Product {
     openedLifespanDays?: number | null,
     pantryLifespanDays?: number | null,
     trackCountBy?: string,
+    autoPrintLabel?: boolean,
     isLeftover?: boolean,
     leftoverRecipeId?: number,
     cookingInstructions?: Array<{

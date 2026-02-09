@@ -610,16 +610,18 @@
                 <!-- Upcoming Meals -->
                 <div class="cook-column flex-1">
                     <div class="cook-header">UPCOMING MEALS</div>
-                    <div class="flex-1 overflow-y-auto">
+                    <div class="flex-1 overflow-y-auto" style="padding: 16px;">
                         <button *ngFor="let meal of upcomingMeals" class="meal-item" (click)="selectUpcomingMeal(meal)">
                             <div>
-                                <div class="fs-xs text-k-accent fw-bold mb-1">{{ getMealDateLabel(meal.date) |
+                                <div class="text-lg text-k-accent fw-bold mb-1">{{ getMealDateLabel(meal.date) |
                                     uppercase }}</div>
-                                <div class="fs-lg fw-bold">{{ meal.displayTitle }}</div>
+                                <div class="text-3xl fw-bold">{{ meal.displayTitle }}</div>
                             </div>
-                            <mat-icon>chevron_right</mat-icon>
+                            <mat-icon
+                                style="font-size: 36px; width: 36px; height: 36px; opacity: 0.5;">chevron_right</mat-icon>
                         </button>
-                        <div *ngIf="upcomingMeals.length === 0" class="p-8 text-center text-gray-500">No planned meals
+                        <div *ngIf="upcomingMeals.length === 0" class="p-8 text-center text-gray-500 text-2xl">No
+                            planned meals
                         </div>
                     </div>
                 </div>
