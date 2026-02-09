@@ -43,5 +43,9 @@ export const toolDisplayNames: Record<string, string> = {
     sendPushNotification: "Sending notification...",
     getTimers: "Loading timers...",
     createTimer: "Starting timer...",
-    deleteTimer: "Stopping timer..."
+    deleteTimer: "Stopping timer...",
+
+    // Chat Context Tools
+    getFullChatHistory: "Retrieving conversation history...",
+    getChatRecipe: "Looking up recipe from this chat..."
 };

@@ -25,6 +25,7 @@ export {
     mealPlanToolDefinitions,
     timerToolDefinitions,
     otherToolDefinitions,
+    chatContextToolDefinitions,
     getAllToolDefinitions,
     getStreamingToolDefinitions
 } from './toolDefinitions';

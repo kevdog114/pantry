@@ -435,6 +435,30 @@ export const otherToolDefinitions = [
 ];
 
 /**
+ * Chat context tools - allow Gemini to retrieve missing details from summarized conversations
+ */
+export const chatContextToolDefinitions = [
+    {
+        name: "getFullChatHistory",
+        description: "Retrieve the full, unabridged chat history for the current conversation session, including the complete recipe data (ingredients, steps, times, etc.) for any recipes you provided. Use this when the conversation has been summarized and you need specific details, exact quotes, or context that may have been omitted from the summary. If you just need all recipes from the chat, this tool returns them too — look for messages with type 'recipe' and their 'recipeData' field.",
+        parameters: {
+            type: SchemaType.OBJECT,
+            properties: {}
+        }
+    },
+    {
+        name: "getChatRecipe",
+        description: "Retrieve the full details of a recipe that you (Gemini) provided earlier in this conversation. Use this when the conversation has been summarized and you need the exact ingredients, steps, or other details of a recipe you previously generated in this chat. This does NOT search the saved recipe database — use 'searchRecipes' or 'getRecipeDetails' for that.",
+        parameters: {
+            type: SchemaType.OBJECT,
+            properties: {
+                recipeName: { type: SchemaType.STRING, description: "Name/title of the recipe you provided earlier in this chat (partial match supported)" }
+            }
+        }
+    }
+];
+
+/**
  * Get all tool definitions combined for full functionality
  */
 export function getAllToolDefinitions() {
@@ -447,7 +471,8 @@ export function getAllToolDefinitions() {
                 ...recipeToolDefinitions,
                 ...mealPlanToolDefinitions,
                 ...timerToolDefinitions,
-                ...otherToolDefinitions
+                ...otherToolDefinitions,
+                ...chatContextToolDefinitions
             ]
         }
     ];
@@ -484,7 +509,9 @@ export function getStreamingToolDefinitions() {
                         properties: { recipeId: { type: SchemaType.INTEGER } },
                         required: ["recipeId"]
                     }
-                }
+                },
+                // Chat context tools for summarized conversations
+                ...chatContextToolDefinitions
             ]
         }
     ];

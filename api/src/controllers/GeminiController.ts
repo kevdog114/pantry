@@ -1084,8 +1084,8 @@ async function prepareSession(
     if (chatSummary && chatSummary.summary) {
       console.log(`[Session] Using Chat Summary for Session ${sessionId}`);
       history = [
-        { role: "user", parts: [{ text: `[SYSTEM: CONVERSATION SUMMARY]\nThe following is a summary of the conversation history so far. Use this context to answer the latest user request.\n\n${chatSummary.summary}` }] },
-        { role: "model", parts: [{ text: "Understood. I will use this summary as context." }] }
+        { role: "user", parts: [{ text: `[SYSTEM: CONVERSATION SUMMARY]\nThe following is a summary of the conversation history so far. Use this context to answer the latest user request.\n\nIMPORTANT: If you need specific details that are missing from this summary (e.g. exact recipe ingredients/steps you provided earlier, specific quantities, or exact wording from previous messages), you have tools available:\n- Call 'getFullChatHistory' to retrieve the complete, unabridged message history for this conversation. This includes full recipe data (ingredients, steps, times) for any recipes you provided — look for messages with type 'recipe'.\n- Call 'getChatRecipe' to retrieve the full details of a specific recipe you provided earlier in this chat (by name).\nDo NOT guess or make up details that might have been in the conversation — use these tools instead.\n\n${chatSummary.summary}` }] },
+        { role: "model", parts: [{ text: "Understood. I will use this summary as context, and I'll call getFullChatHistory or getChatRecipe if I need specific details that aren't in the summary." }] }
       ];
     } else {
       // Full history reconstruction including tool calls
@@ -1321,7 +1321,8 @@ export const post = async (req: Request, res: Response) => {
     const toolDisplayNames = sharedToolDisplayNames;
     const toolContext: ToolContext = {
       userId: (req as any).userId || (req.user as any)?.id,
-      io: req.app.get("io")
+      io: req.app.get("io"),
+      sessionId: sessionId as number
     };
 
     // --- GENERATE + TOOL LOOP ---
@@ -1548,7 +1549,8 @@ export const postStream = async (req: Request, res: Response) => {
     // --- TOOL CONTEXT ---
     const streamToolContext: ToolContext = {
       userId: (req as any).userId || (req.user as any)?.id,
-      io: req.app.get("io")
+      io: req.app.get("io"),
+      sessionId: sessionId as number
     };
 
     // --- STREAMING GENERATION + TOOL LOOP ---

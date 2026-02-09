@@ -16,6 +16,7 @@ import {
 export interface ToolContext {
     userId?: number;
     io?: any; // Socket.io instance
+    sessionId?: number; // Chat session ID for context retrieval tools
 }
 
 /**
@@ -732,6 +733,77 @@ export async function executeToolHandler(
                 if (!userId) return { error: "User context not found." };
                 await sendNotificationToUser(userId, args.title, args.body);
                 return { message: `Notification sent. Please confirm to the user.` };
+            }
+
+            // ========================================
+            // CHAT CONTEXT TOOLS
+            // ========================================
+
+            case "getFullChatHistory": {
+                const { sessionId } = context;
+                if (!sessionId) return { error: "No active session. Cannot retrieve chat history." };
+
+                const messages = await prisma.chatMessage.findMany({
+                    where: { sessionId },
+                    orderBy: { createdAt: 'asc' }
+                });
+
+                return {
+                    sessionId,
+                    messageCount: messages.length,
+                    messages: messages.map(msg => ({
+                        id: msg.id,
+                        sender: msg.sender,
+                        type: msg.type,
+                        content: msg.content,
+                        recipeData: msg.recipeData ? JSON.parse(msg.recipeData) : null,
+                        toolCallData: msg.toolCallData ? JSON.parse(msg.toolCallData) : null,
+                        createdAt: msg.createdAt.toISOString()
+                    }))
+                };
+            }
+
+            case "getChatRecipe": {
+                const { sessionId } = context;
+                if (!sessionId) return { error: "No active session. Cannot retrieve chat recipes." };
+
+                const recipeMessages = await prisma.chatMessage.findMany({
+                    where: {
+                        sessionId,
+                        type: 'recipe',
+                        recipeData: { not: null }
+                    },
+                    orderBy: { createdAt: 'asc' }
+                });
+
+                if (recipeMessages.length === 0) {
+                    return { error: "No recipes were provided in this conversation." };
+                }
+
+                const recipes = recipeMessages.map(msg => {
+                    try {
+                        return JSON.parse(msg.recipeData!);
+                    } catch {
+                        return null;
+                    }
+                }).filter(Boolean);
+
+                // If a name filter was provided, try to match
+                if (args.recipeName) {
+                    const needle = args.recipeName.toLowerCase();
+                    const matched = recipes.filter((r: any) =>
+                        (r.title || r.name || '').toLowerCase().includes(needle)
+                    );
+                    if (matched.length > 0) {
+                        return { recipes: matched };
+                    }
+                    return {
+                        message: `No recipe matching "${args.recipeName}" found in this chat. Here are all recipes from this conversation:`,
+                        recipes
+                    };
+                }
+
+                return { recipes };
             }
 
             default:
