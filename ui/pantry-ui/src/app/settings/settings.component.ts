@@ -16,11 +16,12 @@ import { WeatherSettingsComponent } from './weather-settings/weather-settings.co
 
 import { PbxSettingsComponent } from './pbx-settings/pbx-settings.component';
 import { MealSettingsComponent } from './meal-settings/meal-settings.component';
+import { HardwareSettingsComponent } from './hardware-settings/hardware-settings.component';
 
 @Component({
   selector: 'app-settings',
   standalone: true,
-  imports: [CommonModule, FormsModule, MatFormFieldModule, MatSelectModule, MatButtonModule, RouterModule, MatTabsModule, WeatherSettingsComponent, MatSlideToggleModule, PbxSettingsComponent, MealSettingsComponent],
+  imports: [CommonModule, FormsModule, MatFormFieldModule, MatSelectModule, MatButtonModule, RouterModule, MatTabsModule, WeatherSettingsComponent, MatSlideToggleModule, PbxSettingsComponent, MealSettingsComponent, HardwareSettingsComponent],
   templateUrl: './settings.component.html',
   styleUrls: ['./settings.component.css']
 })

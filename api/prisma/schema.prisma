@@ -267,6 +267,7 @@ model ChatMessage {
   toolCallData       String?     // JSON string for tool call info (name, displayName)
   toolCallDurationMs Int?        // Duration of tool call in milliseconds
   modelUsed          String?     // Model that generated this response
+  thoughtSignature   String?     // Gemini thought signature for model turns (required by Gemini 3)
   createdAt          DateTime    @default(now())
 }
 

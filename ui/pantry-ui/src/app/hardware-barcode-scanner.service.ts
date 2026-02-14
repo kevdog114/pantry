@@ -238,6 +238,18 @@ export class HardwareBarcodeScannerService {
     if (this.customHandler) {
       this.customHandler(barcode);
     } else {
+      // Check if the user is focused on a barcode input field.
+      // If so, populate the input value instead of redirecting.
+      const activeEl = document.activeElement;
+      if (activeEl && activeEl.tagName.toLowerCase() === 'input' && activeEl.classList.contains('barcode-input')) {
+        const inputEl = activeEl as HTMLInputElement;
+        inputEl.value = barcode;
+        // Dispatch an input event so Angular's ngModel picks up the change
+        inputEl.dispatchEvent(new Event('input', { bubbles: true }));
+        console.log("Populated barcode input field with:", barcode);
+        return;
+      }
+
       this.BarcodeSearch.next(barcode);
       console.log("Search for", barcode);
       this.searchForBarcode(barcode);

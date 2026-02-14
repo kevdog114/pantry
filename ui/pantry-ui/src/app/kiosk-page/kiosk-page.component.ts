@@ -948,158 +948,166 @@ export class KioskPageComponent implements OnInit, OnDestroy {
         this.status = "Checking external sources...";
 
         // OFF Lookup
-        let offData: any = {};
+        let offProductName: string = '';
+        let offBrand: string = '';
         try {
             const offRes = await firstValueFrom(this.http.get<any>("https://world.openfoodfacts.org/api/v2/product/" + barcode));
             if (offRes && offRes.product) {
-                offData = offRes.product;
+                offProductName = offRes.product.product_name || '';
+                offBrand = offRes.product.brands || '';
             }
         } catch (e) { console.warn("OFF lookup failed"); }
 
-        // If OFF failed to identify the product, we stop here.
-        if (!offData || !offData.product_name) {
-            this.status = "Product Not Found";
-            this.statusSubtext = "Not in OpenFoodFacts";
-            this.addToLog("Product Not Found", "No External Data", 'error');
-            this.playErrorSound();
-            setTimeout(() => this.status = "Scan Barcode...", 3000);
-            return;
-        }
+        // Even without OFF data, proceed — Gemini may still identify 
+        // the product from the barcode number alone.
+        const productName = offProductName || `Barcode ${barcode}`;
+        const brand = offBrand;
 
         this.status = "Consulting AI...";
 
-        // Gemini Match Check
-        try {
-            const matchRes = await firstValueFrom(this.http.post<any>(`${this.env.apiUrl}/gemini/product-match`, {
-                productName: offData.product_name || "Unknown Product",
-                brand: offData.brands || ""
-            }));
-
-            if (matchRes.matchId) {
-                // LINK to existing
-                const existingProduct = await firstValueFrom(this.productService.Get(matchRes.matchId));
-
-                // Add barcode to product
-                const updatedBarcodes = existingProduct.barcodes || [];
-                updatedBarcodes.push({
-                    barcode: barcode,
-                    brand: offData.brands || "",
-                    description: "Added via Kiosk",
-                    tags: [], // Could imply tags but keeping simple
-                    ProductId: existingProduct.id,
-                    id: 0, // 0 for new
-                    quantity: 1
-                });
-
-                const updatePayload = {
-                    ...existingProduct,
-                    barcodes: updatedBarcodes
-                };
-
-                await firstValueFrom(this.productService.Update(updatePayload));
-
-                // If tracked by weight, we should technically go to options too.
-                // But simplified: just add 1 for now or check trackCountBy?
-                // Intercept ALL for options consistency
-                this.pendingProduct = existingProduct;
-                // Default exp
-                const today = new Date();
-                const days = existingProduct.refrigeratorLifespanDays || 365;
-                const defExp = new Date();
-                defExp.setDate(today.getDate() + days);
-                defExp.setHours(0, 0, 0, 0);
-                this.pendingExpiration = defExp;
-                this.pendingQuantity = 1;
-
-                this.restockState = 'OPTIONS';
-                this.status = "Item Options";
-                this.statusSubtext = existingProduct.title;
-
-                this.addToLog(existingProduct.title, "Linked - Select Options", 'info');
-                this.playSuccessSound();
-                return;
-            } else {
-                // CREATE NEW
-                this.status = "Analyzing product details...";
-                const detailsRes = await firstValueFrom(this.http.post<any>(`${this.env.apiUrl}/gemini/barcode-details`, {
-                    productName: offData.product_name || "Unknown Product",
-                    brand: offData.brands || "",
-                    existingProductTitle: ""
+        // Gemini Match Check — try to link to an existing product
+        let matchId: number | null = null;
+        // Only attempt match if we have a real product name from OFF
+        if (offProductName) {
+            try {
+                const matchRes = await firstValueFrom(this.http.post<any>(`${this.env.apiUrl}/gemini/product-match`, {
+                    productName,
+                    brand
                 }));
-                // { data: { title, brand, description, tags, pantryLifespanDays... }, warning }
-                const details = detailsRes.data;
+                matchId = matchRes.matchId || null;
 
-                // VALIDATION: If still unknown or generic, FAIL
-                const candidateTitle = details.title || offData.product_name;
-                if (!candidateTitle || candidateTitle === 'Unknown Product' || candidateTitle === 'New Product') {
-                    this.status = "Unknown Product";
-                    this.addToLog("Unknown Product", "Could not identify", 'error');
-                    this.playErrorSound();
-                    setTimeout(() => this.status = "Scan Barcode...", 3000);
-                    return;
-                }
+                if (matchId) {
+                    // LINK to existing
+                    try {
+                        const existingProduct = await firstValueFrom(this.productService.Get(matchId));
 
-                // Resolve Tags
-                const allTags = await firstValueFrom(this.tagsService.GetAll());
-                const productTags: ProductTags[] = [];
+                        // Add barcode to product
+                        const updatedBarcodes = existingProduct.barcodes || [];
+                        updatedBarcodes.push({
+                            barcode: barcode,
+                            brand: brand,
+                            description: "Added via Kiosk",
+                            tags: [],
+                            ProductId: existingProduct.id,
+                            id: 0,
+                            quantity: 1
+                        });
 
-                if (details.tags && Array.isArray(details.tags)) {
-                    for (const tagName of details.tags) {
-                        const existing = allTags.find(t => t.name.toLowerCase() === tagName.toLowerCase());
-                        if (existing) {
-                            productTags.push(existing);
-                        } else {
-                            try {
-                                const newTag = await firstValueFrom(this.tagsService.Create({ name: tagName, group: 'General' } as any));
-                                productTags.push(newTag);
-                            } catch (e) { console.warn("Tag create failed", e); }
-                        }
+                        const updatePayload = {
+                            ...existingProduct,
+                            barcodes: updatedBarcodes
+                        };
+
+                        await firstValueFrom(this.productService.Update(updatePayload));
+
+                        this.pendingProduct = existingProduct;
+                        const today = new Date();
+                        const days = existingProduct.refrigeratorLifespanDays || 365;
+                        const defExp = new Date();
+                        defExp.setDate(today.getDate() + days);
+                        defExp.setHours(0, 0, 0, 0);
+                        this.pendingExpiration = defExp;
+                        this.pendingQuantity = 1;
+
+                        this.restockState = 'OPTIONS';
+                        this.status = "Item Options";
+                        this.statusSubtext = existingProduct.title;
+
+                        this.addToLog(existingProduct.title, "Linked - Select Options", 'info');
+                        this.playSuccessSound();
+                        return;
+                    } catch (linkErr) {
+                        console.error("Failed to link to existing product", linkErr);
+                        // Fall through to create new
+                        matchId = null;
                     }
                 }
+            } catch (matchErr) {
+                console.warn("Gemini product-match failed, will create new product", matchErr);
+            }
+        }
 
-                // Create Product
-                const newProductPayload: any = {
-                    title: candidateTitle,
-                    tags: productTags,
-                    barcodes: [{
-                        barcode: barcode,
-                        brand: details.brand || offData.brands || "",
-                        description: details.description || "",
-                        tags: [],
-                        quantity: 1
-                    }],
-                    refrigeratorLifespanDays: details.refrigeratorLifespanDays,
-                    freezerLifespanDays: details.freezerLifespanDays,
-                    openedLifespanDays: details.openedLifespanDays,
-                    trackCountBy: details.trackCountBy || 'quantity', // Use AI suggestion
-                    autoPrintLabel: details.autoPrintLabel || false,
-                };
+        // CREATE NEW — attempt with Gemini barcode-details
+        try {
+            this.status = "Analyzing product details...";
+            const detailsRes = await firstValueFrom(this.http.post<any>(`${this.env.apiUrl}/gemini/barcode-details`, {
+                productName,
+                brand,
+                existingProductTitle: ""
+            }));
+            const details = detailsRes.data;
 
-                const createdProduct = await firstValueFrom(this.productService.Create(newProductPayload));
-
-                this.status = `Adding new product...`;
-
-                // If tracked by weight?
-                // ALL Intercept
-                this.pendingProduct = createdProduct;
-                const today = new Date();
-                const days = createdProduct.refrigeratorLifespanDays || 365;
-                const defExp = new Date();
-                defExp.setDate(today.getDate() + days);
-                defExp.setHours(0, 0, 0, 0);
-                this.pendingExpiration = defExp;
-                this.pendingQuantity = 1;
-
-                this.restockState = 'OPTIONS';
-                this.status = "Item Options";
-                this.statusSubtext = createdProduct.title;
-                this.playSuccessSound();
+            // VALIDATION: If still unknown or generic, FAIL
+            const candidateTitle = details.title || offProductName;
+            if (!candidateTitle || candidateTitle === 'Unknown Product' || candidateTitle === 'New Product' || candidateTitle === `Barcode ${barcode}`) {
+                this.status = "Unknown Product";
+                this.statusSubtext = offProductName ? "AI could not identify" : "Not in OpenFoodFacts";
+                this.addToLog("Unknown Product", "Could not identify", 'error');
+                this.playErrorSound();
+                setTimeout(() => this.status = "Scan Barcode...", 3000);
                 return;
             }
+
+            // Resolve Tags
+            const allTags = await firstValueFrom(this.tagsService.GetAll());
+            const productTags: ProductTags[] = [];
+
+            if (details.tags && Array.isArray(details.tags)) {
+                for (const tagName of details.tags) {
+                    const existing = allTags.find(t => t.name.toLowerCase() === tagName.toLowerCase());
+                    if (existing) {
+                        productTags.push(existing);
+                    } else {
+                        try {
+                            const newTag = await firstValueFrom(this.tagsService.Create({ name: tagName, group: 'General' } as any));
+                            productTags.push(newTag);
+                        } catch (e) { console.warn("Tag create failed", e); }
+                    }
+                }
+            }
+
+            // Create Product
+            const newProductPayload: any = {
+                title: candidateTitle,
+                tags: productTags,
+                barcodes: [{
+                    barcode: barcode,
+                    brand: details.brand || brand || "",
+                    description: details.description || "",
+                    tags: [],
+                    quantity: 1
+                }],
+                refrigeratorLifespanDays: details.refrigeratorLifespanDays,
+                freezerLifespanDays: details.freezerLifespanDays,
+                openedLifespanDays: details.openedLifespanDays,
+                trackCountBy: details.trackCountBy || 'quantity',
+                autoPrintLabel: details.autoPrintLabel || false,
+            };
+
+            const createdProduct = await firstValueFrom(this.productService.Create(newProductPayload));
+
+            this.status = `Adding new product...`;
+
+            this.pendingProduct = createdProduct;
+            const today = new Date();
+            const days = createdProduct.refrigeratorLifespanDays || 365;
+            const defExp = new Date();
+            defExp.setDate(today.getDate() + days);
+            defExp.setHours(0, 0, 0, 0);
+            this.pendingExpiration = defExp;
+            this.pendingQuantity = 1;
+
+            this.restockState = 'OPTIONS';
+            this.status = "Item Options";
+            this.statusSubtext = createdProduct.title;
+            this.playSuccessSound();
+            return;
+
         } catch (e) {
             console.error("AI/Create failed", e);
             this.status = "Failed to process product.";
-            this.addToLog("Processing Failed", "", 'error');
+            this.statusSubtext = offProductName ? `${offProductName} — AI error` : "Product not found in databases";
+            this.addToLog("Processing Failed", offProductName || barcode, 'error');
             this.playErrorSound();
             setTimeout(() => this.status = "Scan Barcode...", 3000);
         }
@@ -1726,10 +1734,25 @@ export class KioskPageComponent implements OnInit, OnDestroy {
     displayUnitMode: 'g' | 'oz' | 'lbs' = 'g';
 
     get displayWeight(): number {
-        if (this.displayUnitMode === 'g') return this.currentWeight;
-        if (this.displayUnitMode === 'oz') return this.currentWeight * 0.035274;
-        if (this.displayUnitMode === 'lbs') return this.currentWeight * 0.00220462;
         return this.currentWeight;
+    }
+
+    get weightInGrams(): number {
+        return this.currentWeight;
+    }
+
+    get weightInOz(): number {
+        return this.currentWeight * 0.035274;
+    }
+
+    get weightInLbsOz(): string {
+        const totalOz = this.currentWeight * 0.035274;
+        const lbs = Math.floor(totalOz / 16);
+        const remainingOz = totalOz % 16;
+        if (lbs > 0) {
+            return `${lbs} lb ${remainingOz.toFixed(1)} oz`;
+        }
+        return `${remainingOz.toFixed(1)} oz`;
     }
 
     get progressValue(): number {

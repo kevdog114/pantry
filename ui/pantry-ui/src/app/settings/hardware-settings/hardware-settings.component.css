@@ -1,0 +1,90 @@
+/* Inherits .settings-card, .settings-form, .setting-item, .actions from parent settings.component.css */
+
+.settings-card {
+    background: var(--mat-sys-surface-container);
+    border-radius: 12px;
+    padding: 32px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    border: 1px solid var(--mat-sys-outline-variant);
+}
+
+.settings-card h2 {
+    font-size: 1.5rem;
+    margin-top: 0;
+    margin-bottom: 8px;
+    font-weight: 500;
+    color: var(--mat-sys-on-surface);
+}
+
+.subtitle {
+    color: var(--mat-sys-on-surface-variant);
+    margin-bottom: 32px;
+    font-size: 0.95rem;
+}
+
+.settings-form {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+
+.setting-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    padding-bottom: 24px;
+    border-bottom: 1px solid var(--mat-sys-outline-variant);
+}
+
+.setting-item:last-of-type {
+    border-bottom: none;
+    padding-bottom: 0;
+}
+
+.setting-info {
+    max-width: 60%;
+}
+
+.setting-info h3 {
+    margin: 0 0 4px 0;
+    font-size: 1.1rem;
+    font-weight: 500;
+    color: var(--mat-sys-on-surface);
+}
+
+.setting-info p {
+    margin: 0;
+    color: var(--mat-sys-on-surface-variant);
+    font-size: 0.9rem;
+    line-height: 1.4;
+}
+
+.actions {
+    margin-top: 32px;
+    display: flex;
+    justify-content: flex-end;
+}
+
+.loading-state {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    color: var(--mat-sys-on-surface-variant);
+    font-style: italic;
+    padding: 24px;
+}
+
+.spinner {
+    width: 20px;
+    height: 20px;
+    border: 2px solid var(--mat-sys-outline-variant);
+    border-left-color: var(--mat-sys-primary);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}

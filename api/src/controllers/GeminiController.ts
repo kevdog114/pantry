@@ -1096,12 +1096,16 @@ async function prepareSession(
           try {
             const toolData = JSON.parse(msg.toolCallData);
             if (toolData.name && toolData.args !== undefined && toolData.result !== undefined) {
+              const fcPart: any = {
+                functionCall: { name: toolData.name, args: toolData.args }
+              };
+              // Use the real thought signature saved from the original response
+              if (msg.thoughtSignature) {
+                fcPart.thoughtSignature = msg.thoughtSignature;
+              }
               historyItems.push({
                 role: 'model',
-                parts: [{
-                  functionCall: { name: toolData.name, args: toolData.args },
-                  thoughtSignature: "skip_thought_signature_validator"
-                } as any]
+                parts: [fcPart]
               });
               historyItems.push({
                 role: 'user',
@@ -1141,7 +1145,18 @@ async function prepareSession(
           }
 
           if (parts.length > 0) {
-            historyItems.push({ role: msg.sender, parts } as Content);
+            // Attach the real thoughtSignature saved from the original response
+            if (msg.sender === 'model' && msg.thoughtSignature) {
+              const partsWithSig = parts.map((p: any, i: number) => {
+                if (i === 0) {
+                  return { ...p, thoughtSignature: msg.thoughtSignature };
+                }
+                return p;
+              });
+              historyItems.push({ role: 'model', parts: partsWithSig } as Content);
+            } else {
+              historyItems.push({ role: msg.sender, parts } as Content);
+            }
           }
         }
       }
@@ -1164,18 +1179,19 @@ async function prepareSession(
 
 /**
  * Save parsed Gemini response items to the database.
+ * @param thoughtSignature - The real thought signature from the Gemini response parts
  */
-async function saveResponseToDb(sessionId: number, data: any, modelUsed?: string): Promise<void> {
+async function saveResponseToDb(sessionId: number, data: any, modelUsed?: string, thoughtSignature?: string): Promise<void> {
   try {
     if (data.items && Array.isArray(data.items)) {
       for (const item of data.items) {
         if (item.type === 'recipe' && item.recipe) {
           await prisma.chatMessage.create({
-            data: { sessionId, sender: 'model', type: 'recipe', recipeData: JSON.stringify(item.recipe), modelUsed }
+            data: { sessionId, sender: 'model', type: 'recipe', recipeData: JSON.stringify(item.recipe), modelUsed, thoughtSignature }
           });
         } else {
           await prisma.chatMessage.create({
-            data: { sessionId, sender: 'model', type: 'chat', content: item.content || JSON.stringify(item), modelUsed }
+            data: { sessionId, sender: 'model', type: 'chat', content: item.content || JSON.stringify(item), modelUsed, thoughtSignature }
           });
         }
       }
@@ -1183,14 +1199,14 @@ async function saveResponseToDb(sessionId: number, data: any, modelUsed?: string
       const isRecipe = (data.type && data.type.toLowerCase() === 'recipe') || (data.recipe && typeof data.recipe === 'object');
       if (isRecipe && data.recipe) {
         await prisma.chatMessage.create({
-          data: { sessionId, sender: 'model', type: 'recipe', recipeData: JSON.stringify(data.recipe), modelUsed }
+          data: { sessionId, sender: 'model', type: 'recipe', recipeData: JSON.stringify(data.recipe), modelUsed, thoughtSignature }
         });
       } else {
         let content = data.content;
         if (typeof content === 'object') content = JSON.stringify(content, null, 2);
         else if (!content) content = JSON.stringify(data, null, 2);
         await prisma.chatMessage.create({
-          data: { sessionId, sender: 'model', type: 'chat', content, modelUsed }
+          data: { sessionId, sender: 'model', type: 'chat', content, modelUsed, thoughtSignature }
         });
       }
     }
@@ -1383,6 +1399,9 @@ export const post = async (req: Request, res: Response) => {
         parts: injectThoughtSignatures(responseParts)
       });
 
+      // Extract the real thought signature from the response parts for DB persistence
+      const loopThoughtSig = responseParts.find((p: any) => p.thoughtSignature)?.thoughtSignature || null;
+
       // Execute tools
       const toolResponseParts: any[] = [];
       for (const call of functionCalls) {
@@ -1402,11 +1421,27 @@ export const post = async (req: Request, res: Response) => {
         toolResponseParts.push({
           functionResponse: { name: call.name, response: { result: toolResult } }
         });
+
+        // Save tool call to DB with thought signature (fire-and-forget)
+        prisma.chatMessage.create({
+          data: {
+            sessionId: sessionId as number,
+            sender: 'model',
+            type: 'tool_call',
+            content: sharedToolDisplayNames[call.name] || `Using ${call.name}...`,
+            toolCallData: JSON.stringify({ name: call.name, displayName: sharedToolDisplayNames[call.name], args: call.args, result: toolResult }),
+            thoughtSignature: loopThoughtSig
+          }
+        }).catch(err => console.error("Failed to save tool call:", err));
       }
 
       currentContents.push({ role: "user", parts: toolResponseParts });
       loopCount++;
     }
+
+    // --- EXTRACT THOUGHT SIGNATURE FROM FINAL RESPONSE ---
+    const finalParts = responseResult.candidates?.[0]?.content?.parts || [];
+    const finalThoughtSignature = finalParts.find((p: any) => p.thoughtSignature)?.thoughtSignature || null;
 
     // --- PARSE RESPONSE ---
     const responseText = responseResult.text || '';
@@ -1435,7 +1470,7 @@ export const post = async (req: Request, res: Response) => {
     }
 
     // --- SAVE + TITLE ---
-    await saveResponseToDb(sessionId as number, data, modelName);
+    await saveResponseToDb(sessionId as number, data, modelName, finalThoughtSignature);
     generateSessionTitle(sessionId as number, prompt, data).catch(() => { });
 
     const usageMetadata = responseResult.usageMetadata;
@@ -1558,6 +1593,7 @@ export const postStream = async (req: Request, res: Response) => {
     let currentContents = [...contents];
     let loopCount = 0;
     const maxLoops = 5;
+    let lastThoughtSignature: string | null = null;
 
     try {
       while (loopCount < maxLoops) {
@@ -1685,6 +1721,9 @@ export const postStream = async (req: Request, res: Response) => {
           }
         }
 
+        // Extract the real thought signature from these response parts
+        const streamThoughtSig = responseParts.find((p: any) => p.thoughtSignature)?.thoughtSignature || null;
+
         if (hasToolCall && toolCalls.length > 0) {
           console.log(`[Stream Loop ${loopCount}] Executing ${toolCalls.length} tool(s): ${toolCalls.map(tc => tc.name).join(', ')}`);
           currentContents.push({ role: "model", parts: responseParts });
@@ -1698,7 +1737,7 @@ export const postStream = async (req: Request, res: Response) => {
             const displayName = toolDisplayNames[call.name] || `Using ${call.name}...`;
             console.log(`[Stream Loop ${loopCount}] Tool ${call.name} completed in ${toolDurationMs}ms`);
 
-            // Save tool call to DB (fire-and-forget)
+            // Save tool call to DB with real thought signature (fire-and-forget)
             prisma.chatMessage.create({
               data: {
                 sessionId: sessionId as number,
@@ -1706,7 +1745,8 @@ export const postStream = async (req: Request, res: Response) => {
                 type: 'tool_call',
                 content: displayName,
                 toolCallData: JSON.stringify({ name: call.name, displayName, args: call.args, result }),
-                toolCallDurationMs: toolDurationMs
+                toolCallDurationMs: toolDurationMs,
+                thoughtSignature: streamThoughtSig
               }
             }).catch(err => console.error("Failed to save tool call:", err));
 
@@ -1717,8 +1757,10 @@ export const postStream = async (req: Request, res: Response) => {
 
           currentContents.push({ role: "user", parts: toolResponses });
           fullText = ''; // Reset for next iteration
+          lastThoughtSignature = streamThoughtSig; // Track for final save
         } else {
           console.log(`[Stream Loop ${loopCount}] No tool calls, breaking. fullText length: ${fullText.length}`);
+          lastThoughtSignature = streamThoughtSig; // Track for final save
           break; // No more tool calls
         }
       }
@@ -1755,7 +1797,7 @@ export const postStream = async (req: Request, res: Response) => {
 
     // --- ASYNC POST-PROCESSING ---
     const io = req.app.get("io");
-    saveResponseToDb(sessionId as number, data, finalModelName)
+    saveResponseToDb(sessionId as number, data, finalModelName, lastThoughtSignature || undefined)
       .then(() => generateSessionTitle(sessionId as number, prompt, data, io))
       .catch(err => console.error("Post-processing error:", err));
 

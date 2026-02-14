@@ -84,7 +84,7 @@
                             <mat-form-field appearance="outline" class="flex-grow-1 density-compact"
                                 subscriptSizing="dynamic">
                                 <mat-label>Barcode Number</mat-label>
-                                <input matInput [(ngModel)]="barcodeInput" name="barcode"
+                                <input matInput class="barcode-input" [(ngModel)]="barcodeInput" name="barcode"
                                     placeholder="e.g. 0049000006346" autofocus>
                                 <mat-icon matPrefix>qr_code</mat-icon>
                             </mat-form-field>
@@ -163,7 +163,8 @@
                             <div class="col-md-3">
                                 <mat-form-field appearance="outline" class="w-100 density-compact">
                                     <mat-label>Barcode</mat-label>
-                                    <input [name]="'barcode-' + $index" matInput [(ngModel)]="barcode.barcode">
+                                    <input [name]="'barcode-' + $index" matInput class="barcode-input"
+                                        [(ngModel)]="barcode.barcode">
                                 </mat-form-field>
                             </div>
                             <div class="col-md-3">

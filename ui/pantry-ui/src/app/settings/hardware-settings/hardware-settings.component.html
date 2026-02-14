@@ -1,0 +1,26 @@
+<div class="settings-card">
+    <h2>Hardware Settings</h2>
+    <p class="subtitle">Configure hardware-related options for connected devices.</p>
+
+    <div *ngIf="loading" class="loading-state">
+        <div class="spinner"></div> Loading settings...
+    </div>
+
+    <div *ngIf="!loading" class="settings-form">
+        <div class="setting-item">
+            <div class="setting-info">
+                <h3>Scale Debug Logging</h3>
+                <p>Log scale weight readings to the Docker console logs. Useful for troubleshooting scale issues.</p>
+            </div>
+            <mat-slide-toggle [(ngModel)]="scaleDebugLogging" color="warn">
+                {{ scaleDebugLogging ? 'Enabled' : 'Disabled' }}
+            </mat-slide-toggle>
+        </div>
+
+        <div class="actions">
+            <button mat-flat-button color="primary" (click)="save()">
+                Save Changes
+            </button>
+        </div>
+    </div>
+</div>

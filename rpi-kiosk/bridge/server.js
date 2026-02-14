@@ -286,6 +286,12 @@ function connectSocket() {
                 config.hasKeyboardScanner = !!settings.hasKeyboardScanner;
             }
 
+            if (settings.scaleDebugLogging !== undefined) {
+                scaleDebugLogging = !!settings.scaleDebugLogging;
+                config.scaleDebugLogging = scaleDebugLogging;
+                console.log(`Scale debug logging ${scaleDebugLogging ? 'enabled' : 'disabled'}`);
+            }
+
             fs.writeFileSync(KIOSK_CONFIG_FILE, JSON.stringify(config));
             console.log("Updated kiosk config:", config);
             checkDevices();
@@ -958,6 +964,19 @@ function checkDevices() {
 let scaleMonitorProcess = null;
 let currentScalePort = null;
 
+// Scale Debug Logging
+let scaleDebugLogging = false;
+
+// Load initial scaleDebugLogging from kiosk config if available
+try {
+    if (fs.existsSync(KIOSK_CONFIG_FILE)) {
+        const _cfg = JSON.parse(fs.readFileSync(KIOSK_CONFIG_FILE, 'utf8'));
+        if (_cfg.scaleDebugLogging !== undefined) {
+            scaleDebugLogging = !!_cfg.scaleDebugLogging;
+        }
+    }
+} catch (e) { /* ignore */ }
+
 function startScaleMonitor(port) {
     if (scaleMonitorProcess && currentScalePort === port) return; // Already running
 
@@ -967,7 +986,7 @@ function startScaleMonitor(port) {
         scaleMonitorProcess = null;
     }
 
-    console.log(`Starting Scale Monitor on ${port}...`);
+    if (scaleDebugLogging) console.log(`Starting Scale Monitor on ${port}...`);
     currentScalePort = port;
     const { spawn } = require('child_process');
     // use spawn instead of exec to get a stream
@@ -1021,7 +1040,7 @@ function startScaleMonitor(port) {
     });
 
     scaleMonitorProcess.on('close', (code) => {
-        console.log(`Scale Monitor exited with code ${code}`);
+        if (scaleDebugLogging) console.log(`Scale Monitor exited with code ${code}`);
         scaleMonitorProcess = null;
         currentScalePort = null;
     });
@@ -1029,6 +1048,12 @@ function startScaleMonitor(port) {
 
 // Logic to handle weight updates and debounce/throttle
 let lastScaleState = { weight: null, timestamp: 0 };
+
+// Storage mode detection: scale on its side reads < -50g
+let negativeReadingSince = null; // timestamp when persistent < -50g started
+let isInStorageMode = false;
+const STORAGE_MODE_THRESHOLD = -50; // grams
+const STORAGE_MODE_DELAY = 5 * 60 * 1000; // 5 minutes in ms
 
 
 // SIP / PBX Bridge Management
@@ -1112,18 +1137,46 @@ function handleWeightUpdate(port, currentWeight) {
     // Round to nearest 0.1
     const roundedWeight = Math.round(currentWeight * 10) / 10;
 
+    // --- Storage mode detection ---
+    if (roundedWeight < STORAGE_MODE_THRESHOLD) {
+        if (negativeReadingSince === null) {
+            negativeReadingSince = now;
+        } else if (!isInStorageMode && (now - negativeReadingSince) >= STORAGE_MODE_DELAY) {
+            isInStorageMode = true;
+            console.log(`Scale entered storage mode (reading ${roundedWeight}g < ${STORAGE_MODE_THRESHOLD}g for 5+ min). Pausing auto-reports.`);
+        }
+    } else {
+        // Reading is back above threshold
+        if (isInStorageMode) {
+            console.log(`Scale exited storage mode (reading ${roundedWeight}g). Resuming auto-reports.`);
+        }
+        negativeReadingSince = null;
+        isInStorageMode = false;
+    }
+
+    // Always update lastScaleState so explicit read_scale requests get fresh data
     // Check for change based on rounded value
     const weightChanged = last.weight === null || roundedWeight !== last.weight;
     const timeElapsed = (now - last.timestamp) >= 10000; // 10s heartbeat
 
     if (weightChanged || timeElapsed) {
+        lastScaleState = { weight: roundedWeight, timestamp: now };
+
+        if (scaleDebugLogging) {
+            console.log(`Scale: ${roundedWeight}g${isInStorageMode ? ' (storage mode - suppressed)' : ''}`);
+        }
+
+        // In storage mode, do not emit automatic readings to backend
+        if (isInStorageMode) {
+            return;
+        }
+
         if (socket && socket.connected) {
             socket.emit('scale_reading', {
                 requestId: 'poll',
                 success: true,
                 data: { weight: roundedWeight, unit: 'g' }
             });
-            lastScaleState = { weight: roundedWeight, timestamp: now };
         }
     }
 }
