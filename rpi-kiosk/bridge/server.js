@@ -36,6 +36,7 @@ app.get('/health', (req, res) => {
 // API to connect to backend
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
 
 const DATA_DIR = '/data';
 const useDataDir = fs.existsSync(DATA_DIR);
@@ -43,6 +44,62 @@ const useDataDir = fs.existsSync(DATA_DIR);
 const KIOSK_CONFIG_FILE = useDataDir ? path.join(DATA_DIR, 'kiosk_config.json') : 'kiosk_config.json';
 const DEVICE_SETTINGS_FILE = useDataDir ? path.join(DATA_DIR, 'device_settings.json') : 'device_settings.json';
 const SIP_CONFIG_FILE = useDataDir ? path.join(DATA_DIR, 'sip_config.json') : 'sip_config.json';
+
+// ============================
+// PRINT QUEUE
+// ============================
+// Serializes print jobs so only one subprocess accesses the USB printer at a time.
+// Each queue entry: { cmd, tmpFile, requestId, type, onComplete }
+const printQueue = [];
+let printQueueProcessing = false;
+
+function enqueuePrintJob(job) {
+    printQueue.push(job);
+    console.log(`[PrintQueue] Enqueued job ${job.requestId || 'unknown'} (${job.type}). Queue depth: ${printQueue.length}`);
+    processPrintQueue();
+}
+
+function processPrintQueue() {
+    if (printQueueProcessing || printQueue.length === 0) return;
+    printQueueProcessing = true;
+
+    const job = printQueue.shift();
+    console.log(`[PrintQueue] Processing job ${job.requestId || 'unknown'} (${job.type}). Remaining: ${printQueue.length}`);
+
+    exec(job.cmd, { timeout: 30000 }, (err, stdout, stderr) => {
+        let success = true;
+        let message = job.successMessage || 'Print successful';
+
+        if (err) {
+            console.error(`[PrintQueue] Error for job ${job.requestId}:`, err);
+            if (stderr) console.error('[PrintQueue] Stderr:', stderr);
+            success = false;
+            message = stderr || err.message || 'Unknown print error';
+            if (err.signal === 'SIGTERM') {
+                message = 'Printer script timed out (hung). Check hardware connection.';
+            }
+        } else {
+            console.log(`[PrintQueue] Job ${job.requestId} output:`, stdout);
+            if (stderr) console.error(`[PrintQueue] Job ${job.requestId} stderr:`, stderr);
+        }
+
+        // Report result
+        if (job.requestId && job.onComplete) {
+            job.onComplete({ requestId: job.requestId, success, message });
+        }
+
+        // Clean up temp file
+        if (job.tmpFile) {
+            try { fs.unlinkSync(job.tmpFile); } catch (e) { }
+        }
+
+        // Small delay between jobs to let the USB interface fully release
+        setTimeout(() => {
+            printQueueProcessing = false;
+            processPrintQueue();
+        }, 200);
+    });
+}
 
 app.post('/connect', (req, res) => {
     const { token, apiUrl, kioskName, hasKeyboardScanner } = req.body;
@@ -303,10 +360,16 @@ function connectSocket() {
     socket.on('print_label', (payload) => {
         console.log('Received print command:', payload);
 
+        const requestId = payload.requestId || `auto-${crypto.randomUUID()}`;
+        const emitComplete = (result) => {
+            if (socket && socket.connected) {
+                socket.emit('print_complete', result);
+            }
+        };
+
         // Handle Receipt Printing
         if (payload.type === 'RECEIPT') {
             const dataObj = payload.data || {};
-            const requestId = payload.requestId;
 
             // Find a printer
             let printerId = payload.printerId;
@@ -317,53 +380,24 @@ function connectSocket() {
 
             if (!printerId) {
                 console.error("No receipt printer available for print job");
-                if (requestId) {
-                    socket.emit('print_complete', {
-                        requestId, success: false, message: "No receipt printer available"
-                    });
-                }
+                emitComplete({ requestId, success: false, message: "No receipt printer available" });
                 return;
             }
 
-            const fs = require('fs');
-            const tmpFile = `/tmp/receipt_${requestId || Date.now()}.json`;
-
+            const tmpFile = `/tmp/receipt_${requestId}.json`;
             try {
                 fs.writeFileSync(tmpFile, JSON.stringify(dataObj));
-                const receiptCmd = `/opt/venv/bin/python3 receipt_printer.py print "${tmpFile}" --printer "${printerId}"`;
-
-                console.log("Executing receipt print...");
-                const { exec } = require('child_process');
-                exec(receiptCmd, { timeout: 15000 }, (err, stdout, stderr) => { // Timeout 15s to catch hangs
-                    let success = true;
-                    let message = 'Receipt Printed';
-
-                    if (err) {
-                        console.error('Receipt Print Error:', err);
-                        success = false;
-                        message = stderr || err.message;
-                        if (err.signal === 'SIGTERM') {
-                            message = "Printer script timed out (hung). Check hardware connection.";
-                        }
-                    } else {
-                        console.log('Receipt Print Output:', stdout);
-                        if (stderr) console.error('Receipt Print Stderr:', stderr);
-                    }
-
-                    if (requestId) {
-                        socket.emit('print_complete', {
-                            requestId, success, message
-                        });
-                    }
-                    try { fs.unlinkSync(tmpFile); } catch (e) { }
+                enqueuePrintJob({
+                    cmd: `/opt/venv/bin/python3 receipt_printer.py print "${tmpFile}" --printer "${printerId}"`,
+                    tmpFile,
+                    requestId,
+                    type: 'RECEIPT',
+                    successMessage: 'Receipt Printed',
+                    onComplete: emitComplete
                 });
             } catch (e) {
                 console.error("Error processing receipt:", e);
-                if (requestId) {
-                    socket.emit('print_complete', {
-                        requestId, success: false, message: "Bridge Error: " + e.message
-                    });
-                }
+                emitComplete({ requestId, success: false, message: "Bridge Error: " + e.message });
             }
             return;
         }
@@ -371,9 +405,7 @@ function connectSocket() {
         // Handle Custom QR Receipt Printing
         if (payload.type === 'CUSTOM_QR_RECEIPT') {
             const dataObj = payload.data || {};
-            const requestId = payload.requestId;
 
-            // Find a receipt printer
             let printerId = payload.printerId;
             if (!printerId) {
                 const keys = Object.keys(knownReceiptPrinters);
@@ -382,53 +414,24 @@ function connectSocket() {
 
             if (!printerId) {
                 console.error("No receipt printer available for custom QR print job");
-                if (requestId) {
-                    socket.emit('print_complete', {
-                        requestId, success: false, message: "No receipt printer available"
-                    });
-                }
+                emitComplete({ requestId, success: false, message: "No receipt printer available" });
                 return;
             }
 
-            const fs = require('fs');
-            const tmpFile = `/tmp/custom_qr_receipt_${requestId || Date.now()}.json`;
-
+            const tmpFile = `/tmp/custom_qr_receipt_${requestId}.json`;
             try {
                 fs.writeFileSync(tmpFile, JSON.stringify(dataObj));
-                const receiptCmd = `/opt/venv/bin/python3 receipt_printer.py print "${tmpFile}" --printer "${printerId}"`;
-
-                console.log("Executing custom QR receipt print...");
-                const { exec } = require('child_process');
-                exec(receiptCmd, { timeout: 15000 }, (err, stdout, stderr) => {
-                    let success = true;
-                    let message = 'Custom QR Receipt Printed';
-
-                    if (err) {
-                        console.error('Custom QR Receipt Print Error:', err);
-                        success = false;
-                        message = stderr || err.message;
-                        if (err.signal === 'SIGTERM') {
-                            message = "Printer script timed out (hung). Check hardware connection.";
-                        }
-                    } else {
-                        console.log('Custom QR Receipt Print Output:', stdout);
-                        if (stderr) console.error('Custom QR Receipt Print Stderr:', stderr);
-                    }
-
-                    if (requestId) {
-                        socket.emit('print_complete', {
-                            requestId, success, message
-                        });
-                    }
-                    try { fs.unlinkSync(tmpFile); } catch (e) { }
+                enqueuePrintJob({
+                    cmd: `/opt/venv/bin/python3 receipt_printer.py print "${tmpFile}" --printer "${printerId}"`,
+                    tmpFile,
+                    requestId,
+                    type: 'CUSTOM_QR_RECEIPT',
+                    successMessage: 'Custom QR Receipt Printed',
+                    onComplete: emitComplete
                 });
             } catch (e) {
                 console.error("Error processing custom QR receipt:", e);
-                if (requestId) {
-                    socket.emit('print_complete', {
-                        requestId, success: false, message: "Bridge Error: " + e.message
-                    });
-                }
+                emitComplete({ requestId, success: false, message: "Bridge Error: " + e.message });
             }
             return;
         }
@@ -436,46 +439,21 @@ function connectSocket() {
         // Handle Custom QR Label Printing
         if (payload.type === 'CUSTOM_QR_LABEL') {
             const dataObj = payload.data || {};
-            const requestId = payload.requestId;
 
-            const fs = require('fs');
-            const tmpFile = `/tmp/custom_qr_label_${requestId || Date.now()}.json`;
-
+            const tmpFile = `/tmp/custom_qr_label_${requestId}.json`;
             try {
                 fs.writeFileSync(tmpFile, JSON.stringify(dataObj));
-                console.log('Executing custom QR label print...');
-                const pythonCmd = '/opt/venv/bin/python3 print_label.py print ' + tmpFile;
-
-                exec(pythonCmd, { timeout: 15000 }, (err, stdout, stderr) => {
-                    let success = true;
-                    let message = 'Custom QR Label Printed';
-
-                    if (err) {
-                        console.error('Custom QR Label Print Error:', err);
-                        console.error('Stderr:', stderr);
-                        success = false;
-                        message = stderr || err.message || 'Unknown print error';
-                        if (err.signal === 'SIGTERM') {
-                            message = "Printer script timed out (hung). Check hardware connection.";
-                        }
-                    } else {
-                        console.log('Custom QR Label Print Output:', stdout);
-                    }
-
-                    if (requestId) {
-                        socket.emit('print_complete', {
-                            requestId, success, message
-                        });
-                    }
-                    try { fs.unlinkSync(tmpFile); } catch (e) { }
+                enqueuePrintJob({
+                    cmd: `/opt/venv/bin/python3 print_label.py print ${tmpFile}`,
+                    tmpFile,
+                    requestId,
+                    type: 'CUSTOM_QR_LABEL',
+                    successMessage: 'Custom QR Label Printed',
+                    onComplete: emitComplete
                 });
             } catch (e) {
                 console.error("Error preparing custom QR label data file:", e);
-                if (requestId) {
-                    socket.emit('print_complete', {
-                        requestId, success: false, message: "Failed to prepare print data file: " + e.message
-                    });
-                }
+                emitComplete({ requestId, success: false, message: "Failed to prepare print data file: " + e.message });
             }
             return;
         }
@@ -487,25 +465,19 @@ function connectSocket() {
 
             // Load local overrides/settings
             try {
-                const fs = require('fs');
                 if (fs.existsSync(DEVICE_SETTINGS_FILE)) {
                     const settings = JSON.parse(fs.readFileSync(DEVICE_SETTINGS_FILE, 'utf8'));
                     console.log('Applying device settings to print job:', settings);
 
                     // Apply mapped settings
-                    // Map 'autoCut' from UI to 'cut' for python script
                     if (settings.autoCut !== undefined) dataObj.cut = settings.autoCut;
                     if (settings.highQuality !== undefined) dataObj.dither = settings.highQuality;
-                    // Add more mappings as needed
                 }
             } catch (e) {
                 console.error("Error loading device settings for print:", e);
             }
 
-            // Inject detected size if not present (Legacy/Fallback logic)
-            // ... (rest of logic)
-            // Inject detected size if not present or override? User requested bridge to handle it.
-            // Check any known printer
+            // Inject detected size if not present
             let detectedSize = null;
             Object.values(knownPrinters).forEach(p => {
                 if (p.detected_label && p.detected_label.width > 0 && p.detected_label.width < 30) {
@@ -518,60 +490,23 @@ function connectSocket() {
                 dataObj.size = detectedSize;
             }
 
-            // Ensure payload has the updated data for referencing if needed, but we mostly use dataObj now
             payload.data = dataObj;
-
             const data = JSON.stringify(dataObj);
-            const requestId = payload.requestId; // Extract request ID
 
-            const fs = require('fs');
-            const tmpFile = `/tmp/label_data_${requestId || Date.now()}.json`;
-
+            const tmpFile = `/tmp/label_data_${requestId}.json`;
             try {
                 fs.writeFileSync(tmpFile, data);
-                console.log('Executing python print script...');
-                // Use the venv python
-                const pythonCmd = '/opt/venv/bin/python3 print_label.py print ' + tmpFile;
-
-                exec(pythonCmd, { timeout: 15000 }, (err, stdout, stderr) => { // 15s Timeout
-                    let success = true;
-                    let message = 'Print successful';
-
-                    if (err) {
-                        console.error('Print Error:', err);
-                        console.error('Stderr:', stderr);
-                        success = false;
-                        message = stderr || err.message || 'Unknown print error';
-                        if (err.signal === 'SIGTERM') {
-                            message = "Printer script timed out (hung). Check hardware connection.";
-                        }
-                    } else {
-                        console.log('Print Output:', stdout);
-                        // Also check for library-level errors logged to standard output/error but with exit code 0 if any
-                    }
-
-                    // Send result back to backend
-                    if (requestId) {
-                        socket.emit('print_complete', {
-                            requestId: requestId,
-                            success: success,
-                            message: message
-                        });
-                    }
-
-                    // Clean up
-                    try { fs.unlinkSync(tmpFile); } catch (e) { }
+                enqueuePrintJob({
+                    cmd: `/opt/venv/bin/python3 print_label.py print ${tmpFile}`,
+                    tmpFile,
+                    requestId,
+                    type: payload.type,
+                    successMessage: 'Print successful',
+                    onComplete: emitComplete
                 });
             } catch (e) {
                 console.error("Error preparing label data file:", e);
-                // Report immediate failure
-                if (requestId) {
-                    socket.emit('print_complete', {
-                        requestId: requestId,
-                        success: false,
-                        message: "Failed to prepare print data file: " + e.message
-                    });
-                }
+                emitComplete({ requestId, success: false, message: "Failed to prepare print data file: " + e.message });
             }
         }
     });

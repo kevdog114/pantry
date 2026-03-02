@@ -16,6 +16,7 @@ import { PersonalAccessTokenController } from "./controllers/PersonalAccessToken
 import * as SettingsController from "./controllers/SettingsController";
 import * as ChatController from "./controllers/ChatController"; // Import ChatController
 import * as SpeechController from "./controllers/SpeechController";
+import * as OpenAIController from "./controllers/OpenAIController";
 import { WeatherController } from "./controllers/WeatherController";
 import * as FamilyController from "./controllers/FamilyController";
 
@@ -212,6 +213,9 @@ app.post("/gemini/generate-recipe-image", GeminiController.generateRecipeImage);
 app.post("/gemini/recipe-quick-actions", GeminiController.extractRecipeQuickActions);
 app.post("/gemini/product-details", GeminiController.postProductDetails);
 app.get("/gemini/models", GeminiController.getAvailableModels);
+
+app.get("/v1/models", OpenAIController.getModels);
+app.post("/v1/chat/completions", OpenAIController.chatCompletions);
 
 app.post("/gemini/product-match", GeminiController.postProductMatch);
 app.post("/gemini/barcode-details", GeminiController.postBarcodeDetails);

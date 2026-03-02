@@ -433,26 +433,11 @@ def print_label_cmd(args):
     
     img = create_label_image(data)
     
-    # Convert image to brother_ql instructions
-    qlr = BrotherQLRaster(args.model)
-    qlr.exception_on_warning = True
-    
     # Select label type
     label_type = '62'
     if data.get('size') == '23mm':
         label_type = '23x23'
 
-    # 62 is the tape width in mm (Red/Black or Black)
-    instructions = convert(
-        qlr=qlr, 
-        images=[img], 
-        label=label_type, 
-        cut=data.get('cut', True),
-        dither=data.get('dither', True),
-        compress=False, 
-        red=data.get('red', False)
-    )
-    
     # Send to printer
     copies = 1
     try:
@@ -462,12 +447,45 @@ def print_label_cmd(args):
         
     if copies < 1: copies = 1
     
+    should_cut = data.get('cut', True)
+    
+    # For multiple copies: generate no-cut instructions for all but the last copy
+    # so the printer doesn't cut between each label (especially useful for die-cut labels)
+    instructions_nocut = None
+    if copies > 1 and should_cut:
+        qlr_nocut = BrotherQLRaster(args.model)
+        qlr_nocut.exception_on_warning = True
+        instructions_nocut = convert(
+            qlr=qlr_nocut, 
+            images=[img], 
+            label=label_type, 
+            cut=False,
+            dither=data.get('dither', True),
+            compress=False, 
+            red=data.get('red', False)
+        )
+    
+    # Generate instructions for the final copy (with cut if enabled)
+    qlr = BrotherQLRaster(args.model)
+    qlr.exception_on_warning = True
+    instructions_final = convert(
+        qlr=qlr, 
+        images=[img], 
+        label=label_type, 
+        cut=should_cut,
+        dither=data.get('dither', True),
+        compress=False, 
+        red=data.get('red', False)
+    )
+    
     logger.info(f"Printing {copies} copies...")
 
     for i in range(copies):
-        logger.info(f"Sending copy {i+1} of {copies}")
+        is_last = (i == copies - 1)
+        instr = instructions_final if is_last else instructions_nocut
+        logger.info(f"Sending copy {i+1} of {copies} (cut={'yes' if is_last and should_cut else 'no'})")
         send(
-            instructions=instructions, 
+            instructions=instr, 
             printer_identifier=args.printer, 
             backend_identifier=args.backend, 
             blocking=True

@@ -1889,6 +1889,92 @@
     border: 1px solid var(--k-border);
 }
 
+/* --- Print Prompt --- */
+.leftover-print-prompt-body {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    padding: 24px;
+    gap: 24px;
+    align-items: center;
+    justify-content: center;
+}
+
+.leftover-print-prompt-title {
+    font-size: 2rem;
+    font-weight: 900;
+    color: var(--k-text-dim);
+    letter-spacing: 3px;
+    text-align: center;
+}
+
+.leftover-print-prompt-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    width: 100%;
+    flex: 1;
+    max-height: 400px;
+}
+
+.leftover-print-prompt-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    border-radius: 24px;
+    border: 2px solid;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.leftover-print-prompt-btn:active {
+    transform: scale(0.96);
+}
+
+.leftover-print-prompt-btn mat-icon {
+    font-size: 48px;
+    width: 48px;
+    height: 48px;
+    margin-bottom: 4px;
+}
+
+.leftover-print-prompt-count {
+    font-family: 'SF Mono', 'Menlo', monospace;
+    font-size: 5rem;
+    font-weight: 900;
+    line-height: 1;
+}
+
+.leftover-print-prompt-label {
+    font-size: 1.4rem;
+    font-weight: 800;
+    letter-spacing: 3px;
+    opacity: 0.7;
+}
+
+.leftover-print-prompt-single {
+    background: rgba(255, 255, 255, 0.06);
+    border-color: var(--k-border);
+    color: var(--k-text-dim);
+}
+
+.leftover-print-prompt-single:active {
+    background: rgba(255, 255, 255, 0.15);
+}
+
+.leftover-print-prompt-multi {
+    background: linear-gradient(135deg, rgba(0, 229, 255, 0.2) 0%, rgba(0, 229, 255, 0.08) 100%);
+    border-color: rgba(0, 229, 255, 0.4);
+    color: white;
+    box-shadow: 0 0 20px rgba(0, 229, 255, 0.1);
+}
+
+.leftover-print-prompt-multi:active {
+    background: rgba(0, 229, 255, 0.3);
+}
+
 /* --- Keypad Body --- */
 .leftover-keypad-body {
     flex: 1;

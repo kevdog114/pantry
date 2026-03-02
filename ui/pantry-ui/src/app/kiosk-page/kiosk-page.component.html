@@ -990,20 +990,30 @@
                 </button>
 
                 <button *ngIf="leftoverMode === 'QUANTITY' && leftoverQuantity > 1"
-                    class="leftover-action-btn leftover-create-print" (click)="saveLeftovers('MATCH_QUANTITY')">
+                    class="leftover-action-btn leftover-create-print" (click)="openLeftoverPrintPrompt()">
                     <mat-icon>print</mat-icon>
                     <div class="leftover-action-text">
                         <span>CREATE & PRINT</span>
-                        <small>{{ leftoverQuantity }} LABELS</small>
                     </div>
                 </button>
+            </div>
+        </div>
 
-                <button *ngIf="leftoverMode === 'QUANTITY' && leftoverQuantity > 1"
-                    class="leftover-action-btn leftover-create-print-single" (click)="saveLeftovers('SINGLE')">
+        <!-- ========== PRINT PROMPT ========== -->
+        <div *ngIf="leftoverState === 'PRINT_PROMPT'" class="leftover-print-prompt-body">
+            <div class="leftover-print-prompt-title">HOW MANY LABELS?</div>
+            <div class="leftover-print-prompt-grid">
+                <button class="leftover-print-prompt-btn leftover-print-prompt-single"
+                    (click)="saveLeftovers('SINGLE')">
                     <mat-icon>print</mat-icon>
-                    <div class="leftover-action-text">
-                        <span>PRINT 1</span>
-                    </div>
+                    <span class="leftover-print-prompt-count">1</span>
+                    <span class="leftover-print-prompt-label">LABEL</span>
+                </button>
+                <button class="leftover-print-prompt-btn leftover-print-prompt-multi"
+                    (click)="saveLeftovers('MATCH_QUANTITY')">
+                    <mat-icon>print</mat-icon>
+                    <span class="leftover-print-prompt-count">{{ leftoverQuantity }}</span>
+                    <span class="leftover-print-prompt-label">LABELS</span>
                 </button>
             </div>
         </div>

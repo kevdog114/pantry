@@ -73,7 +73,7 @@ export class KioskPageComponent implements OnInit, OnDestroy {
     numpadValue: string = '';
 
     // Leftover State
-    leftoverState: 'OPTIONS' | 'WEIGH' | 'QUANTITY_PAD' | 'EXPIRATION' = 'OPTIONS';
+    leftoverState: 'OPTIONS' | 'WEIGH' | 'QUANTITY_PAD' | 'EXPIRATION' | 'PRINT_PROMPT' = 'OPTIONS';
     leftoverQuantity: number = 1;
     leftoverWeight: number = 0;
     leftoverMode: 'QUANTITY' | 'WEIGHT' = 'QUANTITY';
@@ -2451,6 +2451,10 @@ export class KioskPageComponent implements OnInit, OnDestroy {
 
     openLeftoverExpiration() {
         this.leftoverState = 'EXPIRATION';
+    }
+
+    openLeftoverPrintPrompt() {
+        this.leftoverState = 'PRINT_PROMPT';
     }
 
     backToLeftoverOptions() {

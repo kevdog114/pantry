@@ -614,7 +614,7 @@ async function buildSystemInstruction(additionalContext?: string): Promise<strin
     
     **Core Rules:**
     1. **Response Format:** ALWAYS return a JSON object with a root 'items' array. Items can be type 'chat' (content string) or 'recipe' (structured object).
-    2. **Printing:** To print a recipe, first call 'getRecipeDetails', then 'printReceipt' (max 1 call/turn). Confirm with "Sent [title] to printer."
+    2. **Printing:** To print a recipe, first call 'getRecipeDetails', then 'printReceipt'. Can be called multiple times if printing multiple items. Confirm with "Sent [title] to printer."
     3. **Stock & Cooking Instructions:** Use provided tools. For package images, use 'createCookingInstruction' for each method (e.g., Microwave, Oven).
     4. **Quantities:** Respect 'trackCountBy' in inventory context. If 'weight', use weight; if 'quantity', use count.
 
@@ -1090,6 +1090,23 @@ async function prepareSession(
     } else {
       // Full history reconstruction including tool calls
       const historyItems: Content[] = [];
+      let pendingToolCalls: any[] = [];
+      let pendingToolResponses: any[] = [];
+
+      const flushPendingTools = () => {
+        if (pendingToolCalls.length > 0) {
+          historyItems.push({
+            role: 'model',
+            parts: pendingToolCalls
+          });
+          historyItems.push({
+            role: 'user',
+            parts: pendingToolResponses
+          });
+          pendingToolCalls = [];
+          pendingToolResponses = [];
+        }
+      };
 
       for (const msg of messages) {
         if (msg.type === 'tool_call' && msg.toolCallData) {
@@ -1099,25 +1116,23 @@ async function prepareSession(
               const fcPart: any = {
                 functionCall: { name: toolData.name, args: toolData.args }
               };
-              // Use the real thought signature saved from the original response
-              if (msg.thoughtSignature) {
-                fcPart.thoughtSignature = msg.thoughtSignature;
+              // Only the first function call in a block should have the thought signature
+              if (pendingToolCalls.length === 0) {
+                fcPart.thoughtSignature = msg.thoughtSignature || "skip_thought_signature_validator";
               }
-              historyItems.push({
-                role: 'model',
-                parts: [fcPart]
-              });
-              historyItems.push({
-                role: 'user',
-                parts: [{
-                  functionResponse: { name: toolData.name, response: { result: toolData.result } }
-                }]
+
+              pendingToolCalls.push(fcPart);
+              pendingToolResponses.push({
+                functionResponse: { name: toolData.name, response: { result: toolData.result } }
               });
             }
           } catch (e) {
             console.warn("Failed to parse tool call data for history:", e);
           }
         } else {
+          // Whenever we hit a non-tool message, flush any pending tools first
+          flushPendingTools();
+
           let text = msg.content || '';
           if (msg.type === 'recipe' && msg.recipeData) {
             text = JSON.stringify({ items: [{ type: 'recipe', recipe: JSON.parse(msg.recipeData) }] });
@@ -1160,6 +1175,9 @@ async function prepareSession(
           }
         }
       }
+      // Flush any remaining tools at the end of the history
+      flushPendingTools();
+
       history = historyItems;
     }
   }
@@ -1346,7 +1364,6 @@ export const post = async (req: Request, res: Response) => {
     let loopCount = 0;
     const maxLoops = 5;
     let printedInThisTurn = false;
-    let printedOnce = false;
     let responseResult: any;
 
     while (loopCount <= maxLoops) {
@@ -1405,15 +1422,8 @@ export const post = async (req: Request, res: Response) => {
       // Execute tools
       const toolResponseParts: any[] = [];
       for (const call of functionCalls) {
-        // Print loop protection
+        // Track printing for safety net message
         if (call.name === 'printReceipt') {
-          if (printedOnce) {
-            toolResponseParts.push({
-              functionResponse: { name: call.name, response: { result: { error: "You have already printed in this turn. Do not loop." } } }
-            });
-            continue;
-          }
-          printedOnce = true;
           printedInThisTurn = true;
         }
 

@@ -384,7 +384,7 @@ export const timerToolDefinitions = [
 export const otherToolDefinitions = [
     {
         name: "printReceipt",
-        description: "Print a recipe or list to the receipt printer (one call per turn).",
+        description: "Print a recipe or list to the receipt printer. Can be called multiple times to print multiple items.",
         parameters: {
             type: SchemaType.OBJECT,
             properties: {
