@@ -337,7 +337,7 @@ export class RecipeEditComponent implements AfterViewInit {
         next: (p) => {
           this.recipe = p;
           this.snackBar.open("Recipe saved successfully", "Close", { duration: 3000 });
-          this.router.navigate(["recipes"]);
+          this.router.navigate(["recipes", p.id]);
         },
         error: (err) => {
           this.isSaving = false;
@@ -351,7 +351,7 @@ export class RecipeEditComponent implements AfterViewInit {
         next: (p) => {
           this.recipe = p;
           this.snackBar.open("Recipe saved successfully", "Close", { duration: 3000 });
-          this.router.navigate(["recipes"]);
+          this.router.navigate(["recipes", p.id]);
         },
         error: (err) => {
           this.isSaving = false;

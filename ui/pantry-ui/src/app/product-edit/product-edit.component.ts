@@ -387,7 +387,7 @@ export class ProductEditComponent implements AfterViewInit {
         next: (p) => {
           this.product = p;
           this.snackBar.open("Product saved successfully", "Close", { duration: 3000 });
-          this.router.navigate(["products"]);
+          this.router.navigate(["products", p.id]);
         },
         error: (err) => {
           this.isSaving = false;
@@ -401,7 +401,7 @@ export class ProductEditComponent implements AfterViewInit {
         next: (p) => {
           this.product = p;
           this.snackBar.open("Product saved successfully", "Close", { duration: 3000 });
-          this.router.navigate(["products"]);
+          this.router.navigate(["products", p.id]);
         },
         error: (err) => {
           this.isSaving = false;
