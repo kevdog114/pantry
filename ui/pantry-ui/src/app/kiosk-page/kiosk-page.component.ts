@@ -2528,11 +2528,7 @@ export class KioskPageComponent implements OnInit, OnDestroy {
                     printCount = payload.quantity;
                 }
 
-                for (let i = 0; i < printCount; i++) {
-                    // Add slight delay to avoid buffer overwrites in printer
-                    if (i > 0) await new Promise(r => setTimeout(r, 500));
-                    this.labelService.printStockLabel(stockItem.id, this.labelSizeCode).subscribe();
-                }
+                this.labelService.printStockLabel(stockItem.id, this.labelSizeCode, printCount).subscribe();
             }
 
             // Sync with Meal Plan if applicable
