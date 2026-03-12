@@ -21,6 +21,7 @@
     "@types/node-cron": "^3.0.11",
     "@types/passport": "^1.0.17",
     "@types/passport-local": "^1.0.38",
+    "@types/passport-oauth2": "^1.8.0",
     "@types/socket.io": "^3.0.1",
     "prisma": "^6.16.2",
     "ts-node": "^10.9.2",
@@ -45,6 +46,7 @@
     "node-nlp": "^5.0.0-alpha.5",
     "passport": "^0.7.0",
     "passport-local": "^1.0.0",
+    "passport-oauth2": "^1.8.0",
     "sharp": "^0.33.5",
     "socket.io": "^4.8.3",
     "web-push": "^3.6.7"

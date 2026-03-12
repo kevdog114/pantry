@@ -13,7 +13,8 @@ datasource db {
 model User {
   id       Int      @id @default(autoincrement())
   username String   @unique
-  password String
+  password String   @default("")
+  oauthId  String?  @unique
   tokens   PersonalAccessToken[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

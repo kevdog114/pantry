@@ -49,6 +49,7 @@ export class ProfileComponent implements OnInit {
 
   notificationsEnabled: boolean = false;
   pushMessage: string = '';
+  isOAuthUser: boolean = false;
 
   constructor(
     private authService: AuthService,
@@ -66,6 +67,13 @@ export class ProfileComponent implements OnInit {
     // Better check: is subscribed?
     this.swPush.subscription.subscribe(sub => {
       this.notificationsEnabled = !!sub;
+    });
+
+    // Check if this is an OAuth user (to hide password change)
+    this.authService.getUser().subscribe(response => {
+      if (response.user && response.user.oauthId) {
+        this.isOAuthUser = true;
+      }
     });
   }
 

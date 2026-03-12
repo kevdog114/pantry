@@ -30,6 +30,8 @@ import { HomeComponent } from './home/home.component';
 
 
 
+import { AuthCallbackComponent } from './auth-callback/auth-callback.component';
+
 export const routes: Routes = [
     {
         path: "recipes",
@@ -59,6 +61,10 @@ export const routes: Routes = [
     {
         path: "login",
         component: LoginComponent
+    },
+    {
+        path: "auth/callback",
+        component: AuthCallbackComponent
     },
     {
         path: "profile",

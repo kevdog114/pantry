@@ -39,6 +39,9 @@ import fileUpload from "express-fileupload";
 import session from "express-session";
 import passport from "passport";
 import { Strategy as LocalStrategy } from "passport-local";
+import { Strategy as OAuth2Strategy } from "passport-oauth2";
+import * as https from 'https';
+import * as http from 'http';
 import * as bcrypt from 'bcryptjs';
 import prisma from './lib/prisma';
 import connectSqlite3 from "connect-sqlite3";
@@ -111,6 +114,9 @@ passport.use(new LocalStrategy(async (username, password, done) => {
         if (!user) {
             return done(null, false, { message: 'Incorrect username.' });
         }
+        if (!user.password || user.password === "") {
+            return done(null, false, { message: 'Local login is not enabled for this account. Please use SSO.' });
+        }
         if (!bcrypt.compareSync(password, user.password)) {
             return done(null, false, { message: 'Incorrect password.' });
         }
@@ -120,6 +126,70 @@ passport.use(new LocalStrategy(async (username, password, done) => {
     }
 }));
 
+
+// --- OAuth2 Strategy (conditional) ---
+if (process.env.OAUTH_CLIENT_ID && process.env.OAUTH_AUTHORIZATION_URL && process.env.OAUTH_TOKEN_URL && process.env.OAUTH_USERINFO_URL) {
+    const oauthScopes = (process.env.OAUTH_SCOPES || 'openid profile email').split(' ');
+    const callbackURL = process.env.OAUTH_CALLBACK_URL || `${process.env.API_BASEURL || 'http://localhost:4300'}/auth/oauth/callback`;
+
+    passport.use('oauth2', new OAuth2Strategy({
+        authorizationURL: process.env.OAUTH_AUTHORIZATION_URL,
+        tokenURL: process.env.OAUTH_TOKEN_URL,
+        clientID: process.env.OAUTH_CLIENT_ID,
+        clientSecret: process.env.OAUTH_CLIENT_SECRET || '',
+        callbackURL,
+        scope: oauthScopes
+    }, async (accessToken: string, _refreshToken: string, _profile: any, done: any) => {
+        try {
+            // Fetch user info from the OIDC userinfo endpoint
+            const userinfoUrl = process.env.OAUTH_USERINFO_URL!;
+            const userInfo: any = await new Promise((resolve, reject) => {
+                const httpModule = userinfoUrl.startsWith('https') ? https : http;
+                const req = httpModule.get(userinfoUrl, {
+                    headers: { 'Authorization': `Bearer ${accessToken}` }
+                }, (res) => {
+                    let data = '';
+                    res.on('data', (chunk) => data += chunk);
+                    res.on('end', () => {
+                        try { resolve(JSON.parse(data)); }
+                        catch (e) { reject(new Error('Failed to parse userinfo response')); }
+                    });
+                });
+                req.on('error', reject);
+            });
+
+            const sub = userInfo.sub || userInfo.id;
+            if (!sub) {
+                return done(new Error('No sub/id claim found in userinfo response'));
+            }
+
+            // Find or create user by oauthId
+            let user = await prisma.user.findUnique({ where: { oauthId: sub } });
+            if (!user) {
+                // Derive a username from the userinfo
+                const preferredUsername = userInfo.preferred_username || userInfo.email || `oauth_${sub}`;
+                // Avoid username collision
+                let username = preferredUsername;
+                let suffix = 1;
+                while (await prisma.user.findUnique({ where: { username } })) {
+                    username = `${preferredUsername}_${suffix++}`;
+                }
+                user = await prisma.user.create({
+                    data: {
+                        username,
+                        oauthId: sub
+                    }
+                });
+                console.log(`Created new OAuth user: ${username} (oauthId: ${sub})`);
+            }
+
+            return done(null, user);
+        } catch (err) {
+            return done(err);
+        }
+    }));
+    console.log('OAuth2 strategy registered');
+}
 
 passport.serializeUser((user, done) => {
     done(null, (user as any).id);
@@ -142,8 +212,19 @@ app.set("port", process.env.PORT || "4300");
 app.post("/kiosk/token", KioskController.generateToken);
 app.post("/auth/kiosk-login", KioskController.kioskLogin);
 
-app.post("/auth/login", passport.authenticate('local'), AuthController.login);
+app.get("/auth/config", AuthController.getAuthConfig);
+app.post("/auth/login", AuthController.localLoginGuard, passport.authenticate('local'), AuthController.login);
 app.get("/auth/user", AuthController.getCurrentUser);
+
+// OAuth routes (only functional when configured)
+app.get("/auth/oauth/login", (req, res, next) => {
+    if (!passport.authenticate) return res.status(404).json({ message: 'OAuth not configured' });
+    passport.authenticate('oauth2')(req, res, next);
+});
+app.get("/auth/oauth/callback",
+    passport.authenticate('oauth2', { failureRedirect: '/login' }),
+    AuthController.oauthCallback
+);
 
 // All routes below this are protected
 app.use(isAuthenticated);

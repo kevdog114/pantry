@@ -45,4 +45,10 @@ export class AuthService {
   getSocketToken(): Observable<{ token: string }> {
     return this.http.get<{ token: string }>(`${this.env.apiUrl}/auth/socket-token`, { withCredentials: true });
   }
+
+  getAuthConfig(): Observable<{ oauthEnabled: boolean; oauthButtonText: string; localLoginEnabled: boolean }> {
+    return this.http.get<{ oauthEnabled: boolean; oauthButtonText: string; localLoginEnabled: boolean }>(
+      `${this.env.apiUrl}/auth/config`
+    );
+  }
 }

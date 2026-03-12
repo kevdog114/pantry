@@ -1,10 +1,26 @@
-<div class="login-container">
+<div class="login-container" *ngIf="configLoaded">
   <mat-card>
     <mat-card-header>
       <mat-card-title>Login</mat-card-title>
     </mat-card-header>
     <mat-card-content>
-      <form (ngSubmit)="login()">
+      <!-- OAuth Login Button -->
+      <div *ngIf="oauthEnabled" class="oauth-section">
+        <button mat-raised-button color="primary" class="oauth-button" (click)="loginWithOAuth()" id="oauth-login-btn">
+          <mat-icon>login</mat-icon>
+          {{ oauthButtonText }}
+        </button>
+      </div>
+
+      <!-- Divider between OAuth and local login -->
+      <div *ngIf="oauthEnabled && localLoginEnabled" class="login-divider">
+        <mat-divider></mat-divider>
+        <span class="divider-text">or</span>
+        <mat-divider></mat-divider>
+      </div>
+
+      <!-- Local Login Form -->
+      <form *ngIf="localLoginEnabled" (ngSubmit)="login()">
         <mat-form-field appearance="outline">
           <mat-label>Username</mat-label>
           <input matInput id="username" name="username" [(ngModel)]="credentials.username">
@@ -13,7 +29,7 @@
           <mat-label>Password</mat-label>
           <input matInput type="password" id="password" name="password" [(ngModel)]="credentials.password">
         </mat-form-field>
-        <button mat-raised-button color="primary" type="submit">Login</button>
+        <button mat-raised-button color="primary" type="submit" id="local-login-btn">Login</button>
         <div class="kiosk-login-link" style="margin-top: 1rem; text-align: center;">
           <button mat-button type="button" [routerLink]="['/kiosk-login']">Kiosk Login</button>
         </div>

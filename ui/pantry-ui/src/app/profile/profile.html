@@ -1,8 +1,8 @@
 <div class="profile-container">
   <div class="profile-content">
 
-    <!-- Change Password Section -->
-    <mat-card class="profile-section">
+    <!-- Change Password Section (hidden for OAuth users) -->
+    <mat-card class="profile-section" *ngIf="!isOAuthUser">
       <mat-card-header>
         <mat-card-title>Change Password</mat-card-title>
       </mat-card-header>
