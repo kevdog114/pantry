@@ -1,5 +1,5 @@
 
-import { Component, Input, Output, EventEmitter } from '@angular/core';
+import { Component, Input, Output, EventEmitter, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
@@ -15,6 +15,7 @@ export interface ChatIngredient {
 }
 
 export interface ChatRecipe {
+    id?: number;
     title: string;
     description: string;
     ingredients: ChatIngredient[]; // Changed from string[] to ChatIngredient[]
@@ -27,24 +28,32 @@ export interface ChatRecipe {
 }
 
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { RouterModule } from '@angular/router';
 
 @Component({
     selector: 'app-recipe-card',
     templateUrl: './recipe-card.component.html',
     styleUrls: ['./recipe-card.component.scss'],
     standalone: true,
-    imports: [CommonModule, MatButtonModule, MatIconModule, MatSnackBarModule, MatProgressSpinnerModule]
+    imports: [CommonModule, MatButtonModule, MatIconModule, MatSnackBarModule, MatProgressSpinnerModule, RouterModule]
 })
-export class RecipeCardComponent {
+export class RecipeCardComponent implements OnInit {
     @Input() recipe!: ChatRecipe;
     @Input() expanded: boolean = false;
     isSaving: boolean = false;
+    savedRecipeId: number | null = null;
 
     constructor(
         private recipeService: RecipeListService,
         private snackBar: MatSnackBar,
         private pdfService: RecipePdfService
     ) { }
+
+    ngOnInit(): void {
+        if (this.recipe.id) {
+            this.savedRecipeId = this.recipe.id;
+        }
+    }
 
     toggle() {
         this.expanded = !this.expanded;
@@ -88,6 +97,7 @@ export class RecipeCardComponent {
         this.recipeService.create(newRecipe).subscribe({
             next: (res) => {
                 this.isSaving = false;
+                this.savedRecipeId = res.id;
                 this.snackBar.open('Recipe saved successfully!', 'Close', { duration: 3000 });
             },
             error: (err) => {

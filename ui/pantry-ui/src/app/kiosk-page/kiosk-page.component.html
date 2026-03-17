@@ -504,6 +504,10 @@
                             <mat-icon>arrow_back</mat-icon>
                             <span>BACK</span>
                         </button>
+                        <button class="labels-copies-btn" (click)="openLabelCopiesKeypad()">
+                            <span class="labels-copies-count">{{ labelCopies }}</span>
+                            <span class="labels-copies-label">{{ labelCopies === 1 ? 'COPY' : 'COPIES' }}</span>
+                        </button>
                         <button class="labels-print-btn" (click)="printLabelNew()">
                             <mat-icon>print</mat-icon>
                             <span>PRINT</span>
@@ -543,6 +547,42 @@
                         <!-- OK Button -->
                         <button class="keypad-start-btn" [disabled]="!isCustomDateValid"
                             (click)="labelDateKeypadConfirm()">
+                            <mat-icon style="font-size: 32px; width: 32px; height: 32px;">check</mat-icon>
+                            OK
+                        </button>
+                    </div>
+                </div>
+
+                <!-- LABELS COPIES KEYPAD -->
+                <div *ngIf="viewState === 'LABELS_COPIES_KEYPAD'" class="timers-layout">
+                    <div class="back-btn-row">
+                        <button class="k-icon-btn"
+                            (click)="labelCopiesKeypadCancel()"><mat-icon>arrow_back</mat-icon></button>
+                        <span
+                            style="font-size: 1.5rem; font-weight: bold; color: var(--k-text-dim); letter-spacing: 2px;">COPIES</span>
+                    </div>
+
+                    <div class="keypad-container">
+                        <!-- Display -->
+                        <div class="keypad-display">
+                            <span class="keypad-value">{{ labelCopiesKeypadValue || '0' }}</span>
+                            <span class="keypad-unit">copies</span>
+                        </div>
+
+                        <!-- Keypad Grid -->
+                        <div class="keypad-grid">
+                            <button *ngFor="let n of [1,2,3,4,5,6,7,8,9]" class="keypad-btn"
+                                (click)="labelCopiesKeypadPress(n)">{{ n }}</button>
+                            <button class="keypad-btn keypad-clear" (click)="labelCopiesKeypadCancel()">CANCEL</button>
+                            <button class="keypad-btn" (click)="labelCopiesKeypadPress(0)">0</button>
+                            <button class="keypad-btn keypad-backspace" (click)="labelCopiesKeypadBackspace()">
+                                <mat-icon>backspace</mat-icon>
+                            </button>
+                        </div>
+
+                        <!-- OK Button -->
+                        <button class="keypad-start-btn" [disabled]="!labelCopiesKeypadValue || labelCopiesKeypadValue === '0'"
+                            (click)="labelCopiesKeypadConfirm()">
                             <mat-icon style="font-size: 32px; width: 32px; height: 32px;">check</mat-icon>
                             OK
                         </button>

@@ -3,7 +3,26 @@ import prisma from '../lib/prisma';
 import { generateReceiptSteps, determineSafeCookingTemps, determineQuickActions } from '../services/RecipeAIService';
 
 export const getAll = async (req: Request, res: Response, next: NextFunction): Promise<any> => {
+    const search = req.query.search as string | undefined;
+    const includeInstructions = req.query.includeInstructions === 'true';
+
+    const where: any = {};
+
+    // By default, exclude recipes that are product cooking instructions
+    if (!includeInstructions) {
+        where.type = { not: 'instruction' };
+    }
+
+    // Free-text search on name and description
+    if (search && search.trim()) {
+        where.OR = [
+            { name: { contains: search.trim() } },
+            { description: { contains: search.trim() } }
+        ];
+    }
+
     const recipes = await prisma.recipe.findMany({
+        where,
         include: {
             steps: { orderBy: { stepNumber: 'asc' } },
             ingredients: { include: { product: true } },

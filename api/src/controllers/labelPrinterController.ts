@@ -17,7 +17,7 @@ const sendPrintCommandAndWait = async (targetSocket: any, payload: any): Promise
         const timeout = setTimeout(() => {
             cleanup();
             resolve({ success: false, message: "Print command timed out (no response from device)." });
-        }, 15000); // 15 second timeout
+        }, 30000); // 30 second timeout (increased for queued jobs)
 
         const listener = (data: any) => {
             if (data && data.requestId === requestId) {
@@ -37,6 +37,33 @@ const sendPrintCommandAndWait = async (targetSocket: any, payload: any): Promise
         targetSocket.on('print_complete', listener);
         targetSocket.emit('print_label', payload);
     });
+};
+
+// Server-side print queue to serialize concurrent requests
+// Prevents multiple sendPrintCommandAndWait from running simultaneously
+// which can cause timeouts when the bridge queues them internally
+const printJobQueue: Array<() => Promise<void>> = [];
+let isProcessingPrintQueue = false;
+
+const processPrintJobQueue = async () => {
+    if (isProcessingPrintQueue) return;
+    isProcessingPrintQueue = true;
+
+    while (printJobQueue.length > 0) {
+        const job = printJobQueue.shift()!;
+        try {
+            await job();
+        } catch (e) {
+            console.error('[PrintQueue] Job failed:', e);
+        }
+    }
+
+    isProcessingPrintQueue = false;
+};
+
+const enqueuePrint = (job: () => Promise<void>) => {
+    printJobQueue.push(job);
+    processPrintJobQueue();
 };
 
 // Helper to find target socket
@@ -93,7 +120,15 @@ export const printQuickLabel = async (req: Request, res: Response, next: NextFun
             }
         };
 
-        const result = await sendPrintCommandAndWait(targetSocket, payload);
+        // Use queue to serialize prints
+        const resultPromise = new Promise<{ success: boolean, message: string }>((resolve) => {
+            enqueuePrint(async () => {
+                const result = await sendPrintCommandAndWait(targetSocket, payload);
+                resolve(result);
+            });
+        });
+
+        const result = await resultPromise;
 
         if (result.success) {
             res.json({ success: true, message: "Print successful." });
@@ -143,15 +178,20 @@ export const printStockLabel = async (req: Request, res: Response, next: NextFun
                 copies: copies || 1,
                 frozen: stockItem.frozen,
                 opened: stockItem.opened,
-                // If opened, use openedDate.
-                // If frozen, we now have frozenDate.
                 openedDate: stockItem.openedDate ? stockItem.openedDate.toISOString().split('T')[0] : null,
                 frozenDate: stockItem.frozenDate ? stockItem.frozenDate.toISOString().split('T')[0] : null,
                 createdDate: stockItem.createdAt ? stockItem.createdAt.toISOString().split('T')[0] : null
             }
         };
 
-        const result = await sendPrintCommandAndWait(targetSocket, payload);
+        const resultPromise = new Promise<{ success: boolean, message: string }>((resolve) => {
+            enqueuePrint(async () => {
+                const result = await sendPrintCommandAndWait(targetSocket, payload);
+                resolve(result);
+            });
+        });
+
+        const result = await resultPromise;
 
         if (result.success) {
             res.json({ success: true, message: "Label printed successfully." });
@@ -166,7 +206,7 @@ export const printStockLabel = async (req: Request, res: Response, next: NextFun
 }
 export const printModifierLabel = async (req: Request, res: Response, next: NextFunction): Promise<any> => {
     try {
-        const { action, date, expiration } = req.body;
+        const { action, date, expiration, copies, size } = req.body;
         const io = req.app.get('io');
 
         const targetSocket = await findTargetSocket(io);
@@ -181,11 +221,20 @@ export const printModifierLabel = async (req: Request, res: Response, next: Next
             data: {
                 action: action || "Modified",
                 date: date || new Date().toISOString().split('T')[0],
-                expiration: expiration || "N/A"
+                expiration: expiration || "N/A",
+                copies: copies || 1,
+                size: size || 'continuous'
             }
         };
 
-        const result = await sendPrintCommandAndWait(targetSocket, payload);
+        const resultPromise = new Promise<{ success: boolean, message: string }>((resolve) => {
+            enqueuePrint(async () => {
+                const result = await sendPrintCommandAndWait(targetSocket, payload);
+                resolve(result);
+            });
+        });
+
+        const result = await resultPromise;
 
         if (result.success) {
             res.json({ success: true, message: "Modifier label printed." });
@@ -231,7 +280,14 @@ export const printRecipeLabel = async (req: Request, res: Response, next: NextFu
             }
         };
 
-        const result = await sendPrintCommandAndWait(targetSocket, payload);
+        const resultPromise = new Promise<{ success: boolean, message: string }>((resolve) => {
+            enqueuePrint(async () => {
+                const result = await sendPrintCommandAndWait(targetSocket, payload);
+                resolve(result);
+            });
+        });
+
+        const result = await resultPromise;
 
         if (result.success) {
             res.json({ success: true, message: "Label printed successfully." });
@@ -273,7 +329,14 @@ export const printAssetLabel = async (req: Request, res: Response, next: NextFun
             }
         };
 
-        const result = await sendPrintCommandAndWait(targetSocket, payload);
+        const resultPromise = new Promise<{ success: boolean, message: string }>((resolve) => {
+            enqueuePrint(async () => {
+                const result = await sendPrintCommandAndWait(targetSocket, payload);
+                resolve(result);
+            });
+        });
+
+        const result = await resultPromise;
 
         if (result.success) {
             res.json({ success: true, message: "Label printed." });
@@ -340,7 +403,14 @@ export const printShoppingList = async (req: Request, res: Response, next: NextF
             }
         };
 
-        const result = await sendPrintCommandAndWait(targetSocket, payload);
+        const resultPromise = new Promise<{ success: boolean, message: string }>((resolve) => {
+            enqueuePrint(async () => {
+                const result = await sendPrintCommandAndWait(targetSocket, payload);
+                resolve(result);
+            });
+        });
+
+        const result = await resultPromise;
 
         if (result.success) {
             res.json({ success: true, message: "Shopping list sent to printer." });
@@ -495,7 +565,14 @@ export const printReceipt = async (req: Request, res: Response, next: NextFuncti
             data: receiptData
         };
 
-        const result = await sendPrintCommandAndWait(targetSocket, payload);
+        const resultPromise = new Promise<{ success: boolean, message: string }>((resolve) => {
+            enqueuePrint(async () => {
+                const result = await sendPrintCommandAndWait(targetSocket, payload);
+                resolve(result);
+            });
+        });
+
+        const result = await resultPromise;
 
         if (result.success) {
             res.json({ success: true, message: "Receipt sent to printer." });

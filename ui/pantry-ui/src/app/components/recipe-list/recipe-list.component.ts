@@ -1,4 +1,4 @@
-import { AfterViewInit, Component } from "@angular/core";
+import { AfterViewInit, Component, OnDestroy } from "@angular/core";
 import { RecipeListService } from "./recipe-list.service";
 import { Recipe } from "../../types/recipe";
 import { CommonModule } from "@angular/common";
@@ -15,6 +15,9 @@ import { LocalStorageService } from "../../local-storage.service";
 import { MatListModule } from "@angular/material/list";
 import { MatInputModule } from "@angular/material/input";
 import { MatRippleModule } from "@angular/material/core";
+import { MatSlideToggleModule } from "@angular/material/slide-toggle";
+import { Subject } from "rxjs";
+import { debounceTime, distinctUntilChanged, takeUntil } from "rxjs/operators";
 
 @Component({
     selector: 'recipe-list',
@@ -34,17 +37,55 @@ import { MatRippleModule } from "@angular/material/core";
         MatIconModule,
         MatListModule,
         MatInputModule,
-        MatRippleModule
+        MatRippleModule,
+        MatSlideToggleModule
     ]
 })
-export class RecipeListComponent implements AfterViewInit {
+export class RecipeListComponent implements AfterViewInit, OnDestroy {
     public recipes: Recipe[] = [];
+    public searchQuery: string = '';
+    public showInstructions: boolean = false;
+
+    private searchSubject = new Subject<string>();
+    private destroy$ = new Subject<void>();
 
     constructor(private svc: RecipeListService, private localStorage: LocalStorageService) {
+        this.searchSubject.pipe(
+            debounceTime(300),
+            distinctUntilChanged(),
+            takeUntil(this.destroy$)
+        ).subscribe(() => {
+            this.loadRecipes();
+        });
     }
 
     ngAfterViewInit(): void {
-        this.svc.getAll().subscribe(res => {
+        this.loadRecipes();
+    }
+
+    ngOnDestroy(): void {
+        this.destroy$.next();
+        this.destroy$.complete();
+    }
+
+    onSearchInput(): void {
+        this.searchSubject.next(this.searchQuery);
+    }
+
+    clearSearch(): void {
+        this.searchQuery = '';
+        this.loadRecipes();
+    }
+
+    onToggleInstructions(): void {
+        this.loadRecipes();
+    }
+
+    loadRecipes(): void {
+        this.svc.getAll({
+            search: this.searchQuery || undefined,
+            includeInstructions: this.showInstructions
+        }).subscribe(res => {
             this.recipes = res;
         });
     }

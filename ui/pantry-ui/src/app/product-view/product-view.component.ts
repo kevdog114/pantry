@@ -412,6 +412,7 @@ export class ProductViewComponent implements OnChanges {
 
   toChatRecipe(instruction: any): ChatRecipe {
     return {
+      id: instruction.id,
       title: instruction.name,
       description: instruction.description,
       ingredients: [],

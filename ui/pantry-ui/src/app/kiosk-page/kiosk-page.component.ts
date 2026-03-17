@@ -23,7 +23,7 @@ import { Product, ProductTags, StockItem } from '../types/product';
 import { firstValueFrom, Subscription } from 'rxjs';
 import { MarkdownModule } from 'ngx-markdown';
 
-type ViewState = 'MAIN' | 'INVENTORY_MENU' | 'UTILITIES' | 'PRINT_LABELS' | 'QUICK_LABEL' | 'SCALE' | 'COOK' | 'TIMERS' | 'TIMER_KEYPAD' | 'HARDWARE' | 'LABELS' | 'LABELS_CUSTOM_DATE';
+type ViewState = 'MAIN' | 'INVENTORY_MENU' | 'UTILITIES' | 'PRINT_LABELS' | 'QUICK_LABEL' | 'SCALE' | 'COOK' | 'TIMERS' | 'TIMER_KEYPAD' | 'HARDWARE' | 'LABELS' | 'LABELS_CUSTOM_DATE' | 'LABELS_COPIES_KEYPAD';
 import { Recipe, RecipeQuickAction } from '../types/recipe';
 
 import { SocketService } from '../services/socket.service';
@@ -112,13 +112,15 @@ export class KioskPageComponent implements OnInit, OnDestroy {
     labelSelectedAction: string = 'Prepared';
     labelDayOptions: { label: string; value: string }[] = [
         { label: 'Today', value: 'today' },
-        { label: '+3 Days', value: '+3' },
-        { label: '+1 Week', value: '+7' },
         { label: 'Custom', value: 'custom' }
     ];
     labelSelectedDay: string = 'today';
     labelCustomDateDigits: string = '';
     labelCustomDateConfirmed: string = ''; // The formatted date string once confirmed
+
+    // Copies
+    labelCopies: number = 1;
+    labelCopiesKeypadValue: string = '';
 
     scannerClaimedBy: string | null = null;
     amIClaiming: boolean = false;
@@ -1027,7 +1029,8 @@ export class KioskPageComponent implements OnInit, OnDestroy {
             }
         }
 
-        // CREATE NEW — attempt with Gemini barcode-details
+        // CREATE NEW — attempt with Gemini barcode-details, with OFF fallback
+        let details: any = null;
         try {
             this.status = "Analyzing product details...";
             const detailsRes = await firstValueFrom(this.http.post<any>(`${this.env.apiUrl}/gemini/barcode-details`, {
@@ -1035,58 +1038,67 @@ export class KioskPageComponent implements OnInit, OnDestroy {
                 brand,
                 existingProductTitle: ""
             }));
-            const details = detailsRes.data;
+            details = detailsRes.data;
+        } catch (e) {
+            console.warn("Gemini barcode-details failed, will use OFF data if available", e);
+        }
 
-            // VALIDATION: If still unknown or generic, FAIL
-            const candidateTitle = details.title || offProductName;
-            if (!candidateTitle || candidateTitle === 'Unknown Product' || candidateTitle === 'New Product' || candidateTitle === `Barcode ${barcode}`) {
-                this.status = "Unknown Product";
-                this.statusSubtext = offProductName ? "AI could not identify" : "Not in OpenFoodFacts";
-                this.addToLog("Unknown Product", "Could not identify", 'error');
-                this.playErrorSound();
-                setTimeout(() => this.status = "Scan Barcode...", 3000);
-                return;
-            }
+        // Determine the best title: prefer Gemini, fall back to OFF
+        const geminiTitle = details?.title;
+        const isGenericTitle = !geminiTitle || geminiTitle === 'Unknown Product' || geminiTitle === 'New Product' || geminiTitle === `Barcode ${barcode}`;
+        const candidateTitle = isGenericTitle ? offProductName : geminiTitle;
 
-            // Resolve Tags
-            const allTags = await firstValueFrom(this.tagsService.GetAll());
-            const productTags: ProductTags[] = [];
+        // If we have NO usable title at all (no OFF data, no Gemini), give up
+        if (!candidateTitle) {
+            this.status = "Unknown Product";
+            this.statusSubtext = "Not in OpenFoodFacts";
+            this.addToLog("Unknown Product", "Could not identify", 'error');
+            this.playErrorSound();
+            setTimeout(() => this.status = "Scan Barcode...", 3000);
+            return;
+        }
 
-            if (details.tags && Array.isArray(details.tags)) {
+        // Resolve Tags (wrapped in its own try-catch so failures don't block creation)
+        const tagIds: number[] = [];
+        try {
+            if (details?.tags && Array.isArray(details.tags)) {
+                const allTags = await firstValueFrom(this.tagsService.GetAll());
                 for (const tagName of details.tags) {
                     const existing = allTags.find(t => t.name.toLowerCase() === tagName.toLowerCase());
                     if (existing) {
-                        productTags.push(existing);
+                        tagIds.push(existing.id);
                     } else {
                         try {
                             const newTag = await firstValueFrom(this.tagsService.Create({ name: tagName, group: 'General' } as any));
-                            productTags.push(newTag);
+                            tagIds.push(newTag.id);
                         } catch (e) { console.warn("Tag create failed", e); }
                     }
                 }
             }
+        } catch (e) {
+            console.warn("Tag resolution failed, creating product without tags", e);
+        }
 
-            // Create Product
+        // Create Product
+        try {
             const newProductPayload: any = {
                 title: candidateTitle,
-                tags: productTags,
+                tagIds: tagIds,
                 barcodes: [{
                     barcode: barcode,
-                    brand: details.brand || brand || "",
-                    description: details.description || "",
+                    brand: details?.brand || brand || "",
+                    description: details?.description || "",
                     tags: [],
                     quantity: 1
                 }],
-                refrigeratorLifespanDays: details.refrigeratorLifespanDays,
-                freezerLifespanDays: details.freezerLifespanDays,
-                openedLifespanDays: details.openedLifespanDays,
-                trackCountBy: details.trackCountBy || 'quantity',
-                autoPrintLabel: details.autoPrintLabel || false,
+                refrigeratorLifespanDays: details?.refrigeratorLifespanDays,
+                freezerLifespanDays: details?.freezerLifespanDays,
+                openedLifespanDays: details?.openedLifespanDays,
+                trackCountBy: details?.trackCountBy || 'quantity',
+                autoPrintLabel: details?.autoPrintLabel || false,
             };
 
             const createdProduct = await firstValueFrom(this.productService.Create(newProductPayload));
-
-            this.status = `Adding new product...`;
 
             this.pendingProduct = createdProduct;
             const today = new Date();
@@ -1100,14 +1112,15 @@ export class KioskPageComponent implements OnInit, OnDestroy {
             this.restockState = 'OPTIONS';
             this.status = "Item Options";
             this.statusSubtext = createdProduct.title;
+            this.addToLog(createdProduct.title, isGenericTitle ? "Created from OpenFoodFacts" : "Created with AI", 'success');
             this.playSuccessSound();
             return;
 
         } catch (e) {
-            console.error("AI/Create failed", e);
-            this.status = "Failed to process product.";
-            this.statusSubtext = offProductName ? `${offProductName} — AI error` : "Product not found in databases";
-            this.addToLog("Processing Failed", offProductName || barcode, 'error');
+            console.error("Product creation failed", e);
+            this.status = "Failed to create product.";
+            this.statusSubtext = candidateTitle;
+            this.addToLog("Creation Failed", candidateTitle, 'error');
             this.playErrorSound();
             setTimeout(() => this.status = "Scan Barcode...", 3000);
         }
@@ -1399,6 +1412,8 @@ export class KioskPageComponent implements OnInit, OnDestroy {
         this.labelSelectedDay = 'today';
         this.labelCustomDateDigits = '';
         this.labelCustomDateConfirmed = '';
+        this.labelCopies = 1;
+        this.labelCopiesKeypadValue = '';
     }
 
     closeLabels() {
@@ -1436,16 +1451,6 @@ export class KioskPageComponent implements OnInit, OnDestroy {
         today.setHours(0, 0, 0, 0);
         switch (this.labelSelectedDay) {
             case 'today': return today;
-            case '+3': {
-                const d = new Date(today);
-                d.setDate(d.getDate() + 3);
-                return d;
-            }
-            case '+7': {
-                const d = new Date(today);
-                d.setDate(d.getDate() + 7);
-                return d;
-            }
             case 'custom': {
                 if (this.labelCustomDateDigits.length === 8) {
                     const mm = parseInt(this.labelCustomDateDigits.substring(0, 2), 10);
@@ -1479,10 +1484,11 @@ export class KioskPageComponent implements OnInit, OnDestroy {
         this.labelService.printQuickLabel(
             this.labelSelectedAction,
             date,
-            this.labelSizeCode
+            this.labelSizeCode,
+            this.labelCopies
         ).subscribe({
             next: () => {
-                this.snackBar.open('Label printed!', 'Close', { duration: 2000 });
+                this.snackBar.open(`Label printed! (x${this.labelCopies})`, 'Close', { duration: 2000 });
             },
             error: (err) => {
                 console.error('Print failed', err);
@@ -1554,6 +1560,39 @@ export class KioskPageComponent implements OnInit, OnDestroy {
             this.viewState = 'LABELS';
             this.status = 'Labels';
         }
+    }
+
+    // --- LABELS COPIES KEYPAD ---
+    openLabelCopiesKeypad() {
+        this.labelCopiesKeypadValue = '';
+        this.viewState = 'LABELS_COPIES_KEYPAD';
+        this.status = 'Copies';
+    }
+
+    labelCopiesKeypadPress(n: number) {
+        if (this.labelCopiesKeypadValue.length < 3) {
+            this.labelCopiesKeypadValue += n.toString();
+        }
+    }
+
+    labelCopiesKeypadBackspace() {
+        this.labelCopiesKeypadValue = this.labelCopiesKeypadValue.slice(0, -1);
+    }
+
+    labelCopiesKeypadConfirm() {
+        const val = parseInt(this.labelCopiesKeypadValue, 10);
+        if (val && val > 0 && val <= 99) {
+            this.labelCopies = val;
+        } else {
+            this.labelCopies = 1;
+        }
+        this.viewState = 'LABELS';
+        this.status = 'Labels';
+    }
+
+    labelCopiesKeypadCancel() {
+        this.viewState = 'LABELS';
+        this.status = 'Labels';
     }
 
     // State for Cook Mode Scale Menu

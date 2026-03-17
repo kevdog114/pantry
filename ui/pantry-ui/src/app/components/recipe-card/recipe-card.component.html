@@ -8,8 +8,12 @@
             <button mat-icon-button (click)="downloadPdf($event)" title="Download PDF" class="save-btn">
                 <mat-icon>picture_as_pdf</mat-icon>
             </button>
-            <button mat-icon-button (click)="save($event)" title="Save to Cookbook" class="save-btn"
-                [disabled]="isSaving">
+            <a *ngIf="savedRecipeId" mat-icon-button [routerLink]="['/recipes', savedRecipeId]" title="Open in Cookbook"
+                class="save-btn" (click)="$event.stopPropagation()">
+                <mat-icon>menu_book</mat-icon>
+            </a>
+            <button *ngIf="!savedRecipeId" mat-icon-button (click)="save($event)" title="Save to Cookbook"
+                class="save-btn" [disabled]="isSaving">
                 <mat-icon *ngIf="!isSaving">save</mat-icon>
                 <mat-spinner *ngIf="isSaving" diameter="20"></mat-spinner>
             </button>

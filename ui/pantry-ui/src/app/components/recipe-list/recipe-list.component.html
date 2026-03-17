@@ -5,7 +5,23 @@
     </a>
 </div>
 
-<div class="recipe-grid">
+<div class="filter-toolbar">
+    <mat-form-field appearance="outline" class="search-field">
+        <mat-label>Search recipes</mat-label>
+        <mat-icon matPrefix>search</mat-icon>
+        <input matInput [(ngModel)]="searchQuery" (ngModelChange)="onSearchInput()"
+            placeholder="Search by name or description...">
+        <button *ngIf="searchQuery" matSuffix mat-icon-button aria-label="Clear" (click)="clearSearch()">
+            <mat-icon>close</mat-icon>
+        </button>
+    </mat-form-field>
+
+    <mat-slide-toggle [(ngModel)]="showInstructions" (change)="onToggleInstructions()" class="instructions-toggle">
+        Show cooking instructions
+    </mat-slide-toggle>
+</div>
+
+<div class="recipe-grid" *ngIf="recipes.length > 0">
     <mat-card *ngFor="let recipe of recipes" class="recipe-card" [routerLink]="['/recipes', recipe.id]" matRipple>
         <mat-card-header>
             <mat-card-title>{{recipe.title}}</mat-card-title>
@@ -24,4 +40,10 @@
             <small class="text-muted" *ngIf="recipe.createdAt">Added: {{recipe.createdAt | date:'mediumDate'}}</small>
         </mat-card-actions>
     </mat-card>
+</div>
+
+<div class="empty-state" *ngIf="recipes.length === 0">
+    <mat-icon>menu_book</mat-icon>
+    <p *ngIf="searchQuery">No recipes match "{{searchQuery}}"</p>
+    <p *ngIf="!searchQuery">No recipes found</p>
 </div>

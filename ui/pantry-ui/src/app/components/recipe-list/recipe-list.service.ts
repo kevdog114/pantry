@@ -1,4 +1,4 @@
-import { HttpClient } from "@angular/common/http";
+import { HttpClient, HttpParams } from "@angular/common/http";
 import { Injectable } from "@angular/core";
 import { Observable } from "rxjs";
 import { Recipe } from "../../types/recipe";
@@ -17,8 +17,15 @@ export class RecipeListService {
         return this.env.apiUrl + b;
     }
 
-    public getAll = (): Observable<Recipe[]> => {
-        return this.http.get<Recipe[]>(this.buildApiUrl("/recipes"))
+    public getAll = (filters?: { search?: string; includeInstructions?: boolean }): Observable<Recipe[]> => {
+        let params = new HttpParams();
+        if (filters?.search) {
+            params = params.set('search', filters.search);
+        }
+        if (filters?.includeInstructions) {
+            params = params.set('includeInstructions', 'true');
+        }
+        return this.http.get<Recipe[]>(this.buildApiUrl("/recipes"), { params });
     }
 
     public get = (id: number): Observable<Recipe> => {
