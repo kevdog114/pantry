@@ -89,20 +89,21 @@ model StockItem {
   id                Int       @id @default(autoincrement())
   productId         Int
   product          Product   @relation(fields: [productId], references: [id])
-  quantity         Int       @default(1)
-  frozen           Boolean   @default(false)
-  opened           Boolean   @default(false)
-  purchaseDate     DateTime?
-  openedDate       DateTime?
-  frozenDate       DateTime?
-  expirationDate   DateTime?
+  quantity          Int       @default(1)
+  canPartialUse     Boolean   @default(true)
+  frozen            Boolean   @default(false)
+  opened            Boolean   @default(false)
+  purchaseDate      DateTime?
+  openedDate        DateTime?
+  frozenDate        DateTime?
+  expirationDate    DateTime?
   expirationExtensionAfterThaw Int?
-  unit             String?
-  locationId       Int?
-  location         Location? @relation(fields: [locationId], references: [id])
-  createdAt        DateTime  @default(now())
-  updatedAt        DateTime  @updatedAt
-  reservations     StockReservation[]
+  unit              String?
+  locationId        Int?
+  location          Location? @relation(fields: [locationId], references: [id])
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  reservations      StockReservation[]
 }
 
 model PersonalAccessToken {
@@ -498,6 +499,14 @@ model Cookbook {
   id        Int      @id @default(autoincrement())
   name      String
   recipes   Recipe[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model WordAbbreviation {
+  id        Int      @id @default(autoincrement())
+  words     String   // Full word(s) to match, comma-separated for multiple variants
+  short     String   // The abbreviated text
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }

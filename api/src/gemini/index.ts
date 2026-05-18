@@ -24,6 +24,7 @@ export {
     recipeToolDefinitions,
     mealPlanToolDefinitions,
     timerToolDefinitions,
+    abbreviationToolDefinitions,
     otherToolDefinitions,
     chatContextToolDefinitions,
     getAllToolDefinitions,

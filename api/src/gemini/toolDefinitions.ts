@@ -399,6 +399,56 @@ export const timerToolDefinitions = [
 ];
 
 /**
+ * Abbreviation tools - manage word abbreviations for labels
+ */
+export const abbreviationToolDefinitions = [
+    {
+        name: "getAbbreviations",
+        description: "Get all word abbreviations. Returns list of abbreviations with full word(s) and abbreviated text.",
+        parameters: {
+            type: SchemaType.OBJECT,
+            properties: {}
+        }
+    },
+    {
+        name: "createAbbreviation",
+        description: "Create a new word abbreviation. The 'words' field can contain comma-separated variants (e.g. 'chicken,chkn'). The 'short' field is the abbreviated replacement text.",
+        parameters: {
+            type: SchemaType.OBJECT,
+            properties: {
+                words: { type: SchemaType.STRING, description: "Full word(s) to match, comma-separated for multiple variants" },
+                short: { type: SchemaType.STRING, description: "The abbreviated text to replace with" }
+            },
+            required: ["words", "short"]
+        }
+    },
+    {
+        name: "updateAbbreviation",
+        description: "Update an existing abbreviation by ID.",
+        parameters: {
+            type: SchemaType.OBJECT,
+            properties: {
+                id: { type: SchemaType.INTEGER, description: "ID of the abbreviation to update" },
+                words: { type: SchemaType.STRING, description: "New full word(s)" },
+                short: { type: SchemaType.STRING, description: "New abbreviated text" }
+            },
+            required: ["id"]
+        }
+    },
+    {
+        name: "deleteAbbreviation",
+        description: "Delete an abbreviation by ID.",
+        parameters: {
+            type: SchemaType.OBJECT,
+            properties: {
+                id: { type: SchemaType.INTEGER, description: "ID of the abbreviation to delete" }
+            },
+            required: ["id"]
+        }
+    }
+];
+
+/**
  * Other tools (printing, notifications, cooking instructions)
  */
 export const otherToolDefinitions = [
@@ -491,6 +541,7 @@ export function getAllToolDefinitions() {
                 ...recipeToolDefinitions,
                 ...mealPlanToolDefinitions,
                 ...timerToolDefinitions,
+                ...abbreviationToolDefinitions,
                 ...otherToolDefinitions,
                 ...chatContextToolDefinitions
             ]

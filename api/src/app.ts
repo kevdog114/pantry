@@ -36,6 +36,7 @@ import * as PlaywrightController from "./controllers/PlaywrightController";
 import * as PlaywrightProxyController from "./controllers/PlaywrightProxyController";
 import * as SalesController from "./controllers/SalesController";
 import * as CustomBarcodeController from "./controllers/CustomBarcodeController";
+import * as AbbreviationController from "./controllers/AbbreviationController";
 import cors from "cors";
 import fileUpload from "express-fileupload";
 import session from "express-session";
@@ -335,6 +336,11 @@ app.get("/uploads/:filename", (req: Request, res: Response) => {
 
 app.get("/settings", SettingsController.getSettings);
 app.put("/settings", SettingsController.updateSettings);
+
+app.get("/abbreviations", AbbreviationController.getAbbreviations);
+app.post("/abbreviations", AbbreviationController.createAbbreviation);
+app.put("/abbreviations/:id", AbbreviationController.updateAbbreviation);
+app.delete("/abbreviations/:id", AbbreviationController.deleteAbbreviation);
 
 app.get("/weather/settings", WeatherController.getSettings);
 app.post("/weather/settings", WeatherController.updateSettings);

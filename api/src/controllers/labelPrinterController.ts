@@ -3,6 +3,41 @@ import prisma from '../lib/prisma';
 import { Server } from 'socket.io';
 import { randomUUID } from 'crypto';
 
+// Helper to fetch all abbreviations
+const getAbbreviations = async () => {
+    try {
+        const abbrs = await prisma.wordAbbreviation.findMany();
+        return abbrs.map(a => ({ words: a.words, short: a.short }));
+    } catch (e) {
+        console.warn('[LabelPrinter] Failed to fetch abbreviations', e);
+        return [];
+    }
+};
+
+// Cache for timezone setting to avoid repeated DB lookups
+let cachedTimezone: string | null = null;
+let timezoneCacheTime: number = 0;
+
+const getTimezone = async (): Promise<string> => {
+    // Use cached value if less than 60 seconds old
+    const now = Date.now();
+    if (cachedTimezone && (now - timezoneCacheTime) < 60000) {
+        return cachedTimezone;
+    }
+
+    try {
+        const setting = await prisma.systemSetting.findUnique({
+            where: { key: 'system_timezone' }
+        });
+        cachedTimezone = setting?.value || 'UTC';
+        timezoneCacheTime = now;
+        return cachedTimezone;
+    } catch (e) {
+        console.warn('[LabelPrinter] Failed to fetch timezone setting, falling back to UTC', e);
+        return 'UTC';
+    }
+};
+
 export const printLabel = async (req: Request, res: Response, next: NextFunction): Promise<any> => {
     // Legacy endpoint
     res.status(501).json({ message: "Legacy endpoint not supported in new system yet." });
@@ -10,18 +45,32 @@ export const printLabel = async (req: Request, res: Response, next: NextFunction
 
 // Helper to send print command and wait for result
 const sendPrintCommandAndWait = async (targetSocket: any, payload: any): Promise<{ success: boolean, message: string }> => {
+    const socketId = targetSocket.id || 'unknown';
+    const printType = payload.type || 'UNKNOWN';
+    const startTime = Date.now();
+
     return new Promise((resolve, reject) => {
         const requestId = randomUUID();
         payload.requestId = requestId;
 
+        console.log(`[Print] Sending ${printType} print job (id=${requestId.slice(0, 8)}) to socket ${socketId}, queue depth: ${printJobQueue.length}`);
+
         const timeout = setTimeout(() => {
             cleanup();
+            const elapsed = Date.now() - startTime;
+            console.error(`[Print] TIMEOUT after ${elapsed}ms for ${printType} (id=${requestId.slice(0, 8)}), socket=${socketId}, queue depth: ${printJobQueue.length}`);
             resolve({ success: false, message: "Print command timed out (no response from device)." });
         }, 30000); // 30 second timeout (increased for queued jobs)
 
         const listener = (data: any) => {
             if (data && data.requestId === requestId) {
                 cleanup();
+                const elapsed = Date.now() - startTime;
+                if (data.success) {
+                    console.log(`[Print] SUCCESS ${printType} (id=${requestId.slice(0, 8)}) in ${elapsed}ms`);
+                } else {
+                    console.error(`[Print] FAILED ${printType} (id=${requestId.slice(0, 8)}) in ${elapsed}ms: ${data.message}`);
+                }
                 resolve({
                     success: data.success,
                     message: data.message
@@ -59,6 +108,9 @@ const processPrintJobQueue = async () => {
     }
 
     isProcessingPrintQueue = false;
+    if (printJobQueue.length > 0) {
+        console.log(`[PrintQueue] Still processing, remaining jobs: ${printJobQueue.length}`);
+    }
 };
 
 const enqueuePrint = (job: () => Promise<void>) => {
@@ -165,6 +217,7 @@ export const printStockLabel = async (req: Request, res: Response, next: NextFun
         }
 
         const { size, copies } = req.body;
+        const abbreviations = await getAbbreviations();
 
         const payload = {
             type: 'STOCK_LABEL',
@@ -180,7 +233,8 @@ export const printStockLabel = async (req: Request, res: Response, next: NextFun
                 opened: stockItem.opened,
                 openedDate: stockItem.openedDate ? stockItem.openedDate.toISOString().split('T')[0] : null,
                 frozenDate: stockItem.frozenDate ? stockItem.frozenDate.toISOString().split('T')[0] : null,
-                createdDate: stockItem.createdAt ? stockItem.createdAt.toISOString().split('T')[0] : null
+                createdDate: stockItem.createdAt ? stockItem.createdAt.toISOString().split('T')[0] : null,
+                abbreviations
             }
         };
 
@@ -270,13 +324,16 @@ export const printRecipeLabel = async (req: Request, res: Response, next: NextFu
             return;
         }
 
+        const abbreviations = await getAbbreviations();
+
         const payload = {
             type: 'RECIPE_LABEL',
             data: {
                 title: recipe.name,
                 preparedDate: new Date().toISOString().split('T')[0],
                 qrData: `R-${recipe.id}`,
-                size: size || 'continuous'
+                size: size || 'continuous',
+                abbreviations
             }
         };
 
@@ -379,12 +436,13 @@ export const printShoppingList = async (req: Request, res: Response, next: NextF
         const uncheckedItems = list.items.filter(i => !i.checked);
         const checkedItems = list.items.filter(i => i.checked);
 
+        const tz = await getTimezone();
         const payload = {
             type: 'SHOPPING_LIST',
             data: {
                 title: 'Shopping List',
                 date: new Date().toLocaleString("en-US", {
-                    timeZone: "America/Chicago",
+                    timeZone: tz,
                     dateStyle: 'medium',
                     timeStyle: 'short'
                 }),
@@ -495,8 +553,9 @@ export const printReceipt = async (req: Request, res: Response, next: NextFuncti
         receiptData.qrData = `R-${recipe.id}`;
 
         // Add Date
+        const receiptTz = await getTimezone();
         receiptData.date = new Date().toLocaleString("en-US", {
-            timeZone: "America/Chicago",
+            timeZone: receiptTz,
             dateStyle: 'medium',
             timeStyle: 'short'
         });

@@ -1,0 +1,54 @@
+.abbreviations-page {
+  padding: 16px;
+}
+
+.settings-card {
+  max-width: 800px;
+}
+
+.settings-card h2 {
+  margin-top: 0;
+}
+
+.subtitle {
+  color: #666;
+  margin-bottom: 24px;
+}
+
+.add-form {
+  display: flex;
+  gap: 8px;
+  align-items: flex-end;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+}
+
+.words-field {
+  flex: 2;
+  min-width: 200px;
+}
+
+.short-field {
+  flex: 1;
+  min-width: 120px;
+}
+
+.add-form button {
+  height: 56px;
+  white-space: nowrap;
+}
+
+.table-container {
+  overflow-x: auto;
+}
+
+.abbreviations-table {
+  width: 100%;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 40px 16px;
+  color: #999;
+  font-style: italic;
+}

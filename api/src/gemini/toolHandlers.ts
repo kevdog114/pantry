@@ -758,6 +758,65 @@ export async function executeToolHandler(
             }
 
             // ========================================
+            // ABBREVIATION TOOLS
+            // ========================================
+
+            case "getAbbreviations": {
+                const abbreviations = await prisma.wordAbbreviation.findMany({
+                    orderBy: { words: 'asc' }
+                });
+                return {
+                    abbreviations: abbreviations.map(a => ({
+                        id: a.id,
+                        words: a.words,
+                        short: a.short
+                    }))
+                };
+            }
+
+            case "createAbbreviation": {
+                const abbreviation = await prisma.wordAbbreviation.create({
+                    data: {
+                        words: args.words,
+                        short: args.short
+                    }
+                });
+                return {
+                    message: `Created abbreviation: "${args.words}" -> "${args.short}". Please confirm to the user.`,
+                    id: abbreviation.id
+                };
+            }
+
+            case "updateAbbreviation": {
+                const data: any = {};
+                if (args.words !== undefined) data.words = args.words;
+                if (args.short !== undefined) data.short = args.short;
+                const abbreviation = await prisma.wordAbbreviation.update({
+                    where: { id: args.id },
+                    data
+                });
+                return {
+                    message: `Updated abbreviation. Please confirm to the user.`,
+                    id: abbreviation.id,
+                    words: abbreviation.words,
+                    short: abbreviation.short
+                };
+            }
+
+            case "deleteAbbreviation": {
+                const existing = await prisma.wordAbbreviation.findUnique({
+                    where: { id: args.id }
+                });
+                if (!existing) return { error: `Abbreviation with ID ${args.id} not found.` };
+                await prisma.wordAbbreviation.delete({
+                    where: { id: args.id }
+                });
+                return {
+                    message: `Deleted abbreviation "${existing.words}" -> "${existing.short}". Please confirm to the user.`
+                };
+            }
+
+            // ========================================
             // CHAT CONTEXT TOOLS
             // ========================================
 

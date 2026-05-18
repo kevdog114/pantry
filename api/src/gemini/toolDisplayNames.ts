@@ -47,6 +47,12 @@ export const toolDisplayNames: Record<string, string> = {
     createTimer: "Starting timer...",
     deleteTimer: "Stopping timer...",
 
+    // Abbreviation Tools
+    getAbbreviations: "Loading abbreviations...",
+    createAbbreviation: "Creating abbreviation...",
+    updateAbbreviation: "Updating abbreviation...",
+    deleteAbbreviation: "Deleting abbreviation...",
+
     // Chat Context Tools
     getFullChatHistory: "Retrieving conversation history...",
     getChatRecipe: "Looking up recipe from this chat..."
