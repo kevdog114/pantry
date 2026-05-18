@@ -173,12 +173,19 @@ export const getById = async (req: Request, res: Response, next: NextFunction): 
             prepTasks: true,
             files: true,
             quickActions: true,
-            safeTemps: true
+            safeTemps: true,
+            cookbooks: true
         }
     });
 
     if (!recipe) {
         res.sendStatus(404);
+        return;
+    }
+
+    // Redirect if this recipe is marked as a duplicate
+    if (recipe.duplicateOfRecipeId) {
+        res.json({ redirect: true, redirectRecipeId: recipe.duplicateOfRecipeId });
         return;
     }
 
@@ -342,6 +349,8 @@ const mapToResponse = (recipe: any) => {
         receiptSteps: recipe.receiptSteps,
         quickActions: recipe.quickActions || [],
         type: recipe.type,
-        instructionForProductId: recipe.instructionForProductId
+        instructionForProductId: recipe.instructionForProductId,
+        cookbooks: recipe.cookbooks || [],
+        duplicateOfRecipeId: recipe.duplicateOfRecipeId
     };
 }

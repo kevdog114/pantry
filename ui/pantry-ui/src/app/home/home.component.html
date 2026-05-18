@@ -41,6 +41,10 @@
                     <mat-icon>print</mat-icon>
                     <span>Quick Label</span>
                 </a>
+                <a mat-ripple [routerLink]="['/gemini-chat']" class="action-tile">
+                    <mat-icon>smart_toy</mat-icon>
+                    <span>Smart Chat</span>
+                </a>
             </div>
         </section>
 
@@ -53,6 +57,32 @@
 
             <!-- Right Column: Expiring & Recent -->
             <div class="widget-column">
+                <section class="list-widget" *ngIf="prepProducts.length > 0">
+                    <div class="widget-header">
+                        <h3>
+                            <mat-icon style="vertical-align: middle; margin-right: 8px;">freezing</mat-icon>
+                            Prep (Frozen)
+                        </h3>
+                    </div>
+                    <div class="compact-list">
+                        <div *ngFor="let product of prepProducts" class="compact-item"
+                            [routerLink]="['/products', product.id]" mat-ripple>
+                            <div class="item-img">
+                                <img [src]="getImageUrl(product)" *ngIf="getImageUrl(product)" loading="lazy"
+                                    alt="{{product.title}}">
+                                <div class="icon-placeholder" *ngIf="!getImageUrl(product)">
+                                    <mat-icon>freezing</mat-icon>
+                                </div>
+                            </div>
+                            <div class="item-details">
+                                <span class="item-title">{{ product.title }}</span>
+                                <span class="item-subtitle expires">Expires {{ product.minExpiration | date:'mediumDate'
+                                    }}</span>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
                 <section class="list-widget" *ngIf="leftoverProducts.length > 0">
                     <div class="widget-header">
                         <h3>

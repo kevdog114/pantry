@@ -5,6 +5,11 @@
     margin-bottom: 16px;
 }
 
+.header-actions {
+    display: flex;
+    gap: 8px;
+}
+
 .filter-toolbar {
     display: flex;
     align-items: center;

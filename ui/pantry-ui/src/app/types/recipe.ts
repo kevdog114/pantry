@@ -33,6 +33,8 @@ export interface Recipe {
     }[];
     files?: FileMeta[];
     quickActions?: RecipeQuickAction[];
+    cookbooks?: { id: number; name: string }[];
+    duplicateOfRecipeId?: number | null;
 }
 
 export interface RecipeQuickAction {

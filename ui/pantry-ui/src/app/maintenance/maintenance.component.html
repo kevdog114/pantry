@@ -1,0 +1,24 @@
+<div class="header-container">
+    <h1>Maintenance</h1>
+</div>
+
+<p class="page-description">
+    Maintenance tools to help organize and clean up your pantry data.
+    These tools use AI to analyze your data and suggest improvements.
+</p>
+
+<div class="maintenance-grid">
+    <mat-card class="maintenance-card" (click)="launchDuplicateFinder()" matRipple>
+        <mat-card-content>
+            <div class="card-icon">
+                <mat-icon>format_list_bulleted_add</mat-icon>
+            </div>
+            <h3>Duplicate Recipe Finder</h3>
+            <p>Find and resolve duplicate recipes in your collection. Uses AI to compare recipes and help you consolidate duplicates while preserving recipe IDs for QR codes.</p>
+            <div class="card-footer">
+                <span class="badge">AI-Powered</span>
+                <button mat-raised-button color="primary">Launch</button>
+            </div>
+        </mat-card-content>
+    </mat-card>
+</div>

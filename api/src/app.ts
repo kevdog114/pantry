@@ -6,6 +6,8 @@ import * as RecipeController from "./controllers/RecipeController";
 import * as TimerController from "./controllers/TimerController";
 import * as ProductSearchController from "./controllers/ProductSearchController";
 import * as LeftoverController from "./controllers/LeftoverController";
+import * as PrepController from "./controllers/PrepController";
+import * as CookbookController from "./controllers/CookbookController";
 
 import * as ImageController from "./controllers/ImageController";
 import * as StockItemController from "./controllers/StockItemController";
@@ -64,6 +66,7 @@ app.use((req, res, next) => {
     const start = Date.now();
     res.on('finish', () => {
         const duration = Date.now() - start;
+        if (req.method === 'GET' && req.originalUrl === '/timers') return;
         console.log(`${req.method} ${req.originalUrl} ${res.statusCode} ${duration}ms`);
     });
     next();
@@ -250,6 +253,15 @@ app.get("/recipes/:id", RecipeController.getById);
 app.put("/recipes/:id", RecipeController.update);
 app.delete("/recipes/:id", RecipeController.deleteById);
 app.post("/recipes/:id/leftover", LeftoverController.create);
+app.post("/recipes/:id/prep", PrepController.create);
+
+app.get("/cookbooks", CookbookController.getAll);
+app.get("/cookbooks/:id", CookbookController.getById);
+app.post("/cookbooks", CookbookController.create);
+app.put("/cookbooks/:id", CookbookController.update);
+app.delete("/cookbooks/:id", CookbookController.deleteById);
+app.post("/cookbooks/:id/recipes/:recipeId", CookbookController.addRecipe);
+app.delete("/cookbooks/:id/recipes/:recipeId", CookbookController.removeRecipe);
 
 
 app.post("/files", ImageController.create);
@@ -280,6 +292,7 @@ app.get("/product-search", ProductSearchController.search);
 app.get("/product-search-all", ProductSearchController.getall);
 
 app.get("/gemini/chat/sessions", ChatController.getSessions);
+app.post("/gemini/chat/sessions", ChatController.createSession);
 app.get("/gemini/chat/sessions/:id", ChatController.getSession);
 app.delete("/gemini/chat/sessions/:id", ChatController.deleteSession);
 

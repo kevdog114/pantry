@@ -1,0 +1,42 @@
+mat-dialog-content {
+    max-height: 60vh;
+    overflow-y: auto;
+    min-width: 350px;
+}
+
+.cookbook-item {
+    margin-bottom: 8px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+
+    &:hover {
+        background-color: rgba(0, 0, 0, 0.04);
+    }
+}
+
+.cookbook-name {
+    font-weight: 500;
+}
+
+.check-indicator {
+    color: var(--mat-primary-color);
+}
+
+.loading-state,
+.empty-state {
+    text-align: center;
+    padding: 24px;
+    color: var(--mat-card-subtitle-text-color);
+}
+
+.text-muted {
+    opacity: 0.7;
+}
+
+.me-2 {
+    margin-right: 8px;
+}
+
+.ms-2 {
+    margin-left: 8px;
+}

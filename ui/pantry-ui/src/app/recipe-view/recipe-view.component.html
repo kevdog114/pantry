@@ -56,6 +56,9 @@
             <button mat-stroked-button color="accent" (click)="createLeftover()">
                 <mat-icon>inventory_2</mat-icon> Make Leftover
             </button>
+            <button mat-stroked-button color="accent" (click)="createPrep()">
+                <mat-icon>freezing</mat-icon> Make Prep
+            </button>
         </div>
     </div>
 
@@ -91,6 +94,25 @@
                 <span class="value">{{ recipe.yield || '-' }}</span>
             </div>
         </div>
+    </div>
+
+    <mat-divider class="my-4"></mat-divider>
+
+    <!-- Cookbooks Section -->
+    <div class="cookbooks-section" *ngIf="cookbooks.length > 0 || true">
+        <div class="cookbooks-header">
+            <h2>Cookbooks</h2>
+            <button mat-stroked-button color="primary" (click)="openCookbookSelect()">
+                <mat-icon>add</mat-icon> Add to Cookbook
+            </button>
+        </div>
+        <mat-list *ngIf="cookbooks.length > 0">
+            <mat-list-item *ngFor="let cb of cookbooks">
+                <mat-icon matListIcon>menu_book</mat-icon>
+                <div matListItemTitle>{{ cb.name }}</div>
+            </mat-list-item>
+        </mat-list>
+        <p *ngIf="cookbooks.length === 0" class="empty-cookbooks">Not in any cookbooks yet.</p>
     </div>
 
     <mat-divider class="my-4"></mat-divider>

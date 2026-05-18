@@ -31,6 +31,9 @@ import { HomeComponent } from './home/home.component';
 
 
 import { AuthCallbackComponent } from './auth-callback/auth-callback.component';
+import { CookbookListComponent } from './cookbook-list/cookbook-list.component';
+import { CookbookEditComponent } from './cookbook-edit/cookbook-edit.component';
+import { MaintenanceComponent } from './maintenance/maintenance.component';
 
 export const routes: Routes = [
     {
@@ -248,6 +251,31 @@ export const routes: Routes = [
     {
         path: "custom-barcodes/:id",
         loadComponent: () => import('./custom-barcodes/custom-barcode-edit/custom-barcode-edit.component').then(m => m.CustomBarcodeEditComponent),
+        canActivate: [AuthGuard]
+    },
+    {
+        path: "cookbooks",
+        component: CookbookListComponent,
+        canActivate: [AuthGuard]
+    },
+    {
+        path: "cookbooks/create",
+        component: CookbookEditComponent,
+        canActivate: [AuthGuard]
+    },
+    {
+        path: "cookbooks/:id",
+        component: CookbookEditComponent,
+        canActivate: [AuthGuard]
+    },
+    {
+        path: "cookbooks/:id/edit",
+        component: CookbookEditComponent,
+        canActivate: [AuthGuard]
+    },
+    {
+        path: "maintenance",
+        component: MaintenanceComponent,
         canActivate: [AuthGuard]
     },
     {

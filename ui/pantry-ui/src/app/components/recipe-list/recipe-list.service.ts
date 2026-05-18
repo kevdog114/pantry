@@ -48,6 +48,10 @@ export class RecipeListService {
         return this.http.post<any>(this.buildApiUrl(`/recipes/${id}/leftover`), {});
     }
 
+    public createPrep = (id: number): Observable<any> => {
+        return this.http.post<any>(this.buildApiUrl(`/recipes/${id}/prep`), {});
+    }
+
     public uploadFile = (file: File): Observable<any> => {
         const formData = new FormData();
         formData.append("file", file);

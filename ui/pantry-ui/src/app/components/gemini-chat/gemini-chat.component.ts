@@ -1,8 +1,9 @@
-import { Component, OnInit, OnDestroy } from '@angular/core';
+import { Component, OnInit, OnDestroy, AfterViewInit } from '@angular/core';
 import { GeminiService, StreamEvent } from '../../services/gemini.service';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { ActivatedRoute } from '@angular/router';
 
 import { RecipeService } from '../../services/recipe.service';
 import { SocketService } from '../../services/socket.service';
@@ -18,7 +19,7 @@ export type { ChatMessage, ChatContentItem };
   imports: [CommonModule, FormsModule, MatSnackBarModule, ChatInterfaceComponent],
   standalone: true,
 })
-export class GeminiChatComponent implements OnInit, OnDestroy {
+export class GeminiChatComponent implements OnInit, AfterViewInit, OnDestroy {
   showSidebar: boolean = true;
   isMobile: boolean = window.innerWidth <= 768;
 
@@ -45,7 +46,8 @@ export class GeminiChatComponent implements OnInit, OnDestroy {
     private geminiService: GeminiService,
     private snackBar: MatSnackBar,
     private recipeService: RecipeService,
-    private socketService: SocketService
+    private socketService: SocketService,
+    private route: ActivatedRoute
   ) {
     this.checkScreenSize();
     window.addEventListener('resize', () => this.checkScreenSize());
@@ -75,6 +77,31 @@ export class GeminiChatComponent implements OnInit, OnDestroy {
 
   ngOnDestroy() {
     this.socketService.removeListener('chat_session_updated');
+  }
+
+  ngAfterViewInit() {
+    // Handle initial prompt from query params (e.g. from maintenance page)
+    this.route.queryParams.subscribe(params => {
+      const initialPrompt = params['initialPrompt'];
+      const sessionId = params['sessionId'];
+
+      if (initialPrompt) {
+        if (sessionId) {
+          // Load existing session and send message
+          this.loadSession(parseInt(sessionId));
+          setTimeout(() => {
+            this.sendMessage(initialPrompt);
+          }, 500);
+        } else {
+          // Send as new message (will create new session)
+          setTimeout(() => {
+            this.sendMessage(initialPrompt);
+          }, 300);
+        }
+      } else if (sessionId) {
+        this.loadSession(parseInt(sessionId));
+      }
+    });
   }
 
   loadSessions() {

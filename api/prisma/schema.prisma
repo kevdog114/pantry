@@ -41,6 +41,9 @@ model Product {
   isLeftover             Boolean    @default(false)
   leftoverRecipeId       Int?
   leftoverRecipe         Recipe?    @relation("RecipeLeftovers", fields: [leftoverRecipeId], references: [id])
+  isPrep                 Boolean    @default(false)
+  prepRecipeId           Int?
+  prepRecipe             Recipe?    @relation("RecipePreps", fields: [prepRecipeId], references: [id])
   autoPrintLabel         Boolean    @default(false)
   cookingInstructions    Recipe[]   @relation("ProductInstructions")
   mealPlans              MealPlan[]
@@ -133,15 +136,21 @@ model Recipe {
   mealPlans      MealPlan[]
   tasks          MealTask[]
   leftovers      Product[]    @relation("RecipeLeftovers")
+  preps          Product[]    @relation("RecipePreps")
   files          File[]       @relation("RecipeToFile")
   receiptSteps   String?      // JSON string for receipt printer optimized steps
   quickActions   RecipeQuickAction[]
   safeTemps      RecipeSafeTemp[]
   noSafeTemps    Boolean    @default(false) // True when Gemini confirms no key ingredients needing safe temps
-  
+
   type           String     @default("recipe") // "recipe", "instruction"
   instructionForProductId Int?
   instructionForProduct   Product? @relation("ProductInstructions", fields: [instructionForProductId], references: [id])
+
+  duplicateOfRecipeId Int?
+  duplicateOf         Recipe? @relation("DuplicateRedirect", fields: [duplicateOfRecipeId], references: [id])
+  duplicates          Recipe[] @relation("DuplicateRedirect")
+  cookbooks           Cookbook[]
 }
 
 
@@ -481,6 +490,14 @@ model CustomBarcode {
   id        Int      @id @default(autoincrement())
   title     String   @default("")
   data      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Cookbook {
+  id        Int      @id @default(autoincrement())
+  name      String
+  recipes   Recipe[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }

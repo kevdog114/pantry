@@ -71,6 +71,8 @@ export interface Product {
     autoPrintLabel?: boolean,
     isLeftover?: boolean,
     leftoverRecipeId?: number,
+    isPrep?: boolean,
+    prepRecipeId?: number,
     cookingInstructions?: Array<{
         id: number;
         name: string;

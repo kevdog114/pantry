@@ -1,0 +1,29 @@
+<h2 mat-dialog-title>Add to Cookbook</h2>
+<mat-dialog-content>
+    <div *ngIf="loading" class="loading-state">
+        Loading cookbooks...
+    </div>
+    <div *ngIf="!loading && cookbooks.length === 0" class="empty-state">
+        <p>No cookbooks yet. Create one first!</p>
+        <a mat-button color="primary" [routerLink]="['/cookbooks/create']" (click)="close()">
+            <mat-icon>add</mat-icon> Create Cookbook
+        </a>
+    </div>
+    <mat-card *ngFor="let cb of cookbooks" class="cookbook-item" (click)="toggleCookbook(cb)">
+        <mat-card-content class="d-flex align-items-center justify-content-between">
+            <div class="d-flex align-items-center">
+                <mat-checkbox [checked]="ischecked(cb)" class="me-2" (click)="$event.stopPropagation()">
+                </mat-checkbox>
+                <mat-icon class="me-2">library_books</mat-icon>
+                <div>
+                    <div class="cookbook-name">{{ cb.name }}</div>
+                    <small class="text-muted">{{ cb._count?.recipes || 0 }} recipes</small>
+                </div>
+            </div>
+            <mat-icon class="check-indicator" *ngIf="ischecked(cb)">check_circle</mat-icon>
+        </mat-card-content>
+    </mat-card>
+</mat-dialog-content>
+<mat-dialog-actions align="end">
+    <button mat-button (click)="close()">Close</button>
+</mat-dialog-actions>

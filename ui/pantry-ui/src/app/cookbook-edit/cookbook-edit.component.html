@@ -1,0 +1,100 @@
+<div class="header-container">
+    <div class="header-left">
+        <a mat-icon-button [routerLink]="['/cookbooks']">
+            <mat-icon>arrow_back</mat-icon>
+        </a>
+        <h1 *ngIf="!isNew">{{ cookbook?.name }}</h1>
+        <h1 *ngIf="isNew">Create Cookbook</h1>
+    </div>
+    <div class="header-actions" *ngIf="!isNew">
+        <button mat-stroked-button color="primary" (click)="openRecipeSelector()">
+            <mat-icon>add</mat-icon> Manage Recipes
+        </button>
+    </div>
+</div>
+
+<!-- Name Edit -->
+<div class="name-section">
+    <mat-form-field appearance="outline" class="name-field">
+        <mat-label>Cookbook name</mat-label>
+        <input matInput [(ngModel)]="name" (keydown.enter)="save()" placeholder="Enter cookbook name">
+        <button matSuffix mat-icon-button (click)="save()" [disabled]="!name.trim() || saving">
+            <mat-spinner *ngIf="saving" [diameter]="20"></mat-spinner>
+            <mat-icon *ngIf="!saving">check</mat-icon>
+        </button>
+    </mat-form-field>
+</div>
+
+<!-- Recipe List -->
+<div *ngIf="!isNew && !loading">
+    <mat-divider class="my-4"></mat-divider>
+
+    <div class="recipe-list-section">
+        <h2>Recipes ({{ cookbookRecipes.length }})</h2>
+        <mat-list *ngIf="cookbookRecipes && cookbookRecipes.length > 0">
+            <mat-list-item *ngFor="let recipe of cookbookRecipes">
+                <mat-icon matListIcon>menu_book</mat-icon>
+                <div matListItemTitle [routerLink]="['/recipes', recipe.id]" class="recipe-link">
+                    {{ recipe.name || recipe.title }}
+                </div>
+                <div matListItemLine class="recipe-meta">
+                    <span *ngIf="recipe.prepTime || recipe.cookTime">
+                        {{ recipe.prepTime || 0 }}/{{ recipe.cookTime || 0 }} min
+                    </span>
+                </div>
+                <button mat-icon-button matListItemMeta (click)="removeRecipe(recipe.id)">
+                    <mat-icon>close</mat-icon>
+                </button>
+            </mat-list-item>
+        </mat-list>
+        <div class="empty-state" *ngIf="!cookbookRecipes || cookbookRecipes.length === 0">
+            <mat-icon>menu_book</mat-icon>
+            <p>No recipes in this cookbook yet</p>
+            <button mat-stroked-button color="primary" (click)="openRecipeSelector()">
+                Add Recipes
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Recipe Selector Dialog -->
+<div class="recipe-selector-overlay" *ngIf="showRecipeSelector" (click)="cancel()">
+    <div class="recipe-selector-panel" (click)="$event.stopPropagation()">
+        <div class="selector-header">
+            <h2>Manage Recipes</h2>
+            <button mat-icon-button (click)="cancel()">
+                <mat-icon>close</mat-icon>
+            </button>
+        </div>
+
+        <mat-form-field appearance="outline" class="search-field">
+            <mat-label>Search recipes</mat-label>
+            <input matInput #recipeSearch (input)="filterRecipes(recipeSearch.value)" placeholder="Search...">
+        </mat-form-field>
+
+        <div class="recipe-checkbox-list">
+            <mat-list>
+                <mat-list-item *ngFor="let recipe of filteredRecipes">
+                    <mat-checkbox
+                        [checked]="selectedRecipeIds.has(recipe.id)"
+                        (change)="toggleRecipe(recipe.id)"
+                        class="recipe-checkbox">
+                        <div class="recipe-info">
+                            <span class="recipe-name">{{ recipe.title || recipe.name }}</span>
+                            <span class="recipe-time" *ngIf="recipe.prepTime || recipe.cookTime">
+                                {{ recipe.prepTime || 0 }}/{{ recipe.cookTime || 0 }} min
+                            </span>
+                        </div>
+                    </mat-checkbox>
+                </mat-list-item>
+            </mat-list>
+        </div>
+
+        <div class="selector-footer">
+            <button mat-stroked-button (click)="cancel()">Cancel</button>
+            <button mat-flat-button color="primary" (click)="saveRecipes()">
+                Save ({{ selectedRecipeIds.size }} selected)
+            </button>
+        </div>
+    </div>
+</div>

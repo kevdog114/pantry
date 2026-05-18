@@ -1,8 +1,13 @@
 <div class="header-container">
     <h1>Recipes</h1>
-    <a mat-raised-button color="primary" [routerLink]="['/recipes', 'create']">
-        <mat-icon>add</mat-icon> Create Recipe
-    </a>
+    <div class="header-actions">
+        <a mat-raised-button color="primary" [routerLink]="['/cookbooks']">
+            <mat-icon>library_books</mat-icon> Cookbooks
+        </a>
+        <a mat-raised-button color="primary" [routerLink]="['/recipes', 'create']">
+            <mat-icon>add</mat-icon> Create Recipe
+        </a>
+    </div>
 </div>
 
 <div class="filter-toolbar">

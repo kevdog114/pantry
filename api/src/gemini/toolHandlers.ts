@@ -444,6 +444,28 @@ export async function executeToolHandler(
                 return queryProducts;
             }
 
+            case "getAllRecipes": {
+                const allRecipes = await prisma.recipe.findMany({
+                    where: { type: { not: 'instruction' } },
+                    select: { id: true, name: true, description: true, prepTime: true, cookTime: true, totalTime: true, source: true }
+                });
+                return { recipes: allRecipes };
+            }
+
+            case "setDuplicateOfRecipeId": {
+                const duplicate = await prisma.recipe.findUnique({ where: { id: args.duplicateId } });
+                if (!duplicate) return { error: `Recipe ${args.duplicateId} not found` };
+                const parent = await prisma.recipe.findUnique({ where: { id: args.parentRecipeId } });
+                if (!parent) return { error: `Parent recipe ${args.parentRecipeId} not found` };
+                await prisma.recipe.update({
+                    where: { id: args.duplicateId },
+                    data: { duplicateOfRecipeId: args.parentRecipeId }
+                });
+                return {
+                    message: `Marked "${duplicate.name}" (ID: ${args.duplicateId}) as duplicate of "${parent.name}" (ID: ${args.parentRecipeId}). The duplicate will now redirect to the parent. Please confirm this to the user.`
+                };
+            }
+
             case "getRecipes":
             case "searchRecipes": {
                 const recipes = await prisma.recipe.findMany({

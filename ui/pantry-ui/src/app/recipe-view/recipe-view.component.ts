@@ -10,6 +10,7 @@ import { Recipe } from '../types/recipe';
 import { RecipeListService } from '../components/recipe-list/recipe-list.service';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { AudioChatDialogComponent } from '../components/audio-chat-dialog/audio-chat-dialog.component';
+import { CookbookSelectDialogComponent } from '../cookbook-select-dialog/cookbook-select-dialog.component';
 
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatTooltipModule } from '@angular/material/tooltip';
@@ -20,6 +21,7 @@ import { KioskService } from '../services/kiosk.service';
 import { EnvironmentService } from '../services/environment.service';
 import { RecipePdfService } from '../services/recipe-pdf.service';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { MatListModule } from '@angular/material/list';
 
 @Component({
     selector: 'app-recipe-view',
@@ -35,7 +37,8 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
         MatSnackBarModule,
         MatTooltipModule,
         MatMenuModule,
-        MatProgressSpinnerModule
+        MatProgressSpinnerModule,
+        MatListModule
     ],
     templateUrl: './recipe-view.component.html',
     styleUrl: './recipe-view.component.scss'
@@ -62,6 +65,10 @@ export class RecipeViewComponent implements OnInit, OnDestroy {
         private pdfService: RecipePdfService
     ) { }
 
+    get cookbooks() {
+        return this.recipe?.cookbooks || [];
+    }
+
     ngOnInit(): void {
         this.detectPrinterMedia();
 
@@ -71,7 +78,11 @@ export class RecipeViewComponent implements OnInit, OnDestroy {
 
             if (id) {
                 this.recipeService.get(parseInt(id)).subscribe({
-                    next: (r) => {
+                    next: (r: any) => {
+                        if (r.redirect && r.redirectRecipeId) {
+                            this.router.navigate(['/recipes', r.redirectRecipeId]);
+                            return;
+                        }
                         this.recipe = r;
                         this.parseIngredients();
                         this.generateQrCode();
@@ -217,6 +228,35 @@ export class RecipeViewComponent implements OnInit, OnDestroy {
                     });
             },
             error: (err) => this.snackBar.open('Failed to create leftover', 'Close', { duration: 3000 })
+        });
+    }
+
+    createPrep() {
+        if (!this.recipe) return;
+        this.recipeService.createPrep(this.recipe.id).subscribe({
+            next: (res) => {
+                this.snackBar.open(`Prep created: ${res.product.title}`, 'Go to Home', { duration: 5000 })
+                    .onAction().subscribe(() => {
+                        this.router.navigate(['/']);
+                    });
+            },
+            error: (err) => this.snackBar.open('Failed to create prep', 'Close', { duration: 3000 })
+        });
+    }
+
+    openCookbookSelect() {
+        if (!this.recipe) return;
+        const dialogRef = this.dialog.open(CookbookSelectDialogComponent, {
+            data: { recipeId: this.recipe.id, existingCookbooks: this.cookbooks },
+            width: '500px'
+        });
+        dialogRef.afterClosed().subscribe(result => {
+            if (result) {
+                this.snackBar.open(result, 'Close', { duration: 3000 });
+                this.recipeService.get(this.recipe!.id).subscribe(r => {
+                    this.recipe = r as Recipe;
+                });
+            }
         });
     }
 

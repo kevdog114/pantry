@@ -1,4 +1,4 @@
-import { AfterViewInit, Component } from "@angular/core";
+import { AfterViewInit, Component, OnDestroy, HostListener } from "@angular/core";
 import { ProductListService } from "./product-list.service";
 import { Product, Location } from "../../types/product";
 import { LocationService } from "../../services/location.service";
@@ -20,6 +20,7 @@ import { MatInputModule } from "@angular/material/input";
 import { MatBottomSheet, MatBottomSheetModule } from '@angular/material/bottom-sheet';
 import { QuickSnackComponent } from '../quick-snack/quick-snack.component';
 import { MatTooltipModule } from '@angular/material/tooltip';
+import { ScrollTrackingService } from '../../scroll-tracking.service';
 
 type DisplayModeOption = "grid" | "list";
 type SortOption = "alphabetical" | "expire";
@@ -48,7 +49,7 @@ type SortOption = "alphabetical" | "expire";
         MatOptionModule
     ]
 })
-export class ProductListComponent implements AfterViewInit {
+export class ProductListComponent implements AfterViewInit, OnDestroy {
     public products: Product[] = [];
     public locations: Location[] = [];
     public selectedLocationId: number | undefined;
@@ -59,7 +60,7 @@ export class ProductListComponent implements AfterViewInit {
         return this.localStorage.getItem("product-list-display-mode");
     }
 
-    constructor(private svc: ProductListService, private locationService: LocationService, private localStorage: LocalStorageService, private bottomSheet: MatBottomSheet, private env: EnvironmentService) {
+    constructor(private svc: ProductListService, private locationService: LocationService, private localStorage: LocalStorageService, private bottomSheet: MatBottomSheet, private env: EnvironmentService, private scrollTracking: ScrollTrackingService) {
         console.log("display mode", this.DisplayMode);
         if (this.DisplayMode === null)
             this.DisplayMode = "grid";
@@ -124,5 +125,18 @@ export class ProductListComponent implements AfterViewInit {
 
     public openQuickSnack() {
         this.bottomSheet.open(QuickSnackComponent);
+    }
+
+    @HostListener('window:beforeunload')
+    ngOnDestroy(): void {
+        this.saveScrollState();
+    }
+
+    private saveScrollState(): void {
+        const scrollEl = document.querySelector('.product-grid') || document.documentElement;
+        this.scrollTracking.save('product-list', {
+            scrollTop: scrollEl instanceof HTMLElement ? scrollEl.scrollTop : window.scrollY,
+            searchQuery: this.searchTerm
+        });
     }
 }

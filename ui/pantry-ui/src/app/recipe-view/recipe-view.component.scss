@@ -393,3 +393,24 @@
 .print-qr-code {
     display: none;
 }
+
+.cookbooks-section {
+    .cookbooks-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 8px;
+
+        h2 {
+            margin: 0;
+            font-size: 1.25rem;
+        }
+    }
+
+    .empty-cookbooks {
+        color: var(--mat-card-subtitle-text-color);
+        opacity: 0.7;
+        font-style: italic;
+        margin: 8px 0;
+    }
+}

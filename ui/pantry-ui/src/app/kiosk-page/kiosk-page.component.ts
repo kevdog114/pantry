@@ -80,6 +80,14 @@ export class KioskPageComponent implements OnInit, OnDestroy {
     leftoverExpiration: Date | null = null;
     showLeftoverModal: boolean = false;
 
+    // Prep State
+    prepState: 'OPTIONS' | 'WEIGH' | 'QUANTITY_PAD' | 'EXPIRATION' | 'PRINT_PROMPT' = 'OPTIONS';
+    prepQuantity: number = 1;
+    prepWeight: number = 0;
+    prepMode: 'QUANTITY' | 'WEIGHT' = 'QUANTITY';
+    prepExpiration: Date | null = null;
+    showPrepModal: boolean = false;
+
     // Inventory Edit State
     inventoryState: 'SCAN' | 'DETAILS' | 'WEIGH' | 'QUANTITY' | 'EXPIRATION' | 'LOCATION' | 'OTHER_STOCK' = 'SCAN';
     inventoryProduct: Product | null = null;
@@ -2590,6 +2598,138 @@ export class KioskPageComponent implements OnInit, OnDestroy {
             this.playErrorSound();
             this.status = "Error";
             this.snackBar.open("Failed to create leftovers", "Close");
+        }
+    }
+
+    // PREP METHODS
+    openPrep() {
+        if (!this.selectedRecipe) return;
+        this.showPrepModal = true;
+        this.prepState = 'OPTIONS';
+        this.prepQuantity = 1;
+        this.prepWeight = 0;
+        this.prepMode = 'QUANTITY';
+        this.numpadValue = '';
+
+        // Default expiration (+3 months for frozen)
+        const d = new Date();
+        d.setMonth(d.getMonth() + 3);
+        this.prepExpiration = d;
+    }
+
+    closePrep() {
+        this.showPrepModal = false;
+        this.stopScaleRead();
+    }
+
+    togglePrepMode() {
+        if (this.prepMode === 'QUANTITY') {
+            this.prepMode = 'WEIGHT';
+            this.startScaleRead();
+        } else {
+            this.prepMode = 'QUANTITY';
+            this.stopScaleRead();
+        }
+    }
+
+    openPrepWeigh() {
+        this.prepState = 'WEIGH';
+        this.startScaleRead();
+    }
+
+    openPrepQuantityPad() {
+        this.prepState = 'QUANTITY_PAD';
+        this.numpadValue = '';
+    }
+
+    openPrepExpiration() {
+        this.prepState = 'EXPIRATION';
+    }
+
+    openPrepPrintPrompt() {
+        this.prepState = 'PRINT_PROMPT';
+    }
+
+    backToPrepOptions() {
+        this.prepState = 'OPTIONS';
+        this.stopScaleRead();
+    }
+
+    capturePrepWeight() {
+        this.prepWeight = this.currentWeight;
+        this.backToPrepOptions();
+    }
+
+    confirmPrepQuantity() {
+        const val = parseInt(this.numpadValue);
+        if (!isNaN(val) && val > 0) {
+            this.prepQuantity = val;
+        }
+        this.backToPrepOptions();
+    }
+
+    setPrepExpiration(val: string) {
+        const today = new Date();
+        let d: Date | null = new Date();
+        d.setHours(0, 0, 0, 0);
+
+        switch (val) {
+            case '3m': d.setMonth(today.getMonth() + 3); break;
+            case '6m': d.setMonth(today.getMonth() + 6); break;
+            case '1y': d.setFullYear(today.getFullYear() + 1); break;
+            case '2y': d.setFullYear(today.getFullYear() + 2); break;
+            case 'none': d = null; break;
+            default: d = null;
+        }
+
+        this.prepExpiration = d;
+        this.backToPrepOptions();
+    }
+
+    async savePrep(printType: 'NONE' | 'SINGLE' | 'MATCH_QUANTITY') {
+        if (!this.selectedRecipe) return;
+
+        const payload: any = {
+            trackBy: this.prepMode === 'WEIGHT' ? 'weight' : 'quantity'
+        };
+
+        if (this.prepMode === 'WEIGHT') {
+            payload.quantity = this.prepWeight > 0 ? this.prepWeight : this.currentWeight;
+            payload.unit = 'g';
+        } else {
+            payload.quantity = this.prepQuantity;
+        }
+
+        if (this.prepExpiration) {
+            payload.customExpirationDate = this.prepExpiration.toISOString();
+        }
+
+        this.status = "Creating Prep...";
+
+        try {
+            const res = await firstValueFrom(this.http.post<any>(`${this.env.apiUrl}/recipes/${this.selectedRecipe.id}/prep`, payload));
+            const stockItem = res.stockItem;
+
+            if (printType !== 'NONE' && stockItem) {
+                this.status = "Printing Label(s)...";
+                let printCount = 1;
+
+                if (printType === 'MATCH_QUANTITY' && this.prepMode === 'QUANTITY') {
+                    printCount = payload.quantity;
+                }
+
+                this.labelService.printStockLabel(stockItem.id, this.labelSizeCode, printCount).subscribe();
+            }
+
+            this.closePrep();
+            this.playSuccessSound();
+            this.showTempStatus("Prep Created", this.selectedRecipe.title, 2000);
+
+        } catch (e) {
+            console.error("Prep creation failed", e);
+            this.playErrorSound();
+            this.status = "Error";
+            this.snackBar.open("Failed to create prep", "Close");
         }
     }
 }

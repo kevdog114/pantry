@@ -90,3 +90,23 @@ export const deleteSession = async (req: Request, res: Response) => {
         });
     }
 };
+
+export const createSession = async (req: Request, res: Response) => {
+    try {
+        const { title, entityType, entityId } = req.body;
+        const session = await prisma.chatSession.create({
+            data: {
+                title: title || "New Chat",
+                entityType: entityType || null,
+                entityId: entityId || null
+            }
+        });
+        res.json(session);
+    } catch (error) {
+        console.error("Error creating session:", error);
+        res.status(500).json({
+            message: "error",
+            data: (error as Error).message
+        });
+    }
+};

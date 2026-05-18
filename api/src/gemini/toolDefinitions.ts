@@ -247,6 +247,26 @@ export const recipeToolDefinitions = [
         }
     },
     {
+        name: "getAllRecipes",
+        description: "Get ALL recipes in the system (no search filter). Returns list of all recipes with IDs, names, descriptions, and times. Use when you need to browse the full recipe list, find duplicates, or analyze the entire recipe collection.",
+        parameters: {
+            type: SchemaType.OBJECT,
+            properties: {}
+        }
+    },
+    {
+        name: "setDuplicateOfRecipeId",
+        description: "Mark a recipe as a duplicate of another recipe. The duplicate recipe will redirect to the parent recipe. Use this to resolve duplicate recipes - the 'duplicateId' is the recipe to mark as duplicate, and 'parentRecipeId' is the recipe it should redirect to.",
+        parameters: {
+            type: SchemaType.OBJECT,
+            properties: {
+                duplicateId: { type: SchemaType.INTEGER, description: "ID of the recipe that is a duplicate (will redirect)" },
+                parentRecipeId: { type: SchemaType.INTEGER, description: "ID of the parent/kept recipe (will be the target)" }
+            },
+            required: ["duplicateId", "parentRecipeId"]
+        }
+    },
+    {
         name: "createRecipe",
         description: "Create a new recipe in the recipe book.",
         parameters: {

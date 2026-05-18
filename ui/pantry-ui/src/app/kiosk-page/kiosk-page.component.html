@@ -884,6 +884,11 @@
                                 <span class="fs-2xl mt-4">LEFTOVERS</span>
                             </button>
 
+                            <button class="k-btn warn" (click)="openPrep()" style="grid-column: span 2;">
+                                <mat-icon style="font-size: 80px; width: 80px; height: 80px;">freezing</mat-icon>
+                                <span class="fs-2xl mt-4">PREP (FREEZE)</span>
+                            </button>
+
                         </div>
 
                         <!-- CALL OUT: SCALE SUB-MENU -->
@@ -1145,6 +1150,165 @@
             </div>
         </div>
 
+    </div>
+
+    <!-- PREP MODAL -->
+    <div *ngIf="showPrepModal" class="scale-view-overlay leftover-overlay">
+        <div class="leftover-header">
+            <button class="k-icon-btn"
+                (click)="prepState === 'OPTIONS' ? closePrep() : backToPrepOptions()">
+                <mat-icon>arrow_back</mat-icon>
+            </button>
+            <div class="leftover-header-info">
+                <span class="leftover-header-title">PREP (FREEZE)</span>
+                <span class="leftover-header-recipe">{{ selectedRecipe?.title }}</span>
+            </div>
+            <div style="width: 72px;"></div>
+        </div>
+
+        <div *ngIf="prepState === 'OPTIONS'" class="leftover-body">
+            <div class="leftover-mode-toggle">
+                <button class="leftover-mode-btn" [class.active]="prepMode === 'QUANTITY'"
+                    (click)="prepMode !== 'QUANTITY' && togglePrepMode()">
+                    <mat-icon>inventory_2</mat-icon>
+                    QUANTITY
+                </button>
+                <button class="leftover-mode-btn" [class.active]="prepMode === 'WEIGHT'"
+                    (click)="prepMode !== 'WEIGHT' && togglePrepMode()">
+                    <mat-icon>scale</mat-icon>
+                    WEIGHT
+                </button>
+            </div>
+
+            <div class="leftover-value-display"
+                (click)="prepMode === 'QUANTITY' ? openPrepQuantityPad() : openPrepWeigh()">
+                <div class="leftover-value-number" *ngIf="prepMode === 'QUANTITY'">
+                    {{ prepQuantity }}
+                </div>
+                <div class="leftover-value-number" *ngIf="prepMode === 'WEIGHT'">
+                    {{ prepWeight > 0 ? prepWeight : '---' }}
+                </div>
+                <div class="leftover-value-unit">
+                    {{ prepMode === 'QUANTITY' ? 'ITEMS' : 'GRAMS' }}
+                </div>
+                <div class="leftover-value-hint" *ngIf="prepMode === 'WEIGHT' && prepWeight === 0">
+                    TAP TO WEIGH
+                </div>
+                <div class="leftover-value-hint" *ngIf="prepMode === 'QUANTITY'">
+                    TAP TO CHANGE
+                </div>
+            </div>
+
+            <button class="leftover-expiration-row" (click)="openPrepExpiration()">
+                <div class="leftover-exp-left">
+                    <mat-icon>calendar_today</mat-icon>
+                    <span>EXPIRATION</span>
+                </div>
+                <div class="leftover-exp-right">
+                    <span class="leftover-exp-value">{{ prepExpiration ? (prepExpiration | date:'mediumDate') :
+                        'None' }}</span>
+                    <mat-icon>chevron_right</mat-icon>
+                </div>
+            </button>
+
+            <div class="leftover-actions">
+                <button class="leftover-action-btn leftover-create-only" (click)="savePrep('NONE')">
+                    <mat-icon>check_circle</mat-icon>
+                    <span>CREATE ONLY</span>
+                </button>
+
+                <button *ngIf="prepMode === 'WEIGHT' || prepQuantity === 1"
+                    class="leftover-action-btn leftover-create-print" (click)="savePrep('SINGLE')">
+                    <mat-icon>print</mat-icon>
+                    <div class="leftover-action-text">
+                        <span>CREATE & PRINT</span>
+                        <small>1 LABEL</small>
+                    </div>
+                </button>
+
+                <button *ngIf="prepMode === 'QUANTITY' && prepQuantity > 1"
+                    class="leftover-action-btn leftover-create-print" (click)="openPrepPrintPrompt()">
+                    <mat-icon>print</mat-icon>
+                    <div class="leftover-action-text">
+                        <span>CREATE & PRINT</span>
+                    </div>
+                </button>
+            </div>
+        </div>
+
+        <div *ngIf="prepState === 'PRINT_PROMPT'" class="leftover-print-prompt-body">
+            <div class="leftover-print-prompt-title">HOW MANY LABELS?</div>
+            <div class="leftover-print-prompt-grid">
+                <button class="leftover-print-prompt-btn leftover-print-prompt-single"
+                    (click)="savePrep('SINGLE')">
+                    <mat-icon>print</mat-icon>
+                    <span class="leftover-print-prompt-count">1</span>
+                    <span class="leftover-print-prompt-label">LABEL</span>
+                </button>
+                <button class="leftover-print-prompt-btn leftover-print-prompt-multi"
+                    (click)="savePrep('MATCH_QUANTITY')">
+                    <mat-icon>print</mat-icon>
+                    <span class="leftover-print-prompt-count">{{ prepQuantity }}</span>
+                    <span class="leftover-print-prompt-label">LABELS</span>
+                </button>
+            </div>
+        </div>
+
+        <div *ngIf="prepState === 'QUANTITY_PAD'" class="leftover-keypad-body">
+            <div class="keypad-container">
+                <div class="keypad-display">{{ numpadValue || '0' }}</div>
+                <div class="keypad-grid">
+                    <button class="keypad-btn" (click)="numpadValue = numpadValue + '1'">1</button>
+                    <button class="keypad-btn" (click)="numpadValue = numpadValue + '2'">2</button>
+                    <button class="keypad-btn" (click)="numpadValue = numpadValue + '3'">3</button>
+                    <button class="keypad-btn" (click)="numpadValue = numpadValue + '4'">4</button>
+                    <button class="keypad-btn" (click)="numpadValue = numpadValue + '5'">5</button>
+                    <button class="keypad-btn" (click)="numpadValue = numpadValue + '6'">6</button>
+                    <button class="keypad-btn" (click)="numpadValue = numpadValue + '7'">7</button>
+                    <button class="keypad-btn" (click)="numpadValue = numpadValue + '8'">8</button>
+                    <button class="keypad-btn" (click)="numpadValue = numpadValue + '9'">9</button>
+                    <button class="keypad-btn keypad-clear" (click)="numpadValue = ''">C</button>
+                    <button class="keypad-btn" (click)="numpadValue = numpadValue + '0'">0</button>
+                    <button class="keypad-btn keypad-enter" (click)="confirmPrepQuantity()">✓</button>
+                </div>
+            </div>
+        </div>
+
+        <div *ngIf="prepState === 'WEIGH'" class="leftover-scale-body">
+            <div class="leftover-scale-display">
+                <div class="leftover-scale-value">{{ currentWeight > 0 ? currentWeight : '---' }}</div>
+                <div class="leftover-scale-unit">GRAMS</div>
+            </div>
+            <button class="leftover-scale-btn leftover-scale-capture" (click)="capturePrepWeight()">
+                <mat-icon>check_circle</mat-icon>
+                <span>CAPTURE</span>
+            </button>
+        </div>
+
+        <div *ngIf="prepState === 'EXPIRATION'" class="leftover-expiration-body">
+            <div class="leftover-exp-grid">
+                <button class="leftover-exp-btn" (click)="setPrepExpiration('3m')">
+                    <span class="leftover-exp-btn-val">3</span>
+                    <span class="leftover-exp-btn-label">MONTHS</span>
+                </button>
+                <button class="leftover-exp-btn" (click)="setPrepExpiration('6m')">
+                    <span class="leftover-exp-btn-val">6</span>
+                    <span class="leftover-exp-btn-label">MONTHS</span>
+                </button>
+                <button class="leftover-exp-btn" (click)="setPrepExpiration('1y')">
+                    <span class="leftover-exp-btn-val">1</span>
+                    <span class="leftover-exp-btn-label">YEAR</span>
+                </button>
+                <button class="leftover-exp-btn" (click)="setPrepExpiration('2y')">
+                    <span class="leftover-exp-btn-val">2</span>
+                    <span class="leftover-exp-btn-label">YEARS</span>
+                </button>
+                <button class="leftover-exp-btn leftover-exp-none" (click)="setPrepExpiration('none')">
+                    <mat-icon>block</mat-icon>
+                    <span class="leftover-exp-btn-label">NONE</span>
+                </button>
+            </div>
+        </div>
     </div>
 
     <!-- Footer -->

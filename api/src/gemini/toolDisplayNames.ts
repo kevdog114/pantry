@@ -15,6 +15,8 @@ export const toolDisplayNames: Record<string, string> = {
     searchRecipes: "Searching recipes...",
     getRecipes: "Searching recipes...",
     getRecipeDetails: "Loading recipe details...",
+    getAllRecipes: "Loading all recipes...",
+    setDuplicateOfRecipeId: "Marking recipe as duplicate...",
 
     // Stock Tools
     getStockEntries: "Loading stock entries...",

@@ -1,0 +1,43 @@
+<div class="header-container">
+    <h1>Cookbooks</h1>
+    <a mat-raised-button color="primary" [routerLink]="['/cookbooks', 'create']">
+        <mat-icon>add</mat-icon> Create Cookbook
+    </a>
+</div>
+
+<div class="cookbook-grid" *ngIf="!loading">
+    <mat-card *ngFor="let cb of cookbooks" class="cookbook-card" [routerLink]="['/cookbooks', cb.id]" matRipple>
+        <mat-card-content>
+            <div class="cookbook-icon">
+                <mat-icon>library_books</mat-icon>
+            </div>
+            <h3>{{ cb.name }}</h3>
+            <p class="recipe-count">{{ cb._count?.recipes || 0 }} recipes</p>
+        </mat-card-content>
+        <mat-card-actions>
+            <button mat-icon-button [matMenuTriggerFor]="menu">
+                <mat-icon>more_vert</mat-icon>
+            </button>
+            <mat-menu #menu="matMenu">
+                <button mat-menu-item [routerLink]="['/cookbooks', cb.id, 'edit']">
+                    <mat-icon>edit</mat-icon> Edit
+                </button>
+                <button mat-menu-item (click)="$event.stopPropagation(); deleteCookbook(cb)">
+                    <mat-icon>delete</mat-icon> Delete
+                </button>
+            </mat-menu>
+        </mat-card-actions>
+    </mat-card>
+</div>
+
+<div class="empty-state" *ngIf="!loading && cookbooks.length === 0">
+    <mat-icon>library_books</mat-icon>
+    <p>No cookbooks yet</p>
+    <a mat-raised-button color="primary" [routerLink]="['/cookbooks', 'create']">
+        Create Your First Cookbook
+    </a>
+</div>
+
+<div class="loading-state" *ngIf="loading">
+    Loading cookbooks...
+</div>
