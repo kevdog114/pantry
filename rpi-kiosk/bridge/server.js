@@ -489,7 +489,7 @@ function connectSocket() {
             return;
         }
 
-        if (payload.type === 'STOCK_LABEL' || payload.type === 'SAMPLE_LABEL' || payload.type === 'MODIFIER_LABEL' || payload.type === 'RECIPE_LABEL' || payload.type === 'QUICK_LABEL') {
+        if (payload.type === 'STOCK_LABEL' || payload.type === 'SAMPLE_LABEL' || payload.type === 'MODIFIER_LABEL' || payload.type === 'RECIPE_LABEL' || payload.type === 'QUICK_LABEL' || payload.type === 'ASSET_LABEL') {
 
             // Start with data from payload
             const dataObj = payload.data || {};

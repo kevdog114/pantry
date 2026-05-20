@@ -350,6 +350,65 @@ def create_label_image(data):
             draw.text((text_x, y_cursor), f"Prep: {date_str}", font=font_detail, fill='black')
             # If frozen/opened were applicable to recipe labels, we'd add here, but usually not.
 
+    elif data.get('qrData', '').startswith('E-'):
+        # Asset/Equipment Label
+        title = data.get('name', 'Equipment')
+        date_str = data.get('purchaseDate', 'N/A')
+        qr_data = data.get('qrData')
+
+        height = 200
+        img = Image.new('RGB', (width, height), color='white')
+        draw = ImageDraw.Draw(img)
+
+        try:
+            font_large = ImageFont.truetype("/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf", 40)
+            font_medium = ImageFont.truetype("/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf", 28)
+            font_small = ImageFont.truetype("/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf", 20)
+        except:
+            font_large = ImageFont.load_default()
+            font_medium = ImageFont.load_default()
+            font_small = ImageFont.load_default()
+
+        # QR Code
+        qr = qrcode.QRCode(box_size=6, border=1)
+        qr.add_data(qr_data)
+        qr.make(fit=True)
+        qr_img = qr.make_image(fill_color="black", back_color="white")
+        qr_target_size = 140
+        qr_img = qr_img.resize((qr_target_size, qr_target_size))
+
+        margin_left = 20
+        margin_top = 10
+
+        img.paste(qr_img, (margin_left, margin_top))
+
+        # ID Text under QR
+        id_text = f"{qr_data}"
+        try:
+            id_w = draw.textlength(id_text, font=font_small)
+        except:
+            id_w = draw.textsize(id_text, font=font_small)[0]
+
+        id_x = margin_left + (qr_target_size - id_w) / 2
+        draw.text((id_x, margin_top + qr_target_size + 2), id_text, font=font_small, fill='black')
+
+        # Right Side Content
+        text_x = margin_left + qr_target_size + 20
+        max_text_width = width - text_x - 10
+
+        # Title Wrapping
+        title_lines = wrap_text(title, font_large, max_text_width, draw)
+
+        y_cursor = 20
+        for line in title_lines[:2]:
+            draw.text((text_x, y_cursor), line, font=font_large, fill='black')
+            y_cursor += 45
+
+        y_cursor += 10
+
+        # Purchase Date
+        draw.text((text_x, y_cursor), f"Bought: {date_str}", font=font_medium, fill='black')
+
     elif data.get('size') == '23mm':
         # 23mm Square Label - New layout: QR upper-left, date/status right of QR, name below
         width = 202
