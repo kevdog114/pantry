@@ -79,6 +79,7 @@ export class StockEditComponent implements AfterViewInit {
             expirationDate: new Date(),
             productId: this._productId!,
             quantity: 1,
+            canPartialUse: product.trackCountBy === 'weight',
             frozen: false,
             opened: false
           };

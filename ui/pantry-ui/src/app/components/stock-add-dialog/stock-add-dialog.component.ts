@@ -59,6 +59,7 @@ export class StockAddDialogComponent {
         this.stockItem = {
             productId: data.product.id,
             quantity: 1,
+            canPartialUse: data.product.trackCountBy === 'weight',
             expirationDate: today,
             frozen: false,
             opened: false,

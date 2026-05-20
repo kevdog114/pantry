@@ -93,6 +93,7 @@ export const update = async (req: Request, res: Response, next: NextFunction): P
         data: {
             expirationDate: req.body.expirationDate ? new Date(req.body.expirationDate) : undefined,
             quantity: req.body.quantity,
+            canPartialUse: req.body.canPartialUse,
             frozen: req.body.frozen,
             opened: req.body.opened,
             openedDate: req.body.openedDate ? new Date(req.body.openedDate) : undefined,
@@ -140,15 +141,9 @@ export const create = async (req: Request, res: Response, next: NextFunction): P
         const stockItem = await prisma.stockItem.create({
             data: {
                 productId,
-                expirationDate: expirationDate || undefined, // undefined to let Prisma handle null if strictly needed, though null usually works for nullable fields
-                // Wait, if expirationDate is null, passing null to nullable field is fine. 
-                // Passing undefined excludes it from the query (uses default if any, or null).
-                // In prisma create, undefined usually means "skipped".
-                // I'll use the original logic for create data construction to be safe, or just use what I parsed.
-                // original: expirationDate: req.body.expirationDate ? new Date(req.body.expirationDate) : undefined
-                // My parsed: Date object or null.
-                // Passing null to valid Date? field in Prisma works.
+                expirationDate: expirationDate || undefined,
                 quantity: req.body.quantity,
+                canPartialUse: req.body.canPartialUse !== undefined ? req.body.canPartialUse : true,
                 frozen: req.body.frozen,
                 opened: req.body.opened,
                 unit: req.body.unit,

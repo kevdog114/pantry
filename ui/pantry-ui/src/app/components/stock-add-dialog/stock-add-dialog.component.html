@@ -38,6 +38,7 @@
         <div class="d-flex gap-3">
             <mat-checkbox [(ngModel)]="stockItem.frozen">Frozen</mat-checkbox>
             <mat-checkbox [(ngModel)]="stockItem.opened">Opened</mat-checkbox>
+            <mat-checkbox *ngIf="data.product.trackCountBy === 'weight'" [(ngModel)]="stockItem.canPartialUse">Can Partially Use</mat-checkbox>
         </div>
     </div>
 </mat-dialog-content>

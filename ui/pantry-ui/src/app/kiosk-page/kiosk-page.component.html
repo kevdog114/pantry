@@ -193,34 +193,112 @@
 
                 <!-- CONSUME -->
                 <div *ngIf="activeMode === 'CONSUME'" class="h-full flex flex-col p-4 gap-4">
-                    <!-- Scanned Item Display -->
-                    <div
-                        class="flex-1 rounded-3xl bg-white/5 border border-white/10 flex flex-col items-center justify-center relative overflow-hidden">
-                        <div *ngIf="!lastScan" class="flex flex-col items-center text-gray-500 animate-pulse">
-                            <mat-icon class="text-8xl mb-4">qr_code_scanner</mat-icon>
-                            <span class="text-2xl">SCAN ITEM TO CONSUME</span>
+                    <!-- STATE: SCAN (default) -->
+                    <ng-container *ngIf="consumeState === 'SCAN'">
+                        <!-- Scanned Item Display -->
+                        <div
+                            class="flex-1 rounded-3xl bg-white/5 border border-white/10 flex flex-col items-center justify-center relative overflow-hidden">
+                            <div *ngIf="!lastScan" class="flex flex-col items-center text-gray-500 animate-pulse">
+                                <mat-icon class="text-8xl mb-4">qr_code_scanner</mat-icon>
+                                <span class="text-2xl">SCAN ITEM TO CONSUME</span>
+                            </div>
+
+                            <div *ngIf="lastScan"
+                                class="flex flex-col items-center text-center p-8 w-full animate-in fade-in zoom-in duration-300">
+                                <mat-icon *ngIf="lastScan.type === 'success'"
+                                    class="text-orange-500 text-8xl mb-4 scale-150">restaurant</mat-icon>
+                                <mat-icon *ngIf="lastScan.type === 'error'"
+                                    class="text-red-500 text-8xl mb-4 scale-150">error</mat-icon>
+                                <mat-icon *ngIf="lastScan.type === 'info'"
+                                    class="text-blue-500 text-8xl mb-4 animate-spin">sync</mat-icon>
+
+                                <h2 class="text-5xl font-bold mb-4 w-full break-words">{{ lastScan.title }}</h2>
+                                <h3 class="text-3xl text-orange-400 font-mono">{{ lastScan.status }}</h3>
+                            </div>
+
+
                         </div>
 
-                        <div *ngIf="lastScan"
-                            class="flex flex-col items-center text-center p-8 w-full animate-in fade-in zoom-in duration-300">
-                            <mat-icon *ngIf="lastScan.type === 'success'"
-                                class="text-orange-500 text-8xl mb-4 scale-150">restaurant</mat-icon>
-                            <mat-icon *ngIf="lastScan.type === 'error'"
-                                class="text-red-500 text-8xl mb-4 scale-150">error</mat-icon>
-                            <mat-icon *ngIf="lastScan.type === 'info'"
-                                class="text-blue-500 text-8xl mb-4 animate-spin">sync</mat-icon>
+                        <button class="k-btn success h-32" (click)="finishAction()">
+                            <mat-icon style="transform: scale(1.5);">check</mat-icon>
+                            <span class="text-2xl ml-4">DONE</span>
+                        </button>
+                    </ng-container>
 
-                            <h2 class="text-5xl font-bold mb-4 w-full break-words">{{ lastScan.title }}</h2>
-                            <h3 class="text-3xl text-orange-400 font-mono">{{ lastScan.status }}</h3>
+                    <!-- STATE: WEIGHT_OPTIONS (Use All / Weigh Remaining) -->
+                    <ng-container *ngIf="consumeState === 'WEIGHT_OPTIONS'">
+                        <div class="flex-1 flex flex-col gap-4 animate-in fade-in zoom-in duration-300">
+                            <div
+                                class="bg-white/5 border border-white/10 rounded-3xl p-8 flex-1 flex flex-col items-center justify-center text-center">
+                                <h2 class="text-5xl font-bold mb-2 text-white">{{ consumeProduct?.title }}</h2>
+                                <div class="text-2xl text-gray-400 mb-12 font-mono">
+                                    <span>Current: <span class="text-cyan-400 font-bold">{{ consumeItemCurrentWeight }}</span></span>
+                                </div>
+
+                                <div class="consume-weight-actions">
+                                    <button class="k-btn warn consume-action-btn" (click)="consumeUseAll()">
+                                        <mat-icon class="mb-4">delete_forever</mat-icon>
+                                        <span class="text-3xl mt-4 font-bold">USE ALL</span>
+                                    </button>
+                                    <button class="k-btn primary consume-action-btn" (click)="openConsumeWeighRemaining()">
+                                        <mat-icon class="mb-4">scale</mat-icon>
+                                        <span class="text-3xl mt-4 font-bold">WEIGH REMAINING</span>
+                                    </button>
+                                </div>
+                            </div>
+                            <button class="k-btn h-32" (click)="cancelConsume()">
+                                <mat-icon>arrow_back</mat-icon>
+                                <span class="text-2xl mt-4">BACK</span>
+                            </button>
                         </div>
+                    </ng-container>
 
+                    <!-- STATE: WEIGH_REMAINING -->
+                    <ng-container *ngIf="consumeState === 'WEIGH_REMAINING'">
+                        <div class="flex-1 flex flex-col gap-4">
+                            <div
+                                class="flex-1 bg-white/5 border border-white/10 rounded-3xl flex flex-col items-center justify-center relative overflow-hidden">
+                                <div class="absolute top-6 left-6 z-10">
+                                    <span class="text-gray-400 font-bold tracking-widest text-xl">WEIGH REMAINING</span>
+                                </div>
 
-                    </div>
+                                <div class="flex-1 flex flex-col items-center justify-center">
+                                    <div class="font-mono leading-none font-bold text-white slashed-zero"
+                                        style="font-size: 12rem;">
+                                        {{ weightInGrams | number:'1.0-0' }}
+                                    </div>
+                                    <div class="text-6xl text-cyan-400 font-bold tracking-widest uppercase mt-4">g
+                                    </div>
+                                    <!-- Secondary Units -->
+                                    <div class="scale-secondary-units" style="margin-top: 16px;">
+                                        <div class="scale-secondary-unit">
+                                            <span class="scale-secondary-value">{{ weightInOz | number:'1.0-1' }}</span>
+                                            <span class="scale-secondary-label">oz</span>
+                                        </div>
+                                        <div class="scale-secondary-divider"></div>
+                                        <div class="scale-secondary-unit">
+                                            <span class="scale-secondary-value">{{ weightInLbsOz }}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
 
-                    <button class="k-btn success h-32" (click)="finishAction()">
-                        <mat-icon style="transform: scale(1.5);">check</mat-icon>
-                        <span class="text-2xl ml-4">DONE</span>
-                    </button>
+                            <div class="grid grid-cols-3 gap-4" style="height: 200px; flex-shrink: 0;">
+                                <button class="k-btn h-full" (click)="tareScale()">
+                                    <mat-icon class="scale-150 mb-2">restart_alt</mat-icon> <span
+                                        class="text-3xl">TARE</span>
+                                </button>
+                                <button class="k-btn h-full" (click)="backToConsumeOptions()">
+                                    <mat-icon class="scale-150 mb-2">arrow_back</mat-icon> <span
+                                        class="text-3xl">BACK</span>
+                                </button>
+                                <button class="k-btn success h-full" (click)="captureConsumeRemaining()">
+                                    <mat-icon class="scale-150 mb-2">check_circle</mat-icon> <span
+                                        class="text-3xl font-bold">CAPTURE</span>
+                                </button>
+                            </div>
+                        </div>
+                    </ng-container>
                 </div>
 
                 <!-- CHECK STATUS -->
@@ -290,6 +368,13 @@
                                         {{ checkStatusTotalQty }}
                                     </span>
                                 </div>
+
+                                <!-- View Recipe (prep/leftover items) -->
+                                <button *ngIf="checkStatusSourceRecipeId"
+                                    class="k-btn accent w-full"
+                                    (click)="viewRecipeFromCheckStatus(checkStatusSourceRecipeId)">
+                                    <mat-icon>menu_book</mat-icon><span>VIEW RECIPE</span>
+                                </button>
                             </div>
                         </div>
 
@@ -1322,7 +1407,7 @@
             {{ isOnline ? 'ONLINE' : 'OFFLINE' }}
         </span>
 
-        <span class="font-mono text-gray-500">{{ currentDate | date:'MMM d, h:mm a':timezone }}</span>
+        <span class="font-mono text-gray-500">{{ currentDateTime }}</span>
         <button mat-button class="ml-4 opacity-50 hover:opacity-100" (click)="exitKiosk()">EXIT</button>
     </div>
 

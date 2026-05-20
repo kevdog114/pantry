@@ -140,7 +140,6 @@ io.on("connection", (socket) => {
 
 
     socket.on("device_register", async (data: any) => {
-        console.log(`Received device_register from socket ${socket.id}`, data);
         if (!pat) {
             console.warn(`Socket ${socket.id} has no PAT attached. Ignoring device_register.`);
             return;
@@ -148,7 +147,6 @@ io.on("connection", (socket) => {
 
         try {
             const desc = pat.description || '';
-            console.log(`Processing device_register for PAT: ${desc}`);
 
             if (desc.startsWith('Kiosk Login - ')) {
                 const kioskName = desc.substring('Kiosk Login - '.length);
@@ -160,37 +158,37 @@ io.on("connection", (socket) => {
                 });
 
                 if (kiosk) {
-                    console.log(`Found Kiosk: ${kiosk.name} (ID: ${kiosk.id})`);
                     const existing = await prisma.hardwareDevice.findFirst({
                         where: { kioskId: kiosk.id, name: data.name }
                     });
 
                     if (existing) {
-                        console.log(`Updating existing device ${existing.id}`);
+                        // Only update if status or details changed
+                        if (existing.status !== data.status || existing.details !== data.details) {
+                            let incomingDetails: any = {};
+                            try { incomingDetails = JSON.parse(data.details); } catch (e) { }
 
-                        let incomingDetails: any = {};
-                        try { incomingDetails = JSON.parse(data.details); } catch (e) { }
+                            let existingDetails: any = {};
+                            try { existingDetails = existing.details ? JSON.parse(existing.details) : {}; } catch (e) { }
 
-                        let existingDetails: any = {};
-                        try { existingDetails = existing.details ? JSON.parse(existing.details) : {}; } catch (e) { }
+                            const existingConfig = existingDetails.config || {};
+                            const incomingConfig = incomingDetails.config || {};
 
-                        const existingConfig = existingDetails.config || {};
-                        const incomingConfig = incomingDetails.config || {};
+                            // Merge config: preserve DB-only settings (like sleepDelay), overwrite with hardware-detected ones
+                            const mergedConfig = { ...existingConfig, ...incomingConfig };
+                            incomingDetails.config = mergedConfig;
 
-                        // Merge config: preserve DB-only settings (like sleepDelay), overwrite with hardware-detected ones
-                        const mergedConfig = { ...existingConfig, ...incomingConfig };
-                        incomingDetails.config = mergedConfig;
-
-                        await prisma.hardwareDevice.update({
-                            where: { id: existing.id },
-                            data: {
-                                status: data.status,
-                                details: JSON.stringify(incomingDetails),
-                                lastSeen: new Date()
-                            }
-                        });
+                            await prisma.hardwareDevice.update({
+                                where: { id: existing.id },
+                                data: {
+                                    status: data.status,
+                                    details: JSON.stringify(incomingDetails),
+                                    lastSeen: new Date()
+                                }
+                            });
+                        }
                     } else {
-                        console.log(`Registering new device`);
+                        console.log(`[Device] New device registered: ${data.name} (${data.type}) on Kiosk ${kiosk.name}`);
                         await prisma.hardwareDevice.create({
                             data: {
                                 kioskId: kiosk.id,
@@ -348,8 +346,6 @@ io.on("connection", (socket) => {
     socket.on("scale_reading", (data) => {
         // Bridge reporting weight
         if (kioskId) {
-            console.log(`Received scale_reading from Kiosk ${kioskId}`, data); // Verbose
-
             const requestId = data.requestId;
 
             if (requestId === 'poll') {

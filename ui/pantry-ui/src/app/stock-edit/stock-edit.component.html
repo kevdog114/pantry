@@ -76,6 +76,9 @@
                 <mat-checkbox name="isFrozen" [(ngModel)]="stockItem.frozen" color="primary">
                     Item is Frozen
                 </mat-checkbox>
+                <mat-checkbox *ngIf="product?.trackCountBy === 'weight'" name="canPartialUse" [(ngModel)]="stockItem.canPartialUse" color="primary">
+                    Can Partially Use
+                </mat-checkbox>
             </div>
         </div>
     </mat-card>

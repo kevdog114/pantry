@@ -64,23 +64,39 @@ function processPrintQueue() {
     printQueueProcessing = true;
 
     const job = printQueue.shift();
-    console.log(`[PrintQueue] Processing job ${job.requestId || 'unknown'} (${job.type}). Remaining: ${printQueue.length}`);
+    const jobId = job.requestId ? job.requestId.slice(0, 8) : 'unknown';
+    const jobStart = Date.now();
+    console.log(`[PrintQueue] Processing job ${jobId} (${job.type}). Remaining in queue: ${printQueue.length}`);
 
     exec(job.cmd, { timeout: 30000 }, (err, stdout, stderr) => {
         let success = true;
         let message = job.successMessage || 'Print successful';
+        const elapsed = Date.now() - jobStart;
 
         if (err) {
-            console.error(`[PrintQueue] Error for job ${job.requestId}:`, err);
-            if (stderr) console.error('[PrintQueue] Stderr:', stderr);
+            console.error(`[PrintQueue] ERROR for job ${jobId} (${job.type}) after ${elapsed}ms:`);
+            console.error(`[PrintQueue]   exit code: ${err.code}, signal: ${err.signal}`);
+            console.error(`[PrintQueue]   killed: ${err.killed}`);
+            if (stderr) {
+                console.error(`[PrintQueue]   stderr: ${stderr.trim()}`);
+            }
             success = false;
             message = stderr || err.message || 'Unknown print error';
             if (err.signal === 'SIGTERM') {
                 message = 'Printer script timed out (hung). Check hardware connection.';
+                console.error(`[PrintQueue]   Note: Script timed out after 30s. USB device may be locked or printer offline.`);
+            }
+            // Check for common USB errors
+            if (stderr && stderr.includes('USB')) {
+                console.error(`[PrintQueue]   Note: USB error detected. Printer may be disconnected or locked by another process.`);
+            }
+            if (stderr && (stderr.includes('Permission denied') || stderr.includes('Access denied'))) {
+                console.error(`[PrintQueue]   Note: Permission error. Check udev rules for USB access.`);
             }
         } else {
-            console.log(`[PrintQueue] Job ${job.requestId} output:`, stdout);
-            if (stderr) console.error(`[PrintQueue] Job ${job.requestId} stderr:`, stderr);
+            console.log(`[PrintQueue] Job ${jobId} (${job.type}) completed in ${elapsed}ms`);
+            if (stdout) console.log(`[PrintQueue]   stdout: ${stdout.trim()}`);
+            if (stderr && !stderr.includes('WARNING')) console.warn(`[PrintQueue]   stderr: ${stderr.trim()}`);
         }
 
         // Report result
@@ -90,7 +106,9 @@ function processPrintQueue() {
 
         // Clean up temp file
         if (job.tmpFile) {
-            try { fs.unlinkSync(job.tmpFile); } catch (e) { }
+            try { fs.unlinkSync(job.tmpFile); } catch (e) {
+                console.error(`[PrintQueue] Failed to clean up temp file ${job.tmpFile}:`, e.message);
+            }
         }
 
         // Small delay between jobs to let the USB interface fully release
@@ -255,6 +273,9 @@ function connectSocket() {
 
     socket.on('connect', () => {
         console.log('Connected to backend');
+        if (printQueue.length > 0) {
+            console.warn(`[Print] Reconnected with ${printQueue.length} leftover jobs in queue (will timeout on API side)`);
+        }
         checkDevices();
     });
 
@@ -263,7 +284,13 @@ function connectSocket() {
     });
 
     socket.on('disconnect', () => {
-        console.log('Disconnected from backend');
+        console.log(`Disconnected from backend. Pending print jobs in queue: ${printQueue.length}`);
+        if (printQueue.length > 0) {
+            console.error('[Print] WARNING: Socket disconnected with pending print jobs! Jobs will fail when they complete.');
+            printQueue.forEach((job, i) => {
+                console.error(`[Print]   Lost job ${i + 1}: ${job.type} (id=${job.requestId ? job.requestId.slice(0, 8) : 'unknown'})`);
+            });
+        }
     });
 
     socket.on('configure_device', (payload) => {
@@ -358,12 +385,16 @@ function connectSocket() {
     });
 
     socket.on('print_label', (payload) => {
-        console.log('Received print command:', payload);
-
         const requestId = payload.requestId || `auto-${crypto.randomUUID()}`;
+        const jobId = requestId.slice(0, 8);
+        const printType = payload.type || 'UNKNOWN';
+        console.log(`[Print] Received ${printType} print command (id=${jobId}), queue depth: ${printQueue.length}`);
+
         const emitComplete = (result) => {
             if (socket && socket.connected) {
                 socket.emit('print_complete', result);
+            } else {
+                console.error(`[Print] Cannot emit print_complete for job ${jobId}: socket disconnected`);
             }
         };
 
@@ -379,7 +410,7 @@ function connectSocket() {
             }
 
             if (!printerId) {
-                console.error("No receipt printer available for print job");
+                console.error(`[Print] No receipt printer available for job ${jobId}`);
                 emitComplete({ requestId, success: false, message: "No receipt printer available" });
                 return;
             }
@@ -396,7 +427,7 @@ function connectSocket() {
                     onComplete: emitComplete
                 });
             } catch (e) {
-                console.error("Error processing receipt:", e);
+                console.error(`[Print] Error processing receipt for job ${jobId}:`, e.message);
                 emitComplete({ requestId, success: false, message: "Bridge Error: " + e.message });
             }
             return;
@@ -413,7 +444,7 @@ function connectSocket() {
             }
 
             if (!printerId) {
-                console.error("No receipt printer available for custom QR print job");
+                console.error(`[Print] No receipt printer available for custom QR job ${jobId}`);
                 emitComplete({ requestId, success: false, message: "No receipt printer available" });
                 return;
             }
@@ -430,7 +461,7 @@ function connectSocket() {
                     onComplete: emitComplete
                 });
             } catch (e) {
-                console.error("Error processing custom QR receipt:", e);
+                console.error(`[Print] Error processing custom QR receipt for job ${jobId}:`, e.message);
                 emitComplete({ requestId, success: false, message: "Bridge Error: " + e.message });
             }
             return;
@@ -452,7 +483,7 @@ function connectSocket() {
                     onComplete: emitComplete
                 });
             } catch (e) {
-                console.error("Error preparing custom QR label data file:", e);
+                console.error(`[Print] Error preparing custom QR label data file for job ${jobId}:`, e.message);
                 emitComplete({ requestId, success: false, message: "Failed to prepare print data file: " + e.message });
             }
             return;
@@ -474,7 +505,7 @@ function connectSocket() {
                     if (settings.highQuality !== undefined) dataObj.dither = settings.highQuality;
                 }
             } catch (e) {
-                console.error("Error loading device settings for print:", e);
+                console.error(`[Print] Error loading device settings for job ${jobId}:`, e.message);
             }
 
             // Inject detected size if not present
@@ -505,7 +536,7 @@ function connectSocket() {
                     onComplete: emitComplete
                 });
             } catch (e) {
-                console.error("Error preparing label data file:", e);
+                console.error(`[Print] Error preparing label data file for job ${jobId}:`, e.message);
                 emitComplete({ requestId, success: false, message: "Failed to prepare print data file: " + e.message });
             }
         }

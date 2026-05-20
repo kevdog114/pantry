@@ -1624,6 +1624,26 @@
     font-weight: 700;
 }
 
+/* ---------------- CONSUME WEIGHT ACTIONS ---------------- */
+.consume-weight-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    width: 100%;
+    flex: 1;
+    min-height: 0;
+}
+
+.consume-action-btn {
+    min-height: 0;
+}
+
+.consume-action-btn mat-icon {
+    font-size: 48px;
+    width: 48px;
+    height: 48px;
+}
+
 
 
 .mic-level-bar {

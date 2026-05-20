@@ -95,6 +95,11 @@ export class KioskPageComponent implements OnInit, OnDestroy {
     inventorySelectedStockItem: StockItem | null = null;
     inventoryLocations: any[] = []; // Cache locations
 
+    // Consume State (for weight-based partial use)
+    consumeState: 'SCAN' | 'WEIGHT_OPTIONS' | 'WEIGH_REMAINING' = 'SCAN';
+    consumeProduct: Product | null = null;
+    consumeTargetItem: StockItem | null = null;
+
     isOnline: boolean = false;
 
     // View State
@@ -205,7 +210,9 @@ export class KioskPageComponent implements OnInit, OnDestroy {
 
         // Timer for date update
         this.timer = setInterval(() => {
-            this.currentDate = new Date();
+            this.ngZone.run(() => {
+                this.currentDate = new Date();
+            });
         }, 60000);
 
         // Detect printer (reused logic)
@@ -398,10 +405,13 @@ export class KioskPageComponent implements OnInit, OnDestroy {
         // Reset Sub-states
         this.restockState = 'SCAN';
         this.inventoryState = 'SCAN';
+        this.consumeState = 'SCAN';
         this.pendingProduct = null;
         this.inventoryProduct = null;
         this.inventoryStockItems = [];
         this.inventorySelectedStockItem = null;
+        this.consumeProduct = null;
+        this.consumeTargetItem = null;
         this.checkStatusProduct = null;
         this.checkStatusStockItem = null;
         this.checkStatusStockItems = [];
@@ -659,14 +669,24 @@ export class KioskPageComponent implements OnInit, OnDestroy {
                 }
 
                 if (targetItem && targetItem.id) {
+                    // Check if this is a weight-based item with partial use enabled
+                    if (product.trackCountBy === 'weight' && targetItem.canPartialUse !== false) {
+                        this.consumeProduct = product;
+                        this.consumeTargetItem = targetItem;
+                        this.consumeState = 'WEIGHT_OPTIONS';
+                        this.status = "Consume Item";
+                        this.statusSubtext = product.title;
+                        this.playSuccessSound();
+                        return;
+                    }
+
+                    // Regular quantity-based consumption
                     if (targetItem.quantity > 1) {
-                        // Decrement
                         await firstValueFrom(this.productService.UpdateStock(targetItem.id, {
                             ...targetItem,
                             quantity: targetItem.quantity - 1
                         }));
                     } else {
-                        // Delete
                         await firstValueFrom(this.productService.DeleteStock(targetItem.id));
                     }
                     this.status = "1 Unit Consumed";
@@ -751,6 +771,114 @@ export class KioskPageComponent implements OnInit, OnDestroy {
         }
     }
 
+    // Consume weight item actions
+    get consumeItemCurrentWeight(): string {
+        if (!this.consumeTargetItem) return '';
+        const qty = this.consumeTargetItem.quantity;
+        if (qty >= 1000) {
+            return `${(qty / 1000).toFixed(2)} kg`;
+        }
+        return `${qty}g`;
+    }
+
+    async consumeUseAll() {
+        if (!this.consumeTargetItem || !this.consumeProduct) return;
+        const item = this.consumeTargetItem;
+        const product = this.consumeProduct;
+
+        try {
+            await firstValueFrom(this.productService.DeleteStock(item.id!));
+            this.status = "Item Consumed";
+            this.statusSubtext = product.title;
+            this.addToLog(product.title, `Used all (${this.consumeItemCurrentWeight})`, 'success');
+            this.playSuccessSound();
+            this.consumeState = 'SCAN';
+            this.consumeProduct = null;
+            this.consumeTargetItem = null;
+            this.lastScan = { title: product.title, status: 'Used All', type: 'success' };
+            setTimeout(() => {
+                this.status = "Scan Barcode...";
+                this.statusSubtext = "";
+            }, 2000);
+        } catch (e) {
+            console.error("Failed to consume item", e);
+            this.playErrorSound();
+        }
+    }
+
+    openConsumeWeighRemaining() {
+        this.consumeState = 'WEIGH_REMAINING';
+        this.status = "Weigh Remaining";
+        this.statusSubtext = this.consumeProduct?.title || '';
+        this.startScaleRead();
+    }
+
+    backToConsumeOptions() {
+        this.stopScaleRead();
+        this.consumeState = 'WEIGHT_OPTIONS';
+        this.status = "Consume Item";
+        this.statusSubtext = this.consumeProduct?.title || '';
+    }
+
+    async captureConsumeRemaining() {
+        if (!this.consumeTargetItem || !this.consumeProduct) return;
+        if (this.currentWeight <= 0) {
+            this.snackBar.open("Weight must be > 0", "Close", { duration: 1500 });
+            return;
+        }
+
+        const item = this.consumeTargetItem;
+        const product = this.consumeProduct;
+        const originalQty = item.quantity;
+
+        try {
+            if (this.currentWeight >= originalQty) {
+                // Remaining weight >= original, treat as fully consumed
+                await firstValueFrom(this.productService.DeleteStock(item.id!));
+                this.addToLog(product.title, `Used all (${this.consumeItemCurrentWeight})`, 'success');
+                this.status = "Item Consumed";
+                this.statusSubtext = product.title;
+                this.lastScan = { title: product.title, status: 'Used All', type: 'success' };
+            } else {
+                // Update stock to remaining weight
+                await firstValueFrom(this.productService.UpdateStock(item.id!, {
+                    ...item,
+                    quantity: this.currentWeight
+                }));
+                const usedAmount = originalQty - this.currentWeight;
+                this.addToLog(product.title, `Used ${usedAmount}g (Remaining: ${this.currentWeight}g)`, 'success');
+                this.status = "Stock Updated";
+                this.statusSubtext = `${usedAmount}g consumed`;
+                this.lastScan = { title: product.title, status: `${usedAmount}g Used`, type: 'success' };
+
+                // Update local reference
+                this.consumeTargetItem = { ...item, quantity: this.currentWeight };
+            }
+
+            this.playSuccessSound();
+            this.stopScaleRead();
+            this.consumeState = 'SCAN';
+            this.consumeProduct = null;
+            this.consumeTargetItem = null;
+            setTimeout(() => {
+                this.status = "Scan Barcode...";
+                this.statusSubtext = "";
+            }, 2000);
+        } catch (e) {
+            console.error("Failed to update stock", e);
+            this.playErrorSound();
+        }
+    }
+
+    cancelConsume() {
+        this.stopScaleRead();
+        this.consumeState = 'SCAN';
+        this.consumeProduct = null;
+        this.consumeTargetItem = null;
+        this.status = "Scan Barcode...";
+        this.statusSubtext = "";
+    }
+
     // Legacy inventory handler — delegates to check status
     async handleInventoryBarcode(barcode: string) {
         await this.handleCheckStatusBarcode(barcode);
@@ -758,6 +886,33 @@ export class KioskPageComponent implements OnInit, OnDestroy {
 
     get checkStatusTotalQty(): number {
         return this.checkStatusStockItems.reduce((acc, item) => acc + item.quantity, 0);
+    }
+
+    get checkStatusSourceRecipeId(): number | undefined {
+        return this.checkStatusProduct?.prepRecipeId || this.checkStatusProduct?.leftoverRecipeId;
+    }
+
+    async viewRecipeFromCheckStatus(recipeId: number) {
+        try {
+            const recipe = await firstValueFrom(this.http.get<Recipe>(`${this.env.apiUrl}/recipes/${recipeId}`));
+            if (recipe) {
+                this.checkStatusProduct = null;
+                this.checkStatusStockItem = null;
+                this.checkStatusStockItems = [];
+                this.checkStatusIsStockScan = false;
+
+                this.viewState = 'COOK';
+                this.activeMode = 'NONE';
+                this.showCookPrintMenu = false;
+                this.showTimerActions = false;
+                this.showScaleActions = false;
+
+                this.selectInstruction(recipe);
+            }
+        } catch (e) {
+            console.error("Failed to load recipe", e);
+            this.showTempStatus("Error Loading Recipe", "", 3000);
+        }
     }
 
     get checkStatusNextExpire(): Date | null {
@@ -1156,7 +1311,8 @@ export class KioskPageComponent implements OnInit, OnDestroy {
         return await firstValueFrom(this.productService.CreateStock({
             productId: product.id,
             quantity: quantity,
-            expirationDate: expDate as any, // Cast to any if strict null checks complain, but StockItem allows null? Schema says DateTime? (nullable).
+            canPartialUse: product.trackCountBy === 'weight',
+            expirationDate: expDate as any,
             productBarcodeId: product.barcodes?.[0]?.id || 0,
             opened: false,
             frozen: false,
@@ -1224,7 +1380,7 @@ export class KioskPageComponent implements OnInit, OnDestroy {
 
             let expStr = "";
             if (addedItem && addedItem.expirationDate) {
-                expStr = ` (Exp: ${new Date(addedItem.expirationDate).toLocaleDateString()})`;
+                expStr = ` (Exp: ${this.formatDate(new Date(addedItem.expirationDate))})`;
             }
 
             this.addToLog(this.pendingProduct.title, `+${this.pendingQuantity} Unit(s) Added${expStr}`, 'success');
@@ -1299,7 +1455,7 @@ export class KioskPageComponent implements OnInit, OnDestroy {
 
             let expStr = "";
             if (addedItem && addedItem.expirationDate) {
-                expStr = ` (Exp: ${new Date(addedItem.expirationDate).toLocaleDateString()})`;
+                expStr = ` (Exp: ${this.formatDate(new Date(addedItem.expirationDate))})`;
             }
 
             // weight log
@@ -1367,6 +1523,29 @@ export class KioskPageComponent implements OnInit, OnDestroy {
 
             setTimeout(() => ctx.close(), 500);
         } catch (e) { }
+    }
+
+    formatDate(date: Date): string {
+        return date.toLocaleDateString('en-US', { timeZone: this.timezone });
+    }
+
+    formatDateMDY(date: Date): string {
+        return date.toLocaleDateString('en-US', { timeZone: this.timezone, month: '2-digit', day: '2-digit', year: 'numeric' });
+    }
+
+    formatDateMeal(date: Date): string {
+        return date.toLocaleDateString('en-US', { timeZone: this.timezone, weekday: 'short', month: 'numeric', day: 'numeric' });
+    }
+
+    get currentDateTime(): string {
+        return this.currentDate.toLocaleString('en-US', {
+            timeZone: this.timezone,
+            month: 'short',
+            day: 'numeric',
+            hour: 'numeric',
+            minute: '2-digit',
+            hour12: true
+        }).replace(',', ',');
     }
 
     getTimerForAction(action: RecipeQuickAction): any | undefined {
@@ -1477,7 +1656,7 @@ export class KioskPageComponent implements OnInit, OnDestroy {
             return this.labelCustomDateConfirmed;
         }
         const d = this.getLabelDate();
-        return d.toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' });
+        return this.formatDateMDY(d);
     }
 
     get customDayButtonText(): string {
@@ -1990,7 +2169,22 @@ export class KioskPageComponent implements OnInit, OnDestroy {
             const { product } = await this.resolveBarcode(barcode);
 
             if (product) {
-                if (product.cookingInstructions && product.cookingInstructions.length > 0) {
+                // Check if this is a meal prep or leftover item with a source recipe
+                const sourceRecipeId = product.prepRecipeId || product.leftoverRecipeId;
+                if (sourceRecipeId) {
+                    this.status = "Loading Recipe...";
+                    try {
+                        const recipe = await firstValueFrom(this.http.get<Recipe>(`${this.env.apiUrl}/recipes/${sourceRecipeId}`));
+                        if (recipe) {
+                            this.selectInstruction(recipe);
+                        } else {
+                            this.showTempStatus("Recipe Not Found", "", 3000);
+                        }
+                    } catch (e) {
+                        console.error("Failed to load source recipe", e);
+                        this.showTempStatus("Error Loading Recipe", "", 3000);
+                    }
+                } else if (product.cookingInstructions && product.cookingInstructions.length > 0) {
                     // Start logic for selecting instruction
                     this.status = product.title;
                     this.statusSubtext = "Select Instruction";
@@ -2304,7 +2498,7 @@ export class KioskPageComponent implements OnInit, OnDestroy {
         if (date.toDateString() === today.toDateString()) return 'Today';
         if (date.toDateString() === tomorrow.toDateString()) return 'Tomorrow';
 
-        return date.toLocaleDateString('en-US', { weekday: 'short', month: 'numeric', day: 'numeric' });
+        return this.formatDateMeal(date);
     }
 
     exitKiosk() {
