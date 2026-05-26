@@ -1783,16 +1783,6 @@ export const postStream = async (req: Request, res: Response) => {
 
       const reqEnd = Date.now();
 
-      // Normalize response format: Gemini SDK has candidates[0].content.parts,
-      // AI client has rawParts. Ensure consistent access.
-      if (!responseResult.candidates && responseResult.rawParts) {
-        responseResult.candidates = [{
-          content: {
-            parts: responseResult.rawParts
-          }
-        }];
-      }
-
         // Get response parts from chunks - ALWAYS aggregate from all chunks
         // The last chunk may only have the final text/FC, not all of them
         let rawResponseParts: any[] = [];

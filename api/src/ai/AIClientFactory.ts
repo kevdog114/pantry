@@ -50,8 +50,8 @@ export function resetAIClient(): void {
  * The existing toolDefinitions.ts exports tools in Gemini format.
  * This function normalizes them for use with any provider.
  */
-export function normalizeToolDefinitions(geminiTools: any[]): import("../AIClient").ToolDefinition[] {
-  const tools: import("../AIClient").ToolDefinition[] = [];
+export function normalizeToolDefinitions(geminiTools: any[]): import("./AIClient").ToolDefinition[] {
+  const tools: import("./AIClient").ToolDefinition[] = [];
 
   for (const tool of geminiTools) {
     if (tool.functionDeclarations) {
