@@ -3,6 +3,7 @@ import { executeToolHandler } from "../gemini/toolHandlers";
 import { getAllToolDefinitions } from "../gemini/toolDefinitions";
 import { getAIClient, normalizeToolDefinitions } from "../ai";
 import * as crypto from "crypto";
+import prisma from '../lib/prisma';
 
 const ai = getAIClient();
 
@@ -11,7 +12,6 @@ const ai = getAIClient();
  */
 async function getFeatureModel(featureKey: string, fallback: string = "gemini-flash-latest"): Promise<string> {
   try {
-    const { default: prisma } = await import('../lib/prisma.js');
     const setting = await prisma.systemSetting.findUnique({
       where: { key: featureKey }
     });
