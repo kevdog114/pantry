@@ -18,32 +18,55 @@ import {
   executeToolHandler,
   ToolContext
 } from "../gemini";
+import { getAIClient, normalizeToolDefinitions } from "../ai";
 
 dotenv.config();
 
-const gemini_api_key = process.env.GEMINI_API_KEY;
-if (!gemini_api_key) {
-  throw new Error("GEMINI_API_KEY is not set");
-}
+// Provider-agnostic AI client
+const ai = getAIClient();
 
-// Lazy-loaded SDK instances (ESM module requires dynamic import)
-let _ai: any = null;
+// Legacy API key check (still needed for Gemini-specific features like caching/Imagen)
+const gemini_api_key = process.env.GEMINI_API_KEY || process.env.AI_API_KEY;
+
+// Lazy-loaded Gemini SDK instances (ESM module requires dynamic import)
+// Only used for Gemini-specific features: caching, Imagen, listModels
+let _geminiAI: any = null;
 let _Type: any = null;
 
-async function getAI(): Promise<any> {
-  if (!_ai) {
-    const { GoogleGenAI, Type } = await import("@google/genai");
-    _ai = new GoogleGenAI({ apiKey: gemini_api_key });
-    _Type = Type;
+/**
+ * Get the raw Gemini SDK client for Gemini-specific features.
+ * Only available when AI_PROVIDER=gemini.
+ */
+async function getGeminiSDK(): Promise<any> {
+  if (_geminiAI) return _geminiAI;
+  const provider = (process.env.AI_PROVIDER || "gemini").toLowerCase().trim();
+  if (provider !== "gemini") {
+    throw new Error("Gemini SDK is not available when AI_PROVIDER is not gemini");
   }
-  return _ai;
+  const apiKey = process.env.GEMINI_API_KEY || process.env.AI_API_KEY;
+  if (!apiKey) {
+    throw new Error("GEMINI_API_KEY or AI_API_KEY is required for Gemini provider");
+  }
+  const { GoogleGenAI, Type } = await import("@google/genai");
+  _geminiAI = new GoogleGenAI({ apiKey });
+  _Type = Type;
+  return _geminiAI;
+}
+
+async function getAI(): Promise<any> {
+  return getGeminiSDK();
 }
 
 async function getType(): Promise<any> {
   if (!_Type) {
-    await getAI(); // This also initializes _Type
+    await getAI();
   }
   return _Type;
+}
+
+// Check if current provider is Gemini
+function isGeminiProvider(): boolean {
+  return (process.env.AI_PROVIDER || "gemini").toLowerCase().trim() === "gemini";
 }
 
 // SchemaType compatibility - maps old SDK's SchemaType to new SDK's Type
@@ -64,6 +87,11 @@ type Content = {
 };
 
 const DEFAULT_FALLBACK_MODEL = "gemini-flash-latest";
+const DEFAULT_OPENAI_MODEL = "google/gemma-4-26b-a4b";
+
+function getDefaultModel(): string {
+  return isGeminiProvider() ? DEFAULT_FALLBACK_MODEL : (process.env.AI_DEFAULT_MODEL || DEFAULT_OPENAI_MODEL);
+}
 // Models that support caching (flash models generally support it)
 const CACHE_SUPPORTED_MODELS = ["gemini-1.5-flash", "gemini-1.5-flash-latest", "gemini-2.0-flash", "gemini-2.0-flash-001", "gemini-flash-latest", "gemini-3-pro-preview"];
 
@@ -87,8 +115,9 @@ const geminiConfig = {
 };
 
 // Helper to get the model name based on feature setting or fallback
-export async function getModelName(featureKey: string, fallbackModelName: string = DEFAULT_FALLBACK_MODEL): Promise<string> {
-  let modelName = fallbackModelName;
+export async function getModelName(featureKey: string, fallbackModelName?: string): Promise<string> {
+  const defaultFallback = fallbackModelName || getDefaultModel();
+  let modelName = defaultFallback;
   try {
     const setting = await prisma.systemSetting.findUnique({
       where: { key: featureKey }
@@ -106,37 +135,69 @@ export async function getModelName(featureKey: string, fallbackModelName: string
 }
 
 // Legacy compatibility - creates a model-like wrapper for old code that expects model.generateContent()
-export async function getGeminiModel(featureKey: string, fallbackModelName: string = DEFAULT_FALLBACK_MODEL) {
+export async function getGeminiModel(featureKey: string, fallbackModelName?: string) {
   const modelName = await getModelName(featureKey, fallbackModelName);
-  const ai = await getAI();
-  const Type = await getType();
 
   // Return a wrapper object that mimics the old SDK's model interface
   return {
     model: {
       generateContent: async (request: any) => {
-        const response = await ai.models.generateContent({
-          model: modelName,
-          contents: request.contents || request,
-          config: {
-            ...geminiConfig,
-            systemInstruction: request.systemInstruction,
-            tools: adaptTools(request.tools)
-          }
-        });
-        return response;
+        const contents = request.contents || [{ role: "user", parts: [{ text: request }] }];
+        const config: any = {
+          systemInstruction: request.systemInstruction,
+          temperature: geminiConfig.temperature,
+          topP: geminiConfig.topP,
+          topK: geminiConfig.topK,
+          maxOutputTokens: geminiConfig.maxOutputTokens,
+          responseMimeType: request.generationConfig?.responseMimeType,
+          responseSchema: request.generationConfig?.responseSchema,
+        };
+
+        // Handle tools - adapt from Gemini format to unified format
+        if (request.tools) {
+          config.tools = normalizeToolDefinitions(request.tools);
+        }
+
+        const response = await ai.generateContent(modelName, contents, config);
+
+        // Wrap response to match old SDK format
+        return {
+          response: {
+            text: () => response.text,
+            candidates: response.candidates,
+            usageMetadata: response.usageMetadata,
+          },
+          text: response.text,
+          candidates: response.candidates,
+          functionCalls: response.functionCalls,
+          usageMetadata: response.usageMetadata,
+        };
       },
       generateContentStream: async (request: any) => {
-        const response = await ai.models.generateContentStream({
-          model: modelName,
-          contents: request.contents || request,
-          config: {
-            ...geminiConfig,
-            systemInstruction: request.systemInstruction,
-            tools: adaptTools(request.tools)
-          }
-        });
-        return response;
+        const contents = request.contents || [{ role: "user", parts: [{ text: request }] }];
+        const config: any = {
+          systemInstruction: request.systemInstruction,
+          temperature: geminiConfig.temperature,
+          topP: geminiConfig.topP,
+          topK: geminiConfig.topK,
+          maxOutputTokens: geminiConfig.maxOutputTokens,
+        };
+
+        if (request.tools) {
+          config.tools = normalizeToolDefinitions(request.tools);
+        }
+
+        const streamResult = await ai.generateContentStream(modelName, contents, config);
+
+        // Wrap to match old SDK stream interface
+        return {
+          stream: streamResult,
+          async *[Symbol.asyncIterator]() {
+            for await (const chunk of streamResult) {
+              yield chunk;
+            }
+          },
+        };
       }
     },
     modelName
@@ -147,8 +208,9 @@ export async function getGeminiModel(featureKey: string, fallbackModelName: stri
 export async function executeWithFallback<T>(
   featureKey: string,
   operation: (model: any) => Promise<T>,
-  fallbackModelName: string = DEFAULT_FALLBACK_MODEL
+  fallbackModelName?: string
 ): Promise<{ result: T; warning?: string }> {
+  const defaultFallback = fallbackModelName || getDefaultModel();
   const { model, modelName } = await getGeminiModel(featureKey, fallbackModelName);
 
   try {
@@ -157,14 +219,14 @@ export async function executeWithFallback<T>(
   } catch (error: any) {
     console.warn(`Error using model ${modelName}:`, error);
 
-    if (modelName !== fallbackModelName) {
-      console.warn(`Attempting fallback to ${fallbackModelName}`);
-      const { model: fallbackModel } = await getGeminiModel(featureKey, fallbackModelName);
+    if (modelName !== defaultFallback) {
+      console.warn(`Attempting fallback to ${defaultFallback}`);
+      const { model: fallbackModel } = await getGeminiModel(featureKey, defaultFallback);
       try {
         const result = await operation(fallbackModel);
         return {
           result,
-          warning: `Preferred model '${modelName}' was unavailable. Fell back to '${fallbackModelName}'.`
+          warning: `Preferred model '${modelName}' was unavailable. Fell back to '${defaultFallback}'.`
         };
       } catch (fallbackError) {
         throw fallbackError;
@@ -178,11 +240,9 @@ export async function executeWithFallback<T>(
  * Optimized Router: Uses Flash to attempt a direct answer.
  * If Flash outputs the escalation token, it discards the stream and switches to Pro.
  * Otherwise, it streams the Flash response directly.
- */
-/**
- * Optimized Router: Uses Flash to attempt a direct answer.
- * If Flash outputs the escalation token, it discards the stream and switches to Pro.
- * Otherwise, it streams the Flash response directly.
+ *
+ * NOTE: This is a Gemini-specific feature. For non-Gemini providers,
+ * auto-routing is disabled and the configured model is used directly.
  */
 async function routeAndExecute(
   sessionId: number,
@@ -192,7 +252,22 @@ async function routeAndExecute(
   geminiConfig: any,
   additionalContext?: string
 ): Promise<{ streamResult: any; finalModelName: string }> {
-  const ai = await getAI();
+  // Auto-routing is Gemini-only
+  if (!isGeminiProvider()) {
+    console.log("[Auto Router] Disabled for non-Gemini provider");
+    const modelName = getDefaultModel();
+    const normalizedTools = normalizeToolDefinitions(tools);
+
+    const streamResult = await ai.generateContentStream(modelName, contents, {
+      systemInstruction,
+      ...geminiConfig,
+      tools: normalizedTools,
+    });
+
+    return { streamResult, finalModelName: modelName };
+  }
+
+  const geminiSDK = await getGeminiSDK();
 
   // 1. Resolve Model Names
   let routerModelName = DEFAULT_ROUTER_MODEL;
@@ -236,7 +311,7 @@ ${systemInstruction}`;
 
   try {
     // 3. Start Flash Stream using new SDK
-    const routerStreamResult = await ai.models.generateContentStream({
+    const routerStreamResult = await geminiSDK.models.generateContentStream({
       model: routerModelName,
       contents,
       config: {
@@ -314,7 +389,7 @@ ${systemInstruction}`;
       console.log(`[Auto Router] Escalation token detected. Switching to Pro (${proModelName}).`);
 
       // Start Pro Stream
-      const proStreamResult = await ai.models.generateContentStream({
+      const proStreamResult = await geminiSDK.models.generateContentStream({
         model: proModelName,
         contents,
         config: {
@@ -427,7 +502,7 @@ ${systemInstruction}`;
 
   } catch (error) {
     console.error("[Auto Router] Router failed, falling back to Pro:", error);
-    const proStreamResult = await ai.models.generateContentStream({
+    const proStreamResult = await geminiSDK.models.generateContentStream({
       model: proModelName,
       contents,
       config: {
@@ -443,12 +518,23 @@ ${systemInstruction}`;
 
 export const getAvailableModels = async (req: Request, res: Response) => {
   try {
-    // The node SDK doesn't expose listModels directly easily on the GoogleGenerativeAI class in older versions, 
-    // but we can try to use the REST API or check if SDK supports it.
-    // Recent SDKs might not have a direct listModels helper for API key auth easily accessible without headers hacking.
-    // However, checking the user requirement: "fetch available models".
-    // We can just hit the REST endpoint with the API Key.
+    const provider = (process.env.AI_PROVIDER || "gemini").toLowerCase().trim();
 
+    // For non-Gemini providers, return the configured model
+    if (provider !== "gemini") {
+      const model = process.env.AI_DEFAULT_MODEL || DEFAULT_OPENAI_MODEL;
+      return res.json({
+        message: "success",
+        data: [{
+          name: model,
+          displayName: model,
+          description: "Configured AI model",
+          supportedGenerationMethods: ["generateContent", "generateContentStream"]
+        }]
+      });
+    }
+
+    // For Gemini, fetch from the API
     const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${gemini_api_key}`);
     if (!response.ok) {
       throw new Error(`Failed to fetch models: ${response.statusText}`);
@@ -643,6 +729,12 @@ async function buildSystemInstruction(additionalContext?: string): Promise<strin
  * Returns the cache name if caching is supported and successful, otherwise null.
  */
 async function getOrCreateContextCache(modelName: string, additionalContext?: string): Promise<{ name: string; isHit: boolean } | null> {
+  // Caching is Gemini-only
+  if (!isGeminiProvider()) {
+    console.log("[Context Cache] Disabled for non-Gemini provider");
+    return null;
+  }
+
   // Check if the model supports caching
   const supportsCaching = CACHE_SUPPORTED_MODELS.some(m => modelName.includes(m) || m.includes(modelName));
   if (!supportsCaching) {
@@ -651,7 +743,7 @@ async function getOrCreateContextCache(modelName: string, additionalContext?: st
   }
 
   try {
-    const ai = await getAI();
+    const geminiSDK = await getGeminiSDK();
 
     // Build the full context
     const systemInstruction = await buildSystemInstruction(additionalContext);
@@ -693,7 +785,7 @@ async function getOrCreateContextCache(modelName: string, additionalContext?: st
     if (currentCacheName && currentCacheHash !== contextHash) {
       try {
         console.log(`[Context Cache] Context changed, deleting old cache: ${currentCacheName}`);
-        await ai.caches.delete({ name: currentCacheName });
+        await geminiSDK.caches.delete({ name: currentCacheName });
       } catch (e) {
         console.warn("[Context Cache] Failed to delete old cache:", e);
       }
@@ -704,7 +796,7 @@ async function getOrCreateContextCache(modelName: string, additionalContext?: st
 
     // The cache needs some initial content to cache along with system instruction
     // We'll cache the system instruction and a priming acknowledgment
-    const cache = await ai.caches.create({
+    const cache = await geminiSDK.caches.create({
       model: modelName,
       config: {
         displayName: `pantry-chat-context-${Date.now()}`,
@@ -747,44 +839,43 @@ async function getCachedModel(featureKey: string, additionalContext?: string): P
   systemInstruction?: string;
   cacheName?: string;
 }> {
-  const ai = await getAI();
   const modelName = await getModelName(featureKey);
 
-  try {
-    const cacheResult = await getOrCreateContextCache(modelName, additionalContext);
+  if (isGeminiProvider()) {
+    try {
+      const geminiSDK = await getGeminiSDK();
+      const cacheResult = await getOrCreateContextCache(modelName, additionalContext);
 
-    if (cacheResult) {
-      const { name, isHit } = cacheResult;
+      if (cacheResult) {
+        const { name, isHit } = cacheResult;
 
-      // Return a wrapper that uses the cached content
-      // The new SDK uses the cache name in the generateContent call
-      return {
-        model: {
-          // Wrapper that passes cache name to generateContent
-          generateContentWithCache: async (request: any) => {
-            return ai.models.generateContent({
-              model: modelName,
-              cachedContent: name,
-              contents: request.contents || request,
-              config: request.config
-            });
+        return {
+          model: {
+            generateContentWithCache: async (request: any) => {
+              return geminiSDK.models.generateContent({
+                model: modelName,
+                cachedContent: name,
+                contents: request.contents || request,
+                config: request.config
+              });
+            },
+            generateContentStreamWithCache: async (request: any) => {
+              return geminiSDK.models.generateContentStream({
+                model: modelName,
+                cachedContent: name,
+                contents: request.contents || request,
+                config: request.config
+              });
+            }
           },
-          generateContentStreamWithCache: async (request: any) => {
-            return ai.models.generateContentStream({
-              model: modelName,
-              cachedContent: name,
-              contents: request.contents || request,
-              config: request.config
-            });
-          }
-        },
-        modelName,
-        usingCache: isHit,
-        cacheName: name
-      };
+          modelName,
+          usingCache: isHit,
+          cacheName: name
+        };
+      }
+    } catch (error) {
+      console.warn("[Context Cache] Failed to get cached model, falling back to regular model:", error);
     }
-  } catch (error) {
-    console.warn("[Context Cache] Failed to get cached model, falling back to regular model:", error);
   }
 
   // Build system instruction for non-cached fallback
@@ -1246,12 +1337,10 @@ async function generateSessionTitle(sessionId: number, prompt: string, data: any
 
     const titlePrompt = `Based on the following conversation, generate a short, concise, and descriptive title (max 6 words). Return ONLY the title text, no quotes or "Title:".\n\nUser: ${prompt}\nInternal Model Response: ${JSON.stringify(data).substring(0, 500)}...`;
 
-    const ai = await getAI();
     const modelName = await getModelName("gemini_chat_model");
-    const titleResponse = await ai.models.generateContent({
-      model: modelName,
-      contents: titlePrompt
-    });
+    const titleResponse = await ai.generateContent(modelName, [
+      { role: "user", parts: [{ text: titlePrompt }] }
+    ]);
 
     let newTitle = (titleResponse.text || '').trim().replace(/^"|"$/g, '').trim();
     if (newTitle) {
@@ -1338,7 +1427,6 @@ export const post = async (req: Request, res: Response) => {
 
     // --- MODEL + CACHING ---
     const { modelName, usingCache, systemInstruction, cacheName } = await getCachedModel("gemini_chat_model", additionalContext);
-    const ai = await getAI();
 
     // --- BUILD CONTENTS ---
     const userParts: any[] = [{ text: prompt }];
@@ -1352,6 +1440,7 @@ export const post = async (req: Request, res: Response) => {
     // --- DEBUG + TOOLS ---
     const { isGeminiDebug, isDbLogging } = await getDebugSettings();
     const tools = getAllToolDefinitions();
+    const normalizedTools = normalizeToolDefinitions(tools);
     const toolDisplayNames = sharedToolDisplayNames;
     const toolContext: ToolContext = {
       userId: (req as any).userId || (req.user as any)?.id,
@@ -1368,7 +1457,7 @@ export const post = async (req: Request, res: Response) => {
 
     while (loopCount <= maxLoops) {
       if (isGeminiDebug) {
-        console.log(`--- GEMINI DEBUG CONTEXT (Loop ${loopCount}) ---`);
+        console.log(`--- AI DEBUG CONTEXT (Loop ${loopCount}) ---`);
         const contentSummary = currentContents.map((c: any) =>
           `${c.role}(${c.parts.length} parts)`
         ).join(', ');
@@ -1381,16 +1470,25 @@ export const post = async (req: Request, res: Response) => {
         ? systemInstruction
         : undefined;
 
-      responseResult = await ai.models.generateContent({
-        model: modelName,
-        contents: currentContents,
-        ...(cacheName ? { cachedContent: cacheName } : {}),
-        config: {
+      // Use cached Gemini SDK call if caching is active, otherwise use provider-agnostic client
+      if (usingCache && cacheName) {
+        const geminiSDK = await getGeminiSDK();
+        responseResult = await geminiSDK.models.generateContent({
+          model: modelName,
+          contents: currentContents,
+          cachedContent: cacheName,
+          config: {
+            ...geminiConfig,
+            tools: adaptTools(tools)
+          }
+        });
+      } else {
+        responseResult = await ai.generateContent(modelName, currentContents, {
           ...geminiConfig,
           systemInstruction: effectiveSystemInstruction,
-          tools: adaptTools(tools)
-        }
-      });
+          tools: normalizedTools,
+        });
+      }
       const reqEnd = Date.now();
 
       if (isDbLogging) {
@@ -1559,7 +1657,7 @@ export const postStream = async (req: Request, res: Response) => {
     let preGeneratedStreamResult: any = null;
     let cacheName: string | undefined;
 
-    if (modelSetting === AUTO_MODEL) {
+    if (modelSetting === AUTO_MODEL && isGeminiProvider()) {
       const preliminaryContents: Content[] = [
         ...history,
         { role: "user", parts: [{ text: prompt }] }
@@ -1573,6 +1671,10 @@ export const postStream = async (req: Request, res: Response) => {
       preGeneratedStreamResult = streamResult;
       finalModelName = routedModelName;
       console.log(`[Stream] Auto-routed to: ${finalModelName}`);
+    } else if (modelSetting === AUTO_MODEL && !isGeminiProvider()) {
+      // Auto-routing is Gemini-only; use default model for other providers
+      finalModelName = getDefaultModel();
+      console.log(`[Stream] Auto-routing disabled for non-Gemini provider, using: ${finalModelName}`);
     } else {
       const cached = await getCachedModel("gemini_chat_model", additionalContext);
       finalModelName = cached.modelName;
@@ -1624,17 +1726,26 @@ export const postStream = async (req: Request, res: Response) => {
             console.log(`[Stream Loop ${loopCount}] Calling generateContentStream: [${contentSummary}]`);
           }
 
-          const ai = await getAI();
-          streamResult = await ai.models.generateContentStream({
-            model: finalModelName,
-            contents: currentContents,
-            ...(cacheName ? { cachedContent: cacheName } : {}),
-            config: {
+          // Use cached Gemini SDK call if caching is active, otherwise use provider-agnostic client
+          if (usingCache && cacheName) {
+            const geminiSDK = await getGeminiSDK();
+            streamResult = await geminiSDK.models.generateContentStream({
+              model: finalModelName,
+              contents: currentContents,
+              cachedContent: cacheName,
+              config: {
+                ...geminiConfig,
+                tools: adaptTools(streamTools)
+              }
+            });
+          } else {
+            const normalizedStreamTools = normalizeToolDefinitions(streamTools);
+            streamResult = await ai.generateContentStream(finalModelName, currentContents, {
               ...geminiConfig,
-              systemInstruction: usingCache ? undefined : effectiveSystemInstruction,
-              tools: adaptTools(streamTools)
-            }
-          });
+              systemInstruction: effectiveSystemInstruction,
+              tools: normalizedStreamTools,
+            });
+          }
         }
 
         let hasToolCall = false;
@@ -1670,7 +1781,17 @@ export const postStream = async (req: Request, res: Response) => {
           }
         }
 
-        const reqEnd = Date.now();
+      const reqEnd = Date.now();
+
+      // Normalize response format: Gemini SDK has candidates[0].content.parts,
+      // AI client has rawParts. Ensure consistent access.
+      if (!responseResult.candidates && responseResult.rawParts) {
+        responseResult.candidates = [{
+          content: {
+            parts: responseResult.rawParts
+          }
+        }];
+      }
 
         // Get response parts from chunks - ALWAYS aggregate from all chunks
         // The last chunk may only have the final text/FC, not all of them
@@ -1837,7 +1958,7 @@ export const analyzeProductImage = async (req: Request, res: Response) => {
     }
 
     const prompt = `Analyze this product image and extract as much detail as possible.
-    
+
     Return a JSON object with:
     - title: The product name (clean, no brand unless it IS the product name like "Nutella"). Example: "Frosted Flakes" not "Kellogg's Frosted Flakes 15oz"
     - brand: The brand name if visible
@@ -1848,28 +1969,31 @@ export const analyzeProductImage = async (req: Request, res: Response) => {
     - pantryLifespanDays: estimated days good on shelf unopened (integer or null)
     - tags: array of category tags (e.g. "Dairy", "Snack", "Breakfast")
     - description: a brief description of the specific variant/size if identifiable
-    
+
     If you cannot identify the product, set title to "Unknown" and leave other fields null.`;
 
-    const ai = await getAI();
-    const modelName = await getModelName("gemini_vision_model", DEFAULT_FALLBACK_MODEL);
+    const modelName = await getModelName("gemini_vision_model");
 
     const imagePart = fileToGenerativePart(image.tempFilePath, image.mimetype);
 
-    const result = await ai.models.generateContent({
-      model: modelName,
-      contents: [{ role: "user", parts: [{ text: prompt }, imagePart] }],
-      config: {
-        ...geminiConfig,
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: "OBJECT",
-          properties: {
-            title: { type: "STRING" },
-            brand: { type: "STRING", nullable: true },
-            trackCountBy: { type: "STRING", enum: ["quantity", "weight"] },
-            freezerLifespanDays: { type: "INTEGER", nullable: true },
-            refrigeratorLifespanDays: { type: "INTEGER", nullable: true },
+    // Use Gemini SDK for structured output, or AI client for other providers
+    let result;
+    if (isGeminiProvider()) {
+      const geminiSDK = await getGeminiSDK();
+      result = await geminiSDK.models.generateContent({
+        model: modelName,
+        contents: [{ role: "user", parts: [{ text: prompt }, imagePart] }],
+        config: {
+          ...geminiConfig,
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: "OBJECT",
+            properties: {
+              title: { type: "STRING" },
+              brand: { type: "STRING", nullable: true },
+              trackCountBy: { type: "STRING", enum: ["quantity", "weight"] },
+              freezerLifespanDays: { type: "INTEGER", nullable: true },
+              refrigeratorLifespanDays: { type: "INTEGER", nullable: true },
             openedLifespanDays: { type: "INTEGER", nullable: true },
             pantryLifespanDays: { type: "INTEGER", nullable: true },
             tags: { type: "ARRAY", items: { type: "STRING" } },
@@ -1879,6 +2003,15 @@ export const analyzeProductImage = async (req: Request, res: Response) => {
         }
       }
     });
+    } else {
+      // Non-Gemini provider: use AI client without structured output
+      result = await ai.generateContent(modelName, [
+        { role: "user", parts: [{ text: prompt }, imagePart] }
+      ], {
+        ...geminiConfig,
+        responseMimeType: "application/json",
+      });
+    }
 
     const jsonString = result.text;
     const data = JSON.parse(jsonString);
@@ -2329,6 +2462,10 @@ export const postShoppingListSort = async (req: Request, res: Response) => {
 
 export const generateProductImage = async (req: Request, res: Response) => {
   try {
+    if (!isGeminiProvider()) {
+      return res.status(501).json({ message: "Image generation is only available with Gemini provider" });
+    }
+
     const { productTitle } = req.body;
     if (!productTitle) {
       res.status(400).json({ message: "Product title is required" });
@@ -2432,6 +2569,10 @@ export const generateProductImage = async (req: Request, res: Response) => {
 
 export const generateRecipeImage = async (req: Request, res: Response) => {
   try {
+    if (!isGeminiProvider()) {
+      return res.status(501).json({ message: "Image generation is only available with Gemini provider" });
+    }
+
     const { recipeTitle } = req.body;
     if (!recipeTitle) {
       res.status(400).json({ message: "Recipe title is required" });

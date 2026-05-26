@@ -1,6 +1,27 @@
 import { Request, Response } from "express";
 import prisma from '../lib/prisma';
-import { getGeminiModel } from "./GeminiController";
+import { getAIClient } from "./ai";
+
+const ai = getAIClient();
+
+async function getLeftoverModel(): Promise<string> {
+  try {
+    const setting = await prisma.systemSetting.findUnique({
+      where: { key: 'gemini_chat_model' }
+    });
+    if (setting?.value) {
+      const val = setting.value.trim();
+      if (val !== 'auto') return val;
+    }
+  } catch (err) {
+    console.warn("Failed to fetch leftover model setting, using default");
+  }
+
+  const provider = (process.env.AI_PROVIDER || "gemini").toLowerCase().trim();
+  return provider === "openai"
+    ? (process.env.AI_DEFAULT_MODEL || "google/gemma-4-26b-a4b")
+    : "gemini-flash-latest";
+}
 
 export const create = async (req: Request, res: Response) => {
     try {
@@ -19,24 +40,23 @@ export const create = async (req: Request, res: Response) => {
         if (customExpirationDate) {
             expirationDate = new Date(customExpirationDate);
         } else {
-            // Ask Gemini
+            // Ask AI
             let days = 3; // Default
             try {
-                const { model } = await getGeminiModel('feature_gemini_chat'); // Use chat model setting or fallback
-                // We want a conservative estimate usually
+                const model = await getLeftoverModel();
                 const prompt = `How many days are leftovers safely edible in the refrigerator for the recipe "${recipe.name}"? Return ONLY a single integer number of days (e.g. "3" or "4"). Do not include any text.`;
-                const result = await model.generateContent(prompt);
-                const text = result.response.text();
-                // console.log(`Gemini leftover estimate for ${recipe.name}: ${text}`);
+                const result = await ai.generateContent(model, [
+                  { role: "user", parts: [{ text: prompt }] }
+                ]);
+                const text = result.text;
                 const match = text.match(/\d+/);
                 if (match) {
                     days = parseInt(match[0]);
-                    // Cap reasonable limits
                     if (days < 1) days = 1;
                     if (days > 7) days = 7;
                 }
             } catch (e) {
-                console.error("Gemini leftover estimate failed", e);
+                console.error("AI leftover estimate failed", e);
             }
             expirationDate = new Date();
             expirationDate.setDate(expirationDate.getDate() + days);
@@ -63,10 +83,7 @@ export const create = async (req: Request, res: Response) => {
                 }
             });
         } else {
-            // Update tracking preference if needed?
-            // If checking in a weight, better to ensure it's weight tracked?
             if (trackBy && product.trackCountBy !== trackBy) {
-                // If switching types, we might want to update it.
                 await prisma.product.update({
                     where: { id: product.id },
                     data: { trackCountBy: trackBy }
@@ -82,7 +99,7 @@ export const create = async (req: Request, res: Response) => {
                 unit: unit || null,
                 expirationDate: expirationDate,
                 frozen: false,
-                opened: true, // It's cooked food, effectively "opened/exposed"
+                opened: true,
                 openedDate: new Date()
             }
         });

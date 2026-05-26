@@ -1,25 +1,36 @@
 
-import { GoogleGenerativeAI } from "@google/generative-ai";
-import dotenv from "dotenv";
 import prisma from '../lib/prisma';
+import { getAIClient, normalizeToolDefinitions } from '../ai';
 
-dotenv.config();
+const ai = getAIClient();
 
-const gemini_api_key = process.env.GEMINI_API_KEY;
-if (!gemini_api_key) {
-    // It's possible the app starts without the key, but we can't generate steps without it.
-    console.warn("GEMINI_API_KEY is not set in RecipeAIService");
+/**
+ * Get the model name for recipe AI tasks.
+ * Uses the chat model setting as fallback.
+ */
+async function getRecipeModel(): Promise<string> {
+  try {
+    const setting = await prisma.systemSetting.findUnique({
+      where: { key: 'gemini_chat_model' }
+    });
+    if (setting?.value) {
+      const val = setting.value.trim();
+      if (val !== 'auto') return val;
+    }
+  } catch (err) {
+    console.warn("Failed to fetch recipe model setting, using default");
+  }
+
+  // Default model based on provider
+  const provider = (process.env.AI_PROVIDER || "gemini").toLowerCase().trim();
+  return provider === "openai"
+    ? (process.env.AI_DEFAULT_MODEL || "google/gemma-4-26b-a4b")
+    : "gemini-flash-latest";
 }
 
-const googleAI = new GoogleGenerativeAI(gemini_api_key || "");
-
-const MODEL_NAME = "gemini-flash-latest";
-
 export async function generateReceiptSteps(recipeTitle: string, ingredients: any[], steps: any[]): Promise<string | null> {
-    if (!gemini_api_key) return null;
-
     try {
-        const model = googleAI.getGenerativeModel({ model: MODEL_NAME });
+        const model = await getRecipeModel();
 
         const ingredientList = ingredients.map(i => `${i.amount || ''} ${i.unit || ''} ${i.name}`).join('\n');
         const stepList = steps.map(s => `${s.instruction}`).join('\n');
@@ -60,9 +71,13 @@ Example Output JSON:
 }
 `;
 
-        const result = await model.generateContent(prompt);
-        const response = result.response;
-        const text = response.text();
+        const result = await ai.generateContent(model, [
+          { role: "user", parts: [{ text: prompt }] }
+        ], {
+          responseMimeType: "application/json",
+        });
+
+        const text = result.text;
 
         // Extract JSON from potential markdown code blocks
         const jsonMatch = text.match(/```json\n([\s\S]*?)\n```/) || text.match(/```\n([\s\S]*?)\n```/);
@@ -73,7 +88,7 @@ Example Output JSON:
             JSON.parse(jsonString);
             return jsonString;
         } catch (e) {
-            console.warn("Gemini returned invalid JSON for receipt steps", e);
+            console.warn("AI returned invalid JSON for receipt steps", e);
             return null;
         }
 
@@ -84,10 +99,8 @@ Example Output JSON:
 }
 
 export async function determineSafeCookingTemps(ingredients: any[]): Promise<{ item: string, temperature: string }[]> {
-    if (!gemini_api_key) return [];
-
     try {
-        const model = googleAI.getGenerativeModel({ model: MODEL_NAME });
+        const model = await getRecipeModel();
 
         const ingredientList = ingredients.map(i => `${i.name}`).join('\n');
 
@@ -109,9 +122,13 @@ Example Output JSON:
 ]
 `;
 
-        const result = await model.generateContent(prompt);
-        const response = result.response;
-        const text = response.text();
+        const result = await ai.generateContent(model, [
+          { role: "user", parts: [{ text: prompt }] }
+        ], {
+          responseMimeType: "application/json",
+        });
+
+        const text = result.text;
 
         const jsonMatch = text.match(/```json\n([\s\S]*?)\n```/) || text.match(/```\n([\s\S]*?)\n```/);
         let jsonString = jsonMatch ? jsonMatch[1] : text;
@@ -123,7 +140,7 @@ Example Output JSON:
             }
             return [];
         } catch (e) {
-            console.warn("Gemini returned invalid JSON for safe temps", e);
+            console.warn("AI returned invalid JSON for safe temps", e);
             return [];
         }
 
@@ -134,10 +151,8 @@ Example Output JSON:
 }
 
 export async function determineQuickActions(recipeTitle: string, ingredients: any[], steps: any[]): Promise<{ name: string, type: string, value: string }[]> {
-    if (!gemini_api_key) return [];
-
     try {
-        const model = googleAI.getGenerativeModel({ model: MODEL_NAME });
+        const model = await getRecipeModel();
 
         const ingredientList = ingredients.map(i => `${i.amount || ''} ${i.unit || ''} ${i.name}`).join('\n');
         const stepList = steps.map(s => `${s.instruction || s.description}`).join('\n');
@@ -158,9 +173,13 @@ export async function determineQuickActions(recipeTitle: string, ingredients: an
         ${stepList}
       `;
 
-        const result = await model.generateContent(prompt);
-        const response = result.response;
-        const text = response.text();
+        const result = await ai.generateContent(model, [
+          { role: "user", parts: [{ text: prompt }] }
+        ], {
+          responseMimeType: "application/json",
+        });
+
+        const text = result.text;
 
         const jsonMatch = text.match(/```json\n([\s\S]*?)\n```/) || text.match(/```\n([\s\S]*?)\n```/);
         let jsonString = jsonMatch ? jsonMatch[1] : text;
@@ -174,7 +193,7 @@ export async function determineQuickActions(recipeTitle: string, ingredients: an
             }
             return [];
         } catch (e) {
-            console.warn("Gemini returned invalid JSON for quick actions", e);
+            console.warn("AI returned invalid JSON for quick actions", e);
             return [];
         }
 

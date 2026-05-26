@@ -1,11 +1,36 @@
 import { Request, Response } from "express";
 import { executeToolHandler } from "../gemini/toolHandlers";
 import { getAllToolDefinitions } from "../gemini/toolDefinitions";
-import { getGeminiModel } from "./GeminiController";
+import { getAIClient, normalizeToolDefinitions } from "./ai";
 import * as crypto from "crypto";
 
-// Transform OpenAI message history to Gemini format
-function mapMessagesToGeminiContents(messages: any[]): any[] {
+const ai = getAIClient();
+
+/**
+ * Get the model name for OpenAI-compatible endpoint.
+ */
+async function getFeatureModel(featureKey: string, fallback: string = "gemini-flash-latest"): Promise<string> {
+  try {
+    const { default: prisma } = await import('../lib/prisma');
+    const setting = await prisma.systemSetting.findUnique({
+      where: { key: featureKey }
+    });
+    if (setting?.value) {
+      const val = setting.value.trim();
+      if (val !== 'auto') return val;
+    }
+  } catch (err) {
+    // ignore
+  }
+
+  const provider = (process.env.AI_PROVIDER || "gemini").toLowerCase().trim();
+  return provider === "openai"
+    ? (process.env.AI_DEFAULT_MODEL || fallback)
+    : fallback;
+}
+
+// Transform OpenAI message history to our unified AIContent format
+function mapMessagesToContents(messages: any[]): any[] {
     const contents: any[] = [];
 
     for (const msg of messages) {
@@ -17,14 +42,16 @@ function mapMessagesToGeminiContents(messages: any[]): any[] {
         let parts: any[] = [];
 
         if (msg.role === 'assistant' && msg.tool_calls) {
-            parts.push({
-                functionCall: {
-                    name: msg.tool_calls[0].function.name,
-                    args: JSON.parse(msg.tool_calls[0].function.arguments)
-                }
-            });
+            for (const tc of msg.tool_calls) {
+                parts.push({
+                    functionCall: {
+                        name: tc.function.name,
+                        args: JSON.parse(tc.function.arguments)
+                    }
+                });
+            }
         } else if (msg.role === 'tool') {
-            role = 'user'; // function responses come from the user in Gemini
+            role = 'user';
             parts.push({
                 functionResponse: {
                     name: msg.name,
@@ -41,30 +68,40 @@ function mapMessagesToGeminiContents(messages: any[]): any[] {
     return contents;
 }
 
-// Convert Gemini tool schema to new SDK tool structure if needed,
-// but the new SDK supports the format provided by getAllToolDefinitions
-function adaptTools(tools: any[]) {
-    return tools;
+// Get unified tool definitions
+function getTools() {
+    return normalizeToolDefinitions(getAllToolDefinitions());
 }
 
 export const getModels = async (req: Request, res: Response) => {
+    const provider = (process.env.AI_PROVIDER || "gemini").toLowerCase().trim();
+
     // Return standard OpenAI model format
     res.json({
         object: "list",
-        data: [
-            {
-                id: "gemini-flash-latest",
-                object: "model",
-                created: Math.floor(Date.now() / 1000),
-                owned_by: "google"
-            },
-            {
-                id: "gemini-3-pro-preview",
-                object: "model",
-                created: Math.floor(Date.now() / 1000),
-                owned_by: "google"
-            }
-        ]
+        data: provider === "openai"
+            ? [
+                {
+                    id: process.env.AI_DEFAULT_MODEL || "google/gemma-4-26b-a4b",
+                    object: "model",
+                    created: Math.floor(Date.now() / 1000),
+                    owned_by: "local"
+                }
+              ]
+            : [
+                {
+                    id: "gemini-flash-latest",
+                    object: "model",
+                    created: Math.floor(Date.now() / 1000),
+                    owned_by: "google"
+                },
+                {
+                    id: "gemini-3-pro-preview",
+                    object: "model",
+                    created: Math.floor(Date.now() / 1000),
+                    owned_by: "google"
+                }
+              ]
     });
 };
 
@@ -72,27 +109,26 @@ export const chatCompletions = async (req: Request, res: Response) => {
     try {
         const { model: modelId, messages, stream, temperature, top_p, max_tokens } = req.body;
         const user = req.user as any;
-        const sessionId = req.body.session_id || 1; // Default to 1 if not provided, for chat context
+        const sessionId = req.body.session_id || 1;
 
         // Find system message
         const systemMessage = messages.find((m: any) => m.role === 'system');
         const systemInstruction = systemMessage ? systemMessage.content : `You are a smart cooking assistant managing a pantry. Date: ${new Date().toLocaleDateString()}.`;
 
-        const contents = mapMessagesToGeminiContents(messages);
+        const contents = mapMessagesToContents(messages);
 
         // Setup config
         const config: any = {
             systemInstruction,
             temperature: temperature ?? 0.7,
-            tools: adaptTools(getAllToolDefinitions())
+            tools: getTools(),
         };
         if (top_p) config.topP = top_p;
         if (max_tokens) config.maxOutputTokens = max_tokens;
 
         const featureKey = "gemini_router_model";
-        const fallbackModelName = modelId || "gemini-flash-latest";
-
-        const { model } = await getGeminiModel(featureKey, fallbackModelName);
+        const fallbackModelName = modelId || (process.env.AI_DEFAULT_MODEL || "gemini-flash-latest");
+        const modelName = await getFeatureModel(featureKey, fallbackModelName);
 
         if (stream) {
             res.setHeader('Content-Type', 'text/event-stream');
@@ -108,27 +144,19 @@ export const chatCompletions = async (req: Request, res: Response) => {
                 keepGenerating = false;
 
                 try {
-                    const resultStream = await model.generateContentStream({
-                        contents: currentContents,
-                        config
-                    });
+                    const resultStream = await ai.generateContentStream(modelName, currentContents, config);
 
                     let functionCallsQueue: any[] = [];
                     let fullText = "";
 
                     for await (const chunk of resultStream) {
-                        const candidates = chunk.candidates?.[0] || chunk;
-                        const functionCalls = candidates.functionCalls ||
-                            candidates.content?.parts?.filter((p: any) => p.functionCall).map((p: any) => p.functionCall);
-
-                        if (functionCalls && functionCalls.length > 0) {
-                            functionCallsQueue.push(...functionCalls);
+                        if (chunk.functionCalls && chunk.functionCalls.length > 0) {
+                            functionCallsQueue.push(...chunk.functionCalls);
                         } else {
-                            const textPart = candidates.content?.parts?.find((p: any) => typeof p.text === 'string')?.text || chunk.text;
+                            const textPart = chunk.text;
                             if (textPart) {
                                 fullText += textPart;
 
-                                // Stream chunks to OpenAI client
                                 const payload = {
                                     id: `chatcmpl-${reqId}`,
                                     object: "chat.completion.chunk",
@@ -150,37 +178,33 @@ export const chatCompletions = async (req: Request, res: Response) => {
                     }
 
                     if (functionCallsQueue.length > 0) {
-                        // Append the model's tool calls to History
                         currentContents.push({
                             role: "model",
                             parts: functionCallsQueue.map(fc => ({ functionCall: fc }))
                         });
 
-                        // Execute tool functions
                         const toolResponses = [];
                         for (const fc of functionCallsQueue) {
                             const result = await executeToolHandler(fc.name, fc.args, {
                                 userId: user?.id,
                                 sessionId: sessionId,
-                                io: (req as any).app.get('io') // Assuming io is set on app, but it might not be. Wait, io is used in printReceipt
+                                io: (req as any).app.get('io')
                             });
                             toolResponses.push({
                                 functionResponse: {
                                     name: fc.name,
-                                    response: result
+                                    response: { result }
                                 }
                             });
                         }
 
-                        // Append tool responses to History
                         currentContents.push({
                             role: "user",
                             parts: toolResponses
                         });
 
-                        keepGenerating = true; // Auto-loop
+                        keepGenerating = true;
                     } else {
-                        // Finished
                         const finalPayload = {
                             id: `chatcmpl-${reqId}`,
                             object: "chat.completion.chunk",
@@ -215,23 +239,16 @@ export const chatCompletions = async (req: Request, res: Response) => {
                 keepGenerating = false;
 
                 try {
-                    const response = await model.generateContent({
-                        contents: currentContents,
-                        config
-                    });
+                    const response = await ai.generateContent(modelName, currentContents, config);
 
-                    const candidates = response.candidates?.[0] || response;
-                    const functionCalls = candidates.functionCalls ||
-                        candidates.content?.parts?.filter((p: any) => p.functionCall).map((p: any) => p.functionCall);
-
-                    if (functionCalls && functionCalls.length > 0) {
+                    if (response.functionCalls && response.functionCalls.length > 0) {
                         currentContents.push({
                             role: "model",
-                            parts: functionCalls.map((fc: any) => ({ functionCall: fc }))
+                            parts: response.functionCalls.map((fc: any) => ({ functionCall: fc }))
                         });
 
                         const toolResponses = [];
-                        for (const fc of functionCalls) {
+                        for (const fc of response.functionCalls) {
                             const result = await executeToolHandler(fc.name, fc.args, {
                                 userId: user?.id,
                                 sessionId: sessionId,
@@ -240,7 +257,7 @@ export const chatCompletions = async (req: Request, res: Response) => {
                             toolResponses.push({
                                 functionResponse: {
                                     name: fc.name,
-                                    response: result
+                                    response: { result }
                                 }
                             });
                         }
@@ -252,9 +269,8 @@ export const chatCompletions = async (req: Request, res: Response) => {
 
                         keepGenerating = true;
                     } else {
-                        const textPart = candidates.content?.parts?.find((p: any) => typeof p.text === 'string')?.text || response.text;
-                        if (textPart) {
-                            fullText += textPart;
+                        if (response.text) {
+                            fullText += response.text;
                         }
                     }
                 } catch (error) {

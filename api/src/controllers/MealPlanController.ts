@@ -1,6 +1,63 @@
 import { NextFunction, Response, Request } from "express";
 import prisma from '../lib/prisma';
-import { executeWithFallback } from "./GeminiController";
+import { getAIClient } from "./ai";
+
+const ai = getAIClient();
+
+/**
+ * Get the model name for a given feature key, with fallback.
+ */
+async function getFeatureModel(featureKey: string, fallback: string = "gemini-flash-latest"): Promise<string> {
+  try {
+    const setting = await prisma.systemSetting.findUnique({
+      where: { key: featureKey }
+    });
+    if (setting?.value) {
+      const val = setting.value.trim();
+      if (val !== 'auto') return val;
+    }
+  } catch (err) {
+    console.warn(`Failed to fetch model setting for ${featureKey}, using fallback`);
+  }
+
+  const provider = (process.env.AI_PROVIDER || "gemini").toLowerCase().trim();
+  return provider === "openai"
+    ? (process.env.AI_DEFAULT_MODEL || fallback)
+    : fallback;
+}
+
+/**
+ * Execute an AI operation with fallback to a default model on failure.
+ */
+async function executeWithFallback<T>(
+  featureKey: string,
+  operation: (model: string) => Promise<T>,
+  fallbackModel?: string
+): Promise<{ result: T; warning?: string }> {
+  const model = await getFeatureModel(featureKey, fallbackModel);
+  const defaultModel = fallbackModel || "gemini-flash-latest";
+
+  try {
+    const result = await operation(model);
+    return { result };
+  } catch (error: any) {
+    console.warn(`Error using model ${model}:`, error);
+
+    if (model !== defaultModel) {
+      console.warn(`Attempting fallback to ${defaultModel}`);
+      try {
+        const result = await operation(defaultModel);
+        return {
+          result,
+          warning: `Preferred model '${model}' was unavailable. Fell back to '${defaultModel}'.`
+        };
+      } catch (fallbackError) {
+        throw fallbackError;
+      }
+    }
+    throw error;
+  }
+}
 
 export const generateShoppingList = async (req: Request, res: Response): Promise<any> => {
     const { startDate, endDate } = req.body;
@@ -120,14 +177,16 @@ export const generateShoppingList = async (req: Request, res: Response): Promise
             ${JSON.stringify(requirements, null, 2)}
         `;
 
-        const { result } = await executeWithFallback('gemini_shopping_model', async (model) => {
-            return await model.generateContent({
-                contents: [{ role: 'user', parts: [{ text: prompt }] }],
-                generationConfig: { responseMimeType: "application/json" }
+        const { result } = await executeWithFallback('gemini_shopping_model', async (modelName) => {
+            const res = await ai.generateContent(modelName, [
+                { role: 'user', parts: [{ text: prompt }] }
+            ], {
+                responseMimeType: "application/json",
             });
+            return res;
         });
 
-        const responseText = result.response.text();
+        const responseText = result.text;
         const json = JSON.parse(responseText);
         const itemsToBuy = Array.isArray(json) ? json : (json.items || []);
 
