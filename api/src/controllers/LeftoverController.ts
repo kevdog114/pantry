@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import prisma from '../lib/prisma';
-import { getAIClient } from "./ai";
+import { getAIClient } from "../ai";
 
 const ai = getAIClient();
 

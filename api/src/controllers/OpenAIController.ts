@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import { executeToolHandler } from "../gemini/toolHandlers";
 import { getAllToolDefinitions } from "../gemini/toolDefinitions";
-import { getAIClient, normalizeToolDefinitions } from "./ai";
+import { getAIClient, normalizeToolDefinitions } from "../ai";
 import * as crypto from "crypto";
 
 const ai = getAIClient();
