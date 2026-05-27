@@ -1455,6 +1455,7 @@ export const post = async (req: Request, res: Response) => {
     const maxLoops = 5;
     let printedInThisTurn = false;
     let responseResult: any;
+    const toolCallItems: any[] = [];
 
     while (loopCount <= maxLoops) {
       if (isGeminiDebug) {
@@ -1531,17 +1532,22 @@ export const post = async (req: Request, res: Response) => {
           functionResponse: { id: call.id, name: call.name, response: { result: toolResult } }
         });
 
+        const displayName = sharedToolDisplayNames[call.name] || `Using ${call.name}...`;
+
         // Save tool call to DB with thought signature (fire-and-forget)
         prisma.chatMessage.create({
           data: {
             sessionId: sessionId as number,
             sender: 'model',
             type: 'tool_call',
-            content: sharedToolDisplayNames[call.name] || `Using ${call.name}...`,
-            toolCallData: JSON.stringify({ name: call.name, displayName: sharedToolDisplayNames[call.name], args: call.args, result: toolResult }),
+            content: displayName,
+            toolCallData: JSON.stringify({ name: call.name, displayName, args: call.args, result: toolResult }),
             thoughtSignature: loopThoughtSig
           }
         }).catch(err => console.error("Failed to save tool call:", err));
+
+        // Collect tool call info for response
+        toolCallItems.push({ type: 'tool_call', toolCall: { name: call.name, displayName, args: call.args, result: toolResult } });
       }
 
       currentContents.push({ role: "user", parts: toolResponseParts });
@@ -1557,7 +1563,9 @@ export const post = async (req: Request, res: Response) => {
     let data;
     if (!responseText || responseText.trim().length === 0) {
       console.warn(`[Post] Empty responseText after generation. Tool loops: ${loopCount}. This likely means the model returned only tool calls or an empty response.`);
-      data = { items: [{ type: 'chat', content: "I processed your request but wasn't able to generate a text response. Please try again or rephrase your question." }] };
+      const items: any[] = [...toolCallItems];
+      items.push({ type: 'chat', content: "I processed your request but wasn't able to generate a text response. Please try again or rephrase your question." });
+      data = { items };
     } else {
       console.log(`[Post] Parsing responseText (${responseText.length} chars, first 200): ${responseText.substring(0, 200)}`);
       try {
@@ -1707,6 +1715,7 @@ export const postStream = async (req: Request, res: Response) => {
     let loopCount = 0;
     const maxLoops = 5;
     let lastThoughtSignature: string | null = null;
+    const streamToolCallItems: any[] = [];
 
     try {
       while (loopCount < maxLoops) {
@@ -1872,6 +1881,9 @@ export const postStream = async (req: Request, res: Response) => {
               }
             }).catch(err => console.error("Failed to save tool call:", err));
 
+            // Collect tool call info for done event
+            streamToolCallItems.push({ type: 'tool_call', toolCall: { name: call.name, displayName, args: call.args, result }, durationMs: toolDurationMs });
+
             toolResponses.push({
               functionResponse: { id: call.id, name: call.name, response: { result } }
             });
@@ -1897,7 +1909,9 @@ export const postStream = async (req: Request, res: Response) => {
     let data;
     if (!fullText || fullText.trim().length === 0) {
       console.warn(`[Stream] Empty fullText after streaming. Tool loops: ${loopCount}. This likely means the model returned only tool calls or an empty response.`);
-      data = { items: [{ type: 'chat', content: "I processed your request but wasn't able to generate a text response. Please try again or rephrase your question." }] };
+      const items: any[] = [...streamToolCallItems];
+      items.push({ type: 'chat', content: "I processed your request but wasn't able to generate a text response. Please try again or rephrase your question." });
+      data = { items };
     } else {
       console.log(`[Stream] Parsing fullText (${fullText.length} chars, first 200): ${fullText.substring(0, 200)}`);
       try {

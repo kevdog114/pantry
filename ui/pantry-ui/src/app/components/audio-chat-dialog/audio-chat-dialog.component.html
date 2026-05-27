@@ -5,13 +5,11 @@
     </button>
 
     <div class="chat-wrapper flex-grow-1 w-100 overflow-hidden d-flex flex-column" style="height: 60vh;">
-        <div class="settings px-3 py-1 text-end">
-            <mat-checkbox [(ngModel)]="autoPlayAudio" class="small-checkbox">Auto-read</mat-checkbox>
-        </div>
-
         <app-chat-interface [messages]="messages" [isLoading]="isThinking"
-            [placeholder]="'Ask about ' + (data.product?.title || data.recipe?.title) + '...'" [enableAudio]="true"
-            [autoSendAudio]="true" (send)="handleSend($event)" (textToSpeech)="speak($event)">
+            [loadingText]="loadingText"
+            [placeholder]="'Ask about ' + (data.product?.title || data.recipe?.title) + '...'"
+            [enableAudio]="false"
+            (send)="handleSend($event)">
         </app-chat-interface>
     </div>
 </mat-dialog-content>
