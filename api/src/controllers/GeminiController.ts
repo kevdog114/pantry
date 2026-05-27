@@ -1527,7 +1527,7 @@ export const post = async (req: Request, res: Response) => {
 
         const toolResult = await executeToolHandler(call.name, call.args, toolContext);
         toolResponseParts.push({
-          functionResponse: { name: call.name, response: { result: toolResult } }
+          functionResponse: { id: call.id, name: call.name, response: { result: toolResult } }
         });
 
         // Save tool call to DB with thought signature (fire-and-forget)
@@ -1872,7 +1872,7 @@ export const postStream = async (req: Request, res: Response) => {
             }).catch(err => console.error("Failed to save tool call:", err));
 
             toolResponses.push({
-              functionResponse: { name: call.name, response: { result } }
+              functionResponse: { id: call.id, name: call.name, response: { result } }
             });
           }
 
