@@ -1367,6 +1367,7 @@ function injectThoughtSignatures(rawParts: any[]): any[] {
     if (part.inlineData) copiedPart.inlineData = part.inlineData;
     if (part.functionCall) {
       copiedPart.functionCall = {
+        id: part.functionCall.id,
         name: part.functionCall.name,
         args: part.functionCall.args
       };
