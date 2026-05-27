@@ -49,6 +49,18 @@
     /* Reset gradient */
 }
 
+.prep-badge {
+    background: rgba(33, 150, 243, 0.9);
+    color: #fff;
+    font-weight: 700;
+    font-size: 0.8rem;
+    padding: 6px 12px;
+    border-radius: 99px;
+    backdrop-filter: blur(4px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    -webkit-text-fill-color: #fff;
+}
+
 .actions-group {
     display: flex;
     gap: 12px;

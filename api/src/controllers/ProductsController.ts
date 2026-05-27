@@ -19,6 +19,11 @@ export const getById = async (req: Request, res: Response, next: NextFunction): 
                 include: {
                     steps: { orderBy: { stepNumber: 'asc' } }
                 }
+            },
+            prepRecipe: {
+                include: {
+                    steps: { orderBy: { stepNumber: 'asc' } }
+                }
             }
         }
     });
@@ -117,6 +122,11 @@ export const getAll = async (req: Request, res: Response, next: NextFunction): P
                 include: {
                     steps: { orderBy: { stepNumber: 'asc' } }
                 }
+            },
+            prepRecipe: {
+                include: {
+                    steps: { orderBy: { stepNumber: 'asc' } }
+                }
             }
         }
     });
@@ -176,6 +186,11 @@ export const updateById = async (req: Request, res: Response, next: NextFunction
                 include: {
                     steps: { orderBy: { stepNumber: 'asc' } }
                 }
+            },
+            prepRecipe: {
+                include: {
+                    steps: { orderBy: { stepNumber: 'asc' } }
+                }
             }
         }
     });
@@ -205,6 +220,11 @@ export const searchProductByBarcode = async (req: Request, res: Response, next: 
                         }
                     },
                     cookingInstructions: {
+                        include: {
+                            steps: { orderBy: { stepNumber: 'asc' } }
+                        }
+                    },
+                    prepRecipe: {
                         include: {
                             steps: { orderBy: { stepNumber: 'asc' } }
                         }

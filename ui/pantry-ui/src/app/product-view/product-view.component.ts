@@ -414,7 +414,7 @@ export class ProductViewComponent implements OnChanges {
     return {
       id: instruction.id,
       title: instruction.name,
-      description: instruction.description,
+      description: instruction.description || '',
       ingredients: [],
       instructions: instruction.steps.map((s: any) => s.instruction),
       time: {

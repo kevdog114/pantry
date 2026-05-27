@@ -81,5 +81,13 @@ export interface Product {
         steps: Array<{ stepNumber: number, instruction: string }>;
         prepTime?: number;
         cookTime?: number;
-    }>
+    }>;
+    prepRecipe?: {
+        id: number;
+        name: string;
+        description: string;
+        steps: Array<{ stepNumber: number, instruction: string }>;
+        prepTime?: number;
+        cookTime?: number;
+    } | null;
 }

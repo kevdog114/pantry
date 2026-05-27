@@ -14,6 +14,7 @@
         <h1 class="page-title">
             {{product.title}}
             <span *ngIf="product.isLeftover" class="leftover-badge">Leftover</span>
+            <span *ngIf="product.isPrep" class="prep-badge">Prep</span>
         </h1>
 
         <div class="actions-group">
@@ -151,6 +152,14 @@
                     </a>
                 </div>
 
+                <div *ngIf="product.isPrep && product.prepRecipe">
+                    <div class="d-flex flex-column gap-3">
+                        <app-recipe-card
+                            [recipe]="toChatRecipe(product.prepRecipe)" [expanded]="false">
+                        </app-recipe-card>
+                    </div>
+                </div>
+
                 <div *ngIf="product.cookingInstructions && product.cookingInstructions.length > 0">
                     <div class="d-flex flex-column gap-3">
                         <app-recipe-card *ngFor="let instruction of product.cookingInstructions"
@@ -158,7 +167,7 @@
                         </app-recipe-card>
                     </div>
                 </div>
-                <div *ngIf="!product.cookingInstructions || product.cookingInstructions.length === 0"
+                <div *ngIf="(!product.isPrep || !product.prepRecipe) && (!product.cookingInstructions || product.cookingInstructions.length === 0)"
                     class="text-muted fst-italic">
                     No preparation instructions found.
                 </div>
