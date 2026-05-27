@@ -133,3 +133,7 @@ dist
 
 # Sample label images (generated locally for inspection)
 sample-labels/
+
+# Agent Context and Ideas
+.opencode/
+.hermes/

@@ -60,6 +60,9 @@ This method builds the Docker images from your local source code, which is ideal
     *   Username: `admin`
     *   Password: `admin` (or whatever value is set for `DEFAULT_ADMIN_PASSWORD` in `stack.dev.env`)
 
+
+## Operational Context
+For deployment and infrastructure details, see [.opencode/context.md](.opencode/context.md).
 ## API (Backend)
 
 The API is a Node.js application written in TypeScript, using the Express.js framework.
