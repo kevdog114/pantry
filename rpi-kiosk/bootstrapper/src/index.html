@@ -249,6 +249,16 @@
             statusEl.innerText = 'Ready! Launching...';
             progressEl.style.width = '100%';
             percentEl.innerText = '100%';
+
+            if (data.targetVersion) {
+                const v = data.targetVersion.version || 'unknown';
+                const d = data.targetVersion.buildDate ? new Date(data.targetVersion.buildDate).toLocaleDateString() : '';
+                statusEl.innerText = `Updated to v${v}${d ? ' (' + d + ')' : ''}`;
+            }
+
+            if (data.bootstrapperVersion) {
+                document.querySelector('.version').innerText = `Bootstrapper v${data.bootstrapperVersion.version || 'unknown'}`;
+            }
         });
 
         socket.on('connect', () => {

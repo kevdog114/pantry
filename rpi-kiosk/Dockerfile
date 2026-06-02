@@ -1,3 +1,6 @@
+ARG VERSION="dev"
+ARG BUILD_DATE="unknown"
+
 # Stage 1: Builder
 #FROM node:20-bookworm-slim AS builder
 FROM node:20-bullseye-slim AS builder
@@ -24,6 +27,10 @@ RUN pip install --no-cache-dir brother-ql-inventree Pillow qrcode[pil] pyusb pah
 # Stage 2: Runtime
 #FROM debian:bookworm-slim
 FROM debian:bullseye-slim
+
+ARG VERSION
+ARG BUILD_DATE
+RUN echo "{\"version\":\"${VERSION}\",\"buildDate\":\"${BUILD_DATE}\"}" > /app/version.json
 
 # Install Runtime Dependencies
 # Removes printer-driver-ptouch (using python driver now)
