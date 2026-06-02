@@ -30,7 +30,7 @@ FROM debian:bullseye-slim
 
 ARG VERSION
 ARG BUILD_DATE
-RUN echo "{\"version\":\"${VERSION}\",\"buildDate\":\"${BUILD_DATE}\"}" > /app/version.json
+RUN mkdir -p /app && echo "{\"version\":\"${VERSION}\",\"buildDate\":\"${BUILD_DATE}\"}" > /app/version.json
 
 # Install Runtime Dependencies
 # Removes printer-driver-ptouch (using python driver now)
