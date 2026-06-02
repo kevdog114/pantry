@@ -3,6 +3,7 @@ import sys
 import json
 import argparse
 import logging
+import unicodedata
 import usb.core
 import usb.util
 import subprocess
@@ -160,8 +161,8 @@ def sanitize_text(text):
         return ""
     # Replace common symbols that break ascii or look bad as '?'
     text = str(text).replace('°', ' deg ')
-    # Encode to ascii, replace unhandled chars with '?'
-    return text.encode('ascii', 'replace').decode()
+    # Transliterate accented chars to ASCII (é→e, ñ→n, etc.), drop rest
+    return unicodedata.normalize('NFD', text).encode('ascii', 'ignore').decode()
 
 def print_receipt_cmd(args):
     try:
