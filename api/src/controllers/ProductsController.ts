@@ -241,3 +241,93 @@ export const searchProductByBarcode = async (req: Request, res: Response, next: 
 
     res.send(productBarcode.product);
 }
+
+const OFF_USER_AGENT = "Pantry/1.0 (https://github.com/kevdog114/pantry)";
+const OFF_FIELDS = "code,product_name,brands,quantity,image_url,categories";
+const OFF_TIMEOUT_MS = 8000;
+
+/**
+ * Barcode variants worth trying against OpenFoodFacts. Hardware scanners
+ * usually emit 12-digit UPC-A codes while OFF often stores the same product
+ * under the 13-digit EAN (leading zero), and vice versa.
+ */
+const buildBarcodeCandidates = (raw: string): string[] => {
+    const candidates: string[] = [];
+    const add = (code: string) => {
+        if (code && !candidates.includes(code)) candidates.push(code);
+    };
+
+    add(raw);
+
+    if (/^\d+$/.test(raw)) {
+        if (raw.length === 12) add("0" + raw);
+        if (raw.length === 13 && raw.startsWith("0")) add(raw.substring(1));
+        if (raw.length >= 6 && raw.length < 12) add(raw.padStart(13, "0"));
+    }
+
+    return candidates;
+};
+
+/**
+ * Server-side OpenFoodFacts lookup. Kiosk devices often sit on restricted
+ * networks without internet access, so the browser cannot query OFF directly;
+ * the API server does it instead, with a proper User-Agent and timeout.
+ * Response mirrors the OFF v2 shape ({ status, code, product }) so existing
+ * consumers keep working.
+ */
+export const lookupBarcodeExternal = async (req: Request, res: Response): Promise<any> => {
+    const barcode = ((req.query.barcode as string) || "").trim();
+    if (!barcode) {
+        return res.status(400).send({ error: 'Barcode is required' });
+    }
+
+    const candidates = buildBarcodeCandidates(barcode);
+    let lastError: Error | null = null;
+
+    for (const code of candidates) {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), OFF_TIMEOUT_MS);
+        try {
+            const offRes = await fetch(
+                `https://world.openfoodfacts.org/api/v2/product/${encodeURIComponent(code)}.json?fields=${OFF_FIELDS}`,
+                {
+                    headers: {
+                        "User-Agent": OFF_USER_AGENT,
+                        "Accept": "application/json"
+                    },
+                    signal: controller.signal
+                }
+            );
+
+            if (offRes.status === 404) continue; // not under this code, try next variant
+
+            if (!offRes.ok) {
+                lastError = new Error(`OpenFoodFacts returned ${offRes.status}`);
+                continue;
+            }
+
+            const data: any = await offRes.json();
+            if (data && data.status === 1 && data.product) {
+                return res.send({
+                    status: 1,
+                    code: code,
+                    scannedBarcode: barcode,
+                    product: data.product
+                });
+            }
+        } catch (e) {
+            lastError = e as Error;
+            console.warn(`OpenFoodFacts lookup failed for ${code}:`, (e as Error).message);
+        } finally {
+            clearTimeout(timeout);
+        }
+    }
+
+    // Distinguish "not in the database" from "couldn't reach OFF" so clients
+    // can fall back to a direct browser lookup when only the server is offline.
+    if (lastError) {
+        return res.status(502).send({ status: 0, error: `OpenFoodFacts lookup failed: ${lastError.message}` });
+    }
+
+    res.send({ status: 0, code: barcode, product: null });
+}

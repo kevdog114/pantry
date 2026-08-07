@@ -30,6 +30,7 @@ import { SocketService } from '../services/socket.service';
 import { SipService, SipConfig, SipCallState, SipIncomingCall } from '../services/sip.service';
 import { SettingsService } from '../settings/settings.service';
 import { HardwareService } from '../services/hardware.service';
+import { GeminiService } from '../services/gemini.service';
 
 @Component({
     selector: 'app-kiosk-page',
@@ -184,7 +185,8 @@ export class KioskPageComponent implements OnInit, OnDestroy {
         private ngZone: NgZone,
         private sipService: SipService,
         private settingsService: SettingsService,
-        private hardwareService: HardwareService
+        private hardwareService: HardwareService,
+        private geminiService: GeminiService
     ) { }
 
     ngOnInit(): void {
@@ -759,7 +761,7 @@ export class KioskPageComponent implements OnInit, OnDestroy {
                 this.playSuccessSound();
             } else {
                 this.status = "Product Not Found";
-                this.statusSubtext = "";
+                this.statusSubtext = "Use Restock to add new items";
                 this.showTempStatus("Product Not Found", "", 3000);
                 this.playErrorSound();
             }
@@ -1110,25 +1112,40 @@ export class KioskPageComponent implements OnInit, OnDestroy {
     }
 
     async handleNewProduct(barcode: string) {
-        this.status = "Checking external sources...";
+        this.status = "New Product";
+        this.statusSubtext = "Checking OpenFoodFacts...";
+        this.lastScan = { title: 'New Product', status: 'Checking OpenFoodFacts...', type: 'info' };
 
-        // OFF Lookup
+        // OFF Lookup (proxied through the API server, which has internet access
+        // and tries UPC-A/EAN-13 leading-zero variants)
         let offProductName: string = '';
         let offBrand: string = '';
+        let offLookupFailed = false;
         try {
-            const offRes = await firstValueFrom(this.http.get<any>("https://world.openfoodfacts.org/api/v2/product/" + barcode));
+            const offRes = await firstValueFrom(this.geminiService.lookupOpenFoodFacts(barcode));
             if (offRes && offRes.product) {
                 offProductName = offRes.product.product_name || '';
                 offBrand = offRes.product.brands || '';
             }
-        } catch (e) { console.warn("OFF lookup failed"); }
+        } catch (e) {
+            offLookupFailed = true;
+            console.warn("OFF lookup failed", e);
+        }
 
-        // Even without OFF data, proceed — Gemini may still identify 
+        if (offProductName) {
+            this.addToLog(offProductName, "Found on OpenFoodFacts", 'info');
+        } else {
+            this.addToLog(`Barcode ${barcode}`, offLookupFailed ? "OpenFoodFacts unreachable" : "Not on OpenFoodFacts", 'info');
+        }
+
+        // Even without OFF data, proceed — Gemini may still identify
         // the product from the barcode number alone.
         const productName = offProductName || `Barcode ${barcode}`;
         const brand = offBrand;
 
         this.status = "Consulting AI...";
+        this.statusSubtext = offProductName || `Barcode ${barcode}`;
+        this.lastScan = { title: offProductName || 'New Product', status: 'AI is analyzing...', type: 'info' };
 
         // Gemini Match Check — try to link to an existing product
         let matchId: number | null = null;
@@ -1196,6 +1213,7 @@ export class KioskPageComponent implements OnInit, OnDestroy {
         let details: any = null;
         try {
             this.status = "Analyzing product details...";
+            this.statusSubtext = offProductName || `Barcode ${barcode}`;
             const detailsRes = await firstValueFrom(this.http.post<any>(`${this.env.apiUrl}/gemini/barcode-details`, {
                 productName,
                 brand,
@@ -1204,6 +1222,7 @@ export class KioskPageComponent implements OnInit, OnDestroy {
             details = detailsRes.data;
         } catch (e) {
             console.warn("Gemini barcode-details failed, will use OFF data if available", e);
+            this.addToLog(productName, "AI cleanup failed", 'info');
         }
 
         // Determine the best title: prefer Gemini, fall back to OFF
@@ -1214,10 +1233,14 @@ export class KioskPageComponent implements OnInit, OnDestroy {
         // If we have NO usable title at all (no OFF data, no Gemini), give up
         if (!candidateTitle) {
             this.status = "Unknown Product";
-            this.statusSubtext = "Not in OpenFoodFacts";
-            this.addToLog("Unknown Product", "Could not identify", 'error');
+            this.statusSubtext = offLookupFailed ? "OpenFoodFacts unreachable" : "Not in OpenFoodFacts";
+            this.addToLog("Unknown Product", `Barcode ${barcode} — could not identify`, 'error');
+            this.lastScan = { title: 'Unknown Product', status: this.statusSubtext, type: 'error' };
             this.playErrorSound();
-            setTimeout(() => this.status = "Scan Barcode...", 3000);
+            setTimeout(() => {
+                this.status = "Scan Barcode...";
+                this.statusSubtext = "";
+            }, 3000);
             return;
         }
 

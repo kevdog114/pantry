@@ -1,6 +1,7 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable } from '@angular/core';
 import { Observable, Subject, of } from 'rxjs';
+import { catchError } from 'rxjs/operators';
 import { EnvironmentService } from './environment.service';
 
 export interface StreamEvent {
@@ -181,8 +182,17 @@ export class GeminiService {
     return this.http.post<any>(`${this.apiUrl.replace('/chat', '')}/shopping-list-sort`, { items });
   }
 
+  /**
+   * Looks up a barcode on OpenFoodFacts via the API server. The server has
+   * internet access and normalizes UPC-A/EAN-13 leading-zero variants, which
+   * kiosk browsers on restricted networks cannot do themselves. If the server
+   * proxy fails (older API or server offline), falls back to querying
+   * OpenFoodFacts directly from the browser.
+   */
   lookupOpenFoodFacts(barcode: string): Observable<any> {
-    return this.http.get<any>(`https://world.openfoodfacts.org/api/v2/product/${barcode}`);
+    return this.http.get<any>(`${this.env.apiUrl}/barcodes/off-lookup?barcode=${encodeURIComponent(barcode)}`).pipe(
+      catchError(() => this.http.get<any>(`https://world.openfoodfacts.org/api/v2/product/${barcode}`))
+    );
   }
 
   getBarcodeDetails(productName: string, brand: string): Observable<any> {

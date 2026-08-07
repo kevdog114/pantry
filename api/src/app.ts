@@ -274,6 +274,7 @@ app.delete("/stock-items/:id", StockItemController.deleteById);
 app.put("/stock-items/:id", StockItemController.update);
 
 app.get("/barcodes/products", ProductsController.searchProductByBarcode);
+app.get("/barcodes/off-lookup", ProductsController.lookupBarcodeExternal);
 
 app.get("/tags", TagsController.getAll);
 app.get("/tags/:id", TagsController.getById);

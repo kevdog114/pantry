@@ -5,6 +5,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { NavigationExtras, Router, RouterModule } from '@angular/router';
 import { EnvironmentService } from '../services/environment.service';
+import { GeminiService } from '../services/gemini.service';
 import { ProductListService } from '../components/product-list/product-list.service';
 import { TagsService } from '../tags.service';
 import { firstValueFrom } from 'rxjs';
@@ -49,7 +50,8 @@ export class MissingBarcodeComponent {
     private router: Router,
     private productService: ProductListService,
     private tagsService: TagsService,
-    private env: EnvironmentService
+    private env: EnvironmentService,
+    private geminiService: GeminiService
   ) { }
 
   private checkBarcode(newBarcode: string | undefined) {
@@ -60,7 +62,7 @@ export class MissingBarcodeComponent {
     this.checkingMatch = false;
     this.matchFound = false;
 
-    this.http.get<any>("https://world.openfoodfacts.org/api/v2/product/" + newBarcode).subscribe(result => {
+    this.geminiService.lookupOpenFoodFacts(newBarcode).subscribe(result => {
       console.log(result);
       if (result && result.product) {
         this.ProductName = result.product.product_name;

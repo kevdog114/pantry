@@ -11,6 +11,7 @@ import { ProductListService } from '../components/product-list/product-list.serv
 import { TagsService } from '../tags.service';
 import { ProductTags } from '../types/product';
 import { KioskService, Kiosk } from '../services/kiosk.service';
+import { GeminiService } from '../services/gemini.service';
 
 interface AuditItem {
     stockItems: StockItem[];
@@ -74,7 +75,8 @@ export class AuditPageComponent implements OnInit, OnDestroy {
         private env: EnvironmentService,
         private productService: ProductListService,
         private tagsService: TagsService,
-        private kioskService: KioskService
+        private kioskService: KioskService,
+        private geminiService: GeminiService
     ) { }
 
     onLocationChange(event: any) {
@@ -398,10 +400,10 @@ export class AuditPageComponent implements OnInit, OnDestroy {
         this.processingItems.push(processItem);
 
         try {
-            // OFF Lookup
+            // OFF Lookup (proxied through the API server)
             let offData: any = {};
             try {
-                const offRes = await firstValueFrom(this.http.get<any>(`https://world.openfoodfacts.org/api/v2/product/${barcode}`));
+                const offRes = await firstValueFrom(this.geminiService.lookupOpenFoodFacts(barcode));
                 if (offRes && offRes.product) {
                     offData = offRes.product;
                 }
