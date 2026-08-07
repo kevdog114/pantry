@@ -53,7 +53,7 @@
 
                         <button class="k-btn success h-32" (click)="finishAction()">
                             <mat-icon style="transform: scale(1.5);">check</mat-icon>
-                            <span class="text-2xl ml-4">DONE</span>
+                            <span class="text-4xl ml-4">DONE</span>
                         </button>
                     </ng-container>
 
@@ -221,7 +221,7 @@
 
                         <button class="k-btn success h-32" (click)="finishAction()">
                             <mat-icon style="transform: scale(1.5);">check</mat-icon>
-                            <span class="text-2xl ml-4">DONE</span>
+                            <span class="text-4xl ml-4">DONE</span>
                         </button>
                     </ng-container>
 
@@ -478,8 +478,8 @@
                             </button>
 
                             <div class="mt-4 pt-4 border-t border-white/10 w-full flex justify-between items-center">
-                                <span class="text-sm text-gray-500">BRIDGE VERSION</span>
-                                <span class="font-mono font-bold" [class.text-green-500]="bridgeVersion !== 'Offline'"
+                                <span class="text-xl text-gray-400">BRIDGE VERSION</span>
+                                <span class="font-mono font-bold text-xl" [class.text-green-500]="bridgeVersion !== 'Offline'"
                                     [class.text-red-500]="bridgeVersion === 'Offline'">
                                     {{ isLoadingBridgeVersion ? 'Loading...' : bridgeVersion }}
                                 </span>
@@ -487,16 +487,16 @@
 
                             <div class="mt-4 pt-4 border-t border-white/10 w-full flex justify-between items-center"
                                 *ngIf="scaleInfo">
-                                <span class="text-sm text-gray-500">SCALE FIRMWARE</span>
-                                <span class="font-mono font-bold text-blue-400">
+                                <span class="text-xl text-gray-400">SCALE FIRMWARE</span>
+                                <span class="font-mono font-bold text-xl text-blue-400">
                                     {{ scaleInfo.firmware }}
                                 </span>
                             </div>
 
                             <div class="mt-4 pt-4 border-t border-white/10 w-full flex justify-between items-center"
                                 *ngIf="!scaleInfo && !isLoadingBridgeVersion && bridgeVersion !== 'Offline'">
-                                <span class="text-sm text-gray-500">SCALE</span>
-                                <span class="font-mono font-bold text-gray-500">
+                                <span class="text-xl text-gray-400">SCALE</span>
+                                <span class="font-mono font-bold text-xl text-gray-500">
                                     NOT DETECTED
                                 </span>
                             </div>
@@ -872,9 +872,9 @@
                     </div>
 
                     <!-- Quick Dials Ribbon -->
-                    <div class="flex gap-4 overflow-x-auto pb-2" *ngIf="pbxConfig?.extensions?.length">
+                    <div class="flex gap-4 overflow-x-auto pb-2 shrink-0" *ngIf="pbxConfig?.extensions?.length">
                         <button *ngFor="let ext of pbxConfig!.extensions"
-                            class="h-12 px-4 rounded-full border border-white/20 bg-white/5 whitespace-nowrap"
+                            class="h-12 px-4 rounded-full border border-white/20 bg-white/5 whitespace-nowrap text-2xl text-white shrink-0"
                             (click)="dial(ext.number)">
                             {{ ext.name }}
                         </button>
@@ -1341,7 +1341,10 @@
 
         <div *ngIf="prepState === 'QUANTITY_PAD'" class="leftover-keypad-body">
             <div class="keypad-container">
-                <div class="keypad-display">{{ numpadValue || '0' }}</div>
+                <div class="keypad-display">
+                    <span class="keypad-value">{{ numpadValue || '0' }}</span>
+                    <span class="keypad-unit">items</span>
+                </div>
                 <div class="keypad-grid">
                     <button class="keypad-btn" (click)="numpadValue = numpadValue + '1'">1</button>
                     <button class="keypad-btn" (click)="numpadValue = numpadValue + '2'">2</button>

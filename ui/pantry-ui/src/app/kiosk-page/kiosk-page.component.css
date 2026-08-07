@@ -1,4 +1,7 @@
-:root {
+/* :host (not :root) — component styles are scoped by Angular's emulated
+   encapsulation, so a :root selector here would never match and every
+   var(--k-*) below would silently resolve to nothing. */
+:host {
     --k-bg: #050505;
     --k-surface: rgba(30, 30, 30, 0.6);
     --k-surface-light: rgba(255, 255, 255, 0.1);
@@ -78,8 +81,8 @@
 }
 
 .fs-xs {
-    font-size: 1rem;
-    line-height: 1.25rem;
+    font-size: 1.25rem;
+    line-height: 1.5rem;
 }
 
 .fw-bold {
@@ -195,7 +198,7 @@
 }
 
 .sidebar-timer-name {
-    font-size: 0.75rem;
+    font-size: 0.9rem;
     font-weight: 700;
     color: var(--k-text-dim);
     text-transform: uppercase;
@@ -380,7 +383,7 @@
 }
 
 .status-section.minimized .status-text {
-    font-size: 1.4rem;
+    font-size: 1.75rem;
     text-align: left;
     margin: 0;
     white-space: nowrap;
@@ -413,7 +416,7 @@
 }
 
 .status-subtext {
-    font-size: 1.2rem;
+    font-size: 1.75rem;
     color: rgba(255, 255, 255, 0.7);
     margin-top: 4px;
     margin-bottom: 8px;
@@ -706,7 +709,7 @@
 }
 
 .timer-label {
-    font-size: 1rem;
+    font-size: 1.25rem;
     font-weight: bold;
     color: var(--k-text-dim);
     text-transform: uppercase;
@@ -745,7 +748,7 @@
 }
 
 .timer-total {
-    font-size: 1rem;
+    font-size: 1.1rem;
     color: var(--k-text-dim);
     margin-top: 6px;
 }
@@ -1335,7 +1338,7 @@
 }
 
 .scale-target-label {
-    font-size: 0.8rem;
+    font-size: 1rem;
     color: var(--k-primary);
     font-weight: bold;
     text-transform: uppercase;
@@ -2212,4 +2215,540 @@
 .leftover-exp-none:active {
     background: var(--k-warn);
     color: white;
+}
+
+/* ============================================================
+   UTILITY COMPATIBILITY LAYER
+   The kiosk template was written with Tailwind-style utility
+   classes, but this project ships Bootstrap + Material only —
+   so those classes silently did nothing, leaving tiny default
+   text and broken flex/grid layouts. This section implements
+   exactly the utilities the kiosk template uses, scoped to
+   this component. Values follow the Tailwind scale.
+   ============================================================ */
+
+/* ---- Layout: flex & grid ---- */
+.flex {
+    display: flex;
+}
+
+.flex-col {
+    flex-direction: column;
+}
+
+.flex-1 {
+    flex: 1 1 0%;
+    min-height: 0;
+    min-width: 0;
+}
+
+.shrink-0 {
+    flex-shrink: 0;
+}
+
+.items-center {
+    align-items: center;
+}
+
+.justify-center {
+    justify-content: center;
+}
+
+.justify-between {
+    justify-content: space-between;
+}
+
+.grid {
+    display: grid;
+}
+
+.grid-cols-3 {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.col-span-2 {
+    grid-column: span 2 / span 2;
+}
+
+/* ---- Sizing ---- */
+.h-full {
+    height: 100%;
+}
+
+.w-full {
+    width: 100%;
+}
+
+.h-32 {
+    height: 8rem;
+    flex-shrink: 0;
+}
+
+.h-40 {
+    height: 10rem;
+}
+
+.w-32 {
+    width: 8rem;
+}
+
+.w-1\/3 {
+    width: 33.333333%;
+}
+
+.max-w-lg {
+    max-width: 32rem;
+}
+
+/* ---- Spacing (only classes Bootstrap 5 doesn't provide) ---- */
+.p-6 {
+    padding: 1.5rem;
+}
+
+.p-8 {
+    padding: 2rem;
+}
+
+.p-10 {
+    padding: 2.5rem;
+}
+
+.mb-6 {
+    margin-bottom: 1.5rem;
+}
+
+.mb-8 {
+    margin-bottom: 2rem;
+}
+
+.mb-12 {
+    margin-bottom: 3rem;
+}
+
+.mt-20 {
+    margin-top: 5rem;
+}
+
+.ml-4 {
+    margin-left: 1rem;
+}
+
+.mr-2 {
+    margin-right: 0.5rem;
+}
+
+.mr-4 {
+    margin-right: 1rem;
+}
+
+.gap-8 {
+    gap: 2rem;
+}
+
+/* ---- Text sizes (win over contextual rules like .k-btn span) ---- */
+.text-sm {
+    font-size: 0.875rem !important;
+    line-height: 1.25rem;
+}
+
+.text-lg {
+    font-size: 1.125rem !important;
+    line-height: 1.75rem;
+}
+
+.text-xl {
+    font-size: 1.25rem !important;
+    line-height: 1.75rem;
+}
+
+.text-2xl {
+    font-size: 1.5rem !important;
+    line-height: 2rem;
+}
+
+.text-3xl {
+    font-size: 1.875rem !important;
+    line-height: 2.25rem;
+}
+
+.text-4xl {
+    font-size: 2.25rem !important;
+    line-height: 2.5rem;
+}
+
+.text-5xl {
+    font-size: 3rem !important;
+    line-height: 1.1;
+}
+
+.text-6xl {
+    font-size: 3.75rem !important;
+    line-height: 1.1;
+}
+
+.text-8xl {
+    font-size: 6rem !important;
+    line-height: 1;
+}
+
+.text-\[8rem\] {
+    font-size: 8rem !important;
+    line-height: 1;
+}
+
+/* Material icons clip oversized glyphs (overflow: hidden + fixed 24px box),
+   so icons carrying a text-size utility need their box resized too. */
+mat-icon.text-4xl {
+    font-size: 2.25rem !important;
+    width: 2.25rem;
+    height: 2.25rem;
+    line-height: 1;
+}
+
+mat-icon.text-6xl {
+    font-size: 3.75rem !important;
+    width: 3.75rem;
+    height: 3.75rem;
+    line-height: 1;
+}
+
+mat-icon.text-8xl {
+    font-size: 6rem !important;
+    width: 6rem;
+    height: 6rem;
+    line-height: 1;
+}
+
+/* ---- Text colors ---- */
+.text-gray-400 {
+    color: #9ca3af !important;
+}
+
+.text-gray-500 {
+    color: #6b7280 !important;
+}
+
+.text-cyan-400 {
+    color: #22d3ee !important;
+}
+
+.text-green-400 {
+    color: #4ade80 !important;
+}
+
+.text-green-500 {
+    color: #22c55e !important;
+}
+
+.text-red-400 {
+    color: #f87171 !important;
+}
+
+.text-red-500 {
+    color: #ef4444 !important;
+}
+
+.text-blue-400 {
+    color: #60a5fa !important;
+}
+
+.text-blue-500 {
+    color: #3b82f6 !important;
+}
+
+.text-orange-400 {
+    color: #fb923c !important;
+}
+
+.text-orange-500 {
+    color: #f97316 !important;
+}
+
+.text-yellow-500 {
+    color: #eab308 !important;
+}
+
+.text-white\/30 {
+    color: rgba(255, 255, 255, 0.3) !important;
+}
+
+/* ---- Backgrounds ---- */
+.bg-white\/5 {
+    background-color: rgba(255, 255, 255, 0.05);
+}
+
+.bg-gray-900 {
+    background-color: #111827;
+}
+
+.bg-green-500 {
+    background-color: #22c55e;
+}
+
+.bg-green-500\/20 {
+    background-color: rgba(34, 197, 94, 0.2);
+}
+
+.bg-red-600 {
+    background-color: #dc2626;
+}
+
+/* ---- Borders (Bootstrap border utilities are !important, so match) ---- */
+.border-2 {
+    border-width: 2px !important;
+    border-style: solid;
+}
+
+.border-b {
+    border-bottom-width: 1px !important;
+    border-bottom-style: solid;
+}
+
+.border-t {
+    border-top-width: 1px !important;
+    border-top-style: solid;
+}
+
+.border-dashed {
+    border-style: dashed !important;
+}
+
+.border-white\/10 {
+    border-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+.border-white\/20 {
+    border-color: rgba(255, 255, 255, 0.2) !important;
+}
+
+.border-gray-700 {
+    border-color: #374151 !important;
+}
+
+.border-k-primary {
+    border-color: var(--k-primary) !important;
+}
+
+.rounded-2xl {
+    border-radius: 1rem;
+}
+
+.rounded-3xl {
+    border-radius: 1.5rem;
+}
+
+.rounded-full {
+    border-radius: 9999px;
+}
+
+/* ---- Typography ---- */
+.font-bold {
+    font-weight: 700;
+}
+
+.font-extrabold {
+    font-weight: 800;
+}
+
+.font-mono {
+    font-family: 'SF Mono', 'Menlo', monospace;
+}
+
+.uppercase {
+    text-transform: uppercase;
+}
+
+.leading-none {
+    line-height: 1;
+}
+
+.leading-tight {
+    line-height: 1.25;
+}
+
+.tracking-tight {
+    letter-spacing: -0.025em;
+}
+
+.tracking-wider {
+    letter-spacing: 0.05em;
+}
+
+.tracking-widest {
+    letter-spacing: 0.1em;
+}
+
+.truncate {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
+}
+
+.break-words {
+    overflow-wrap: break-word;
+    word-break: break-word;
+}
+
+.whitespace-nowrap {
+    white-space: nowrap;
+}
+
+.slashed-zero {
+    font-variant-numeric: slashed-zero;
+}
+
+/* ---- Position / stacking ---- */
+.relative {
+    position: relative;
+}
+
+.absolute {
+    position: absolute;
+}
+
+.top-6 {
+    top: 1.5rem;
+}
+
+.left-6 {
+    left: 1.5rem;
+}
+
+.z-10 {
+    z-index: 10;
+}
+
+/* ---- Effects & transforms ---- */
+.opacity-80 {
+    opacity: 0.8;
+}
+
+.hover\:opacity-100:hover {
+    opacity: 1 !important;
+}
+
+.shadow-2xl {
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.6);
+}
+
+.scale-125 {
+    transform: scale(1.25);
+}
+
+.scale-150 {
+    transform: scale(1.5);
+}
+
+.scale-\[2\] {
+    transform: scale(2);
+}
+
+/* ---- Animations ---- */
+.animate-pulse {
+    animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes k-spin {
+    from {
+        transform: rotate(0deg);
+    }
+
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.animate-spin {
+    animation: k-spin 1s linear infinite;
+}
+
+@keyframes k-bounce {
+
+    0%,
+    100% {
+        transform: translateY(-15%);
+        animation-timing-function: cubic-bezier(0.8, 0, 1, 1);
+    }
+
+    50% {
+        transform: translateY(0);
+        animation-timing-function: cubic-bezier(0, 0, 0.2, 1);
+    }
+}
+
+.animate-bounce {
+    animation: k-bounce 1s infinite;
+}
+
+@keyframes k-enter {
+    from {
+        opacity: 0;
+        transform: scale(0.95);
+    }
+
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+.animate-in {
+    animation: k-enter 0.3s ease-out both;
+}
+
+/* ============================================================
+   Component classes referenced by the template but previously
+   missing from this stylesheet
+   ============================================================ */
+
+/* Scanner icon in the status header */
+.pulse-icon {
+    font-size: 3.5rem;
+    width: 3.5rem;
+    height: 3.5rem;
+    color: var(--k-primary);
+    animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* Cook "Select Version" chooser */
+.instruction-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 16px;
+}
+
+/* Legacy quick-label view */
+.quick-label-layout {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    gap: 12px;
+}
+
+/* Prep modal live weight (leftovers modal uses .leftover-scale-weight) */
+.leftover-scale-value {
+    font-family: 'SF Mono', 'Menlo', monospace;
+    font-size: 10rem;
+    font-weight: 900;
+    color: white;
+    line-height: 1;
+    text-shadow: 0 0 40px rgba(0, 229, 255, 0.2);
+}
+
+/* Prep keypad confirm key */
+.keypad-enter {
+    color: var(--k-success);
+    border-color: var(--k-success);
+}
+
+.keypad-enter:active {
+    background: var(--k-success);
+    color: black;
+}
+
+/* Menus with an odd item count: let the last tile span the full row
+   instead of leaving an empty cell (e.g. 3-item Inventory menu) */
+.grid-menu > *:last-child:nth-child(odd) {
+    grid-column: 1 / -1;
 }
