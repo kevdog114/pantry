@@ -2506,7 +2506,7 @@ export class KioskPageComponent implements OnInit, OnDestroy {
     }
 
     isFullScreen(state: string): boolean {
-        return ['COOK', 'PHONE', 'TIMERS', 'QUICK_LABEL', 'SCALE', 'HARDWARE', 'INVENTORY_MENU', 'LABELS', 'LABELS_CUSTOM_DATE'].includes(state);
+        return ['COOK', 'PHONE', 'TIMERS', 'TIMER_KEYPAD', 'QUICK_LABEL', 'SCALE', 'HARDWARE', 'INVENTORY_MENU', 'UTILITIES', 'PRINT_LABELS', 'LABELS', 'LABELS_CUSTOM_DATE', 'LABELS_COPIES_KEYPAD'].includes(state);
     }
 
     // Hardware Methods

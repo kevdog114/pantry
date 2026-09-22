@@ -103,19 +103,19 @@
                     </div>
 
                     <!-- STATE: WEIGH -->
-                    <div *ngIf="restockState === 'WEIGH'" class="flex-1 flex flex-col gap-4">
+                    <div *ngIf="restockState === 'WEIGH'" class="flex-1 min-h-0 flex flex-col gap-4">
                         <div
-                            class="flex-1 bg-white/5 border border-white/10 rounded-3xl flex flex-col items-center justify-center relative overflow-hidden">
+                            class="flex-1 min-h-0 bg-white/5 border border-white/10 rounded-3xl flex flex-col items-center justify-center relative overflow-hidden">
                             <div class="absolute top-6 left-6 z-10">
                                 <span class="text-gray-400 font-bold tracking-widest text-xl">SCALE</span>
                             </div>
 
                             <div class="flex-1 flex flex-col items-center justify-center">
                                 <div class="font-mono leading-none font-bold text-white slashed-zero"
-                                    style="font-size: clamp(6rem, 20vh, 12rem);">
+                                    style="font-size: clamp(3.5rem, 14vh, 12rem);">
                                     {{ weightInGrams | number:'1.0-0' }}
                                 </div>
-                                <div class="text-6xl text-cyan-400 font-bold tracking-widest uppercase mt-4">g
+                                <div class="scale-unit-label text-cyan-400 font-bold tracking-widest uppercase">g
                                 </div>
                                 <!-- Secondary Units -->
                                 <div class="scale-secondary-units" style="margin-top: 16px;">
@@ -131,7 +131,7 @@
                             </div>
                         </div>
 
-                        <div class="grid grid-cols-3 gap-4" style="height: 200px; flex-shrink: 0;">
+                        <div class="scale-btn-row grid grid-cols-3 gap-4">
                             <button class="k-btn h-full" (click)="tareScale()">
                                 <mat-icon class="scale-150 mb-2">restart_alt</mat-icon> <span
                                     class="text-3xl">TARE</span>
@@ -227,11 +227,11 @@
 
                     <!-- STATE: WEIGHT_OPTIONS (Use All / Weigh Remaining) -->
                     <ng-container *ngIf="consumeState === 'WEIGHT_OPTIONS'">
-                        <div class="flex-1 flex flex-col gap-4 animate-in fade-in zoom-in duration-300">
+                        <div class="flex-1 min-h-0 flex flex-col gap-4 animate-in fade-in zoom-in duration-300">
                             <div
-                                class="bg-white/5 border border-white/10 rounded-3xl p-8 flex-1 flex flex-col items-center justify-center text-center">
+                                class="options-card bg-white/5 border border-white/10 rounded-3xl flex-1 min-h-0 flex flex-col items-center justify-center text-center">
                                 <h2 class="text-5xl font-bold mb-2 text-white">{{ consumeProduct?.title }}</h2>
-                                <div class="text-2xl text-gray-400 mb-12 font-mono">
+                                <div class="options-summary text-2xl text-gray-400 font-mono">
                                     <span>Current: <span class="text-cyan-400 font-bold">{{ consumeItemCurrentWeight }}</span></span>
                                 </div>
 
@@ -246,7 +246,7 @@
                                     </button>
                                 </div>
                             </div>
-                            <button class="k-btn h-32" (click)="cancelConsume()">
+                            <button class="k-btn back-bar-btn" (click)="cancelConsume()">
                                 <mat-icon>arrow_back</mat-icon>
                                 <span class="text-2xl mt-4">BACK</span>
                             </button>
@@ -255,19 +255,19 @@
 
                     <!-- STATE: WEIGH_REMAINING -->
                     <ng-container *ngIf="consumeState === 'WEIGH_REMAINING'">
-                        <div class="flex-1 flex flex-col gap-4">
+                        <div class="flex-1 min-h-0 flex flex-col gap-4">
                             <div
-                                class="flex-1 bg-white/5 border border-white/10 rounded-3xl flex flex-col items-center justify-center relative overflow-hidden">
+                                class="flex-1 min-h-0 bg-white/5 border border-white/10 rounded-3xl flex flex-col items-center justify-center relative overflow-hidden">
                                 <div class="absolute top-6 left-6 z-10">
                                     <span class="text-gray-400 font-bold tracking-widest text-xl">WEIGH REMAINING</span>
                                 </div>
 
                                 <div class="flex-1 flex flex-col items-center justify-center">
                                     <div class="font-mono leading-none font-bold text-white slashed-zero"
-                                        style="font-size: clamp(6rem, 20vh, 12rem);">
+                                        style="font-size: clamp(3.5rem, 14vh, 12rem);">
                                         {{ weightInGrams | number:'1.0-0' }}
                                     </div>
-                                    <div class="text-6xl text-cyan-400 font-bold tracking-widest uppercase mt-4">g
+                                    <div class="scale-unit-label text-cyan-400 font-bold tracking-widest uppercase">g
                                     </div>
                                     <!-- Secondary Units -->
                                     <div class="scale-secondary-units" style="margin-top: 16px;">
@@ -283,7 +283,7 @@
                                 </div>
                             </div>
 
-                            <div class="grid grid-cols-3 gap-4" style="height: 200px; flex-shrink: 0;">
+                            <div class="scale-btn-row grid grid-cols-3 gap-4">
                                 <button class="k-btn h-full" (click)="tareScale()">
                                     <mat-icon class="scale-150 mb-2">restart_alt</mat-icon> <span
                                         class="text-3xl">TARE</span>
@@ -743,7 +743,7 @@
                     </div>
 
                     <!-- View Content -->
-                    <div class="flex-1 overflow-y-auto px-2">
+                    <div class="timers-top px-2">
 
                         <!-- Recipe Timers Section -->
                         <ng-container *ngIf="selectedRecipe && recipeTimerActions.length > 0">
@@ -947,31 +947,31 @@
 
                         <!-- MAIN COOK MENU (4 Big Buttons) -->
                         <div *ngIf="!showScaleOptions" class="recipe-content w-100"
-                            style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; align-content: center; height: 100%;">
+                            style="display: grid; grid-template-columns: repeat(2, 1fr); grid-template-rows: repeat(3, minmax(0, 1fr)); gap: clamp(8px, 2vh, 16px); height: 100%;">
 
                             <button class="k-btn accent" (click)="openTimers()">
-                                <mat-icon style="font-size: 80px; width: 80px; height: 80px;">timer</mat-icon>
-                                <span class="fs-2xl mt-4">TIMERS</span>
+                                <mat-icon class="cook-menu-icon">timer</mat-icon>
+                                <span class="fs-2xl">TIMERS</span>
                             </button>
 
                             <button class="k-btn" (click)="scaleAction()">
-                                <mat-icon style="font-size: 80px; width: 80px; height: 80px;">scale</mat-icon>
-                                <span class="fs-2xl mt-4">WEIGH</span>
+                                <mat-icon class="cook-menu-icon">scale</mat-icon>
+                                <span class="fs-2xl">WEIGH</span>
                             </button>
 
                             <button class="k-btn" (click)="printRecipeReceipt()">
-                                <mat-icon style="font-size: 80px; width: 80px; height: 80px;">receipt_long</mat-icon>
-                                <span class="fs-2xl mt-4">PRINT</span>
+                                <mat-icon class="cook-menu-icon">receipt_long</mat-icon>
+                                <span class="fs-2xl">PRINT</span>
                             </button>
 
                             <button class="k-btn success" (click)="openLeftovers()">
-                                <mat-icon style="font-size: 80px; width: 80px; height: 80px;">inventory_2</mat-icon>
-                                <span class="fs-2xl mt-4">LEFTOVERS</span>
+                                <mat-icon class="cook-menu-icon">inventory_2</mat-icon>
+                                <span class="fs-2xl">LEFTOVERS</span>
                             </button>
 
                             <button class="k-btn warn" (click)="openPrep()" style="grid-column: span 2;">
-                                <mat-icon style="font-size: 80px; width: 80px; height: 80px;">freezing</mat-icon>
-                                <span class="fs-2xl mt-4">PREP (FREEZE)</span>
+                                <mat-icon class="cook-menu-icon">freezing</mat-icon>
+                                <span class="fs-2xl">PREP (FREEZE)</span>
                             </button>
 
                         </div>
@@ -1440,10 +1440,10 @@
             </div>
 
             <div class="flex gap-8">
-                <button *ngIf="incomingCall" class="call-btn bg-green-500 scale-125" (click)="answerCall()">
+                <button *ngIf="incomingCall" class="call-btn call-answer" (click)="answerCall()">
                     <mat-icon>call</mat-icon>
                 </button>
-                <button class="call-btn bg-red-600 scale-125" (click)="hangupCall()">
+                <button class="call-btn call-hangup" (click)="hangupCall()">
                     <mat-icon>call_end</mat-icon>
                 </button>
             </div>
