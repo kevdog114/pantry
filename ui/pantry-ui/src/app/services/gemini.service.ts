@@ -1,7 +1,7 @@
 import { HttpClient, HttpEventType, HttpResponse } from '@angular/common/http';
 import { Injectable } from '@angular/core';
-import { Observable, Subject, of } from 'rxjs';
-import { filter, map } from 'rxjs/operators';
+import { Observable, Subject, of, from } from 'rxjs';
+import { filter, map, switchMap } from 'rxjs/operators';
 import { EnvironmentService } from './environment.service';
 
 /** Emitted repeatedly while an image upload is still in flight. */
@@ -90,24 +90,52 @@ export class GeminiService {
     entityType?: string,
     entityId?: number
   ): Observable<UploadEvent> {
-    const formData = new FormData();
-    // Always send a prompt field: the server derives the session title from it.
-    formData.append('prompt', prompt ?? '');
-    if (sessionId) {
-      formData.append('sessionId', sessionId.toString());
-    }
-    if (image) {
-      formData.append('image', image);
-    }
-    if (additionalContext) {
-      formData.append('additionalContext', additionalContext);
-    }
-    if (entityType) formData.append('entityType', entityType);
-    if (entityId) formData.append('entityId', entityId.toString());
+    const buildForm = (imageBlob?: Blob, imageName?: string) => {
+      const formData = new FormData();
+      // Always send a prompt field: the server derives the session title from it.
+      formData.append('prompt', prompt ?? '');
+      if (sessionId) {
+        formData.append('sessionId', sessionId.toString());
+      }
+      if (imageBlob) {
+        formData.append('image', imageBlob, imageName || 'upload');
+      }
+      if (additionalContext) {
+        formData.append('additionalContext', additionalContext);
+      }
+      if (entityType) formData.append('entityType', entityType);
+      if (entityId) formData.append('entityId', entityId.toString());
+      return formData;
+    };
 
-    return this.http
-      .post<any>(this.apiUrl, formData, { observe: 'events', reportProgress: true })
-      .pipe(
+    // Read the file into memory before building the body.
+    //
+    // A File taken straight from the iOS photo library is a lazy handle: Safari
+    // will happily emit the multipart headers and then send Content-Length: 0,
+    // silently dropping every field including the text prompt. FileReader can
+    // read the same file (the chat preview renders), so snapshotting the bytes
+    // into a Blob gives XHR something with a known length that it cannot
+    // serialize away.
+    const body$ = image
+      ? from(image.arrayBuffer()).pipe(
+          map(buffer => {
+            // If the handle really is dead we get 0 bytes here. Fail loudly
+            // rather than posting an empty body that the server can only
+            // reject with a confusing 400.
+            if (!buffer || buffer.byteLength === 0) {
+              throw new Error(
+                `Could not read "${image.name || 'image'}" — the file came back empty. ` +
+                `Try taking a screenshot of it, or re-saving it to Photos, then attach it again.`
+              );
+            }
+            return buildForm(new Blob([buffer], { type: image.type || 'application/octet-stream' }), image.name);
+          })
+        )
+      : of(buildForm());
+
+    return body$.pipe(
+        switchMap(formData => this.http
+          .post<any>(this.apiUrl, formData, { observe: 'events', reportProgress: true })),
         filter(event => event.type === HttpEventType.UploadProgress || event.type === HttpEventType.Response),
         map((event): UploadEvent => {
           if (event.type === HttpEventType.UploadProgress) {
