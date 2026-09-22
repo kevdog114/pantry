@@ -210,10 +210,19 @@ export class SmartChatInputComponent implements OnDestroy {
         }
     }
 
-    clearImage() {
+    /**
+     * @param resetInput Whether to also reset the <input type="file"> element.
+     *   Must be false while a send is in flight: on iOS Safari, clearing the
+     *   input's value invalidates the backing blob of the File we just handed
+     *   to the parent, so the upload goes out with an empty body
+     *   (multipart Content-Type, Content-Length: 0). The input is reset in
+     *   triggerImageUpload() instead, which also keeps re-picking the same
+     *   file working.
+     */
+    clearImage(resetInput: boolean = true) {
         this.selectedImage = null;
         this.selectedImagePreview = null;
-        if (this.fileInput) {
+        if (resetInput && this.fileInput) {
             this.fileInput.nativeElement.value = '';
         }
     }
@@ -225,11 +234,16 @@ export class SmartChatInputComponent implements OnDestroy {
                 image: this.selectedImage || undefined
             });
             this.text = '';
-            this.clearImage();
+            // Drop our reference to the file, but leave the input element alone
+            // until the next pick — see clearImage().
+            this.clearImage(false);
         }
     }
 
     triggerImageUpload() {
+        // Reset here rather than after sending, so selecting the same file
+        // twice in a row still fires a change event.
+        this.fileInput.nativeElement.value = '';
         this.fileInput.nativeElement.click();
     }
 }

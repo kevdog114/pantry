@@ -1,7 +1,25 @@
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpEventType, HttpResponse } from '@angular/common/http';
 import { Injectable } from '@angular/core';
 import { Observable, Subject, of } from 'rxjs';
+import { filter, map } from 'rxjs/operators';
 import { EnvironmentService } from './environment.service';
+
+/** Emitted repeatedly while an image upload is still in flight. */
+export interface UploadProgressEvent {
+  kind: 'progress';
+  loaded: number;
+  total?: number;
+  /** 0-100. Falls back to 0 while the total size is unknown. */
+  percent: number;
+}
+
+/** Emitted once, when the server has replied. */
+export interface UploadResponseEvent {
+  kind: 'response';
+  body: any;
+}
+
+export type UploadEvent = UploadProgressEvent | UploadResponseEvent;
 
 export interface StreamEvent {
   type: 'session' | 'chunk' | 'done' | 'error' | 'tool_call' | 'meta';
@@ -57,6 +75,52 @@ export class GeminiService {
       return this.http.post<any>(this.apiUrl, formData);
     }
     return this.http.post<any>(this.apiUrl, { prompt, history, sessionId, additionalContext, entityType, entityId });
+  }
+
+  /**
+   * Same as sendMessage() for the image case, but reports upload progress.
+   * Emits 'progress' events while the body is being sent, then a single
+   * 'response' event carrying the parsed body.
+   */
+  sendMessageWithProgress(
+    prompt: string,
+    sessionId?: number,
+    image?: File,
+    additionalContext?: string,
+    entityType?: string,
+    entityId?: number
+  ): Observable<UploadEvent> {
+    const formData = new FormData();
+    // Always send a prompt field: the server derives the session title from it.
+    formData.append('prompt', prompt ?? '');
+    if (sessionId) {
+      formData.append('sessionId', sessionId.toString());
+    }
+    if (image) {
+      formData.append('image', image);
+    }
+    if (additionalContext) {
+      formData.append('additionalContext', additionalContext);
+    }
+    if (entityType) formData.append('entityType', entityType);
+    if (entityId) formData.append('entityId', entityId.toString());
+
+    return this.http
+      .post<any>(this.apiUrl, formData, { observe: 'events', reportProgress: true })
+      .pipe(
+        filter(event => event.type === HttpEventType.UploadProgress || event.type === HttpEventType.Response),
+        map((event): UploadEvent => {
+          if (event.type === HttpEventType.UploadProgress) {
+            return {
+              kind: 'progress',
+              loaded: event.loaded,
+              total: event.total,
+              percent: event.total ? Math.round((100 * event.loaded) / event.total) : 0
+            };
+          }
+          return { kind: 'response', body: (event as HttpResponse<any>).body };
+        })
+      );
   }
 
   /**

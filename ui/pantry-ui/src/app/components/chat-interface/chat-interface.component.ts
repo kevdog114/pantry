@@ -13,6 +13,14 @@ export interface ChatContentItem {
     recipe?: ChatRecipe;
     expanded?: boolean;
     imageUrl?: string;
+    /**
+     * Upload progress 0-100 for an attached image that is still being sent.
+     * Undefined once the upload finishes (or for images that were never
+     * uploaded from this client, e.g. history loaded from the server).
+     */
+    uploadProgress?: number;
+    /** Set when the upload failed, so the bubble can show it did not send. */
+    uploadFailed?: boolean;
     toolCall?: {
         name: string;
         args?: any;

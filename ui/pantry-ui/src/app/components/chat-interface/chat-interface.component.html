@@ -26,8 +26,25 @@
                     </div>
 
                     <!-- Image Message -->
-                    <div *ngIf="item.type === 'image'" class="message-image">
+                    <div *ngIf="item.type === 'image'" class="message-image"
+                         [class.uploading]="item.uploadProgress !== undefined">
                         <img [src]="item.imageUrl" alt="Attached Image">
+
+                        <!-- Upload progress overlay -->
+                        <div class="upload-overlay" *ngIf="item.uploadProgress !== undefined">
+                            <div class="upload-track">
+                                <div class="upload-fill" [style.width.%]="item.uploadProgress"></div>
+                            </div>
+                            <span class="upload-label">
+                                {{ item.uploadProgress < 100 ? 'Uploading ' + item.uploadProgress + '%' : 'Processing…' }}
+                            </span>
+                        </div>
+
+                        <!-- Failed upload badge -->
+                        <div class="upload-failed" *ngIf="item.uploadFailed">
+                            <mat-icon>error_outline</mat-icon>
+                            <span>Upload failed</span>
+                        </div>
                     </div>
 
                     <!-- Recipe Message -->

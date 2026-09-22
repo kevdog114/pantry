@@ -1153,9 +1153,16 @@ async function prepareSession(
   let history: Content[] = [];
 
   if (!sessionId) {
+    // prompt may be absent (image-only message, or a malformed/empty body):
+    // fall back to the image name rather than throwing on .substring.
+    const safePrompt = (prompt ?? '').trim();
+    const title = safePrompt.length > 0
+      ? safePrompt.substring(0, 50) + (safePrompt.length > 50 ? '...' : '')
+      : (imageFilename ? 'Image: ' + imageFilename.substring(0, 42) : 'New chat');
+
     const session = await prisma.chatSession.create({
       data: {
-        title: prompt.substring(0, 50) + (prompt.length > 50 ? '...' : ''),
+        title,
         entityType: entityType || null,
         entityId: entityId ? parseInt(entityId.toString(), 10) : null
       }
@@ -1396,6 +1403,18 @@ export const post = async (req: Request, res: Response) => {
     };
 
     if (sessionId) sessionId = parseInt(sessionId as string, 10);
+
+    // --- REQUEST VALIDATION ---
+    // A multipart body that arrives empty (Content-Length: 0) leaves both
+    // req.body and req.files unpopulated. Fail with a clear 400 instead of
+    // blowing up further down on an undefined prompt.
+    const hasImage = !!(req.files && (req.files as any).image);
+    if ((prompt === undefined || prompt === null || String(prompt).trim() === '') && !hasImage) {
+      return res.status(400).json({
+        message: "error",
+        data: "Request must include a prompt or an image. If you attached an image, the upload body did not arrive."
+      });
+    }
 
     // --- LOCAL INTENT PROCESSING ---
     const intentResult = await processLocalIntent(prompt, sessionId as number | undefined, entityType, entityId);

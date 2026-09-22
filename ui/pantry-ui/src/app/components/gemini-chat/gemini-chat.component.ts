@@ -219,15 +219,25 @@ export class GeminiChatComponent implements OnInit, AfterViewInit, OnDestroy {
     if (image) {
       const reader = new FileReader();
       reader.onload = (e: any) => {
+        // Keep a reference to the image item so the upload progress can be
+        // written straight onto the bubble that is already on screen.
+        const imageItem: ChatContentItem = {
+          type: 'image',
+          imageUrl: e.target.result,
+          uploadProgress: 0
+        };
         this.messages.push({
           sender: 'You',
           contents: [
-            { type: 'image', imageUrl: e.target.result },
+            imageItem,
             { type: 'chat', text: prompt }
           ],
           timestamp: new Date()
         });
-        this.executeSend(prompt, image);
+        this.executeSend(prompt, image, imageItem);
+      };
+      reader.onerror = () => {
+        this.snackBar.open('Could not read the selected image.', 'Close', { duration: 5000 });
       };
       reader.readAsDataURL(image);
     } else {
@@ -239,13 +249,13 @@ export class GeminiChatComponent implements OnInit, AfterViewInit, OnDestroy {
     }
   }
 
-  executeSend(prompt: string, image?: File) {
+  executeSend(prompt: string, image?: File, imageItem?: ChatContentItem) {
     this.isLoading = true;
     this.loadingText = 'Thinking...';
 
     // If image is present, fall back to non-streaming endpoint
     if (image) {
-      this.executeNonStreamingSend(prompt, image);
+      this.executeNonStreamingSend(prompt, image, imageItem);
       return;
     }
 
@@ -621,32 +631,71 @@ export class GeminiChatComponent implements OnInit, AfterViewInit, OnDestroy {
   /**
    * Non-streaming fallback for when images are attached.
    */
-  private executeNonStreamingSend(prompt: string, image: File) {
-    this.geminiService.sendMessage(prompt, [], this.currentSessionId || undefined, image).subscribe(response => {
-      this.isLoading = false;
+  private executeNonStreamingSend(prompt: string, image: File, imageItem?: ChatContentItem) {
+    this.loadingText = 'Uploading image...';
 
-      if (response.sessionId) {
-        if (this.currentSessionId !== response.sessionId) {
-          this.currentSessionId = response.sessionId;
-          this.loadSessions();
+    this.geminiService
+      .sendMessageWithProgress(prompt, this.currentSessionId || undefined, image)
+      .subscribe({
+        next: event => {
+          if (event.kind === 'progress') {
+            if (imageItem) {
+              imageItem.uploadProgress = event.percent;
+            }
+            if (event.percent >= 100) {
+              this.loadingText = 'Thinking...';
+            }
+            return;
+          }
+
+          // kind === 'response'
+          const response = event.body ?? {};
+          this.isLoading = false;
+          if (imageItem) {
+            imageItem.uploadProgress = undefined;
+          }
+
+          if (response.sessionId) {
+            if (this.currentSessionId !== response.sessionId) {
+              this.currentSessionId = response.sessionId;
+              this.loadSessions();
+            }
+          }
+
+          const geminiContents = this.parseGeminiResponse(response.data);
+
+          if (geminiContents.length > 0) {
+            this.messages.push({
+              sender: 'Gemini',
+              contents: geminiContents,
+              timestamp: new Date(),
+              meta: response.meta
+            });
+          }
+
+          if (response.warning) {
+            this.snackBar.open(response.warning, 'Close', { duration: 5000 });
+          }
+        },
+        error: err => {
+          // Without this the spinner used to run forever and the failure was
+          // invisible — the image path had no error callback at all.
+          this.isLoading = false;
+          if (imageItem) {
+            imageItem.uploadProgress = undefined;
+            imageItem.uploadFailed = true;
+          }
+
+          const detail = err?.error?.message || err?.message || 'Unknown error';
+          const status = err?.status ? ` (HTTP ${err.status})` : '';
+          this.messages.push({
+            sender: 'Gemini',
+            contents: [{ type: 'chat', text: `Error sending image: ${detail}${status}` }],
+            timestamp: new Date()
+          });
+          this.snackBar.open(`Image upload failed${status}`, 'Close', { duration: 5000 });
         }
-      }
-
-      const geminiContents = this.parseGeminiResponse(response.data);
-
-      if (geminiContents.length > 0) {
-        this.messages.push({
-          sender: 'Gemini',
-          contents: geminiContents,
-          timestamp: new Date(),
-          meta: response.meta
-        });
-      }
-
-      if (response.warning) {
-        this.snackBar.open(response.warning, 'Close', { duration: 5000 });
-      }
-    });
+      });
   }
 
   newChat() {
