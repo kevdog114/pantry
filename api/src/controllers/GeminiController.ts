@@ -7,6 +7,7 @@ import prisma from '../lib/prisma';
 import { UploadedFile } from "express-fileupload";
 import * as fs from "fs";
 import * as path from "path";
+import sharp from "sharp";
 import { storeFile, UPLOAD_DIR } from "../lib/FileStorage";
 import { intentEngine } from "../lib/IntentEngine";
 import { WeatherService } from "../services/WeatherService";
@@ -922,10 +923,60 @@ export const extractRecipeQuickActions = async (req: Request, res: Response) => 
 // SHARED CHAT HELPERS
 // ========================================
 
-function fileToGenerativePart(filePath: string, mimeType: string) {
+/**
+ * Longest edge, in pixels, that an image is downscaled to before being sent
+ * to a vision model.
+ *
+ * Vision encoders run non-causal attention over the whole image chunk, so
+ * llama.cpp asserts n_ubatch >= image tokens:
+ *
+ *   GGML_ASSERT((cparams.causal_attn || cparams.n_ubatch >= n_tokens_all)
+ *     && "non-causal attention requires n_ubatch >= n_tokens_all")
+ *
+ * LM Studio launches with --ubatch-size 512, and an image over roughly
+ * 1100px on its longest edge exceeds that and *aborts the server process*
+ * (the next request then fails with "Model is unloaded"). Measured against
+ * gemma-4-26b-a4b: 1100px succeeded, 1200px crashed it. 1024 keeps a margin
+ * and is ample for the models we send to — they tile to 896px internally.
+ *
+ * Raise AI_IMAGE_MAX_DIMENSION only alongside a larger ubatch on the server.
+ */
+const AI_IMAGE_MAX_DIMENSION = parseInt(process.env.AI_IMAGE_MAX_DIMENSION || '1024', 10);
+
+async function fileToGenerativePart(filePath: string, mimeType: string) {
+  const original = fs.readFileSync(filePath);
+
+  try {
+    const meta = await sharp(original).metadata();
+    const longest = Math.max(meta.width || 0, meta.height || 0);
+
+    if (longest > AI_IMAGE_MAX_DIMENSION) {
+      const resized = await sharp(original)
+        .rotate() // honour EXIF orientation before dropping the metadata
+        .resize({
+          width: AI_IMAGE_MAX_DIMENSION,
+          height: AI_IMAGE_MAX_DIMENSION,
+          fit: 'inside',
+          withoutEnlargement: true
+        })
+        .jpeg({ quality: 85 })
+        .toBuffer();
+
+      console.log(
+        `[Vision] Downscaled ${path.basename(filePath)} ${meta.width}x${meta.height} ` +
+        `(${original.length}B) -> max ${AI_IMAGE_MAX_DIMENSION}px (${resized.length}B)`
+      );
+
+      return { inlineData: { data: resized.toString("base64"), mimeType: "image/jpeg" } };
+    }
+  } catch (err) {
+    // Never fail the request over this — fall through and send the original.
+    console.warn(`[Vision] Could not downscale ${filePath}, sending as-is:`, err);
+  }
+
   return {
     inlineData: {
-      data: Buffer.from(fs.readFileSync(filePath)).toString("base64"),
+      data: original.toString("base64"),
       mimeType
     },
   };
@@ -1250,7 +1301,7 @@ async function prepareSession(
             try {
               const fullPath = path.join(UPLOAD_DIR, msg.imageUrl);
               if (fs.existsSync(fullPath)) {
-                parts.push(fileToGenerativePart(fullPath, mime));
+                parts.push(await fileToGenerativePart(fullPath, mime));
               }
             } catch (e) {
               console.error("Failed to load image for history", e);
@@ -1435,7 +1486,7 @@ export const post = async (req: Request, res: Response) => {
       const ext = path.extname(image.name);
       imageFilename = `chat_${Date.now()}_${Math.floor(Math.random() * 1000)}${ext}`;
       storeFile(image.tempFilePath, imageFilename);
-      imagePart = fileToGenerativePart(path.join(UPLOAD_DIR, imageFilename), image.mimetype);
+      imagePart = await fileToGenerativePart(path.join(UPLOAD_DIR, imageFilename), image.mimetype);
     }
 
     // --- SESSION + HISTORY ---
@@ -1998,7 +2049,7 @@ export const analyzeProductImage = async (req: Request, res: Response) => {
 
     const modelName = await getModelName("gemini_vision_model");
 
-    const imagePart = fileToGenerativePart(image.tempFilePath, image.mimetype);
+    const imagePart = await fileToGenerativePart(image.tempFilePath, image.mimetype);
 
     // Use Gemini SDK for structured output, or AI client for other providers
     let result;
