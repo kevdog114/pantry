@@ -51,7 +51,7 @@ import { HardwareService } from '../services/hardware.service';
         MatProgressSpinnerModule
     ],
     templateUrl: './kiosk-page.component.html',
-    styleUrls: ['./kiosk-page.component.css']
+    styleUrls: ['./kiosk-utilities.css', './kiosk-page.component.css']
 })
 export class KioskPageComponent implements OnInit, OnDestroy {
     // Status Section

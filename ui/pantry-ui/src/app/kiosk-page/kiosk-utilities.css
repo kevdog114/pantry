@@ -1,0 +1,162 @@
+/*
+ * Tailwind-style utility classes used by the kiosk template.
+ *
+ * The project does not include Tailwind, so without these definitions classes
+ * like `text-3xl`, `flex-col` or `bg-white/5` silently do nothing (tiny text,
+ * collapsed layouts). Only classes not already provided by Bootstrap are
+ * defined here. This file is loaded before kiosk-page.component.css so the
+ * component's own rules win when both set the same property.
+ */
+
+/* ---------- Layout ---------- */
+.flex { display: flex; }
+.grid { display: grid; }
+.flex-col { flex-direction: column; }
+.flex-1 { flex: 1 1 0%; }
+.shrink-0 { flex-shrink: 0; }
+.items-center { align-items: center; }
+.justify-center { justify-content: center; }
+.justify-between { justify-content: space-between; }
+.grid-cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.gap-8 { gap: 2rem; }
+
+.relative { position: relative; }
+.absolute { position: absolute; }
+.top-0 { top: 0; }
+.top-6 { top: 1.5rem; }
+.left-6 { left: 1.5rem; }
+.z-10 { z-index: 10; }
+
+.overflow-y-auto { overflow-y: auto; }
+.overflow-x-auto { overflow-x: auto; }
+
+/* ---------- Sizing ---------- */
+/* Fixed sizes are !important (like .h-24/.h-12 in the component CSS) so they
+   beat `.k-btn { width: 100%; height: 100%; }`. */
+.w-full { width: 100%; }
+.h-full { height: 100%; }
+.w-32 { width: 8rem !important; }
+.w-1\/3 { width: 33.333333% !important; flex: 0 0 auto; }
+.h-32 { height: 8rem !important; flex: 0 0 auto; }
+.h-40 { height: 10rem !important; flex: 0 0 auto; }
+.max-w-lg { max-width: 32rem; }
+
+/* ---------- Spacing (Bootstrap covers 0-5; these are the rest) ---------- */
+.p-6 { padding: 1.5rem; }
+.p-8 { padding: 2rem; }
+.p-10 { padding: 2.5rem; }
+.mb-6 { margin-bottom: 1.5rem; }
+.mb-8 { margin-bottom: 2rem; }
+.mb-12 { margin-bottom: 3rem; }
+.mt-20 { margin-top: 5rem; }
+.ml-4 { margin-left: 1rem; }
+.mr-2 { margin-right: 0.5rem; }
+.mr-4 { margin-right: 1rem; }
+
+/* ---------- Typography ---------- */
+.text-sm { font-size: 0.875rem; line-height: 1.25rem; }
+.text-lg { font-size: 1.125rem; line-height: 1.75rem; }
+.text-xl { font-size: 1.25rem; line-height: 1.75rem; }
+.text-2xl { font-size: 1.5rem; line-height: 2rem; }
+.text-3xl { font-size: 1.875rem; line-height: 2.25rem; }
+.text-4xl { font-size: 2.25rem; line-height: 2.5rem; }
+.text-5xl { font-size: 3rem; line-height: 1.1; }
+.text-6xl { font-size: 3.75rem; line-height: 1.1; }
+.text-8xl { font-size: 6rem; line-height: 1; }
+.text-\[8rem\] { font-size: 8rem; line-height: 1; }
+
+.font-bold { font-weight: 700; }
+.font-extrabold { font-weight: 800; }
+.font-mono {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+}
+.slashed-zero { font-variant-numeric: slashed-zero; }
+.uppercase { text-transform: uppercase; }
+.tracking-tight { letter-spacing: -0.025em; }
+.tracking-wider { letter-spacing: 0.05em; }
+.tracking-widest { letter-spacing: 0.1em; }
+.leading-none { line-height: 1; }
+.leading-tight { line-height: 1.25; }
+.truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.whitespace-nowrap { white-space: nowrap; }
+.break-words { overflow-wrap: break-word; word-break: break-word; }
+
+/* Material icons are fixed at 24x24; let text-size utilities scale them. */
+.mat-icon.text-xl,
+.mat-icon.text-2xl,
+.mat-icon.text-3xl,
+.mat-icon.text-4xl,
+.mat-icon.text-5xl,
+.mat-icon.text-6xl,
+.mat-icon.text-8xl {
+    width: 1em;
+    height: 1em;
+    line-height: 1;
+}
+
+/* ---------- Colors ---------- */
+.text-white\/30 { color: rgba(255, 255, 255, 0.3); }
+.text-gray-400 { color: #9ca3af; }
+.text-gray-500 { color: #6b7280; }
+.text-cyan-400 { color: #22d3ee; }
+.text-blue-400 { color: #60a5fa; }
+.text-blue-500 { color: #3b82f6; }
+.text-green-400 { color: #4ade80; }
+.text-green-500 { color: #22c55e; }
+.text-red-400 { color: #f87171; }
+.text-red-500 { color: #ef4444; }
+.text-orange-400 { color: #fb923c; }
+.text-orange-500 { color: #f97316; }
+.text-yellow-500 { color: #eab308; }
+
+.bg-white\/5 { background-color: rgba(255, 255, 255, 0.05); }
+.bg-gray-900 { background-color: #111827; }
+.bg-green-500 { background-color: #22c55e; }
+.bg-green-500\/20 { background-color: rgba(34, 197, 94, 0.2); }
+.bg-red-600 { background-color: #dc2626; }
+
+/* ---------- Borders & radius ---------- */
+.border-t { border-top: 1px solid var(--k-border); }
+.border-b { border-bottom: 1px solid var(--k-border); }
+.border-dashed { border-style: dashed !important; }
+/* !important so these beat Bootstrap's `.border` shorthand, which is !important */
+.border-white\/10 { border-color: rgba(255, 255, 255, 0.1) !important; }
+.border-white\/20 { border-color: rgba(255, 255, 255, 0.2) !important; }
+.border-gray-700 { border-color: #374151 !important; }
+.border-k-primary { border-color: var(--k-primary) !important; }
+
+.rounded-2xl { border-radius: 1rem; }
+.rounded-3xl { border-radius: 1.5rem; }
+.rounded-full { border-radius: 9999px; }
+.shadow-2xl { box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); }
+
+/* ---------- Effects ---------- */
+.opacity-50 { opacity: 0.5; }
+.opacity-80 { opacity: 0.8; }
+.hover\:opacity-100:hover { opacity: 1; }
+.scale-125 { transform: scale(1.25); }
+.scale-150 { transform: scale(1.5); }
+.scale-\[2\] { transform: scale(2); }
+
+/* ---------- Animations ---------- */
+@keyframes k-spin {
+    to { transform: rotate(360deg); }
+}
+
+@keyframes k-pulse {
+    50% { opacity: 0.5; }
+}
+
+@keyframes k-bounce {
+    0%, 100% { transform: translateY(-25%); animation-timing-function: cubic-bezier(0.8, 0, 1, 1); }
+    50% { transform: none; animation-timing-function: cubic-bezier(0, 0, 0.2, 1); }
+}
+
+@keyframes k-enter {
+    from { opacity: 0; transform: scale(0.95); }
+}
+
+.animate-spin { animation: k-spin 1s linear infinite; }
+.animate-pulse { animation: k-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+.animate-bounce { animation: k-bounce 1s infinite; }
+.animate-in { animation: k-enter 0.3s ease-out; }
