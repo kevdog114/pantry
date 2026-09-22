@@ -224,7 +224,9 @@ export class GeminiChatComponent implements OnInit, AfterViewInit, OnDestroy {
         const imageItem: ChatContentItem = {
           type: 'image',
           imageUrl: e.target.result,
-          uploadProgress: 0
+          // uploadProgress stays undefined until the browser reports real
+          // byte progress; uploadActive alone drives the indeterminate bar.
+          uploadActive: true
         };
         this.messages.push({
           sender: 'You',
@@ -642,9 +644,7 @@ export class GeminiChatComponent implements OnInit, AfterViewInit, OnDestroy {
             if (imageItem) {
               imageItem.uploadProgress = event.percent;
             }
-            if (event.percent >= 100) {
-              this.loadingText = 'Thinking...';
-            }
+            this.loadingText = event.percent >= 100 ? 'Thinking...' : 'Uploading image...';
             return;
           }
 
@@ -653,6 +653,7 @@ export class GeminiChatComponent implements OnInit, AfterViewInit, OnDestroy {
           this.isLoading = false;
           if (imageItem) {
             imageItem.uploadProgress = undefined;
+            imageItem.uploadActive = false;
           }
 
           if (response.sessionId) {
@@ -683,6 +684,7 @@ export class GeminiChatComponent implements OnInit, AfterViewInit, OnDestroy {
           this.isLoading = false;
           if (imageItem) {
             imageItem.uploadProgress = undefined;
+            imageItem.uploadActive = false;
             imageItem.uploadFailed = true;
           }
 

@@ -13,6 +13,46 @@ import {
   ToolDefinition,
 } from "../AIClient";
 
+/**
+ * Reasoning effort passed to OpenAI-compatible endpoints.
+ *
+ * Local "thinking" models can spend an entire generation budget on reasoning
+ * and return no content at all. Observed with gemma-4-26b-a4b behind LM Studio:
+ * a chat request carrying tool definitions and two images generated 1825
+ * tokens over 23s, all of it reasoning, leaving message.content empty. The same
+ * request with reasoning disabled answered correctly in 22 tokens.
+ *
+ * Set AI_REASONING_EFFORT to "low"/"medium"/"high" to re-enable thinking, or
+ * "default" to omit the parameter entirely (server-side default).
+ */
+const AI_REASONING_EFFORT = process.env.AI_REASONING_EFFORT || "none";
+
+/** Extra request fields shared by every completion call. */
+function reasoningParams(): Record<string, any> {
+  return AI_REASONING_EFFORT === "default"
+    ? {}
+    : { reasoning_effort: AI_REASONING_EFFORT };
+}
+
+/**
+ * Pull the assistant's text out of a response message.
+ *
+ * Falls back to reasoning_content: if a model emitted only reasoning we would
+ * rather show the user that than a generic "couldn't generate a response".
+ */
+function messageText(message: any): string {
+  if (message?.content) return message.content;
+  const reasoning = message?.reasoning_content || message?.reasoning;
+  if (reasoning && String(reasoning).trim().length > 0) {
+    console.warn(
+      "[OpenAIProvider] Model returned no content; falling back to reasoning_content " +
+      `(${String(reasoning).length} chars). Consider AI_REASONING_EFFORT=none.`
+    );
+    return String(reasoning);
+  }
+  return "";
+}
+
 // Lazy-loaded SDK
 let _openai: any = null;
 let _cachedBaseUrl: string = "";
@@ -199,6 +239,7 @@ export class OpenAIProvider implements AIClient {
       temperature: config?.temperature,
       top_p: config?.topP,
       max_tokens: config?.maxOutputTokens,
+      ...reasoningParams(),
     });
 
     const choice = response.choices[0];
@@ -210,16 +251,18 @@ export class OpenAIProvider implements AIClient {
       args: JSON.parse(tc.function.arguments),
     })) || [];
 
+    const text = messageText(message);
+
     const rawParts: AIPart[] = [];
-    if (message.content) {
-      rawParts.push({ text: message.content });
+    if (text) {
+      rawParts.push({ text });
     }
     for (const fc of functionCalls) {
       rawParts.push({ functionCall: fc });
     }
 
     return {
-      text: message.content || "",
+      text,
       functionCalls,
       rawParts,
       usageMetadata: response.usage,
@@ -247,6 +290,7 @@ export class OpenAIProvider implements AIClient {
       temperature: config?.temperature,
       top_p: config?.topP,
       max_tokens: config?.maxOutputTokens,
+      ...reasoningParams(),
     });
 
     return {
@@ -340,15 +384,17 @@ export class OpenAIProvider implements AIClient {
       temperature: config?.temperature,
       top_p: config?.topP,
       max_tokens: config?.maxOutputTokens,
+      ...reasoningParams(),
     });
 
     const choice = response.choices[0];
     const message = choice.message;
+    const text = messageText(message);
 
     return {
-      text: message.content || "",
+      text,
       functionCalls: [],
-      rawParts: [{ text: message.content || "" }],
+      rawParts: [{ text }],
       usageMetadata: response.usage,
     };
   }

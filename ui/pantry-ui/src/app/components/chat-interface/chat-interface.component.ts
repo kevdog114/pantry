@@ -17,8 +17,15 @@ export interface ChatContentItem {
      * Upload progress 0-100 for an attached image that is still being sent.
      * Undefined once the upload finishes (or for images that were never
      * uploaded from this client, e.g. history loaded from the server).
+     *
+     * Stays undefined until the browser actually reports progress. Small
+     * bodies on a fast link often complete without firing a single
+     * UploadProgress event, and showing a stuck "0%" for the whole of the
+     * server's thinking time reads as a hang.
      */
     uploadProgress?: number;
+    /** True from the moment the request is sent until a reply arrives. */
+    uploadActive?: boolean;
     /** Set when the upload failed, so the bubble can show it did not send. */
     uploadFailed?: boolean;
     toolCall?: {

@@ -27,16 +27,23 @@
 
                     <!-- Image Message -->
                     <div *ngIf="item.type === 'image'" class="message-image"
-                         [class.uploading]="item.uploadProgress !== undefined">
+                         [class.uploading]="item.uploadActive">
                         <img [src]="item.imageUrl" alt="Attached Image">
 
-                        <!-- Upload progress overlay -->
-                        <div class="upload-overlay" *ngIf="item.uploadProgress !== undefined">
-                            <div class="upload-track">
-                                <div class="upload-fill" [style.width.%]="item.uploadProgress"></div>
+                        <!-- Upload progress overlay. Determinate only while the
+                             browser is reporting real byte progress; otherwise
+                             an indeterminate bar, since the wait is the server
+                             thinking rather than bytes moving. -->
+                        <div class="upload-overlay" *ngIf="item.uploadActive">
+                            <div class="upload-track"
+                                 [class.indeterminate]="item.uploadProgress === undefined || item.uploadProgress >= 100">
+                                <div class="upload-fill"
+                                     [style.width.%]="item.uploadProgress === undefined ? 100 : item.uploadProgress"></div>
                             </div>
                             <span class="upload-label">
-                                {{ item.uploadProgress < 100 ? 'Uploading ' + item.uploadProgress + '%' : 'Processing…' }}
+                                {{ item.uploadProgress !== undefined && item.uploadProgress < 100
+                                    ? 'Uploading ' + item.uploadProgress + '%'
+                                    : 'Processing…' }}
                             </span>
                         </div>
 
