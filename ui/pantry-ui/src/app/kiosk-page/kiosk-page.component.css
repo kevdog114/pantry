@@ -423,6 +423,7 @@
 /* Action Section - The meat of the UI */
 .action-section {
     flex: 1;
+    min-height: 0;
     background: transparent;
     position: relative;
     display: flex;
@@ -1574,10 +1575,18 @@
 
 /* --- NEW GRIDS FOR RESTOCK OPTIONS --- */
 
+.options-card {
+    padding: clamp(1rem, 4vh, 2rem);
+}
+
+.options-summary {
+    margin-bottom: clamp(1rem, 5vh, 3rem);
+}
+
 .options-button-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    grid-template-rows: auto auto;
+    grid-template-rows: repeat(2, minmax(0, 1fr));
     gap: 16px;
     width: 100%;
     flex: 1;
@@ -1597,29 +1606,46 @@
 .expiration-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 16px;
+    grid-auto-rows: minmax(0, 1fr);
+    gap: clamp(8px, 1.5vh, 16px);
     width: 100%;
     flex: 1;
+    min-height: 0;
     padding: 0 24px;
-    overflow-y: visible;
+}
+
+.expiration-grid .col-span-2 {
+    grid-column: 1 / -1;
 }
 
 .expiration-grid .k-btn {
-    min-height: 80px;
+    padding: 0;
     font-size: 1.8rem;
+}
+
+.numpad-display {
+    flex: 1 1 0;
+    min-height: 0;
+}
+
+.numpad-value {
+    font-size: clamp(3rem, 12vh, 8rem);
+    line-height: 1;
 }
 
 .numpad-grid {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
-    gap: 16px;
-    flex: 1;
-    height: 100%;
+    grid-template-rows: repeat(4, minmax(0, 1fr));
+    gap: clamp(8px, 1.5vh, 16px);
+    flex: 3 1 0;
+    min-height: 0;
 }
 
 .numpad-grid .k-btn {
     height: 100%;
-    font-size: 3rem;
+    padding: 0;
+    font-size: clamp(1.75rem, 6vh, 3rem);
     font-family: monospace;
     font-weight: 700;
 }
@@ -2212,4 +2238,44 @@
 .leftover-exp-none:active {
     background: var(--k-warn);
     color: white;
+}
+
+/* ---------- SHORT SCREENS ---------- */
+/* Shrink the status header and back row so full-height screens (keypads,
+   pickers) still have room for their buttons on ~600px-tall displays. */
+@media (max-height: 700px) {
+    .status-section {
+        padding-top: 6px;
+        padding-bottom: 2px;
+    }
+
+    .status-text {
+        font-size: 2rem;
+    }
+
+    .status-subtext {
+        font-size: 1rem;
+        margin-bottom: 4px;
+    }
+
+    .back-btn-row {
+        height: 64px;
+    }
+
+    .k-icon-btn {
+        width: 56px;
+        height: 56px;
+    }
+
+    /* Bootstrap's margin helpers (mb-4, mt-4) are !important, so these must be too */
+    .options-button-grid .k-btn mat-icon {
+        font-size: 32px;
+        width: 32px;
+        height: 32px;
+        margin-bottom: 0 !important;
+    }
+
+    .options-button-grid .k-btn span {
+        margin-top: 0 !important;
+    }
 }
