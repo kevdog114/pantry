@@ -28,6 +28,8 @@ export class GeminiChatComponent implements OnInit, AfterViewInit, OnDestroy {
   loadingText: string = 'Thinking...';
   /** Set by ?kiosk=1 — large push-to-talk target and hands-free auto-send. */
   kioskMode: boolean = false;
+  /** Set by ?listen=1 — arrived from the kiosk home screen's voice button. */
+  startListening: boolean = false;
 
   sessions: any[] = [];
   currentSessionId: number | null = null;
@@ -89,6 +91,7 @@ export class GeminiChatComponent implements OnInit, AfterViewInit, OnDestroy {
       // hands-free. Opt-in via ?kiosk=1 because auto-send on a mis-transcription
       // executes without the user seeing the text first.
       this.kioskMode = params['kiosk'] === '1' || params['kiosk'] === 'true';
+      this.startListening = params['listen'] === '1';
 
       const initialPrompt = params['initialPrompt'];
       const sessionId = params['sessionId'];

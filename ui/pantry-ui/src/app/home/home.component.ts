@@ -1,6 +1,6 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { RouterModule } from '@angular/router';
+import { RouterModule, ActivatedRoute, Router } from '@angular/router';
 import { MatCardModule } from '@angular/material/card';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
@@ -37,13 +37,29 @@ export class HomeComponent implements OnInit {
     public greeting: string = '';
     private timeInterval: any;
 
+    /** Kiosk mode (?kiosk=1): wall display, no keyboard — voice is the primary input. */
+    public kioskMode: boolean = false;
+
     constructor(
         private productService: ProductListService,
         private bottomSheet: MatBottomSheet,
-        private env: EnvironmentService
+        private env: EnvironmentService,
+        private route: ActivatedRoute,
+        private router: Router
     ) { }
 
+    /**
+     * Hand off to the chat already listening. This tap is the user gesture, so
+     * capture can begin there without the user pressing a second button.
+     */
+    public startVoice(): void {
+        this.router.navigate(['/gemini-chat'], { queryParams: { kiosk: 1, listen: 1 } });
+    }
+
     ngOnInit(): void {
+        this.route.queryParams.subscribe(params => {
+            this.kioskMode = params['kiosk'] === '1' || params['kiosk'] === 'true';
+        });
         this.updateTimeAndGreeting();
         this.timeInterval = setInterval(() => {
             this.updateTimeAndGreeting();

@@ -7,6 +7,17 @@
         </div>
     </header>
 
+    <!-- Kiosk voice control. The wall display has no keyboard, so this is the
+         primary way in: one large target, readable from across the room. -->
+    <button *ngIf="kioskMode" type="button" class="kiosk-voice-cta" (click)="startVoice()"
+        aria-label="Tap to speak">
+        <span class="kiosk-voice-icon"><mat-icon>mic</mat-icon></span>
+        <span class="kiosk-voice-text">
+            <strong>Tap to speak</strong>
+            <small>Pantry, shopping list, timers and music</small>
+        </span>
+    </button>
+
     <div class="dashboard-grid">
 
         <!-- Quick Actions Grid -->

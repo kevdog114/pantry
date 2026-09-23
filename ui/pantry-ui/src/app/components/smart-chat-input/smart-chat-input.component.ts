@@ -1,4 +1,4 @@
-import { Component, EventEmitter, Input, Output, OnDestroy, ChangeDetectorRef, NgZone, ViewChild, ElementRef } from '@angular/core';
+import { Component, EventEmitter, Input, Output, OnDestroy, AfterViewInit, ChangeDetectorRef, NgZone, ViewChild, ElementRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
@@ -17,13 +17,19 @@ import { SocketService } from '../../services/socket.service';
     standalone: true,
     imports: [CommonModule, MatButtonModule, MatIconModule, MatProgressSpinnerModule, MatFormFieldModule, MatInputModule, FormsModule]
 })
-export class SmartChatInputComponent implements OnDestroy {
+export class SmartChatInputComponent implements OnDestroy, AfterViewInit {
     @Input() placeholder: string = 'Type a message...';
     @Input() disabled: boolean = false;
     @Input() enableImageUpload: boolean = true;
     @Input() autoSendAudio: boolean = false;
     /** Large push-to-talk target for kiosk/wall-display use. */
     @Input() largeVoiceButton: boolean = false;
+    /**
+     * Begin listening as soon as the control is ready. Used when the user has
+     * already tapped a voice button elsewhere (the kiosk home screen), so the
+     * tap that navigated here also counts as the gesture that starts capture.
+     */
+    @Input() autoStartListening: boolean = false;
 
     @Input() enableAudio: boolean = true;
 
@@ -67,6 +73,16 @@ export class SmartChatInputComponent implements OnDestroy {
                 });
             }
         });
+    }
+
+    ngAfterViewInit() {
+        if (this.autoStartListening && !this.disabled) {
+            // A tick after view init so the socket is connected and the
+            // recording indicator is rendered before capture begins.
+            setTimeout(() => {
+                if (!this.isListening) this.startRecording();
+            }, 250);
+        }
     }
 
     ngOnDestroy() {

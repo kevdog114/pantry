@@ -114,7 +114,8 @@
     <!-- Input Area -->
     <div class="input-area">
         <app-smart-chat-input [placeholder]="placeholder" [disabled]="isLoading" [enableAudio]="enableAudio"
-            [autoSendAudio]="autoSendAudio" [largeVoiceButton]="largeVoiceButton" (send)="handleSend($event)">
+            [autoSendAudio]="autoSendAudio" [largeVoiceButton]="largeVoiceButton"
+            [autoStartListening]="autoStartListening" (send)="handleSend($event)">
         </app-smart-chat-input>
     </div>
 </div>
