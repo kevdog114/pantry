@@ -1818,6 +1818,20 @@ export class KioskPageComponent implements OnInit, OnDestroy {
         this.status = 'Timers';
     }
 
+    /**
+     * Open the assistant with the microphone already live.
+     *
+     * This tap is the user gesture that permits audio capture, so the chat can
+     * start listening on arrival instead of asking for a second press — the
+     * kiosk has no keyboard, so voice is the practical way in. `from=kiosk`
+     * makes the chat offer a way back to this menu.
+     */
+    openVoice() {
+        this.router.navigate(['/gemini-chat'], {
+            queryParams: { kiosk: 1, listen: 1, from: 'kiosk' }
+        });
+    }
+
     get recipeTimerActions(): RecipeQuickAction[] {
         return this.selectedRecipe?.quickActions?.filter(a => a.type === 'timer') || [];
     }

@@ -1,6 +1,7 @@
 <div class="gemini-layout">
-  <!-- Sidebar -->
-  <aside class="sidebar" *ngIf="showSidebar || !isMobile">
+  <!-- Sidebar. Hidden in kiosk mode: the wall display has one conversation and
+       no keyboard, so the session list is noise. -->
+  <aside class="sidebar" *ngIf="!kioskMode && (showSidebar || !isMobile)">
     <button class="new-chat-btn" (click)="newChat()">
       <span class="icon">+</span> New Chat
     </button>
@@ -20,8 +21,16 @@
   </aside>
 
   <!-- Main Chat -->
-  <main class="main-chat" *ngIf="!showSidebar || !isMobile">
-    <div *ngIf="isMobile" class="mobile-header">
+  <main class="main-chat" *ngIf="kioskMode || !showSidebar || !isMobile">
+    <!-- Kiosk: a way back to the kiosk menu, since the toolbar is hidden there. -->
+    <div *ngIf="cameFromKiosk" class="kiosk-chat-header">
+      <button class="kiosk-back-btn" (click)="backToKiosk()" aria-label="Back to kiosk menu">
+        <span class="kiosk-back-arrow">←</span> Kiosk
+      </button>
+      <span class="kiosk-chat-title">Ask</span>
+    </div>
+
+    <div *ngIf="isMobile && !kioskMode" class="mobile-header">
       <button class="back-btn" (click)="backToSessions()">← Back</button>
       <span class="mobile-title">Smart Chat</span>
       <button *ngIf="currentSessionId" (click)="openDebugLog()" title="View Debug Logs"

@@ -3,7 +3,7 @@ import { GeminiService, StreamEvent } from '../../services/gemini.service';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
-import { ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 
 import { RecipeService } from '../../services/recipe.service';
 import { SocketService } from '../../services/socket.service';
@@ -28,8 +28,10 @@ export class GeminiChatComponent implements OnInit, AfterViewInit, OnDestroy {
   loadingText: string = 'Thinking...';
   /** Set by ?kiosk=1 — large push-to-talk target and hands-free auto-send. */
   kioskMode: boolean = false;
-  /** Set by ?listen=1 — arrived from the kiosk home screen's voice button. */
+  /** Set by ?listen=1 — arrived from a voice button, so start capture on load. */
   startListening: boolean = false;
+  /** Set by ?from=kiosk — show a way back to the kiosk menu. */
+  cameFromKiosk: boolean = false;
 
   sessions: any[] = [];
   currentSessionId: number | null = null;
@@ -51,7 +53,8 @@ export class GeminiChatComponent implements OnInit, AfterViewInit, OnDestroy {
     private snackBar: MatSnackBar,
     private recipeService: RecipeService,
     private socketService: SocketService,
-    private route: ActivatedRoute
+    private route: ActivatedRoute,
+    private router: Router
   ) {
     this.checkScreenSize();
     window.addEventListener('resize', () => this.checkScreenSize());
@@ -92,6 +95,7 @@ export class GeminiChatComponent implements OnInit, AfterViewInit, OnDestroy {
       // executes without the user seeing the text first.
       this.kioskMode = params['kiosk'] === '1' || params['kiosk'] === 'true';
       this.startListening = params['listen'] === '1';
+      this.cameFromKiosk = params['from'] === 'kiosk';
 
       const initialPrompt = params['initialPrompt'];
       const sessionId = params['sessionId'];
@@ -721,6 +725,11 @@ export class GeminiChatComponent implements OnInit, AfterViewInit, OnDestroy {
 
   backToSessions() {
     this.showSidebar = true;
+  }
+
+  /** Return to the kiosk menu (the toolbar is hidden in kiosk mode). */
+  backToKiosk() {
+    this.router.navigate(['/kiosk-mode']);
   }
 
   openDebugLog() {

@@ -409,6 +409,12 @@
                     <button class="k-btn" (click)="openUtilities()">
                         <mat-icon>build</mat-icon><span>UTILITIES</span>
                     </button>
+
+                    <!-- Voice: opens the assistant already listening, so a
+                         single tap is enough to start speaking. -->
+                    <button class="k-btn voice" (click)="openVoice()">
+                        <mat-icon>mic</mat-icon><span>ASK</span>
+                    </button>
                 </div>
 
                 <!-- INVENTORY MENU -->
