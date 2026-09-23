@@ -98,6 +98,13 @@ const CACHE_SUPPORTED_MODELS = ["gemini-1.5-flash", "gemini-1.5-flash-latest", "
 
 // Auto model routing
 const AUTO_MODEL = "auto";
+
+/**
+ * Sessions with a streamed turn in flight, so a second turn cannot start on the
+ * same conversation and re-run tools against a history that still looks
+ * unanswered. Single process, so an in-memory set is sufficient.
+ */
+const activeStreamTurns = new Set<number>();
 const ROUTER_MODEL_SETTING = "gemini_router_model";
 const DEFAULT_ROUTER_MODEL = "gemini-flash-latest";
 const PRO_MODEL_SETTING = "gemini_pro_model";
@@ -1712,6 +1719,9 @@ export const postStream = async (req: Request, res: Response) => {
     res.write(`data: ${JSON.stringify(data)}\n\n`);
   };
 
+  // Released in the finally block, including when the client disconnects.
+  let lockedSessionId: number | null = null;
+
   try {
     let { prompt, sessionId, additionalContext, entityType, entityId } = req.body as {
       prompt: string;
@@ -1737,6 +1747,22 @@ export const postStream = async (req: Request, res: Response) => {
     const session = await prepareSession(sessionId as number | undefined, prompt, entityType, entityId);
     sessionId = session.sessionId;
     const history = session.history;
+
+    // One turn at a time per session.
+    //
+    // User messages are persisted immediately, the assistant's reply only when
+    // the turn finishes. A second turn starting meanwhile rebuilds a history in
+    // which the first request looks unanswered, so the model runs its tools
+    // again — a "stop playback" was executed three times this way after a
+    // dropped stream made the user retry. Tools mutate real state (shopping
+    // list, timers, audio), so overlapping turns must not be allowed.
+    if (activeStreamTurns.has(sessionId)) {
+      sendEvent('error', { message: 'Still working on your previous message — one moment.' });
+      res.end();
+      return;
+    }
+    activeStreamTurns.add(sessionId);
+    lockedSessionId = sessionId;
 
     sendEvent('session', { sessionId });
 
@@ -2032,6 +2058,9 @@ export const postStream = async (req: Request, res: Response) => {
     console.error("Stream error:", error);
     sendEvent('error', { message: (error as Error).message });
     res.end();
+  } finally {
+    stopHeartbeat();
+    if (lockedSessionId !== null) activeStreamTurns.delete(lockedSessionId);
   }
 };
 
