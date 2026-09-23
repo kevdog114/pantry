@@ -855,6 +855,14 @@
     flex-shrink: 0;
 }
 
+/* The prep keypad puts the number directly in .keypad-display */
+.keypad-display {
+    font-family: 'SF Mono', 'Menlo', monospace;
+    font-size: clamp(2.5rem, 8vh, 4rem);
+    font-weight: bold;
+    line-height: 1;
+}
+
 .keypad-value {
     font-family: 'SF Mono', 'Menlo', monospace;
     font-size: clamp(2.5rem, 8vh, 4rem);
@@ -864,6 +872,8 @@
 }
 
 .keypad-unit {
+    font-family: var(--k-font-main);
+    font-weight: normal;
     font-size: 1.4rem;
     color: var(--k-text-dim);
     text-transform: uppercase;
@@ -2139,7 +2149,8 @@
     overflow: hidden;
 }
 
-.leftover-scale-weight {
+.leftover-scale-weight,
+.leftover-scale-value {
     font-family: 'SF Mono', 'Menlo', monospace;
     font-size: 10rem;
     font-weight: 900;
@@ -2402,4 +2413,511 @@
     font-size: 44px;
     width: 44px;
     height: 44px;
+}
+
+/* ---------- VERY SHORT SCREENS (e.g. 1024x400) ---------- */
+/* Only ~300px of height is left between header and footer, so switch to a
+   landscape layout: icons beside labels, and keypads / scales with the
+   display on the left and the controls on the right. */
+@media (max-height: 460px) {
+
+    /* Chrome */
+    .footer {
+        height: 36px;
+        font-size: 1rem;
+    }
+
+    .status-section {
+        flex-direction: row;
+        gap: 12px;
+        padding: 4px 16px;
+    }
+
+    .status-section .pulse-icon {
+        font-size: 1.75rem;
+        width: 1.75rem;
+        height: 1.75rem;
+        margin: 0;
+    }
+
+    .status-text {
+        font-size: 1.5rem;
+    }
+
+    .status-section.minimized {
+        height: 40px;
+    }
+
+    .status-section.minimized .status-text {
+        font-size: 1.1rem;
+    }
+
+    .action-section {
+        padding: 8px;
+    }
+
+    .back-btn-row {
+        height: 48px;
+    }
+
+    .k-icon-btn {
+        width: 44px;
+        height: 44px;
+    }
+
+    .subpage-title {
+        font-size: 1.3rem;
+    }
+
+    /* Generic sizes used across the mode screens */
+    .p-4 {
+        padding: 0.5rem !important;
+    }
+
+    .p-8,
+    .p-10 {
+        padding: 1rem;
+    }
+
+    .gap-4 {
+        gap: 0.5rem !important;
+    }
+
+    .gap-8 {
+        gap: 1rem;
+    }
+
+    .mb-4,
+    .mb-8,
+    .mb-12 {
+        margin-bottom: 0.5rem !important;
+    }
+
+    .mt-4 {
+        margin-top: 0 !important;
+    }
+
+    .text-8xl {
+        font-size: 3.5rem;
+    }
+
+    .text-6xl {
+        font-size: 2.5rem;
+    }
+
+    .text-5xl {
+        font-size: 2.25rem;
+    }
+
+    .text-4xl {
+        font-size: 1.75rem;
+    }
+
+    .scale-150,
+    .scale-125 {
+        transform: none;
+    }
+
+    .h-32,
+    .back-bar-btn {
+        height: 64px !important;
+    }
+
+    /* Big buttons: icon beside the label instead of above it */
+    .k-btn {
+        flex-direction: row;
+        gap: 12px;
+        padding: 8px;
+        font-size: 1.5rem;
+    }
+
+    .k-btn mat-icon,
+    .k-btn mat-icon.cook-menu-icon,
+    .options-button-grid .k-btn mat-icon,
+    .consume-weight-actions .k-btn mat-icon,
+    .scale-btn-row .k-btn mat-icon {
+        font-size: 36px;
+        width: 36px;
+        height: 36px;
+        margin: 0 !important;
+    }
+
+    .k-btn span {
+        margin: 0 !important;
+    }
+
+    .k-btn .text-3xl,
+    .k-btn .text-4xl,
+    .k-btn .fs-2xl {
+        font-size: 1.5rem;
+        line-height: 1.2;
+    }
+
+    /* Main menu: 3 x 2 */
+    .grid-menu.compact {
+        grid-template-columns: repeat(3, 1fr);
+        grid-template-rows: repeat(2, 1fr);
+        gap: 8px;
+    }
+
+    .grid-menu.compact .k-btn {
+        flex-direction: column;
+        gap: 4px;
+    }
+
+    .grid-menu.compact .k-btn mat-icon {
+        font-size: 56px;
+        width: 56px;
+        height: 56px;
+    }
+
+    .subpage-layout .grid-menu {
+        grid-template-rows: none;
+        grid-auto-rows: minmax(0, 1fr);
+        gap: 8px;
+    }
+
+    .hardware-panel {
+        overflow-y: auto;
+    }
+
+    /* Keypads: display + confirm on the left, keys on the right */
+    .keypad-container {
+        display: grid;
+        grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+        grid-template-rows: minmax(0, 1fr) auto;
+        grid-template-areas:
+            "display keys"
+            "confirm keys";
+        gap: 8px;
+        padding: 0 8px 4px;
+    }
+
+    .keypad-display {
+        grid-area: display;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        min-height: 0;
+    }
+
+    .keypad-value {
+        font-size: 3.5rem;
+    }
+
+    .keypad-grid {
+        grid-area: keys;
+        gap: 6px;
+    }
+
+    .keypad-btn {
+        font-size: 1.75rem;
+    }
+
+    .keypad-start-btn {
+        grid-area: confirm;
+        height: 56px;
+        font-size: 1.2rem;
+    }
+
+    /* Restock quantity pad */
+    .numpad-card {
+        flex-direction: row;
+        gap: 12px;
+    }
+
+    .numpad-display {
+        flex: 2 1 0;
+        margin: 0 !important;
+        border-bottom: 0;
+        border-right: 1px solid var(--k-border);
+    }
+
+    .numpad-value {
+        font-size: 5rem;
+    }
+
+    .numpad-grid {
+        flex: 3 1 0;
+        gap: 6px;
+    }
+
+    .numpad-grid .k-btn {
+        font-size: 1.75rem;
+    }
+
+    /* Phone: number + quick dials + call on the left, dial pad on the right */
+    .phone-layout {
+        display: grid;
+        grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+        grid-template-rows: auto auto minmax(0, 1fr) auto;
+        grid-template-areas:
+            "back pad"
+            "display pad"
+            "dials pad"
+            "call pad";
+        gap: 8px;
+    }
+
+    .phone-layout > .back-btn-row {
+        grid-area: back;
+    }
+
+    .phone-display {
+        grid-area: display;
+        height: 48px;
+    }
+
+    .phone-number {
+        font-size: 2rem;
+    }
+
+    .phone-quick-dials {
+        grid-area: dials;
+        flex-wrap: wrap;
+        align-content: flex-start;
+    }
+
+    .dial-pad {
+        grid-area: pad;
+        gap: 6px;
+    }
+
+    .dial-btn {
+        font-size: 1.75rem;
+    }
+
+    .phone-layout > .call-btn {
+        grid-area: call;
+        height: 56px;
+    }
+
+    /* Weigh screens: reading on the left, buttons stacked on the right */
+    .weigh-layout {
+        flex-direction: row;
+    }
+
+    /* Beat the inline clamp() on the gram readout */
+    .weigh-layout .slashed-zero {
+        font-size: 5.5rem !important;
+    }
+
+    .weigh-layout .scale-unit-label {
+        font-size: 1.75rem;
+    }
+
+    .weigh-layout .scale-btn-row {
+        height: auto;
+        width: 220px;
+        grid-template-columns: 1fr;
+        grid-auto-rows: minmax(0, 1fr);
+    }
+
+    .leftover-scale-body {
+        flex-direction: row;
+        padding: 8px;
+        gap: 8px;
+    }
+
+    .leftover-scale-weight {
+        font-size: 6rem;
+    }
+
+    .leftover-scale-controls {
+        height: auto;
+        width: 220px;
+        grid-template-columns: 1fr;
+        grid-auto-rows: minmax(0, 1fr);
+    }
+
+    .leftover-scale-body > .leftover-scale-btn {
+        width: 220px;
+    }
+
+    /* Restock / consume option cards */
+    .options-card {
+        padding: 12px;
+    }
+
+    .options-card h2 {
+        font-size: 1.75rem;
+        margin-bottom: 0 !important;
+    }
+
+    .options-summary {
+        font-size: 1.1rem;
+        margin-bottom: 8px;
+    }
+
+    .options-button-grid,
+    .consume-weight-actions {
+        gap: 8px;
+    }
+
+    /* Restock expiration picker */
+    .expiration-grid .k-btn {
+        font-size: 1.4rem;
+    }
+
+    /* Check status: info cards side by side */
+    .check-status-card h2 {
+        font-size: 2rem;
+    }
+
+    .check-status-info {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        max-width: none;
+    }
+
+    .check-status-info > div {
+        padding: 12px !important;
+    }
+
+    .check-status-info .text-2xl {
+        font-size: 1.1rem;
+    }
+
+    .check-status-info .text-4xl,
+    .check-status-info .text-5xl {
+        font-size: 1.75rem;
+    }
+
+    .check-status-info > .k-btn {
+        grid-column: 1 / -1;
+        height: 56px;
+    }
+
+    /* Cook */
+    .cook-layout .h-24 {
+        height: 3.5rem !important;
+    }
+
+    .cook-layout .fs-2xl {
+        font-size: 1.5rem;
+        line-height: 1.2;
+    }
+
+    .recipe-content {
+        padding: 8px;
+    }
+
+    /* Timers */
+    .timer-new-btn {
+        height: 44px;
+        margin-bottom: 0;
+    }
+
+    .timers-top .fs-lg {
+        display: none;
+    }
+
+    .timer-card {
+        padding: 8px 12px;
+        gap: 4px;
+        flex-basis: 200px;
+    }
+
+    .timer-spinner-container {
+        width: 110px;
+        height: 110px;
+    }
+
+    .timer-spinner-container mat-progress-spinner {
+        transform: translateX(-50%) scale(0.55) !important;
+    }
+
+    .timer-time {
+        font-size: 1.5rem;
+    }
+
+    .timer-cancel-btn {
+        height: 36px;
+    }
+
+    /* Labels */
+    .labels-action-btn span {
+        font-size: 1.1rem;
+    }
+
+    /* Leftovers / prep overlay */
+    .leftover-header {
+        height: 52px;
+    }
+
+    .leftover-body {
+        padding: 8px;
+        gap: 8px;
+    }
+
+    .leftover-mode-toggle {
+        height: 48px;
+    }
+
+    .leftover-value-number {
+        font-size: 4rem;
+    }
+
+    .leftover-expiration-row {
+        height: 48px;
+    }
+
+    .leftover-actions {
+        height: 60px;
+    }
+
+    .leftover-exp-grid {
+        grid-template-columns: repeat(3, 1fr);
+        grid-auto-rows: minmax(0, 1fr);
+        min-height: 0;
+        gap: 8px;
+    }
+
+    .leftover-exp-none {
+        grid-column: auto;
+    }
+
+    .leftover-print-prompt-grid {
+        min-height: 0;
+    }
+
+    /* Overlays */
+    .call-card {
+        padding: 1.25rem 2rem;
+        gap: 1rem;
+    }
+
+    .call-ring {
+        width: 5rem !important;
+        height: 5rem !important;
+    }
+
+    .call-ring mat-icon {
+        transform: none;
+        font-size: 2.5rem;
+    }
+
+    .call-btn.call-answer,
+    .call-btn.call-hangup {
+        width: 72px;
+        height: 72px;
+    }
+
+    .expired-timer-content {
+        gap: 4px;
+    }
+
+    .expired-timer-icon {
+        font-size: 64px !important;
+        width: 64px !important;
+        height: 64px !important;
+    }
+
+    .expired-timer-title {
+        font-size: 2.5rem;
+    }
+
+    .expired-timer-done {
+        font-size: 3rem;
+    }
 }

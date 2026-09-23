@@ -103,7 +103,7 @@
                     </div>
 
                     <!-- STATE: WEIGH -->
-                    <div *ngIf="restockState === 'WEIGH'" class="flex-1 min-h-0 flex flex-col gap-4">
+                    <div *ngIf="restockState === 'WEIGH'" class="weigh-layout flex-1 min-h-0 flex flex-col gap-4">
                         <div
                             class="flex-1 min-h-0 bg-white/5 border border-white/10 rounded-3xl flex flex-col items-center justify-center relative overflow-hidden">
                             <div class="absolute top-6 left-6 z-10">
@@ -149,7 +149,7 @@
 
                     <!-- STATE: QUANTITY PAD -->
                     <div *ngIf="restockState === 'QUANTITY_PAD'" class="flex-1 min-h-0 flex flex-col gap-4">
-                        <div class="bg-white/5 border border-white/10 rounded-3xl flex-1 min-h-0 flex flex-col p-4 relative">
+                        <div class="numpad-card bg-white/5 border border-white/10 rounded-3xl flex-1 min-h-0 flex flex-col p-4 relative">
                             <div class="numpad-display flex items-center justify-center mb-4 border-b border-white/10">
                                 <span class="numpad-value font-bold font-mono">{{ numpadValue || '_' }}</span>
                             </div>
@@ -255,7 +255,7 @@
 
                     <!-- STATE: WEIGH_REMAINING -->
                     <ng-container *ngIf="consumeState === 'WEIGH_REMAINING'">
-                        <div class="flex-1 min-h-0 flex flex-col gap-4">
+                        <div class="weigh-layout flex-1 min-h-0 flex flex-col gap-4">
                             <div
                                 class="flex-1 min-h-0 bg-white/5 border border-white/10 rounded-3xl flex flex-col items-center justify-center relative overflow-hidden">
                                 <div class="absolute top-6 left-6 z-10">
@@ -320,13 +320,13 @@
                     <!-- Product found -->
                     <ng-container *ngIf="checkStatusProduct">
                         <div
-                            class="flex-1 rounded-3xl bg-white/5 border border-white/10 flex flex-col items-center justify-center p-8 text-center animate-in fade-in zoom-in duration-300">
+                            class="check-status-card flex-1 rounded-3xl bg-white/5 border border-white/10 flex flex-col items-center justify-center p-8 text-center animate-in fade-in zoom-in duration-300">
                             <!-- Product Name -->
                             <h2 class="text-5xl font-bold mb-8 text-white w-full break-words leading-tight">{{
                                 checkStatusProduct.title }}</h2>
 
                             <!-- Info Cards -->
-                            <div class="w-full flex flex-col gap-4 max-w-lg">
+                            <div class="check-status-info w-full flex flex-col gap-4 max-w-lg">
 
                                 <!-- Expiration -->
                                 <div
@@ -872,7 +872,7 @@
                     </div>
 
                     <!-- Quick Dials Ribbon -->
-                    <div class="flex gap-4 overflow-x-auto pb-2" *ngIf="pbxConfig?.extensions?.length">
+                    <div class="phone-quick-dials flex gap-4 overflow-x-auto pb-2" *ngIf="pbxConfig?.extensions?.length">
                         <button *ngFor="let ext of pbxConfig!.extensions"
                             class="h-12 px-4 rounded-full border border-white/20 bg-white/5 whitespace-nowrap"
                             (click)="dial(ext.number)">
@@ -1430,8 +1430,8 @@
         class="position-fixed top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center"
         style="z-index: 10000; background: rgba(0,0,0,0.9);">
         <div
-            class="bg-gray-900 border border-white/20 rounded-3xl p-10 flex flex-col items-center gap-8 shadow-2xl animate-pulse">
-            <div class="h-32 w-32 rounded-full bg-green-500/20 flex items-center justify-center animate-bounce">
+            class="call-card bg-gray-900 border border-white/20 rounded-3xl p-10 flex flex-col items-center gap-8 shadow-2xl animate-pulse">
+            <div class="call-ring h-32 w-32 rounded-full bg-green-500/20 flex items-center justify-center animate-bounce">
                 <mat-icon class="text-6xl text-green-500 scale-200">phone_in_talk</mat-icon>
             </div>
             <div class="text-center">
