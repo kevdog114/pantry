@@ -2215,6 +2215,21 @@
 }
 /* Voice ("ASK") tile — matches the existing k-btn variants, in violet so it
    reads as distinct from the inventory/cook actions around it. */
+/* The main menu is a hardcoded 2x3 that fills the height; adding a seventh
+   tile would spill into an implicit, squeezed 4th row. Give voice its own
+   auto-height row at the top spanning both columns, and leave the six
+   existing tiles as 1fr each. */
+.grid-menu.compact.has-voice {
+    grid-template-rows: auto repeat(3, 1fr);
+}
+
+.grid-menu.compact.has-voice .k-btn.voice {
+    grid-column: 1 / -1;
+    flex-direction: row;
+    gap: 18px;
+    min-height: 92px;
+}
+
 .k-btn.voice {
     background: linear-gradient(135deg, rgba(124, 77, 255, 0.14) 0%, rgba(124, 77, 255, 0.05) 100%);
     border-color: rgba(124, 77, 255, 0.35);

@@ -387,7 +387,12 @@
                 <!-- --- VIEW STATES --- -->
 
                 <!-- MAIN MENU -->
-                <div *ngIf="viewState === 'MAIN' && activeMode === 'NONE'" class="grid-menu compact">
+                <div *ngIf="viewState === 'MAIN' && activeMode === 'NONE'" class="grid-menu compact has-voice">
+                    <!-- Voice spans both columns on its own row: with no
+                         keyboard it is the primary way into the assistant. -->
+                    <button class="k-btn voice" (click)="openVoice()">
+                        <mat-icon>mic</mat-icon><span>ASK</span>
+                    </button>
                     <button class="k-btn primary" (click)="openInventoryMenu()">
                         <mat-icon>inventory</mat-icon><span>INVENTORY</span>
                     </button>
@@ -408,12 +413,6 @@
                     </button>
                     <button class="k-btn" (click)="openUtilities()">
                         <mat-icon>build</mat-icon><span>UTILITIES</span>
-                    </button>
-
-                    <!-- Voice: opens the assistant already listening, so a
-                         single tap is enough to start speaking. -->
-                    <button class="k-btn voice" (click)="openVoice()">
-                        <mat-icon>mic</mat-icon><span>ASK</span>
                     </button>
                 </div>
 
