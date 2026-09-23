@@ -62,7 +62,10 @@ services:
     # YAML scalar mis-parses (a bare "rooms: " ended the value).
     command:
       - "--model"
-      - "tiny"
+      # int8 rather than full precision: this is CPU inference on an 8-core ARM
+      # box with ~2.7GB spare, so the quantised weights buy accuracy without
+      # the memory and latency cost of the float build.
+      - "small-int8"
       - "--language"
       - "en"
       - "--initial-prompt"
