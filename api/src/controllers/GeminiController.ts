@@ -1686,7 +1686,28 @@ export const postStream = async (req: Request, res: Response) => {
   res.setHeader('X-Accel-Buffering', 'no');
   res.flushHeaders();
 
+  /**
+   * Keep the stream from going silent.
+   *
+   * Between the `session` event and the first model chunk nothing is written
+   * while tools run, and a tool loop can add several more quiet gaps. An idle
+   * SSE connection gets dropped by intermediaries (and by Safari, especially
+   * after the tab has been backgrounded), and the client then reports a
+   * transport failure for a turn the server goes on to complete successfully.
+   * A comment line is ignored by EventSource/readers but keeps the socket warm.
+   */
+  const heartbeat = setInterval(() => {
+    if (res.writableEnded) return;
+    try { res.write(': ping\n\n'); } catch { /* peer gone; 'close' clears this */ }
+  }, 10000);
+  heartbeat.unref?.();
+
+  const stopHeartbeat = () => clearInterval(heartbeat);
+  res.on('close', stopHeartbeat);
+  res.on('finish', stopHeartbeat);
+
   const sendEvent = (event: string, data: any) => {
+    if (res.writableEnded) return;
     res.write(`event: ${event}\n`);
     res.write(`data: ${JSON.stringify(data)}\n\n`);
   };

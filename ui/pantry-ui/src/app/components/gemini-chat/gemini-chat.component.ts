@@ -397,21 +397,13 @@ export class GeminiChatComponent implements OnInit, AfterViewInit, OnDestroy {
         }
       },
       error: (err) => {
-        this.isLoading = false;
-        const errorMessage: ChatMessage = {
-          sender: 'Gemini',
-          contents: [{
-            type: 'chat',
-            text: `Error: ${err.message || 'Connection failed'}`
-          }],
-          timestamp: new Date()
-        };
-        if (streamingMessage) {
-          streamingMessage.contents = errorMessage.contents;
-        } else {
-          this.messages.push(errorMessage);
-        }
-        this.snackBar.open('Connection error', 'Close', { duration: 5000 });
+        // The stream dropping does not mean the turn failed. The server
+        // finishes the tool calls and persists the reply regardless, so a
+        // transport error here has usually still changed the world — showing
+        // "Error" made completed commands look like failures. Reload the
+        // session and show what actually happened; only report an error if
+        // nothing was saved.
+        this.recoverFromStreamError(err, streamingMessage);
       },
       complete: () => {
         this.isLoading = false;
@@ -740,6 +732,57 @@ export class GeminiChatComponent implements OnInit, AfterViewInit, OnDestroy {
   /** Return to the kiosk menu (the toolbar is hidden in kiosk mode). */
   backToKiosk() {
     this.router.navigate(['/kiosk-mode']);
+  }
+
+  /**
+   * A streamed turn lost its connection. The server persists the reply after
+   * ending the response, so wait briefly for that write and reload the
+   * session: in the common case the command did complete and we can show the
+   * real answer instead of a transport error.
+   */
+  private recoverFromStreamError(err: any, streamingMessage: ChatMessage | null) {
+    const sessionId = this.currentSessionId;
+    const showError = () => {
+      this.isLoading = false;
+      const contents: ChatContentItem[] = [{
+        type: 'chat',
+        text: `Error: ${err?.message || 'Connection failed'}`
+      }];
+      if (streamingMessage) {
+        streamingMessage.contents = contents;
+      } else {
+        this.messages.push({ sender: 'Gemini', contents, timestamp: new Date() });
+      }
+      this.snackBar.open('Connection error', 'Close', { duration: 5000 });
+    };
+
+    if (!sessionId) {
+      showError();
+      return;
+    }
+
+    this.loadingText = 'Reconnecting...';
+    const before = this.messages.filter(m => m.sender === 'Gemini').length;
+
+    // saveResponseToDb runs after the response ends, so give it a moment.
+    setTimeout(() => {
+      this.geminiService.getSession(sessionId).subscribe({
+        next: () => {
+          this.loadSession(sessionId);
+          // loadSession replaces the transcript; if the reply really was
+          // saved there is now at least one more assistant message.
+          setTimeout(() => {
+            const after = this.messages.filter(m => m.sender === 'Gemini').length;
+            if (after > before) {
+              this.snackBar.open('Connection dropped — showing the saved reply', 'Close', { duration: 4000 });
+            } else {
+              showError();
+            }
+          }, 400);
+        },
+        error: () => showError()
+      });
+    }, 1200);
   }
 
   openDebugLog() {
