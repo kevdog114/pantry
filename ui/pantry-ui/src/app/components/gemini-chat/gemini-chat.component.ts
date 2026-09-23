@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, AfterViewInit } from '@angular/core';
+import { Component, Input, OnInit, OnDestroy, AfterViewInit } from '@angular/core';
 import { GeminiService, StreamEvent } from '../../services/gemini.service';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -26,9 +26,18 @@ export class GeminiChatComponent implements OnInit, AfterViewInit, OnDestroy {
   messages: ChatMessage[] = [];
   isLoading: boolean = false;
   loadingText: string = 'Thinking...';
+  /**
+   * Render as an embedded panel inside another kiosk view: no sidebar, no
+   * header, no routing of its own. The host supplies the chrome and the way
+   * back. Implies kiosk mode.
+   */
+  @Input() embedded: boolean = false;
+  /** Begin listening as soon as the panel appears (embedded use). */
+  @Input() autoListen: boolean = false;
+
   /** Set by ?kiosk=1 — large push-to-talk target and hands-free auto-send. */
   kioskMode: boolean = false;
-  /** Set by ?listen=1 — arrived from a voice button, so start capture on load. */
+  /** Start capture on load (?listen=1, or the autoListen input). */
   startListening: boolean = false;
   /** Set by ?from=kiosk — show a way back to the kiosk menu. */
   cameFromKiosk: boolean = false;
@@ -93,9 +102,10 @@ export class GeminiChatComponent implements OnInit, AfterViewInit, OnDestroy {
       // control and sends as soon as speech stops, so the whole interaction is
       // hands-free. Opt-in via ?kiosk=1 because auto-send on a mis-transcription
       // executes without the user seeing the text first.
-      this.kioskMode = params['kiosk'] === '1' || params['kiosk'] === 'true';
-      this.startListening = params['listen'] === '1';
-      this.cameFromKiosk = params['from'] === 'kiosk';
+      // Embedded use is driven by inputs, not the URL — the host owns the route.
+      this.kioskMode = this.embedded || params['kiosk'] === '1' || params['kiosk'] === 'true';
+      this.startListening = this.autoListen || params['listen'] === '1';
+      this.cameFromKiosk = !this.embedded && params['from'] === 'kiosk';
 
       const initialPrompt = params['initialPrompt'];
       const sessionId = params['sessionId'];

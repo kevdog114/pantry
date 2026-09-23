@@ -417,6 +417,18 @@
                     </button>
                 </div>
 
+                <!-- VOICE — the assistant embedded as a kiosk view, so the
+                     kiosk shell and its status bar are never left. -->
+                <div *ngIf="viewState === 'VOICE'" class="subpage-layout voice-layout">
+                    <div class="back-btn-row">
+                        <button class="k-icon-btn" (click)="closeVoice()"><mat-icon>arrow_back</mat-icon></button>
+                        <span class="subpage-title">ASK</span>
+                    </div>
+                    <div class="voice-chat-host">
+                        <app-gemini-chat [embedded]="true" [autoListen]="voiceAutoListen"></app-gemini-chat>
+                    </div>
+                </div>
+
                 <!-- INVENTORY MENU -->
                 <div *ngIf="viewState === 'INVENTORY_MENU' && activeMode === 'NONE'" class="subpage-layout">
                     <div class="back-btn-row">

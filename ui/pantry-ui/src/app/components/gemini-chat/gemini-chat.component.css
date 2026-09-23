@@ -349,3 +349,16 @@ markdown p {
     font-weight: 600;
     opacity: 0.75;
 }
+
+/* Embedded inside another kiosk view: the host supplies the frame and the
+   back button, so drop our own chrome and fill the space we are given. */
+.gemini-layout.embedded {
+    height: 100%;
+    width: 100%;
+}
+
+.gemini-layout.embedded .main-chat {
+    height: 100%;
+    border: none;
+    border-radius: 0;
+}

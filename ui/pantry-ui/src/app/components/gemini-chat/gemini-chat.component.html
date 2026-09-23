@@ -1,4 +1,4 @@
-<div class="gemini-layout">
+<div class="gemini-layout" [class.embedded]="embedded">
   <!-- Sidebar. Hidden in kiosk mode: the wall display has one conversation and
        no keyboard, so the session list is noise. -->
   <aside class="sidebar" *ngIf="!kioskMode && (showSidebar || !isMobile)">

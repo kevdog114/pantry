@@ -23,10 +23,11 @@ import { Product, ProductTags, StockItem } from '../types/product';
 import { firstValueFrom, Subscription } from 'rxjs';
 import { MarkdownModule } from 'ngx-markdown';
 
-type ViewState = 'MAIN' | 'INVENTORY_MENU' | 'UTILITIES' | 'PRINT_LABELS' | 'QUICK_LABEL' | 'SCALE' | 'COOK' | 'TIMERS' | 'TIMER_KEYPAD' | 'HARDWARE' | 'LABELS' | 'LABELS_CUSTOM_DATE' | 'LABELS_COPIES_KEYPAD';
+type ViewState = 'MAIN' | 'INVENTORY_MENU' | 'UTILITIES' | 'PRINT_LABELS' | 'QUICK_LABEL' | 'SCALE' | 'COOK' | 'TIMERS' | 'TIMER_KEYPAD' | 'HARDWARE' | 'LABELS' | 'LABELS_CUSTOM_DATE' | 'LABELS_COPIES_KEYPAD' | 'VOICE';
 import { Recipe, RecipeQuickAction } from '../types/recipe';
 
 import { SocketService } from '../services/socket.service';
+import { GeminiChatComponent } from '../components/gemini-chat/gemini-chat.component';
 import { SipService, SipConfig, SipCallState, SipIncomingCall } from '../services/sip.service';
 import { SettingsService } from '../settings/settings.service';
 import { HardwareService } from '../services/hardware.service';
@@ -48,12 +49,16 @@ import { HardwareService } from '../services/hardware.service';
         MatNativeDateModule,
         FormsModule,
         MarkdownModule,
-        MatProgressSpinnerModule
+        MatProgressSpinnerModule,
+        GeminiChatComponent
     ],
     templateUrl: './kiosk-page.component.html',
     styleUrls: ['./kiosk-page.component.css']
 })
 export class KioskPageComponent implements OnInit, OnDestroy {
+    /** Drives the embedded assistant to start capturing when VOICE opens. */
+    voiceAutoListen: boolean = false;
+
     // Status Section
     status: string = 'Ready';
     statusSubtext: string = '';
@@ -1818,18 +1823,21 @@ export class KioskPageComponent implements OnInit, OnDestroy {
         this.status = 'Timers';
     }
 
-    /**
-     * Open the assistant with the microphone already live.
-     *
-     * This tap is the user gesture that permits audio capture, so the chat can
-     * start listening on arrival instead of asking for a second press — the
-     * kiosk has no keyboard, so voice is the practical way in. `from=kiosk`
-     * makes the chat offer a way back to this menu.
-     */
+    // VOICE — the assistant as a kiosk view, so the kiosk shell is never left.
     openVoice() {
-        this.router.navigate(['/gemini-chat'], {
-            queryParams: { kiosk: 1, listen: 1, from: 'kiosk' }
-        });
+        this.viewState = 'VOICE';
+        this.status = 'Listening';
+        this.statusSubtext = 'Ask about the pantry, timers or music';
+        // *ngIf builds the panel fresh, so capture starts on this tap — which
+        // is also the gesture that permits audio.
+        this.voiceAutoListen = true;
+    }
+
+    closeVoice() {
+        this.voiceAutoListen = false;
+        this.viewState = 'MAIN';
+        this.status = 'Ready';
+        this.statusSubtext = '';
     }
 
     get recipeTimerActions(): RecipeQuickAction[] {
