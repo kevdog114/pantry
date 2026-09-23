@@ -3,6 +3,8 @@
  * These define the function schemas that Gemini can call.
  */
 
+import { getAudioToolDefinitions } from "../ai/mcp/homeAudio";
+
 // SchemaType compatibility - maps old SDK's SchemaType to new SDK's Type
 export const SchemaType = {
     OBJECT: "OBJECT",
@@ -543,7 +545,11 @@ export function getAllToolDefinitions() {
                 ...timerToolDefinitions,
                 ...abbreviationToolDefinitions,
                 ...otherToolDefinitions,
-                ...chatContextToolDefinitions
+                ...chatContextToolDefinitions,
+                // Discovered at runtime from the home-audio MCP bridge. Empty
+                // when the bridge is unreachable, so chat degrades to pantry
+                // capabilities rather than failing.
+                ...getAudioToolDefinitions()
             ]
         }
     ];

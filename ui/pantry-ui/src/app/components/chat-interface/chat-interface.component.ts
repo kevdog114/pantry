@@ -66,6 +66,8 @@ export class ChatInterfaceComponent implements AfterViewChecked, OnInit, OnChang
     @Input() placeholder: string = 'Type a message...';
     @Input() enableAudio: boolean = true;
     @Input() autoSendAudio: boolean = false;
+    /** Renders the push-to-talk control as a large target for wall displays. */
+    @Input() largeVoiceButton: boolean = false;
     @Input() showWelcomeMessage: boolean = false;
 
     @Output() send = new EventEmitter<{ text: string, image?: File }>();

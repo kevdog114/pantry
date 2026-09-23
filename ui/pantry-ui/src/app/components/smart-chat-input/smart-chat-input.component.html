@@ -25,11 +25,20 @@
                 [disabled]="disabled" (keyup.enter)="sendMessage()">
 
             <!-- Microphone Button (Inside Input) -->
-            <button mat-icon-button matSuffix *ngIf="enableAudio" (click)="toggleListening()"
+            <button mat-icon-button matSuffix *ngIf="enableAudio && !largeVoiceButton" (click)="toggleListening()"
                 [color]="isListening ? 'warn' : ''" [class.pulse]="isListening">
                 <mat-icon>{{ isListening ? 'mic_off' : 'mic' }}</mat-icon>
             </button>
         </mat-form-field>
+
+        <!-- Push-to-talk (kiosk): large target for a wall display, replaces the
+             small in-field mic so there is only ever one voice control. -->
+        <button *ngIf="enableAudio && largeVoiceButton" mat-fab class="ptt-fab"
+            [class.listening]="isListening" [color]="isListening ? 'warn' : 'accent'"
+            [attr.aria-label]="isListening ? 'Stop listening' : 'Push to talk'"
+            (click)="toggleListening()">
+            <mat-icon>{{ isListening ? 'mic_off' : 'mic' }}</mat-icon>
+        </button>
 
         <!-- Send Button -->
         <button mat-fab color="primary" class="send-fab" (click)="sendMessage()"

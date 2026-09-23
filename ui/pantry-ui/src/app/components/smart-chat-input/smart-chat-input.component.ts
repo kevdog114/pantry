@@ -22,6 +22,8 @@ export class SmartChatInputComponent implements OnDestroy {
     @Input() disabled: boolean = false;
     @Input() enableImageUpload: boolean = true;
     @Input() autoSendAudio: boolean = false;
+    /** Large push-to-talk target for kiosk/wall-display use. */
+    @Input() largeVoiceButton: boolean = false;
 
     @Input() enableAudio: boolean = true;
 

@@ -4,6 +4,7 @@
  * between streaming and non-streaming endpoints.
  */
 import prisma from '../lib/prisma';
+import { isAudioTool, callAudioTool } from '../ai/mcp/homeAudio';
 import { WeatherService } from '../services/WeatherService';
 import { sendNotificationToUser } from '../controllers/PushController';
 import {
@@ -48,6 +49,12 @@ export async function executeToolHandler(
     context: ToolContext = {}
 ): Promise<any> {
     console.log(`[ToolHandler] Executing tool ${name} with args:`, args);
+
+    // Audio tools are discovered from the home-audio MCP bridge rather than
+    // defined here, so they dispatch by prefix before the local switch.
+    if (isAudioTool(name)) {
+        return await callAudioTool(name, args);
+    }
 
     try {
         switch (name) {

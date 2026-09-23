@@ -44,6 +44,7 @@ const io = new Server(httpServer, {
 
 // Handle WebSocket upgrade for noVNC proxy
 import * as PlaywrightProxyController from './controllers/PlaywrightProxyController';
+import { startAudioToolDiscovery } from './ai/mcp/homeAudio';
 httpServer.on('upgrade', (req, socket, head) => {
     // Only proxy WebSocket requests to /playwright/vnc/websockify
     if (req.url?.startsWith('/playwright/vnc/websockify')) {
@@ -621,6 +622,9 @@ io.on("connection", (socket) => {
 const server = httpServer.listen(app.get("port"), async () => {
     await createDefaultAdmin();
     console.log(`App running on port ${app.get("port")}`);
+
+    // Discover home-audio tools from the MCP bridge (no-op without HOMEAUDIO_URL).
+    startAudioToolDiscovery();
 
     // Initialize Weather Job
     const weatherService = new WeatherService();

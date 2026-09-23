@@ -95,3 +95,28 @@ mat-form-field {
 .pulse {
     animation: pulse-red 1.5s infinite;
 }
+/* Kiosk push-to-talk: large touch target for a wall-mounted display.
+   Sized well above the 48px minimum since the kiosk is read and tapped
+   from a distance, and it is the primary input there. */
+.ptt-fab {
+    width: 72px;
+    height: 72px;
+    flex: 0 0 auto;
+    margin-right: 8px;
+
+    .mat-icon {
+        font-size: 34px;
+        width: 34px;
+        height: 34px;
+    }
+
+    /* Listening: steady ring so it reads as active from across the room. */
+    &.listening {
+        animation: ptt-pulse 1.4s ease-in-out infinite;
+    }
+}
+
+@keyframes ptt-pulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(244, 67, 54, 0.55); }
+    50%      { box-shadow: 0 0 0 14px rgba(244, 67, 54, 0); }
+}

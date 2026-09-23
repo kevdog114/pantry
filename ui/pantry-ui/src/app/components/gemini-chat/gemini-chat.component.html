@@ -36,7 +36,8 @@
     </div>
 
     <app-chat-interface [messages]="messages" [isLoading]="isLoading" [loadingText]="loadingText"
-      [showWelcomeMessage]="true" (send)="handleSend($event)">
+      [showWelcomeMessage]="true" [autoSendAudio]="kioskMode" [largeVoiceButton]="kioskMode"
+      (send)="handleSend($event)">
     </app-chat-interface>
   </main>
 </div>

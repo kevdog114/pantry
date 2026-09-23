@@ -26,6 +26,8 @@ export class GeminiChatComponent implements OnInit, AfterViewInit, OnDestroy {
   messages: ChatMessage[] = [];
   isLoading: boolean = false;
   loadingText: string = 'Thinking...';
+  /** Set by ?kiosk=1 — large push-to-talk target and hands-free auto-send. */
+  kioskMode: boolean = false;
 
   sessions: any[] = [];
   currentSessionId: number | null = null;
@@ -82,6 +84,12 @@ export class GeminiChatComponent implements OnInit, AfterViewInit, OnDestroy {
   ngAfterViewInit() {
     // Handle initial prompt from query params (e.g. from maintenance page)
     this.route.queryParams.subscribe(params => {
+      // Kiosk mode: wall-mounted display, no keyboard. Enlarges the push-to-talk
+      // control and sends as soon as speech stops, so the whole interaction is
+      // hands-free. Opt-in via ?kiosk=1 because auto-send on a mis-transcription
+      // executes without the user seeing the text first.
+      this.kioskMode = params['kiosk'] === '1' || params['kiosk'] === 'true';
+
       const initialPrompt = params['initialPrompt'];
       const sessionId = params['sessionId'];
 
