@@ -58,7 +58,15 @@ services:
     # with voice now driving the audio system "play" was consistently misheard
     # as "clay" or "place" (3 of 4 test utterances), so the music verbs and the
     # room names are listed too.
-    command: --model tiny --language en --initial-prompt "pantry kitchen food ingredients recipe shopping list add remove cook bake fridge freezer canned dry goods spices dairy meat vegetables fruit. play pause resume skip next previous stop volume louder quieter music song album artist playlist station. rooms: kitchen bedroom office basement garage master bath."
+    # List form: the prompt contains quotes and punctuation, which a plain
+    # YAML scalar mis-parses (a bare "rooms: " ended the value).
+    command:
+      - "--model"
+      - "tiny"
+      - "--language"
+      - "en"
+      - "--initial-prompt"
+      - "pantry kitchen food ingredients recipe shopping list add remove cook bake fridge freezer canned dry goods spices dairy meat vegetables fruit. play pause resume skip next previous stop volume louder quieter music song album artist playlist station. rooms kitchen bedroom office basement garage master bath."
 
   playwright-mcp:
     build: ./playwright-mcp
