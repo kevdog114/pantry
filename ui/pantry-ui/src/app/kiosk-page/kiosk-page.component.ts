@@ -27,7 +27,7 @@ type ViewState = 'MAIN' | 'INVENTORY_MENU' | 'UTILITIES' | 'PRINT_LABELS' | 'QUI
 import { Recipe, RecipeQuickAction } from '../types/recipe';
 
 import { SocketService } from '../services/socket.service';
-import { GeminiChatComponent } from '../components/gemini-chat/gemini-chat.component';
+import { KioskVoiceComponent } from './kiosk-voice/kiosk-voice.component';
 import { SipService, SipConfig, SipCallState, SipIncomingCall } from '../services/sip.service';
 import { SettingsService } from '../settings/settings.service';
 import { HardwareService } from '../services/hardware.service';
@@ -50,7 +50,7 @@ import { HardwareService } from '../services/hardware.service';
         FormsModule,
         MarkdownModule,
         MatProgressSpinnerModule,
-        GeminiChatComponent
+        KioskVoiceComponent
     ],
     templateUrl: './kiosk-page.component.html',
     styleUrls: ['./kiosk-page.component.css']
@@ -1826,11 +1826,37 @@ export class KioskPageComponent implements OnInit, OnDestroy {
     // VOICE — the assistant as a kiosk view, so the kiosk shell is never left.
     openVoice() {
         this.viewState = 'VOICE';
-        this.status = 'Listening';
-        this.statusSubtext = 'Ask about the pantry, timers or music';
-        // *ngIf builds the panel fresh, so capture starts on this tap — which
-        // is also the gesture that permits audio.
+        this.onVoiceState('idle');
         this.voiceAutoListen = true;
+    }
+
+    /**
+     * Mirror the voice panel's real state in the kiosk status bar. It is the
+     * largest text on the display, so it must not claim to be listening while
+     * the microphone is closed.
+     */
+    onVoiceState(state: string) {
+        switch (state) {
+            case 'listening':
+                this.status = 'Listening';
+                this.statusSubtext = 'Pause when you are done';
+                break;
+            case 'thinking':
+                this.status = 'Working';
+                this.statusSubtext = '';
+                break;
+            case 'answer':
+                this.status = 'Ask';
+                this.statusSubtext = 'Tap the microphone to ask again';
+                break;
+            case 'error':
+                this.status = 'Voice unavailable';
+                this.statusSubtext = '';
+                break;
+            default:
+                this.status = 'Ask';
+                this.statusSubtext = 'Press the microphone and speak';
+        }
     }
 
     closeVoice() {

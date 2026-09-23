@@ -424,7 +424,7 @@
                         <span class="subpage-title">ASK</span>
                     </div>
                     <div class="voice-chat-host">
-                        <app-gemini-chat [embedded]="true" [autoListen]="voiceAutoListen"></app-gemini-chat>
+                        <app-kiosk-voice (stateChange)="onVoiceState($event)"></app-kiosk-voice>
                     </div>
                 </div>
 

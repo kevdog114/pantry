@@ -1,0 +1,54 @@
+<div class="kv-root" [attr.data-state]="state">
+
+    <!-- What it heard. Held on screen through the answer so the reply can be
+         checked against the request — the usual failure is a mis-transcription,
+         not a wrong answer. -->
+    <div class="kv-heard" *ngIf="transcript">
+        <span class="kv-label">You said</span>
+        <p class="kv-transcript">{{ transcript }}</p>
+    </div>
+
+    <!-- Prompt only while there is nothing else to show. -->
+    <div class="kv-hint" *ngIf="state === 'idle' && !transcript">
+        <p class="kv-hint-title">Press and speak</p>
+        <ul class="kv-examples">
+            <li>“Add olive oil to the shopping list”</li>
+            <li>“Start a timer for twelve minutes”</li>
+            <li>“Play something upbeat in the kitchen”</li>
+            <li>“What's expiring soon?”</li>
+        </ul>
+    </div>
+
+    <!-- Listening: waveform stands in for "keep talking". -->
+    <div class="kv-status-line" *ngIf="state === 'listening'">
+        <span class="kv-bars"><i></i><i></i><i></i><i></i><i></i></span>
+        <span>Listening — pause when you're done</span>
+    </div>
+
+    <!-- Working, with the tools named so the wait is explained. -->
+    <div class="kv-status-line" *ngIf="state === 'thinking'">
+        <span class="kv-spinner"></span>
+        <span>{{ activity.length ? activity[activity.length - 1] : 'Thinking…' }}</span>
+    </div>
+
+    <!-- The answer. -->
+    <div class="kv-answer" *ngIf="state === 'answer' && answer">
+        <markdown class="kv-answer-text" [data]="answer"></markdown>
+    </div>
+
+    <div class="kv-error" *ngIf="state === 'error'">
+        <mat-icon>error_outline</mat-icon>
+        <span>{{ errorText }}</span>
+    </div>
+
+    <!-- The single control. -->
+    <button class="kv-mic" type="button" (click)="toggle()" [disabled]="state === 'thinking'"
+        [class.listening]="isListening" [class.thinking]="state === 'thinking'"
+        [attr.aria-label]="isListening ? 'Stop listening' : 'Press and speak'">
+        <mat-icon>{{ isListening ? 'stop' : 'mic' }}</mat-icon>
+    </button>
+
+    <p class="kv-mic-caption">
+        {{ isListening ? 'Tap to stop' : (state === 'thinking' ? 'Working…' : 'Tap to speak') }}
+    </p>
+</div>
