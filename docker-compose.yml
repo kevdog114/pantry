@@ -20,6 +20,12 @@ services:
       # HassNote home-audio MCP bridge. Unset = audio voice tools disabled.
       - HOMEAUDIO_URL=${HOMEAUDIO_URL:-}
       - HOMEAUDIO_API_TOKEN=${HOMEAUDIO_API_TOKEN:-}
+      # Kokoro TTS on the Mac Studio, proxied by the API so the browser does not
+      # need CORS on a bare LAN service. Unset = the kiosk's speak toggle reports
+      # TTS unavailable and replies stay on screen. See docs/voice-stack.md.
+      - TTS_URL=${TTS_URL:-}
+      - TTS_MODEL=${TTS_MODEL:-mlx-community/Kokoro-82M-bf16}
+      - TTS_VOICE=${TTS_VOICE:-af_heart}
       - MQTT_PORT=${MQTT_PORT:-1883}
       - MQTT_USER=${MQTT_USER:-}
       - MQTT_PASSWORD=${MQTT_PASSWORD:-}

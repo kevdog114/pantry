@@ -18,6 +18,7 @@ import { PersonalAccessTokenController } from "./controllers/PersonalAccessToken
 import * as SettingsController from "./controllers/SettingsController";
 import * as ChatController from "./controllers/ChatController"; // Import ChatController
 import * as SpeechController from "./controllers/SpeechController";
+import * as TtsController from "./controllers/TtsController";
 import * as OpenAIController from "./controllers/OpenAIController";
 import { WeatherController } from "./controllers/WeatherController";
 import * as FamilyController from "./controllers/FamilyController";
@@ -319,6 +320,7 @@ app.post("/gemini/logistics", GeminiController.calculateLogistics);
 app.get("/gemini/logs/:sessionId", GeminiController.getDebugLogs);
 
 app.post("/speech/transcribe", SpeechController.transcribe);
+app.post("/tts/speak", TtsController.speak);
 
 app.get("/uploads/:filename", (req: Request, res: Response) => {
     const filename = req.params.filename;

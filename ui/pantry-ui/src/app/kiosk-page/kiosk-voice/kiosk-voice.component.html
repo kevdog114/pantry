@@ -64,4 +64,15 @@
     <p class="kv-mic-caption">
         {{ isListening ? 'Tap to stop' : (state === 'transcribing' ? 'Transcribing…' : (state === 'thinking' ? 'Working…' : 'Tap to speak')) }}
     </p>
+
+    <!-- Read the answer aloud, or just show it. Kept clear of the microphone so
+         it cannot be hit while reaching for the big target, and it doubles as
+         the stop control while something is being spoken. -->
+    <button class="kv-speak-toggle" type="button" (click)="toggleSpeak()"
+        [class.on]="speak" [class.playing]="speaking"
+        [attr.aria-pressed]="speak"
+        [attr.aria-label]="speak ? 'Spoken replies on — tap for text only' : 'Text replies only — tap to hear answers'">
+        <mat-icon>{{ speaking ? 'graphic_eq' : (speak ? 'volume_up' : 'volume_off') }}</mat-icon>
+        <span>{{ speaking ? 'Speaking' : (speak ? 'Speaks answers' : 'Text only') }}</span>
+    </button>
 </div>

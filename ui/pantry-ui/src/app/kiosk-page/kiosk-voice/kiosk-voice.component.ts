@@ -5,6 +5,7 @@ import { MarkdownModule } from 'ngx-markdown';
 import { Subscription } from 'rxjs';
 import { VoiceCaptureService } from '../../services/voice-capture.service';
 import { GeminiService, StreamEvent } from '../../services/gemini.service';
+import { SpeechPlaybackService } from '../../services/speech-playback.service';
 
 type VoiceState = 'idle' | 'listening' | 'transcribing' | 'thinking' | 'answer' | 'error';
 
@@ -42,6 +43,10 @@ export class KioskVoiceComponent implements OnInit, OnDestroy {
     errorText = '';
     /** Tool names as they run, so the wait is explained rather than blank. */
     activity: string[] = [];
+    /** Whether the reply is spoken as well as shown. Persisted per device. */
+    speak = false;
+    /** True while audio is playing, so the button can show it. */
+    speaking = false;
 
     private sessionId?: number;
     private subs: Subscription[] = [];
@@ -50,6 +55,7 @@ export class KioskVoiceComponent implements OnInit, OnDestroy {
     constructor(
         private voice: VoiceCaptureService,
         private gemini: GeminiService,
+        private playback: SpeechPlaybackService,
         private cd: ChangeDetectorRef
     ) { }
 
@@ -63,6 +69,8 @@ export class KioskVoiceComponent implements OnInit, OnDestroy {
                 if (on && this.state === 'listening') { this.state = 'transcribing'; this.cd.detectChanges(); }
             }),
             this.voice.final$.subscribe(text => this.onSpeechFinished(text)),
+            this.playback.enabled$.subscribe(on => { this.speak = on; this.cd.detectChanges(); }),
+            this.playback.speaking$.subscribe(on => { this.speaking = on; this.cd.detectChanges(); }),
             this.voice.error$.subscribe(msg => {
                 this.state = 'error';
                 this.errorText = msg.includes('denied') || msg.includes('NotAllowed')
@@ -75,6 +83,7 @@ export class KioskVoiceComponent implements OnInit, OnDestroy {
 
     ngOnDestroy(): void {
         this.voice.stop();
+        this.playback.stop();
         this.streamSub?.unsubscribe();
         this.subs.forEach(s => s.unsubscribe());
     }
@@ -116,7 +125,11 @@ export class KioskVoiceComponent implements OnInit, OnDestroy {
 
     private ask(prompt: string): void {
         this.streamSub?.unsubscribe();
-        this.streamSub = this.gemini.sendMessageStream(prompt, this.sessionId).subscribe({
+        this.playback.stop();
+        this.streamSub = this.gemini
+            .sendMessageStream(prompt, this.sessionId, undefined, undefined, undefined,
+                               this.speak ? 'spoken' : 'text')
+            .subscribe({
             next: (event: StreamEvent) => {
                 if (event.type === 'session' && event.sessionId) {
                     this.sessionId = event.sessionId;
@@ -129,6 +142,10 @@ export class KioskVoiceComponent implements OnInit, OnDestroy {
                     this.answer = this.extractText(event.data) || 'Done.';
                     this.state = 'answer';
                     this.cd.detectChanges();
+                    // Shown as well as spoken: the screen is right there, and a
+                    // summary read aloud is easier to trust with the detail
+                    // visible beside it. No-op when the toggle is off.
+                    void this.playback.speak(this.answer);
                 } else if (event.type === 'error') {
                     this.fail(event.message || 'Something went wrong');
                 }
@@ -138,6 +155,17 @@ export class KioskVoiceComponent implements OnInit, OnDestroy {
                 if (this.state === 'thinking') { this.state = 'answer'; this.answer ||= 'Done.'; this.cd.detectChanges(); }
             }
         });
+    }
+
+    /**
+     * Turn spoken replies on or off.
+     *
+     * Toggling off mid-answer stops playback immediately — the usual reason to
+     * reach for it is that the thing is talking and you want it to stop.
+     */
+    toggleSpeak(): void {
+        this.playback.toggle();
+        this.cd.detectChanges();
     }
 
     private fail(message: string): void {

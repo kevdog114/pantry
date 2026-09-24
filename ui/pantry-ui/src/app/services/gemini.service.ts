@@ -156,7 +156,8 @@ export class GeminiService {
    * Returns an Observable that emits StreamEvents for each chunk received.
    * Note: Images are not supported with streaming; use sendMessage for images.
    */
-  sendMessageStream(prompt: string, sessionId?: number, additionalContext?: string, entityType?: string, entityId?: number): Observable<StreamEvent> {
+  sendMessageStream(prompt: string, sessionId?: number, additionalContext?: string, entityType?: string, entityId?: number,
+                    responseMode?: 'text' | 'spoken'): Observable<StreamEvent> {
     const subject = new Subject<StreamEvent>();
 
     const body = JSON.stringify({
@@ -164,7 +165,9 @@ export class GeminiService {
       sessionId,
       additionalContext,
       entityType,
-      entityId
+      entityId,
+      // Tells the server to word the reply for the ear rather than the screen.
+      responseMode
     });
 
     // We need to use fetch with ReadableStream for SSE over POST

@@ -699,9 +699,37 @@ function hashContext(content: string): string {
 }
 
 /**
- * Build the system instruction with minimal context - tools will provide data on demand.
+ * Extra rules for when the reply will be heard rather than read.
+ *
+ * This is not just "strip the markdown" — it changes what the answer *says*.
+ * Eight expiring items is a useful list on a screen and useless out of a
+ * speaker, so a spoken answer summarises and offers the rest instead of
+ * enumerating. Applied per request, because the same question goes either way
+ * depending on the kiosk's toggle.
  */
-async function buildSystemInstruction(additionalContext?: string): Promise<string> {
+const SPOKEN_RESPONSE_RULES = `
+    **THIS REPLY WILL BE READ ALOUD.** Write it to be heard, not read:
+    - Keep 'chat' content to one or two short sentences. Lead with the answer.
+    - Plain prose only. No markdown, no bullets, no headings, no emoji.
+    - Do not enumerate long lists. Give the count and the most important one,
+      then offer the rest: "Five things expire this week. Milk is first, on
+      Thursday. Want the others?"
+    - Write numbers and units as they are spoken: "two tablespoons", not
+      "2 tbsp"; "a quarter cup", not "1/4 c".
+    - Say dates the way a person would: "Thursday", not "9/26".
+    - Join list items with "and" rather than trailing commas.
+    - Do not narrate what you are about to do, and never read out IDs or URLs.
+    'recipe' items may still be returned for the screen, but the 'chat' text is
+    what gets spoken, so it must stand on its own.`;
+
+/**
+ * Build the system instruction with minimal context - tools will provide data on demand.
+ *
+ * `spoken` changes the wording rules only. It feeds the context-cache key via
+ * hashContext(systemInstruction), so spoken and on-screen turns cache
+ * separately without any extra bookkeeping.
+ */
+async function buildSystemInstruction(additionalContext?: string, spoken?: boolean): Promise<string> {
   return `
     You are a smart cooking assistant managing a pantry.
     Date: ${new Date().toLocaleDateString()}.
@@ -729,6 +757,7 @@ async function buildSystemInstruction(additionalContext?: string): Promise<strin
     }
 
     ${additionalContext ? `**User View Context:** ${additionalContext}` : ''}
+    ${spoken ? SPOKEN_RESPONSE_RULES : ''}
   `;
 }
 
@@ -736,7 +765,7 @@ async function buildSystemInstruction(additionalContext?: string): Promise<strin
  * Get or create a context cache for the chat model.
  * Returns the cache name if caching is supported and successful, otherwise null.
  */
-async function getOrCreateContextCache(modelName: string, additionalContext?: string): Promise<{ name: string; isHit: boolean } | null> {
+async function getOrCreateContextCache(modelName: string, additionalContext?: string, spoken?: boolean): Promise<{ name: string; isHit: boolean } | null> {
   // Caching is Gemini-only
   if (!isGeminiProvider()) {
     console.log("[Context Cache] Disabled for non-Gemini provider");
@@ -754,7 +783,7 @@ async function getOrCreateContextCache(modelName: string, additionalContext?: st
     const geminiSDK = await getGeminiSDK();
 
     // Build the full context
-    const systemInstruction = await buildSystemInstruction(additionalContext);
+    const systemInstruction = await buildSystemInstruction(additionalContext, spoken);
 
     // Estimate token count (rough: ~4 chars per token for English)
     // Gemini requires minimum 1024 tokens for caching
@@ -840,7 +869,7 @@ async function getOrCreateContextCache(modelName: string, additionalContext?: st
  * Get a model instance that uses the cached content if available.
  * Falls back to regular model if caching fails or is not supported.
  */
-async function getCachedModel(featureKey: string, additionalContext?: string): Promise<{
+async function getCachedModel(featureKey: string, additionalContext?: string, spoken?: boolean): Promise<{
   model: any;
   modelName: string;
   usingCache: boolean;
@@ -852,7 +881,7 @@ async function getCachedModel(featureKey: string, additionalContext?: string): P
   if (isGeminiProvider()) {
     try {
       const geminiSDK = await getGeminiSDK();
-      const cacheResult = await getOrCreateContextCache(modelName, additionalContext);
+      const cacheResult = await getOrCreateContextCache(modelName, additionalContext, spoken);
 
       if (cacheResult) {
         const { name, isHit } = cacheResult;
@@ -887,7 +916,7 @@ async function getCachedModel(featureKey: string, additionalContext?: string): P
   }
 
   // Build system instruction for non-cached fallback
-  const systemInstruction = await buildSystemInstruction(additionalContext);
+  const systemInstruction = await buildSystemInstruction(additionalContext, spoken);
   const { model } = await getGeminiModel(featureKey);
   return { model, modelName, usingCache: false, systemInstruction };
 }
@@ -1452,13 +1481,16 @@ function injectThoughtSignatures(rawParts: any[]): any[] {
 
 export const post = async (req: Request, res: Response) => {
   try {
-    let { prompt, sessionId, additionalContext, entityType, entityId } = req.body as {
+    let { prompt, sessionId, additionalContext, entityType, entityId, responseMode } = req.body as {
       prompt: string;
       sessionId?: number | string;
       additionalContext?: string;
       entityType?: string;
       entityId?: number | string;
+      /** 'spoken' when the kiosk will read the reply aloud. */
+      responseMode?: 'text' | 'spoken';
     };
+    const spoken = responseMode === 'spoken';
 
     if (sessionId) sessionId = parseInt(sessionId as string, 10);
 
@@ -1504,7 +1536,7 @@ export const post = async (req: Request, res: Response) => {
     const history = session.history;
 
     // --- MODEL + CACHING ---
-    const { modelName, usingCache, systemInstruction, cacheName } = await getCachedModel("gemini_chat_model", additionalContext);
+    const { modelName, usingCache, systemInstruction, cacheName } = await getCachedModel("gemini_chat_model", additionalContext, spoken);
 
     // --- BUILD CONTENTS ---
     const userParts: any[] = [{ text: prompt }];
@@ -1723,13 +1755,16 @@ export const postStream = async (req: Request, res: Response) => {
   let lockedSessionId: number | null = null;
 
   try {
-    let { prompt, sessionId, additionalContext, entityType, entityId } = req.body as {
+    let { prompt, sessionId, additionalContext, entityType, entityId, responseMode } = req.body as {
       prompt: string;
       sessionId?: number | string;
       additionalContext?: string;
       entityType?: string;
       entityId?: number | string;
+      /** 'spoken' when the kiosk will read the reply aloud. */
+      responseMode?: 'text' | 'spoken';
     };
+    const spoken = responseMode === 'spoken';
 
     if (sessionId) sessionId = parseInt(sessionId as string, 10);
 
@@ -1767,7 +1802,7 @@ export const postStream = async (req: Request, res: Response) => {
     sendEvent('session', { sessionId });
 
     // --- MODEL + ROUTING ---
-    const systemInstruction = await buildSystemInstruction(additionalContext);
+    const systemInstruction = await buildSystemInstruction(additionalContext, spoken);
     const streamTools = getAllToolDefinitions();
     const toolDisplayNames = sharedToolDisplayNames;
     const { isGeminiDebug, isDbLogging } = await getDebugSettings();
@@ -1802,7 +1837,7 @@ export const postStream = async (req: Request, res: Response) => {
       finalModelName = getDefaultModel();
       console.log(`[Stream] Auto-routing disabled for non-Gemini provider, using: ${finalModelName}`);
     } else {
-      const cached = await getCachedModel("gemini_chat_model", additionalContext);
+      const cached = await getCachedModel("gemini_chat_model", additionalContext, spoken);
       finalModelName = cached.modelName;
       usingCache = cached.usingCache;
       cacheName = cached.cacheName;

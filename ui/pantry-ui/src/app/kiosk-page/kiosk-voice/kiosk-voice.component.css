@@ -234,3 +234,64 @@
     font-size: 0.95rem;
     color: #ff8a80;
 }
+
+/* Spoken-reply toggle.
+
+   Small and low-contrast next to the microphone: it is a preference, not the
+   thing you came to press, and on a wall display anything bright competes with
+   the answer. Still a 44px target because this is a touch screen. */
+.kv-speak-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    min-height: 44px;
+    margin-top: 0.75rem;
+    padding: 0.4rem 0.9rem;
+    border: 1px solid rgba(255, 255, 255, 0.22);
+    border-radius: 999px;
+    background: transparent;
+    color: rgba(255, 255, 255, 0.62);
+    font: inherit;
+    font-size: 0.95rem;
+    cursor: pointer;
+    transition: color 120ms ease, border-color 120ms ease, background-color 120ms ease;
+}
+
+.kv-speak-toggle:hover {
+    color: rgba(255, 255, 255, 0.85);
+    border-color: rgba(255, 255, 255, 0.4);
+}
+
+.kv-speak-toggle.on {
+    color: #eaf3ff;
+    border-color: rgba(120, 180, 255, 0.55);
+    background: rgba(120, 180, 255, 0.12);
+}
+
+/* While audio is actually playing, so tapping to silence it is an obvious move. */
+.kv-speak-toggle.playing {
+    border-color: rgba(120, 220, 170, 0.7);
+    background: rgba(120, 220, 170, 0.16);
+    color: #eafff5;
+}
+
+.kv-speak-toggle mat-icon {
+    width: 20px;
+    height: 20px;
+    font-size: 20px;
+    line-height: 20px;
+}
+
+/* The icon pulses only while speaking; a static toggle should not animate. */
+.kv-speak-toggle.playing mat-icon {
+    animation: kv-speak-pulse 1.1s ease-in-out infinite;
+}
+
+@keyframes kv-speak-pulse {
+    0%, 100% { opacity: 1; }
+    50%      { opacity: 0.45; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .kv-speak-toggle.playing mat-icon { animation: none; }
+}

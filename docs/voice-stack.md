@@ -20,16 +20,16 @@ pantry-api  (Docker, fedora-asahi)
    │  WHISPER_HOST:WHISPER_PORT  ── Wyoming protocol (TCP, JSON-lines)
    │                                → wyoming-faster-whisper   :10300   [LIVE]
    │
-   │  (not yet implemented)      ── HTTP POST /v1/audio/speech
-   │                                → mlx-audio server          :10400   [service LIVE,
-   ▼                                                                      no client yet]
+   │  TTS_URL                    ── HTTP POST /v1/audio/speech
+   │                                → mlx-audio server          :10400   [LIVE]
+   ▼
 Kiosk plays returned audio → HDMI → display speakers
 ```
 
-> **Status:** STT is wired into pantry and in use. The TTS **service is deployed
-> and verified** (0.14 s from inside the API container) but **pantry does not
-> call it yet** — there is no TTS client in `api/` and no playback in the UI.
-> Wiring it up is the remaining work; see [Wiring TTS into pantry](#wiring-tts-into-pantry).
+> **Status:** both are wired into pantry and in use. The kiosk ASK view has a
+> speak toggle; when it is on the reply is spoken as well as shown, and the
+> model is told to word the answer for the ear. Set `TTS_URL` or the toggle
+> reports TTS unavailable and replies stay on screen.
 
 Both services live on the Mac Studio (`10.36.222.234` in this deployment) as
 launchd **LaunchAgents**. Everything is on the LAN with no auth, so keep it on a
@@ -223,25 +223,41 @@ In `stack.env` (or Portainer's variable store):
 
 ```
 WHISPER_HOST=<mac-ip>
-WHISPER_PORT=10300          # optional; 10300 is the default in code
+WHISPER_PORT=10300                              # optional; default in code
+TTS_URL=http://<mac-ip>:10400/v1/audio/speech   # blank disables spoken replies
+TTS_MODEL=mlx-community/Kokoro-82M-bf16         # optional; this is the default
+TTS_VOICE=af_heart                              # optional; this is the default
 ```
 
-There is no TTS variable yet — see below.
+### How pantry uses TTS
 
-### Wiring TTS into pantry
+`POST /tts/speak { text } -> audio/wav` (`api/src/controllers/TtsController.ts`)
+proxies Kokoro. Proxied rather than called from the browser because the TTS
+server has no CORS and no auth, and this keeps its address out of the UI bundle.
+It strips markdown before synthesising — the spoken-mode prompt asks for plain
+prose but is not reliable about it, and a stray asterisk gets read aloud.
 
-The TTS service is running but nothing calls it. What is still needed:
+The kiosk ASK view (`kiosk-voice`) has a speak toggle, remembered per device in
+`localStorage` (default on — the kiosk is what this is for). When it is on:
 
-1. **`api/`** — a client that POSTs the answer text to
-   `${TTS_URL}` (`http://<mac>:10400/v1/audio/speech`) and returns the wav.
-   Proxy it through the API rather than letting the browser call the Mac
-   directly, which would need CORS on the TTS server (it has none).
-2. **`ui/pantry-ui/`** — play the returned audio in the kiosk voice view. Reuse
-   the `AudioContext` pattern already in `kiosk-page.component.ts`; playback is
-   triggered by the push-to-talk gesture, which satisfies the browser autoplay
-   policy. (`timers.component.ts` shows the fallback when it does not.)
-3. **A product decision** — whether the kiosk speaks every reply or only
-   voice-initiated ones.
+* the chat request carries `responseMode: 'spoken'`, and the system instruction
+  gains `SPOKEN_RESPONSE_RULES`;
+* the reply is both displayed and played through `SpeechPlaybackService`.
+
+**The prompt change is not cosmetic.** Eight expiring items is a useful list on
+screen and useless out of a speaker, so spoken answers summarise and offer the
+rest ("five things expire this week, milk is first, on Thursday") rather than
+enumerating. It also spells out units and dates the way they are said. Because
+the system instruction changes, spoken and on-screen turns get separate context
+cache entries automatically — `hashContext` covers it, no extra bookkeeping.
+
+The answer is always shown even when spoken: the screen is right there, and a
+spoken summary is easier to trust with the detail visible beside it.
+
+Playback is triggered from the push-to-talk gesture, which satisfies the browser
+autoplay policy. A TTS failure is logged and swallowed rather than surfaced —
+the answer is already on screen, so a silent reply is a degradation, not an
+error.
 
 ### 4. Verify you got the same performance
 
