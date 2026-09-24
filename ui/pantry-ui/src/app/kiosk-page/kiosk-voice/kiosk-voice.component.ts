@@ -6,7 +6,7 @@ import { Subscription } from 'rxjs';
 import { VoiceCaptureService } from '../../services/voice-capture.service';
 import { GeminiService, StreamEvent } from '../../services/gemini.service';
 
-type VoiceState = 'idle' | 'listening' | 'thinking' | 'answer' | 'error';
+type VoiceState = 'idle' | 'listening' | 'transcribing' | 'thinking' | 'answer' | 'error';
 
 /**
  * Voice-first panel for the kiosk.
@@ -36,6 +36,8 @@ export class KioskVoiceComponent implements OnInit, OnDestroy {
         this.stateChange.emit(value);
     }
     transcript = '';
+    /** Live input level 0-100, so a dead or muted microphone is visible. */
+    level = 0;
     answer = '';
     errorText = '';
     /** Tool names as they run, so the wait is explained rather than blank. */
@@ -54,6 +56,12 @@ export class KioskVoiceComponent implements OnInit, OnDestroy {
     ngOnInit(): void {
         this.subs.push(
             this.voice.transcript$.subscribe(t => { this.transcript = t; this.cd.detectChanges(); }),
+            this.voice.level$.subscribe(v => { this.level = v; this.cd.detectChanges(); }),
+            this.voice.transcribing$.subscribe(on => {
+                // Capture has stopped but Whisper is still decoding; say so
+                // rather than appearing to have ignored the user.
+                if (on && this.state === 'listening') { this.state = 'transcribing'; this.cd.detectChanges(); }
+            }),
             this.voice.final$.subscribe(text => this.onSpeechFinished(text)),
             this.voice.error$.subscribe(msg => {
                 this.state = 'error';
@@ -89,11 +97,13 @@ export class KioskVoiceComponent implements OnInit, OnDestroy {
     }
 
     private onSpeechFinished(text: string): void {
-        if (this.state !== 'listening') return;
+        if (this.state !== 'listening' && this.state !== 'transcribing') return;
 
         if (!text) {
-            // Nothing recognised — go quiet rather than sending an empty turn.
-            this.state = 'idle';
+            // Nothing came back. Say so — silently returning to idle is
+            // indistinguishable from the button not having worked.
+            this.state = 'error';
+            this.errorText = 'I did not catch that. Tap the microphone and try again.';
             this.cd.detectChanges();
             return;
         }

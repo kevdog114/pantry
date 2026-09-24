@@ -19,10 +19,23 @@
         </ul>
     </div>
 
-    <!-- Listening: waveform stands in for "keep talking". -->
-    <div class="kv-status-line" *ngIf="state === 'listening'">
-        <span class="kv-bars"><i></i><i></i><i></i><i></i><i></i></span>
-        <span>Listening — pause when you're done</span>
+    <!-- Listening: a real input-level meter, not a decorative animation. If
+         this stays flat the microphone is the problem, not the recogniser. -->
+    <div class="kv-meter-wrap" *ngIf="state === 'listening'">
+        <div class="kv-status-line">
+            <span class="kv-bars"><i></i><i></i><i></i><i></i><i></i></span>
+            <span>Listening — pause when you're done</span>
+        </div>
+        <div class="kv-meter" [class.silent]="level === 0">
+            <div class="kv-meter-fill" [style.width.%]="level"></div>
+        </div>
+        <span class="kv-meter-hint" *ngIf="level === 0">No input detected — check the microphone</span>
+    </div>
+
+    <!-- Capture stopped, Whisper still decoding. -->
+    <div class="kv-status-line" *ngIf="state === 'transcribing'">
+        <span class="kv-spinner"></span>
+        <span>Transcribing…</span>
     </div>
 
     <!-- Working, with the tools named so the wait is explained. -->
@@ -42,13 +55,13 @@
     </div>
 
     <!-- The single control. -->
-    <button class="kv-mic" type="button" (click)="toggle()" [disabled]="state === 'thinking'"
+    <button class="kv-mic" type="button" (click)="toggle()" [disabled]="state === 'thinking' || state === 'transcribing'"
         [class.listening]="isListening" [class.thinking]="state === 'thinking'"
         [attr.aria-label]="isListening ? 'Stop listening' : 'Press and speak'">
         <mat-icon>{{ isListening ? 'stop' : 'mic' }}</mat-icon>
     </button>
 
     <p class="kv-mic-caption">
-        {{ isListening ? 'Tap to stop' : (state === 'thinking' ? 'Working…' : 'Tap to speak') }}
+        {{ isListening ? 'Tap to stop' : (state === 'transcribing' ? 'Transcribing…' : (state === 'thinking' ? 'Working…' : 'Tap to speak')) }}
     </p>
 </div>
