@@ -355,6 +355,7 @@
 
 /* Status Section */
 .status-section {
+    position: relative;   /* anchors .status-back */
     flex: 0 0 auto;
     /* Don't flex grow, take what is needed but keep compact */
     padding-top: 20px;
@@ -2269,4 +2270,14 @@
 .voice-chat-host app-gemini-chat {
     display: block;
     height: 100%;
+}
+
+/* ASK's back control, pinned to the left of the header row so the centred
+   title is unaffected. Only rendered for the VOICE view. */
+.status-back {
+    position: absolute;
+    left: 16px;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 2;
 }

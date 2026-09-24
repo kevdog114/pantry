@@ -7,6 +7,16 @@
             <div class="status-section" [class.minimized]="isFullScreen(viewState)">
                 <mat-icon *ngIf="activeMode !== 'NONE'" class="pulse-icon">qr_code_scanner</mat-icon>
 
+                <!-- Back control for ASK, in the header row rather than in a
+                     .back-btn-row beneath it. That row is 80px tall and repeated
+                     the title the header already shows, so it cost a fifth of a
+                     720px screen to say "ASK" twice. Absolutely positioned so the
+                     centred title stays exactly where it was. -->
+                <button *ngIf="viewState === 'VOICE'" class="k-icon-btn status-back"
+                    (click)="closeVoice()" aria-label="Back to the kiosk menu">
+                    <mat-icon>arrow_back</mat-icon>
+                </button>
+
                 <div class="d-flex flex-column align-items-center" [class.align-items-start]="isFullScreen(viewState)">
                     <h1 class="status-text">{{ status }}</h1>
                     <h2 *ngIf="statusSubtext" class="status-subtext">{{ statusSubtext }}</h2>
@@ -419,10 +429,8 @@
                 <!-- VOICE — the assistant embedded as a kiosk view, so the
                      kiosk shell and its status bar are never left. -->
                 <div *ngIf="viewState === 'VOICE'" class="subpage-layout voice-layout">
-                    <div class="back-btn-row">
-                        <button class="k-icon-btn" (click)="closeVoice()"><mat-icon>arrow_back</mat-icon></button>
-                        <span class="subpage-title">ASK</span>
-                    </div>
+                    <!-- No back-btn-row here: the back control lives in the
+                         header above, which frees 80px for the answer. -->
                     <div class="voice-chat-host">
                         <app-kiosk-voice (stateChange)="onVoiceState($event)"></app-kiosk-voice>
                     </div>
