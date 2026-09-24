@@ -1,6 +1,6 @@
 {
   "name": "api3",
-  "version": "1.25.3",
+  "version": "1.26.0",
   "main": "index.js",
   "scripts": {
     "build-ts": "tsc",
