@@ -18,8 +18,15 @@ import { SocketService } from './socket.service';
 export class VoiceCaptureService {
     /** RMS below this counts as silence. */
     private static readonly SILENCE_RMS = 0.02;
-    /** Silence needed before capture stops itself. */
-    private static readonly SILENCE_MS = 1500;
+    /**
+     * Backstop only. The server runs Silero VAD with --vad-endpointing and
+     * finalises the utterance itself, which is both faster (measured 2.55s vs
+     * 3.45s from end-of-speech to transcript) and better at telling a
+     * mid-sentence breath from an actual stop than this RMS check. This timer
+     * exists for the case where endpointing is disabled or never fires, so it
+     * is deliberately longer than the server's window.
+     */
+    private static readonly SILENCE_MS = 3000;
     private static readonly TARGET_RATE = 16000;
 
     /**
@@ -75,7 +82,15 @@ export class VoiceCaptureService {
             if (!this._listening.value && !this.awaitingTranscript) return;
             this.ngZone.run(() => {
                 this._transcript.next(text);
-                if (this.awaitingTranscript && text) this.settle(text);
+                if (this.awaitingTranscript && text) {
+                    this.settle(text);
+                } else if (this._listening.value && text) {
+                    // Server-side endpointing decided the utterance is over and
+                    // sent the transcript without being asked. That is the end
+                    // of the turn: close the microphone and use it, rather than
+                    // sitting on the backstop timer for another second.
+                    this.stop(text);
+                }
             });
         });
     }
@@ -132,8 +147,13 @@ export class VoiceCaptureService {
         };
     }
 
-    /** Stop capture and emit the final transcript. Safe to call twice. */
-    stop(): void {
+    /**
+     * Stop capture and finish the turn. Safe to call twice.
+     *
+     * @param finalText when the server has already endpointed and given us the
+     *   transcript, settle on it straight away instead of waiting again.
+     */
+    stop(finalText?: string): void {
         if (!this._listening.value) return;
         this._listening.next(false);
         this.socketService.emit('speech_stop');
@@ -146,9 +166,16 @@ export class VoiceCaptureService {
         if (this.audioContext) { this.audioContext.close().catch(() => undefined); this.audioContext = null; }
         if (this.stream) { this.stream.getTracks().forEach(t => t.stop()); this.stream = null; }
 
-        // Whisper only starts decoding once we stop, so the transcript is still
-        // in flight. Wait for it rather than guessing a delay.
         this.awaitingTranscript = true;
+
+        // Endpointing already produced the transcript — nothing left to wait for.
+        if (finalText) {
+            this.settle(finalText.trim());
+            return;
+        }
+
+        // Otherwise the decode is still in flight (the server only asks Whisper
+        // to decode once we stop). Wait for it rather than guessing a delay.
         this._transcribing.next(true);
         clearTimeout(this.transcriptTimer);
         this.transcriptTimer = setTimeout(
