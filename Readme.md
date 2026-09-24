@@ -76,6 +76,12 @@ Pantry supports printing custom labels for stock items (including expiration dat
 A dedicated Kiosk mode is available for Raspberry Pi devices, allowing for a touch-friendly interface, direct hardware label printing, and Home Assistant display integration.
 See [rpi-kiosk/README.md](./rpi-kiosk/README.md) for detailed installation and configuration instructions.
 
+### Voice (speech-to-text and text-to-speech)
+The kiosk's voice features need two services running natively on an Apple Silicon Mac — they sit
+deliberately outside Docker, because both need GPU access a Linux container cannot provide.
+See [docs/voice-stack.md](./docs/voice-stack.md) for the architecture, the measured numbers behind
+each setting, a setup guide for a new Mac, and the two silent-failure modes worth knowing about.
+
 ## Deployment/hosting
 This can easily be deployed using Docker using the included docker-compose and Dockerfile files
 as-is or as a basis for your own needs. The included docker-compose and Dockerfile files are
