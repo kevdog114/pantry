@@ -47,29 +47,12 @@ services:
       - TZ=${TZ:-UTC}
     # Removed host-dependent timezone volumes to fix Portainer deployment issues
 
-  wyoming-whisper:
-    image: rhasspy/wyoming-whisper
-    restart: unless-stopped
-    ports:
-      - 10300:10300
-    volumes:
-      - pantry_whisper:/data
-    # The initial prompt biases decoding. It listed pantry vocabulary only, and
-    # with voice now driving the audio system "play" was consistently misheard
-    # as "clay" or "place" (3 of 4 test utterances), so the music verbs and the
-    # room names are listed too.
-    # List form: the prompt contains quotes and punctuation, which a plain
-    # YAML scalar mis-parses (a bare "rooms: " ended the value).
-    command:
-      - "--model"
-      # int8 rather than full precision: this is CPU inference on an 8-core ARM
-      # box with ~2.7GB spare, so the quantised weights buy accuracy without
-      # the memory and latency cost of the float build.
-      - "small-int8"
-      - "--language"
-      - "en"
-      - "--initial-prompt"
-      - "pantry kitchen food ingredients recipe shopping list add remove cook bake fridge freezer canned dry goods spices dairy meat vegetables fruit. play pause resume skip next previous stop volume louder quieter music song album artist playlist station. rooms kitchen bedroom office basement garage master bath."
+  # wyoming-whisper removed 2026-09-23. Speech-to-text now runs on the Mac
+  # Studio (10.36.222.234:10300) as a launchd service, shared across the LAN.
+  # Measured on the same 12 utterances: the same model class took 2.42s here
+  # against 0.65s there, because this box's four performance cores are shared
+  # with Home Assistant, Music Assistant and a dozen other containers.
+  # Point WHISPER_HOST at the Studio; nothing else changes.
 
   playwright-mcp:
     build: ./playwright-mcp
@@ -89,7 +72,6 @@ services:
 
 volumes:
   pantry_data:
-  pantry_whisper:
   pantry_playwright_data:
 
 
