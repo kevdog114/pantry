@@ -3,6 +3,7 @@
    anchored at the bottom so it is always in the same place regardless of state. */
 
 .kv-root {
+    position: relative;   /* anchors the speak toggle, which sits out of flow */
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -112,11 +113,21 @@
 
 /* ── Answer ────────────────────────────────────────────────────── */
 .kv-answer {
-    flex: 0 1 auto;
+    /* Grow into whatever the mic, caption and toggle leave, rather than sitting
+       at content height while the column has free space below. With `0 1 auto`
+       a three-line answer was clipped mid-word on the kiosk while half the
+       panel sat empty — and the speak toggle made that worse by taking another
+       ~50px. It still scrolls if an answer really is too long, but on a wall
+       display scrolling is a poor last resort, so use the room first. */
+    flex: 1 1 auto;
     min-height: 0;
+    width: 100%;
     overflow-y: auto;
     max-width: 1150px;
-    padding: 22px 30px;
+    /* Tighter vertically than horizontally: the panel is short (~410px) and
+       every row of padding costs a line of answer. It still scrolls when an
+       answer genuinely does not fit. */
+    padding: 14px 30px;
     border-radius: 18px;
     background: rgba(124, 77, 255, 0.10);
     border: 1px solid rgba(124, 77, 255, 0.28);
@@ -241,11 +252,17 @@
    thing you came to press, and on a wall display anything bright competes with
    the answer. Still a 44px target because this is a touch screen. */
 .kv-speak-toggle {
+    /* Out of the flex column, in the corner. In flow it cost a whole row --
+       44px plus the 20px gap -- and the panel is only ~410px tall, so it was
+       taking a third of the answer's space and clipping three-line replies.
+       The mic is centred, so the bottom-right corner is free. */
+    position: absolute;
+    right: 18px;
+    bottom: 14px;
     display: inline-flex;
     align-items: center;
     gap: 0.5rem;
     min-height: 44px;
-    margin-top: 0.75rem;
     padding: 0.4rem 0.9rem;
     border: 1px solid rgba(255, 255, 255, 0.22);
     border-radius: 999px;
@@ -294,4 +311,15 @@
 
 @media (prefers-reduced-motion: reduce) {
     .kv-speak-toggle.playing mat-icon { animation: none; }
+}
+
+/* Narrow screens: the centred mic and a corner button would collide, so put the
+   toggle back in the flow and drop its label to keep it to one line. */
+@media (max-width: 620px) {
+    .kv-speak-toggle {
+        position: static;
+        margin-top: 0.5rem;
+        padding: 0.4rem 0.75rem;
+    }
+    .kv-speak-toggle span { display: none; }
 }
