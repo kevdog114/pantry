@@ -7,6 +7,7 @@ import { MatDividerModule } from '@angular/material/divider';
 import { TestComponentComponent } from './test-component/test-component.component';
 import { ProductListComponent } from './components/product-list/product-list.component';
 import { EnvironmentService } from './services/environment.service';
+import { AppUpdateService } from './services/app-update.service';
 import { MatSidenavModule } from '@angular/material/sidenav';
 import { SideMenuComponent } from './side-menu/side-menu.component';
 import { HardwareBarcodeScannerService } from './hardware-barcode-scanner.service';
@@ -51,6 +52,7 @@ export class AppComponent implements OnInit {
     private socketService: SocketService, // Injected SocketService
     private hardwareService: HardwareService,
     private env: EnvironmentService,
+    private appUpdate: AppUpdateService,
     private router: Router) {
     this.title = this.env.siteName;
     this.appVersion = this.env.appVersion;
@@ -72,6 +74,11 @@ export class AppComponent implements OnInit {
   amIClaiming: boolean = false;
 
   ngOnInit() {
+    // Watch for new deployments. The kiosk reloads itself — nobody is standing
+    // there to accept a prompt, and a wall display stuck on a stale build is
+    // worse than a two-second reload. Everywhere else it offers the choice.
+    this.appUpdate.start(location.pathname.includes('/kiosk-mode'));
+
     // Subscribe to claimed status
     // Subscribe to claimed status
     this.hardwareScanner.claimedBy$.subscribe(claimer => {
