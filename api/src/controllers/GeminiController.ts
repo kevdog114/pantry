@@ -1143,8 +1143,6 @@ async function processLocalIntent(
     const intentRes = await intentEngine.process(prompt);
     if (intentRes.intent !== 'shopping.add' || intentRes.score <= 0.8) return null;
 
-    console.log(`[SmartChat] Detected local intent: ${intentRes.intent}`);
-
     let itemToAdd = null;
     const patterns = [
       /add (.*) to (?:the |my )?shopping list/i,
@@ -1164,7 +1162,13 @@ async function processLocalIntent(
       }
     }
 
+    // The engine scores plenty of unrelated prompts ("turn the volume up",
+    // "what's the weather") above 0.8 for shopping.add. Those fall through to
+    // the model here, so only log once a pattern has actually matched and the
+    // intent is genuinely being handled locally.
     if (!itemToAdd) return null;
+
+    console.log(`[SmartChat] Handling local intent: ${intentRes.intent} (score ${intentRes.score.toFixed(2)})`);
 
     // Ensure session exists
     if (!sessionId) {
@@ -1561,12 +1565,38 @@ export const post = async (req: Request, res: Response) => {
     // --- GENERATE + TOOL LOOP ---
     let currentContents = [...contents];
     let loopCount = 0;
-    const maxLoops = 5;
+    const maxLoops = 10;
+    // Same closing-turn treatment as the streaming path: without it the loop
+    // exits right after a tool executes, the model never sees that result, and
+    // the turn returns no text at all.
+    const maxClosingTurns = 2;
     let printedInThisTurn = false;
     let responseResult: any;
     const toolCallItems: any[] = [];
 
-    while (loopCount <= maxLoops) {
+    while (true) {
+      const closingTurn = loopCount >= maxLoops ? loopCount - maxLoops + 1 : 0;
+      if (closingTurn > maxClosingTurns) break;
+      const withholdTools = closingTurn === maxClosingTurns;
+
+      if (closingTurn === 1) {
+        console.warn(`[Post] Tool budget of ${maxLoops} exhausted — entering closing turns.`);
+        currentContents.push({
+          role: "user",
+          parts: [{
+            text: "You have reached the tool call limit for this turn. Make at most one more tool call if it is required to finish what was asked, then give your final answer in text. Do not start any new lines of investigation."
+          }]
+        });
+      } else if (withholdTools) {
+        console.warn(`[Post] Closing turn with tools withheld — forcing a text reply.`);
+        currentContents.push({
+          role: "user",
+          parts: [{
+            text: "Answer now in text, using what you already have. No further tool calls are available."
+          }]
+        });
+      }
+
       if (isGeminiDebug) {
         console.log(`--- AI DEBUG CONTEXT (Loop ${loopCount}) ---`);
         const contentSummary = currentContents.map((c: any) =>
@@ -1590,14 +1620,14 @@ export const post = async (req: Request, res: Response) => {
           cachedContent: cacheName,
           config: {
             ...geminiConfig,
-            tools: adaptTools(tools)
+            ...(withholdTools ? {} : { tools: adaptTools(tools) })
           }
         });
       } else {
         responseResult = await ai.generateContent(modelName, currentContents, {
           ...geminiConfig,
           systemInstruction: effectiveSystemInstruction,
-          tools: normalizedTools,
+          ...(withholdTools ? {} : { tools: normalizedTools }),
         });
       }
       const reqEnd = Date.now();
@@ -1865,13 +1895,41 @@ export const postStream = async (req: Request, res: Response) => {
     let fullText = '';
     let currentContents = [...contents];
     let loopCount = 0;
-    const maxLoops = 5;
+    const maxLoops = 10;
+    // Running out of tool budget used to end the turn the instant a tool
+    // returned — the model never saw that last result, so the reply was empty
+    // and the user got a turn that did real work and said nothing. Spend two
+    // closing turns instead: the first still has tools and is told to finish,
+    // the second has them withheld so text is the only thing it can produce.
+    const maxClosingTurns = 2;
     let lastThoughtSignature: string | null = null;
     const streamToolCallItems: any[] = [];
 
     try {
-      while (loopCount < maxLoops) {
+      while (true) {
         loopCount++;
+        const closingTurn = loopCount > maxLoops ? loopCount - maxLoops : 0;
+        if (closingTurn > maxClosingTurns) break;
+        const withholdTools = closingTurn === maxClosingTurns;
+
+        if (closingTurn === 1) {
+          console.warn(`[Stream] Tool budget of ${maxLoops} exhausted — entering closing turns.`);
+          currentContents.push({
+            role: "user",
+            parts: [{
+              text: "You have reached the tool call limit for this turn. Make at most one more tool call if it is required to finish what was asked, then give your final answer in text. Do not start any new lines of investigation."
+            }]
+          });
+        } else if (withholdTools) {
+          console.warn(`[Stream] Closing turn with tools withheld — forcing a text reply.`);
+          currentContents.push({
+            role: "user",
+            parts: [{
+              text: "Answer now in text, using what you already have. No further tool calls are available."
+            }]
+          });
+        }
+
         let streamResult: any;
         let collectedChunks: any[] = [];
 
@@ -1897,7 +1955,7 @@ export const postStream = async (req: Request, res: Response) => {
               cachedContent: cacheName,
               config: {
                 ...geminiConfig,
-                tools: adaptTools(streamTools)
+                ...(withholdTools ? {} : { tools: adaptTools(streamTools) })
               }
             });
           } else {
@@ -1905,7 +1963,7 @@ export const postStream = async (req: Request, res: Response) => {
             streamResult = await ai.generateContentStream(finalModelName, currentContents, {
               ...geminiConfig,
               systemInstruction: effectiveSystemInstruction,
-              tools: normalizedStreamTools,
+              ...(withholdTools ? {} : { tools: normalizedStreamTools }),
             });
           }
         }

@@ -481,11 +481,7 @@ io.on("connection", (socket) => {
             }
         }
 
-        // Cleanup speech client if exists
-        // (Managed in speech handlers below or via closure variable if we move it up)
-        // Since we are adding speech handlers in this scope, let's clean them up here.
-        // But we need reference to speechClient.
-        // We will define speechClient variable at the top of the connection scope.
+        // Speech client cleanup is registered once at connection scope, below.
     });
 
     // Speech Streaming Handlers
@@ -493,6 +489,16 @@ io.on("connection", (socket) => {
     let whisperBuffer = '';
     let whisperState: 'LINE' | 'PAYLOAD' = 'LINE';
     let whisperPayloadLength = 0;
+
+    // Registered once per connection. This used to live inside speech_start,
+    // which added a fresh listener for every utterance — a live-mode session
+    // tripped Node's MaxListeners warning within a dozen turns.
+    socket.on("disconnect", () => {
+        if (speechClient) {
+            speechClient.destroy();
+            speechClient = null;
+        }
+    });
 
     socket.on("speech_start", () => {
         console.log(`Socket ${socket.id} starting speech stream`);
@@ -568,14 +574,6 @@ io.on("connection", (socket) => {
         speechClient.on('error', (err) => {
             console.error('Whisper socket error', err);
             socket.emit('speech_error', { error: err.message });
-        });
-
-        // Ensure cleanup on socket disconnect
-        socket.on("disconnect", () => {
-            if (speechClient) {
-                speechClient.destroy();
-                speechClient = null;
-            }
         });
     });
 

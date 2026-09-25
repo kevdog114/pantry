@@ -193,41 +193,61 @@ export class GeminiService {
       const decoder = new TextDecoder();
       let buffer = '';
 
+      // An event's `event:`/`data:` lines and the blank line that terminates it
+      // can arrive in different network chunks — the `done` event carries every
+      // tool result, so it splits routinely — which means this state has to
+      // outlive a single read(). Declaring it per-chunk silently dropped any
+      // event large enough to span one.
+      let currentEvent = '';
+      let currentData = '';
+
+      const emitCurrent = () => {
+        if (!currentEvent || !currentData) return;
+        try {
+          const parsed = JSON.parse(currentData);
+          subject.next({
+            type: currentEvent as StreamEvent['type'],
+            ...parsed
+          });
+        } catch (e) {
+          console.warn('Failed to parse SSE data:', currentData);
+        }
+        currentEvent = '';
+        currentData = '';
+      };
+
+      // `flush` consumes the trailing partial line too, for use once the body
+      // has ended and no more bytes are coming.
+      const drain = (flush: boolean) => {
+        const lines = buffer.split('\n');
+        buffer = flush ? '' : (lines.pop() ?? '');
+
+        for (const line of lines) {
+          if (line.startsWith('event: ')) {
+            currentEvent = line.substring(7);
+          } else if (line.startsWith('data: ')) {
+            currentData = line.substring(6);
+          } else if (line === '') {
+            emitCurrent();
+          }
+        }
+      };
+
       try {
         while (true) {
           const { done, value } = await reader.read();
           if (done) break;
 
           buffer += decoder.decode(value, { stream: true });
-
-          // Parse SSE events from buffer
-          const lines = buffer.split('\n');
-          buffer = lines.pop() || ''; // Keep incomplete line in buffer
-
-          let currentEvent = '';
-          let currentData = '';
-
-          for (const line of lines) {
-            if (line.startsWith('event: ')) {
-              currentEvent = line.substring(7);
-            } else if (line.startsWith('data: ')) {
-              currentData = line.substring(6);
-            } else if (line === '' && currentEvent && currentData) {
-              // End of event, emit it
-              try {
-                const parsed = JSON.parse(currentData);
-                subject.next({
-                  type: currentEvent as StreamEvent['type'],
-                  ...parsed
-                });
-              } catch (e) {
-                console.warn('Failed to parse SSE data:', currentData);
-              }
-              currentEvent = '';
-              currentData = '';
-            }
-          }
+          drain(false);
         }
+
+        // The server calls res.end() straight after the `done` event, so its
+        // terminating blank line may never arrive. Emit what is buffered rather
+        // than discarding a complete event for want of a newline.
+        buffer += decoder.decode();
+        drain(true);
+        emitCurrent();
       } catch (err) {
         subject.error(err);
       } finally {

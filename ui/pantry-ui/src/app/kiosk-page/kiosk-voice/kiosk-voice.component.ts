@@ -139,7 +139,15 @@ export class KioskVoiceComponent implements OnInit, OnDestroy {
                 } else if (event.type === 'done') {
                     // Chunks carry the raw JSON envelope, so wait for the parsed
                     // payload rather than streaming braces onto a kitchen wall.
-                    this.answer = this.extractText(event.data) || 'Done.';
+                    const text = this.extractText(event.data);
+                    if (!text) {
+                        // A turn that ran tools and produced no words is a
+                        // failure. Saying "Done." makes it look like it worked,
+                        // which sends you to the logs to find out it didn't.
+                        this.fail('That finished without an answer. Try asking again.');
+                        return;
+                    }
+                    this.answer = text;
                     this.state = 'answer';
                     this.cd.detectChanges();
                     // Shown as well as spoken: the screen is right there, and a
@@ -152,7 +160,11 @@ export class KioskVoiceComponent implements OnInit, OnDestroy {
             },
             error: (err) => this.fail(err?.message || 'Connection failed'),
             complete: () => {
-                if (this.state === 'thinking') { this.state = 'answer'; this.answer ||= 'Done.'; this.cd.detectChanges(); }
+                // Reaching completion still in 'thinking' means the done event
+                // never arrived — surface it instead of inventing a reply.
+                if (this.state === 'thinking') {
+                    this.fail('The reply never arrived. Try asking again.');
+                }
             }
         });
     }

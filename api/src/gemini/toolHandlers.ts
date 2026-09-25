@@ -66,10 +66,17 @@ export async function executeToolHandler(
                 const days = args.days || 5;
                 try {
                     const service = new WeatherService();
-                    const today = new Date();
-                    const endDate = new Date();
-                    endDate.setDate(today.getDate() + days - 1);
-                    const forecasts = await service.getForecast(today, endDate);
+                    // DailyWeather rows sit at UTC midnight and are read back
+                    // with toISOString() below, so the window has to be built in
+                    // UTC as well. Passing the current instant made `days: 1` a
+                    // zero-width range that matched nothing, and the model
+                    // dutifully reported it had no forecast.
+                    const start = new Date();
+                    start.setUTCHours(0, 0, 0, 0);
+                    const endDate = new Date(start);
+                    endDate.setUTCDate(start.getUTCDate() + days - 1);
+                    endDate.setUTCHours(23, 59, 59, 999);
+                    const forecasts = await service.getForecast(start, endDate);
                     if (!forecasts || forecasts.length === 0) {
                         return { message: "No weather forecast available." };
                     }
@@ -475,8 +482,31 @@ export async function executeToolHandler(
 
             case "getRecipes":
             case "searchRecipes": {
+                // The model writes natural-language queries ("homemade bread
+                // bread maker"), so matching the whole string as a single
+                // substring of `name` finds nothing and burns a tool loop.
+                // Match any meaningful term instead, across name and
+                // description. An empty query still returns everything, which
+                // is what `getRecipes` relies on.
+                const NOISE = new Set([
+                    'and', 'any', 'are', 'for', 'from', 'good', 'goes', 'how',
+                    'make', 'recipe', 'recipes', 'some', 'that', 'the', 'this',
+                    'well', 'what', 'which', 'with'
+                ]);
+                const terms = String(args.query || '')
+                    .toLowerCase()
+                    .split(/[^a-z0-9]+/)
+                    .filter(t => t.length > 2 && !NOISE.has(t));
+
                 const recipes = await prisma.recipe.findMany({
-                    where: { name: { contains: args.query || '' } },
+                    where: terms.length
+                        ? {
+                            OR: terms.flatMap(t => [
+                                { name: { contains: t } },
+                                { description: { contains: t } }
+                            ])
+                        }
+                        : undefined,
                     select: { id: true, name: true, prepTime: true, cookTime: true }
                 });
                 return { recipes };
