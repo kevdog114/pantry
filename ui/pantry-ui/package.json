@@ -1,6 +1,6 @@
 {
   "name": "pantry-ui",
-  "version": "1.26.2",
+  "version": "1.26.3",
   "scripts": {
     "ng": "ng",
     "start": "ng serve",
