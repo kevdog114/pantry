@@ -1,88 +1,182 @@
 #!/bin/bash
 
 # Audio Configuration
+# Playback and capture are detected separately. This kiosk plays through the HDMI
+# display but records from a capture-only USB microphone, so no single card can
+# serve both. Each is also looked up in the list that can actually show it: a
+# capture-only mic never appears in `aplay -l`, which is why the mic used to go
+# undetected and `default` ended up with no usable capture device at all.
 echo "Configuring Audio..."
 
-# Function to detect valid audio card
-detect_audio_card() {
-    # Try to find a USB audio device first
-    local card=$(aplay -l | grep -i "usb" | grep "^card" | head -n 1 | awk '{print $2}' | tr -d ':')
+card_id() {
+    cat "/proc/asound/card$1/id" 2>/dev/null
+}
+
+# vc4hdmiN corresponds to DRM connector HDMI-A-(N+1).
+hdmi_connected() {
+    local n=$1 status
+    for status in /sys/class/drm/card*-HDMI-A-$((n + 1))/status; do
+        [ -r "$status" ] && [ "$(cat "$status")" = "connected" ] && return 0
+    done
+    return 1
+}
+
+detect_playback_card() {
+    local card fallback="" id
+    # A USB speaker, if there is one, is the most likely intended output.
+    card=$(aplay -l | grep -i "usb" | grep "^card" | head -n 1 | awk '{print $2}' | tr -d ':')
     if [ -n "$card" ]; then
         echo "$card"
         return
     fi
-    
-    # Fallback to HDMI
-    card=$(aplay -l | grep -i "hdmi" | grep "^card" | head -n 1 | awk '{print $2}' | tr -d ':')
-    if [ -n "$card" ]; then
-        echo "$card"
+
+    # Otherwise HDMI, preferring a port with a display actually plugged in.
+    for card in $(aplay -l | grep -i "hdmi" | grep "^card" | awk '{print $2}' | tr -d ':'); do
+        [ -z "$fallback" ] && fallback="$card"
+        id=$(card_id "$card")
+        case "$id" in
+            vc4hdmi*)
+                if hdmi_connected "${id#vc4hdmi}"; then
+                    echo "$card"
+                    return
+                fi
+                ;;
+        esac
+    done
+    if [ -n "$fallback" ]; then
+        echo "$fallback"
         return
     fi
-    
-    # Fallback to any card
-    card=$(aplay -l | grep "^card" | head -n 1 | awk '{print $2}' | tr -d ':')
+
+    # Last resort: anything that can play at all.
+    aplay -l | grep "^card" | head -n 1 | awk '{print $2}' | tr -d ':'
+}
+
+detect_capture_card() {
+    local card
+    card=$(arecord -l | grep -i "usb" | grep "^card" | head -n 1 | awk '{print $2}' | tr -d ':')
+    [ -z "$card" ] && card=$(arecord -l | grep "^card" | head -n 1 | awk '{print $2}' | tr -d ':')
     echo "$card"
 }
 
-if [ -n "$DEFAULT_AUDIO_DEVICE" ]; then
-    echo "Using configured audio device override: $DEFAULT_AUDIO_DEVICE"
-    AUDIO_CARD="$DEFAULT_AUDIO_DEVICE"
+# dsnoop needs a fixed slave format, so read it off what the mic reports rather
+# than assuming. The kitchen mic, for one, is stereo-only and rejects channels 1.
+mic_stream_field() {
+    sed -n "s/^ *$2: *\(.*\)/\1/p" "/proc/asound/card$1/stream0" 2>/dev/null | head -n 1
+}
+
+PLAYBACK_CARD="${DEFAULT_AUDIO_DEVICE:-$(detect_playback_card)}"
+CAPTURE_CARD="${CAPTURE_AUDIO_DEVICE:-$(detect_capture_card)}"
+
+if [ -z "$PLAYBACK_CARD" ]; then
+    echo "No playback device detected, defaulting to card 0"
+    PLAYBACK_CARD=0
+fi
+
+echo "Playback card: $PLAYBACK_CARD ($(card_id "$PLAYBACK_CARD"))"
+if [ -n "$CAPTURE_CARD" ]; then
+    echo "Capture card:  $CAPTURE_CARD ($(card_id "$CAPTURE_CARD"))"
 else
-    echo "Auto-detecting audio hardware..."
-    AUDIO_CARD=$(detect_audio_card)
+    echo "Capture card:  none detected - 'default' will be playback-only"
 fi
 
-# Default to 0 if detection failed
-if [ -z "$AUDIO_CARD" ]; then
-    echo "No audio devices detected, defaulting to card 0"
-    AUDIO_CARD=0
-fi
+MIC_CHANNELS=$(mic_stream_field "$CAPTURE_CARD" Channels)
+case "$(mic_stream_field "$CAPTURE_CARD" Rates)" in
+    *48000*) MIC_RATE=48000 ;;
+    *44100*) MIC_RATE=44100 ;;
+    *16000*) MIC_RATE=16000 ;;
+    *)       MIC_RATE=48000 ;;
+esac
 
-echo "Selected Audio Card Index: $AUDIO_CARD"
+# Write asound.conf. 'asym' pairs the two directions; the 'plug' wrappers let
+# callers use any rate or channel count (baresip asks for 8 kHz mono on G.711,
+# the browser for 48 kHz stereo) and ALSA converts.
+{
+    echo "pcm.!default {"
+    echo "    type asym"
+    echo "    playback.pcm \"kiosk_out\""
+    [ -n "$CAPTURE_CARD" ] && echo "    capture.pcm \"kiosk_in\""
+    echo "}"
+    echo
+    echo "pcm.kiosk_out {"
+    echo "    type plug"
+    echo "    slave {"
+    echo "        pcm \"kiosk_playback\""
+    echo "        rate 48000"
+    echo "    }"
+    echo "}"
+    echo
 
-# Write asound.conf
-# Use 'asym' to explicitly define both Playback (Speaker) and Capture (Mic)
-# pointing to the same auto-detected card (via 'plug' for format conversion).
-cat > /etc/asound.conf <<EOF
-pcm.!default {
-    type asym
-    playback.pcm "plug:dmix_custom"
-    capture.pcm "plug:dsnoop_custom"
-}
+    case "$(card_id "$PLAYBACK_CARD")" in
+        vc4hdmi*)
+            # Raspberry Pi HDMI exposes IEC958_SUBFRAME_LE and nothing else, so it
+            # needs the iec958 plugin; plug and dmix cannot build subframes. dmix
+            # also refuses to sit on anything but a raw hw device, so HDMI output
+            # is exclusive - one player at a time. Channel status 04 82 00 02 is
+            # consumer PCM, no emphasis, 48 kHz, matching the rate pinned above.
+            echo "pcm.kiosk_playback {"
+            echo "    type iec958"
+            echo "    slave {"
+            echo "        pcm \"hw:$PLAYBACK_CARD,0\""
+            echo "        format IEC958_SUBFRAME_LE"
+            echo "    }"
+            echo "    status [ 0x04 0x82 0x00 0x02 ]"
+            echo "}"
+            ;;
+        *)
+            # An ordinary card can mix in software. buffer_size has to be a whole
+            # multiple of period_size - the previous config declared 128 periods
+            # alongside a 4-period buffer, and dmix refused to initialise.
+            echo "pcm.kiosk_playback {"
+            echo "    type dmix"
+            echo "    ipc_key 1024"
+            echo "    slave {"
+            echo "        pcm \"hw:$PLAYBACK_CARD,0\""
+            echo "        rate 48000"
+            echo "        period_size 1024"
+            echo "        buffer_size 4096"
+            echo "    }"
+            echo "}"
+            ;;
+    esac
 
-pcm.dmix_custom {
-    type dmix
-    ipc_key 1024
-    slave {
-        pcm "hw:$AUDIO_CARD"
-        rate 48000
-        periods 128
-        period_time 0
-        period_size 1024
-        buffer_size 4096
-    }
-}
+    if [ -n "$CAPTURE_CARD" ]; then
+        # dsnoop, unlike a bare hw device, lets several readers share the mic at
+        # once - the browser's voice commands and a SIP call can both have it.
+        echo
+        echo "pcm.kiosk_in {"
+        echo "    type plug"
+        echo "    slave.pcm \"kiosk_capture\""
+        echo "}"
+        echo
+        echo "pcm.kiosk_capture {"
+        echo "    type dsnoop"
+        echo "    ipc_key 1025"
+        echo "    slave {"
+        echo "        pcm \"hw:$CAPTURE_CARD,0\""
+        echo "        channels ${MIC_CHANNELS:-2}"
+        echo "        rate $MIC_RATE"
+        echo "        period_size 1024"
+        echo "        buffer_size 4096"
+        echo "    }"
+        echo "}"
+    fi
 
-pcm.dsnoop_custom {
-    type dsnoop
-    ipc_key 1025
-    slave {
-        pcm "hw:$AUDIO_CARD"
-    }
-}
+    echo
+    echo "ctl.!default {"
+    echo "    type hw"
+    echo "    card $PLAYBACK_CARD"
+    echo "}"
+} > /etc/asound.conf
 
-ctl.!default {
-    type hw
-    card $AUDIO_CARD
-}
-EOF
+echo "Generated /etc/asound.conf (playback card $PLAYBACK_CARD, capture card ${CAPTURE_CARD:-none})"
 
-echo "Generated /etc/asound.conf (Speaker & Mic configured for Card $AUDIO_CARD)"
-
-# Export ALSA variables to force applications (like Chrome) to use this card
-export ALSA_CARD=$AUDIO_CARD
-export ALSA_PCM_CARD=$AUDIO_CARD
-export ALSA_CTL_CARD=$AUDIO_CARD
+# Applications that consult these (Chromium among them) get pointed at the
+# playback card. 'default' above routes both directions explicitly, so these only
+# affect the stock sysdefault/front devices.
+export ALSA_CARD=$PLAYBACK_CARD
+export ALSA_PCM_CARD=$PLAYBACK_CARD
+export ALSA_CTL_CARD=$PLAYBACK_CARD
 
 # Start Hardware Bridge
 echo "Starting Hardware Bridge..."
