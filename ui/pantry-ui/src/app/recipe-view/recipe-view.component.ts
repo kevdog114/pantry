@@ -226,6 +226,7 @@ export class RecipeViewComponent implements OnInit, OnDestroy {
                     .onAction().subscribe(() => {
                         this.router.navigate(['/']);
                     });
+                this.router.navigate(['products', res.product.id]);
             },
             error: (err) => this.snackBar.open('Failed to create leftover', 'Close', { duration: 3000 })
         });
@@ -239,6 +240,7 @@ export class RecipeViewComponent implements OnInit, OnDestroy {
                     .onAction().subscribe(() => {
                         this.router.navigate(['/']);
                     });
+                this.router.navigate(['products', res.product.id]);
             },
             error: (err) => this.snackBar.open('Failed to create prep', 'Close', { duration: 3000 })
         });
