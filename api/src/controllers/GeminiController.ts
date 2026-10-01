@@ -2234,7 +2234,7 @@ export const analyzeProductImage = async (req: Request, res: Response) => {
     }
 
     const jsonString = result.text;
-    const data = JSON.parse(jsonString);
+    const data = JSON.parse(cleanJson(jsonString));
 
     // Also upload the image as a File record so the frontend can attach it to the product
     const file = await prisma.file.create({
@@ -2316,7 +2316,7 @@ export const postProductDetails = async (req: Request, res: Response) => {
 
     const response = result.response;
     const jsonString = response.text();
-    const data = JSON.parse(jsonString);
+    const data = JSON.parse(cleanJson(jsonString));
 
     // Update product if ID provided
     if (productId) {
@@ -2415,7 +2415,7 @@ export const postQuickSuggest = async (req: Request, res: Response) => {
 
     const response = result.response;
     const jsonString = response.text();
-    const data = JSON.parse(jsonString);
+    const data = JSON.parse(cleanJson(jsonString));
 
     res.json({
       message: "success",
@@ -2486,7 +2486,7 @@ export const postThawAdvice = async (req: Request, res: Response) => {
 
     const response = result.response;
     const jsonString = response.text();
-    const data = JSON.parse(jsonString);
+    const data = JSON.parse(cleanJson(jsonString));
 
     res.json({
       message: "success",
@@ -2551,7 +2551,7 @@ export const postProductMatch = async (req: Request, res: Response) => {
 
     const response = result.response;
     const jsonString = response.text();
-    const data = JSON.parse(jsonString);
+    const data = JSON.parse(cleanJson(jsonString));
 
     if (data.matchId) {
       const match = allProducts.find(p => p.id === data.matchId);
@@ -2628,7 +2628,7 @@ export const postBarcodeDetails = async (req: Request, res: Response) => {
 
     const response = result.response;
     const jsonString = response.text();
-    const data = JSON.parse(jsonString);
+    const data = JSON.parse(cleanJson(jsonString));
 
     res.json({ data, warning });
 
