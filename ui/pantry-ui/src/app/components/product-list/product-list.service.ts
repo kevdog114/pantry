@@ -1,9 +1,10 @@
 import { HttpClient } from "@angular/common/http";
 import { Injectable } from "@angular/core";
 import { Observable } from "rxjs";
-import { map } from 'rxjs/operators';
+import { map, switchMap } from 'rxjs/operators';
 import { Product, StockItem } from "../../types/product";
 import { EnvironmentService } from "../../services/environment.service";
+import { snapshotFile } from "../../services/file-snapshot";
 
 
 @Injectable({
@@ -71,10 +72,12 @@ export class ProductListService {
     }
 
     public UploadFile = (file: File): Observable<any> => {
-        let formData: FormData = new FormData();
-        formData.append("file", file, file.name);
-
-        return this.http.post(this.a("/files"), formData);
+        // See snapshotFile(): iOS can drop the body of a raw File upload.
+        return snapshotFile(file).pipe(switchMap(blob => {
+            const formData: FormData = new FormData();
+            formData.append("file", blob, file.name);
+            return this.http.post(this.a("/files"), formData);
+        }));
     }
 
     public CreateStock = (stockItem: StockItem): Observable<any> => {

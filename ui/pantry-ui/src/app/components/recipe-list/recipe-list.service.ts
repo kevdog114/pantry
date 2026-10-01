@@ -1,7 +1,9 @@
 import { HttpClient, HttpParams } from "@angular/common/http";
 import { Injectable } from "@angular/core";
 import { Observable } from "rxjs";
+import { switchMap } from "rxjs/operators";
 import { Recipe } from "../../types/recipe";
+import { snapshotFile } from "../../services/file-snapshot";
 import { EnvironmentService } from "../../services/environment.service";
 
 
@@ -53,9 +55,11 @@ export class RecipeListService {
     }
 
     public uploadFile = (file: File): Observable<any> => {
-        const formData = new FormData();
-        formData.append("file", file);
-        return this.http.post<any>(this.buildApiUrl("/files"), formData);
+        return snapshotFile(file).pipe(switchMap(blob => {
+            const formData = new FormData();
+            formData.append("file", blob, file.name);
+            return this.http.post<any>(this.buildApiUrl("/files"), formData);
+        }));
     }
 
 }

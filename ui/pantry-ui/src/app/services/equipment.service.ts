@@ -1,7 +1,9 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Observable } from 'rxjs';
+import { switchMap } from 'rxjs/operators';
 import { Equipment } from '../types/equipment';
+import { snapshotFile } from './file-snapshot';
 import { EnvironmentService } from './environment.service';
 
 @Injectable({
@@ -35,8 +37,10 @@ export class EquipmentService {
     }
 
     uploadFile(equipmentId: number, file: File): Observable<any> {
-        const formData = new FormData();
-        formData.append('file', file);
-        return this.http.post(`${this.apiUrl}/${equipmentId}/files`, formData);
+        return snapshotFile(file).pipe(switchMap(blob => {
+            const formData = new FormData();
+            formData.append('file', blob, file.name);
+            return this.http.post(`${this.apiUrl}/${equipmentId}/files`, formData);
+        }));
     }
 }

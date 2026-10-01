@@ -95,9 +95,12 @@ export class EquipmentEditComponent implements OnInit {
         if (!event.target.files) return;
         const file: File = event.target.files[0];
         if (file && !this.isNew) {
-            this.equipmentService.uploadFile(this.item.id, file).subscribe(fileRecord => {
-                // refresh
-                this.ngOnInit();
+            this.equipmentService.uploadFile(this.item.id, file).subscribe({
+                next: fileRecord => {
+                    // refresh
+                    this.ngOnInit();
+                },
+                error: err => alert(err?.message && !err.status ? err.message : "Failed to upload file")
             });
         } else {
             alert("Please save the equipment first before uploading files.");

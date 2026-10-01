@@ -427,9 +427,15 @@ export class ProductEditComponent implements AfterViewInit {
     for (let i = 0; i < fileList.length; i++) {
       const file: File = fileList[i];
 
-      this.svc.UploadFile(file).subscribe(result => {
-        console.log("file upload result", result);
-        this.product!.files.push(result);
+      this.svc.UploadFile(file).subscribe({
+        next: result => {
+          console.log("file upload result", result);
+          this.product!.files.push(result);
+        },
+        error: err => {
+          console.error("Upload failed", err);
+          this.snackBar.open(err?.message && !err.status ? err.message : "Failed to upload image", "Close", { duration: 5000 });
+        }
       });
     }
 

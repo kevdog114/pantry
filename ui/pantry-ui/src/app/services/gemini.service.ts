@@ -1,8 +1,9 @@
 import { HttpClient, HttpEventType, HttpResponse } from '@angular/common/http';
 import { Injectable } from '@angular/core';
-import { Observable, Subject, of, from } from 'rxjs';
+import { Observable, Subject, of } from 'rxjs';
 import { filter, map, switchMap } from 'rxjs/operators';
 import { EnvironmentService } from './environment.service';
+import { snapshotFile } from './file-snapshot';
 
 /** Emitted repeatedly while an image upload is still in flight. */
 export interface UploadProgressEvent {
@@ -60,19 +61,23 @@ export class GeminiService {
 
   sendMessage(prompt: string, history: any[], sessionId?: number, image?: File, additionalContext?: string, entityType?: string, entityId?: number): Observable<any> {
     if (image) {
-      const formData = new FormData();
-      formData.append('prompt', prompt);
-      if (sessionId) {
-        formData.append('sessionId', sessionId.toString());
-      }
-      formData.append('image', image);
-      if (additionalContext) {
-        formData.append('additionalContext', additionalContext);
-      }
-      if (entityType) formData.append('entityType', entityType);
-      if (entityId) formData.append('entityId', entityId.toString());
+      return snapshotFile(image).pipe(
+        switchMap(blob => {
+          const formData = new FormData();
+          formData.append('prompt', prompt);
+          if (sessionId) {
+            formData.append('sessionId', sessionId.toString());
+          }
+          formData.append('image', blob, image.name || 'upload');
+          if (additionalContext) {
+            formData.append('additionalContext', additionalContext);
+          }
+          if (entityType) formData.append('entityType', entityType);
+          if (entityId) formData.append('entityId', entityId.toString());
 
-      return this.http.post<any>(this.apiUrl, formData);
+          return this.http.post<any>(this.apiUrl, formData);
+        })
+      );
     }
     return this.http.post<any>(this.apiUrl, { prompt, history, sessionId, additionalContext, entityType, entityId });
   }
@@ -108,29 +113,9 @@ export class GeminiService {
       return formData;
     };
 
-    // Read the file into memory before building the body.
-    //
-    // A File taken straight from the iOS photo library is a lazy handle: Safari
-    // will happily emit the multipart headers and then send Content-Length: 0,
-    // silently dropping every field including the text prompt. FileReader can
-    // read the same file (the chat preview renders), so snapshotting the bytes
-    // into a Blob gives XHR something with a known length that it cannot
-    // serialize away.
+    // See snapshotFile(): iOS can drop the body of a raw File upload.
     const body$ = image
-      ? from(image.arrayBuffer()).pipe(
-          map(buffer => {
-            // If the handle really is dead we get 0 bytes here. Fail loudly
-            // rather than posting an empty body that the server can only
-            // reject with a confusing 400.
-            if (!buffer || buffer.byteLength === 0) {
-              throw new Error(
-                `Could not read "${image.name || 'image'}" — the file came back empty. ` +
-                `Try taking a screenshot of it, or re-saving it to Photos, then attach it again.`
-              );
-            }
-            return buildForm(new Blob([buffer], { type: image.type || 'application/octet-stream' }), image.name);
-          })
-        )
+      ? snapshotFile(image).pipe(map(blob => buildForm(blob, image.name)))
       : of(buildForm());
 
     return body$.pipe(
@@ -309,9 +294,13 @@ export class GeminiService {
   }
 
   analyzeProductImage(image: File): Observable<any> {
-    const formData = new FormData();
-    formData.append('image', image);
-    return this.http.post<any>(`${this.env.apiUrl}/gemini/analyze-image`, formData);
+    return snapshotFile(image).pipe(
+      switchMap(blob => {
+        const formData = new FormData();
+        formData.append('image', blob, image.name || 'upload');
+        return this.http.post<any>(`${this.env.apiUrl}/gemini/analyze-image`, formData);
+      })
+    );
   }
 
   generateProductImage(productTitle: string): Observable<any> {
