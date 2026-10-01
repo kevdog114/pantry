@@ -110,6 +110,8 @@ export const chatCompletions = async (req: Request, res: Response) => {
         const { model: modelId, messages, stream, temperature, top_p, max_tokens } = req.body;
         const user = req.user as any;
         const sessionId = req.body.session_id || 1;
+        // One map for the whole completion, so a repeated write runs once.
+        const turnCalls = new Map<string, any>();
 
         // Find system message
         const systemMessage = messages.find((m: any) => m.role === 'system');
@@ -188,7 +190,8 @@ export const chatCompletions = async (req: Request, res: Response) => {
                             const result = await executeToolHandler(fc.name, fc.args, {
                                 userId: user?.id,
                                 sessionId: sessionId,
-                                io: (req as any).app.get('io')
+                                io: (req as any).app.get('io'),
+                                turnCalls
                             });
                             toolResponses.push({
                                 functionResponse: {
@@ -252,7 +255,8 @@ export const chatCompletions = async (req: Request, res: Response) => {
                             const result = await executeToolHandler(fc.name, fc.args, {
                                 userId: user?.id,
                                 sessionId: sessionId,
-                                io: (req as any).app.get('io')
+                                io: (req as any).app.get('io'),
+                                turnCalls
                             });
                             toolResponses.push({
                                 functionResponse: {

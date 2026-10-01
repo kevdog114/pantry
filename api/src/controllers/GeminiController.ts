@@ -1559,7 +1559,8 @@ export const post = async (req: Request, res: Response) => {
     const toolContext: ToolContext = {
       userId: (req as any).userId || (req.user as any)?.id,
       io: req.app.get("io"),
-      sessionId: sessionId as number
+      sessionId: sessionId as number,
+      turnCalls: new Map()
     };
 
     // --- GENERATE + TOOL LOOP ---
@@ -1888,7 +1889,8 @@ export const postStream = async (req: Request, res: Response) => {
     const streamToolContext: ToolContext = {
       userId: (req as any).userId || (req.user as any)?.id,
       io: req.app.get("io"),
-      sessionId: sessionId as number
+      sessionId: sessionId as number,
+      turnCalls: new Map()
     };
 
     // --- STREAMING GENERATION + TOOL LOOP ---

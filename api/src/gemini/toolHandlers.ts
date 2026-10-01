@@ -18,6 +18,24 @@ export interface ToolContext {
     userId?: number;
     io?: any; // Socket.io instance
     sessionId?: number; // Chat session ID for context retrieval tools
+    /**
+     * Results of write calls already made in the current chat turn, keyed by
+     * tool name + args. Pass a fresh Map per turn to stop a model that keeps
+     * re-issuing the same write from repeating its side effect.
+     */
+    turnCalls?: Map<string, any>;
+}
+
+/** Read-only tools are safe to repeat and are never deduplicated. */
+const isReadOnlyTool = (name: string) => /^(get|search)/.test(name);
+
+/** Stable JSON so `{a,b}` and `{b,a}` produce the same key. */
+function stableStringify(value: any): string {
+    if (Array.isArray(value)) return `[${value.map(stableStringify).join(',')}]`;
+    if (value && typeof value === 'object') {
+        return `{${Object.keys(value).sort().map(k => `${JSON.stringify(k)}:${stableStringify(value[k])}`).join(',')}}`;
+    }
+    return JSON.stringify(value);
 }
 
 /**
@@ -47,6 +65,31 @@ export async function executeToolHandler(
     name: string,
     args: any,
     context: ToolContext = {}
+): Promise<any> {
+    // A model that loses track of what it has done will re-issue the same
+    // write over and over (one turn saved the same four cooking instructions
+    // six times). Run each distinct write once per turn and answer repeats
+    // with the earlier result plus an instruction to stop.
+    const turnKey = context.turnCalls && !isReadOnlyTool(name)
+        ? `${name}:${stableStringify(args ?? {})}`
+        : undefined;
+    if (turnKey && context.turnCalls!.has(turnKey)) {
+        console.warn(`[ToolHandler] Skipping repeated ${name} call in this turn`);
+        return {
+            ...context.turnCalls!.get(turnKey),
+            message: `This exact ${name} call already ran earlier in this turn, so it was not run again. Do not repeat it. If everything asked for is done, reply to the user now.`
+        };
+    }
+
+    const result = await runToolHandler(name, args, context);
+    if (turnKey && !result?.error) context.turnCalls!.set(turnKey, result);
+    return result;
+}
+
+async function runToolHandler(
+    name: string,
+    args: any,
+    context: ToolContext
 ): Promise<any> {
     console.log(`[ToolHandler] Executing tool ${name} with args:`, args);
 
@@ -762,9 +805,30 @@ export async function executeToolHandler(
                 const targetProd = await prisma.product.findUnique({ where: { id: args.productId } });
                 if (!targetProd) return { error: "Product not found" };
 
+                // "Try again" after a turn that already saved these would
+                // otherwise add a second copy. Same product, method and steps
+                // is the same instruction.
+                const name = `${targetProd.title} - ${args.method}`;
+                const steps: string[] = args.steps || [];
+                const existing = await prisma.recipe.findMany({
+                    where: { type: 'instruction', instructionForProductId: args.productId, name },
+                    include: { steps: { orderBy: { stepNumber: 'asc' } } }
+                });
+                const duplicate = existing.find(r =>
+                    r.steps.length === steps.length &&
+                    r.steps.every((st, i) => st.instruction === steps[i])
+                );
+                if (duplicate) {
+                    return {
+                        message: `"${name}" is already saved with these exact steps, so nothing was added. Do not save it again.`,
+                        type: "instruction",
+                        instructionId: duplicate.id
+                    };
+                }
+
                 const newInstruction = await prisma.recipe.create({
                     data: {
-                        name: `${targetProd.title} - ${args.method}`,
+                        name,
                         description: args.description || `Cooking instructions for ${targetProd.title}`,
                         type: 'instruction',
                         instructionForProductId: args.productId,
@@ -773,7 +837,7 @@ export async function executeToolHandler(
                         cookTime: args.cookTime,
                         totalTime: (args.prepTime || 0) + (args.cookTime || 0),
                         steps: {
-                            create: (args.steps || []).map((step: string, idx: number) => ({
+                            create: steps.map((step: string, idx: number) => ({
                                 stepNumber: idx + 1,
                                 instruction: step
                             }))
