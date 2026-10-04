@@ -194,65 +194,82 @@ export const printQuickLabel = async (req: Request, res: Response, next: NextFun
     }
 }
 
+export type LabelPrintResult = { success: boolean; message: string; status: number };
+
+/**
+ * The label size the online printer has loaded, as the UI works it out:
+ * narrow die-cut is '23mm', anything 50mm+ is continuous tape. Callers that
+ * don't pass a size (chat tools) use this so the layout matches the media.
+ */
+const detectLabelSize = async (): Promise<string> => {
+    const printer = await prisma.hardwareDevice.findFirst({
+        where: { type: 'PRINTER', status: { in: ['ONLINE', 'READY'] } },
+        orderBy: { lastSeen: 'desc' }
+    });
+    try {
+        const details = JSON.parse(printer?.details || '{}');
+        const w = details.detected_label?.width;
+        if (w > 0 && w < 30) return '23mm';
+    } catch { /* fall through */ }
+    return 'continuous';
+};
+
+const sendQueuedPrint = (targetSocket: any, payload: any) =>
+    new Promise<{ success: boolean, message: string }>((resolve) => {
+        enqueuePrint(async () => {
+            resolve(await sendPrintCommandAndWait(targetSocket, payload));
+        });
+    });
+
+export const printStockLabelById = async (
+    io: any,
+    stockId: number,
+    opts: { size?: string; copies?: number } = {}
+): Promise<LabelPrintResult> => {
+    const stockItem = await prisma.stockItem.findUnique({
+        where: { id: stockId },
+        include: { product: true }
+    });
+    if (!stockItem) return { success: false, message: "Stock item not found", status: 404 };
+
+    const targetSocket = await findTargetSocket(io);
+    if (!targetSocket) return { success: false, message: "No online label printers found.", status: 503 };
+
+    const abbreviations = await getAbbreviations();
+    const payload = {
+        type: 'STOCK_LABEL',
+        data: {
+            title: stockItem.product.title,
+            expirationDate: stockItem.expirationDate ? stockItem.expirationDate.toISOString().split('T')[0] : 'N/A',
+            quantity: stockItem.quantity,
+            stockId: stockItem.id,
+            qrData: `S2-${stockItem.id}`,
+            size: opts.size || await detectLabelSize(),
+            copies: opts.copies || 1,
+            frozen: stockItem.frozen,
+            opened: stockItem.opened,
+            openedDate: stockItem.openedDate ? stockItem.openedDate.toISOString().split('T')[0] : null,
+            frozenDate: stockItem.frozenDate ? stockItem.frozenDate.toISOString().split('T')[0] : null,
+            createdDate: stockItem.createdAt ? stockItem.createdAt.toISOString().split('T')[0] : null,
+            abbreviations
+        }
+    };
+
+    const result = await sendQueuedPrint(targetSocket, payload);
+    return result.success
+        ? { success: true, message: "Label printed successfully.", status: 200 }
+        : { success: false, message: "Print failed: " + result.message, status: 500 };
+}
+
 export const printStockLabel = async (req: Request, res: Response, next: NextFunction): Promise<any> => {
     try {
-        const stockId = parseInt(req.params.id);
-
-        const stockItem = await prisma.stockItem.findUnique({
-            where: { id: stockId },
-            include: { product: true }
-        });
-
-        if (!stockItem) {
-            res.status(404).json({ message: "Stock item not found" });
-            return;
-        }
-
-        const io = req.app.get('io');
-        const targetSocket = await findTargetSocket(io);
-
-        if (!targetSocket) {
-            res.status(503).json({ message: "No online label printers found." });
-            return;
-        }
-
         const { size, copies } = req.body;
-        const abbreviations = await getAbbreviations();
-
-        const payload = {
-            type: 'STOCK_LABEL',
-            data: {
-                title: stockItem.product.title,
-                expirationDate: stockItem.expirationDate ? stockItem.expirationDate.toISOString().split('T')[0] : 'N/A',
-                quantity: stockItem.quantity,
-                stockId: stockItem.id,
-                qrData: `S2-${stockItem.id}`,
-                size: size || 'standard',
-                copies: copies || 1,
-                frozen: stockItem.frozen,
-                opened: stockItem.opened,
-                openedDate: stockItem.openedDate ? stockItem.openedDate.toISOString().split('T')[0] : null,
-                frozenDate: stockItem.frozenDate ? stockItem.frozenDate.toISOString().split('T')[0] : null,
-                createdDate: stockItem.createdAt ? stockItem.createdAt.toISOString().split('T')[0] : null,
-                abbreviations
-            }
-        };
-
-        const resultPromise = new Promise<{ success: boolean, message: string }>((resolve) => {
-            enqueuePrint(async () => {
-                const result = await sendPrintCommandAndWait(targetSocket, payload);
-                resolve(result);
-            });
+        const result = await printStockLabelById(req.app.get('io'), parseInt(req.params.id), {
+            // The UI has always sent a size; keep its old fallback for anything that doesn't.
+            size: size || 'standard',
+            copies
         });
-
-        const result = await resultPromise;
-
-        if (result.success) {
-            res.json({ success: true, message: "Label printed successfully." });
-        } else {
-            res.status(500).json({ success: false, message: "Print failed: " + result.message });
-        }
-
+        res.status(result.status).json({ success: result.success, message: result.message });
     } catch (e) {
         console.error('Error printing label', e);
         res.status(500).json({ message: "Failed to print label" });
@@ -302,56 +319,42 @@ export const printModifierLabel = async (req: Request, res: Response, next: Next
     }
 }
 
+export const printRecipeLabelById = async (
+    io: any,
+    recipeId: number,
+    opts: { size?: string } = {}
+): Promise<LabelPrintResult> => {
+    const recipe = await prisma.recipe.findUnique({ where: { id: recipeId } });
+    if (!recipe) return { success: false, message: "Recipe not found", status: 404 };
+
+    const targetSocket = await findTargetSocket(io);
+    if (!targetSocket) return { success: false, message: "No online label printers found.", status: 503 };
+
+    const abbreviations = await getAbbreviations();
+    const payload = {
+        type: 'RECIPE_LABEL',
+        data: {
+            title: recipe.name,
+            preparedDate: new Date().toISOString().split('T')[0],
+            qrData: `R-${recipe.id}`,
+            size: opts.size || await detectLabelSize(),
+            abbreviations
+        }
+    };
+
+    const result = await sendQueuedPrint(targetSocket, payload);
+    return result.success
+        ? { success: true, message: "Label printed successfully.", status: 200 }
+        : { success: false, message: "Print failed: " + result.message, status: 500 };
+}
+
 export const printRecipeLabel = async (req: Request, res: Response, next: NextFunction): Promise<any> => {
     try {
-        const recipeId = parseInt(req.params.id);
         const { size } = req.body;
-
-        const recipe = await prisma.recipe.findUnique({
-            where: { id: recipeId }
+        const result = await printRecipeLabelById(req.app.get('io'), parseInt(req.params.id), {
+            size: size || 'continuous'
         });
-
-        if (!recipe) {
-            res.status(404).json({ message: "Recipe not found" });
-            return;
-        }
-
-        const io = req.app.get('io');
-        const targetSocket = await findTargetSocket(io);
-
-        if (!targetSocket) {
-            res.status(503).json({ message: "No online label printers found." });
-            return;
-        }
-
-        const abbreviations = await getAbbreviations();
-
-        const payload = {
-            type: 'RECIPE_LABEL',
-            data: {
-                title: recipe.name,
-                preparedDate: new Date().toISOString().split('T')[0],
-                qrData: `R-${recipe.id}`,
-                size: size || 'continuous',
-                abbreviations
-            }
-        };
-
-        const resultPromise = new Promise<{ success: boolean, message: string }>((resolve) => {
-            enqueuePrint(async () => {
-                const result = await sendPrintCommandAndWait(targetSocket, payload);
-                resolve(result);
-            });
-        });
-
-        const result = await resultPromise;
-
-        if (result.success) {
-            res.json({ success: true, message: "Label printed successfully." });
-        } else {
-            res.status(500).json({ success: false, message: "Print failed: " + result.message });
-        }
-
+        res.status(result.status).json({ success: result.success, message: result.message });
     } catch (e) {
         console.error('Error printing recipe label', e);
         res.status(500).json({ message: "Failed to print recipe label" });

@@ -736,7 +736,7 @@ async function buildSystemInstruction(additionalContext?: string, spoken?: boole
     
     **Core Rules:**
     1. **Response Format:** ALWAYS return a JSON object with a root 'items' array. Items can be type 'chat' (content string) or 'recipe' (structured object).
-    2. **Printing:** To print a recipe, first call 'getRecipeDetails', then 'printReceipt'. Can be called multiple times if printing multiple items. Confirm with "Sent [title] to printer."
+    2. **Printing:** To print a recipe, first call 'getRecipeDetails', then 'printReceipt'. Can be called multiple times if printing multiple items. Confirm with "Sent [title] to printer." For a **label** (sticker), use the label printer instead: 'printProductLabel' for a product or stock entry, 'printRecipeLabel' for a recipe or leftovers. Look up the ID first if you don't have it.
     3. **Stock & Cooking Instructions:** Use provided tools. For package images, use 'createCookingInstruction' for each method (e.g., Microwave, Oven).
     4. **Quantities:** Respect 'trackCountBy' in inventory context. If 'weight', use weight; if 'quantity', use count.
 

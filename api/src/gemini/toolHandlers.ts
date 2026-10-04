@@ -6,6 +6,7 @@
 import prisma from '../lib/prisma';
 import { isAudioTool, callAudioTool } from '../ai/mcp/homeAudio';
 import { WeatherService } from '../services/WeatherService';
+import { printStockLabelById, printRecipeLabelById } from "../controllers/labelPrinterController";
 import { sendNotificationToUser } from '../controllers/PushController';
 import {
     generateReceiptSteps,
@@ -799,6 +800,47 @@ async function runToolHandler(
                 });
 
                 return { message: "Print command sent to Kiosk. Please confirm this action to the user." };
+            }
+
+            case "printProductLabel": {
+                const { io } = context;
+                if (!io) return { error: "Socket.io service unavailable" };
+
+                let stockItem;
+                if (args.stockItemId) {
+                    stockItem = await prisma.stockItem.findUnique({ where: { id: args.stockItemId }, include: { product: true } });
+                    if (!stockItem) return { error: `Stock entry ${args.stockItemId} not found.` };
+                } else if (args.productId) {
+                    // The usual ask is "print a label for the thing I just put away",
+                    // so take the newest entry that still has something in it.
+                    stockItem = await prisma.stockItem.findFirst({
+                        where: { productId: args.productId, quantity: { gt: 0 } },
+                        orderBy: { createdAt: 'desc' },
+                        include: { product: true }
+                    });
+                    if (!stockItem) {
+                        return { error: "That product has no stock entries, and labels are printed per stock entry. Add stock first (createStockEntry), then print." };
+                    }
+                } else {
+                    return { error: "Pass productId or stockItemId." };
+                }
+
+                const copies = Math.min(Math.max(parseInt(args.copies) || 1, 1), 10);
+                const result = await printStockLabelById(io, stockItem.id, { copies });
+                if (!result.success) return { error: result.message };
+                return {
+                    message: `Printed ${copies} label${copies > 1 ? 's' : ''} for ${stockItem.product.title}. Please confirm to the user.`,
+                    stockItemId: stockItem.id,
+                    expirationDate: stockItem.expirationDate ? stockItem.expirationDate.toISOString().split('T')[0] : null
+                };
+            }
+
+            case "printRecipeLabel": {
+                const { io } = context;
+                if (!io) return { error: "Socket.io service unavailable" };
+                const result = await printRecipeLabelById(io, args.recipeId);
+                if (!result.success) return { error: result.message };
+                return { message: "Printed the recipe label. Please confirm to the user." };
             }
 
             case "createCookingInstruction": {

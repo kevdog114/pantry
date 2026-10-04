@@ -473,6 +473,29 @@ export const otherToolDefinitions = [
         }
     },
     {
+        name: "printProductLabel",
+        description: "Print a product label (QR code, product name, expiration date) on the kiosk's label printer. Labels belong to a stock entry. Pass stockItemId when you know it; otherwise pass productId and the most recently added stock entry with quantity left is used. Use this, not printReceipt, whenever the user asks for a label or sticker for a product.",
+        parameters: {
+            type: SchemaType.OBJECT,
+            properties: {
+                productId: { type: SchemaType.INTEGER, description: "Product ID (from getProducts/searchInventory)" },
+                stockItemId: { type: SchemaType.INTEGER, description: "Specific stock entry ID, if known" },
+                copies: { type: SchemaType.INTEGER, description: "Number of labels (default 1, max 10)" }
+            }
+        }
+    },
+    {
+        name: "printRecipeLabel",
+        description: "Print a recipe label (QR code, recipe name, today's date as the prepared date) on the kiosk's label printer, e.g. for leftovers or meal prep containers. Use this, not printReceipt, when the user asks for a label for a recipe or dish.",
+        parameters: {
+            type: SchemaType.OBJECT,
+            properties: {
+                recipeId: { type: SchemaType.INTEGER, description: "Recipe ID (from searchRecipes/getRecipes)" }
+            },
+            required: ["recipeId"]
+        }
+    },
+    {
         name: "createCookingInstruction",
         description: "Save cooking instructions for a product (e.g., Microwave, Oven methods from package).",
         parameters: {

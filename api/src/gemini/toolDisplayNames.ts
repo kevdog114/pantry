@@ -41,6 +41,8 @@ export const toolDisplayNames: Record<string, string> = {
     getProducts: "Searching products...",
     createRecipe: "Creating recipe...",
     printReceipt: "Sending to printer...",
+    printProductLabel: "Printing label...",
+    printRecipeLabel: "Printing label...",
     createCookingInstruction: "Saving cooking instructions...",
     sendPushNotification: "Sending notification...",
     getTimers: "Loading timers...",
