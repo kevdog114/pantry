@@ -46,6 +46,139 @@ def apply_abbreviations(text, abbreviations):
             result = pattern.sub(short, result)
     return result
 
+BOLD_FONT = "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf"
+
+
+def _font(size):
+    try:
+        return ImageFont.truetype(BOLD_FONT, size)
+    except Exception:
+        return ImageFont.load_default()
+
+
+def _text_width(draw, text, font):
+    try:
+        return draw.textlength(text, font=font)
+    except AttributeError:
+        return draw.textsize(text, font=font)[0]
+
+
+def _wrap_words(draw, text, font, max_width):
+    """Greedy word wrap. Returns None if a single word is wider than max_width."""
+    lines, current = [], ""
+    for word in text.split():
+        test = (current + " " + word).strip()
+        if _text_width(draw, test, font) <= max_width:
+            current = test
+            continue
+        if _text_width(draw, word, font) > max_width:
+            return None
+        if current:
+            lines.append(current)
+        current = word
+    if current:
+        lines.append(current)
+    return lines
+
+
+def _fit_font(draw, text, max_width, start, minimum):
+    """Largest size from start down to minimum at which text fits on one line."""
+    for size in range(start, minimum - 1, -1):
+        font = _font(size)
+        if _text_width(draw, text, font) <= max_width:
+            return font, size
+    return _font(minimum), minimum
+
+
+def _draw_wrapped_fit(draw, text, box, max_size=34, min_size=16):
+    """
+    Draw text inside box (x, y, w, h) at the largest size that fits without
+    breaking a word. Below min_size, the text is cut at the last line with an
+    ellipsis instead of shrinking further.
+    """
+    x, y, w, h = box
+    for size in range(max_size, min_size - 1, -1):
+        font = _font(size)
+        line_h = int(size * 1.08)
+        lines = _wrap_words(draw, text, font, w)
+        if lines is not None and len(lines) * line_h <= h:
+            break
+    else:
+        size = min_size
+        font = _font(size)
+        line_h = int(size * 1.08)
+        max_lines = max(1, h // line_h)
+        # Character-wrap so a very long word still lands on the label.
+        lines, current = [], ""
+        for ch in text:
+            if _text_width(draw, current + ch, font) > w:
+                lines.append(current.rstrip())
+                current = ch.lstrip()
+            else:
+                current += ch
+        if current:
+            lines.append(current)
+        if len(lines) > max_lines:
+            lines = lines[:max_lines]
+            last = lines[-1]
+            while last and _text_width(draw, last + "\u2026", font) > w:
+                last = last[:-1]
+            lines[-1] = last.rstrip() + "\u2026"
+    for i, line in enumerate(lines):
+        draw.text((x, y + i * line_h), line, font=font, fill='black')
+
+
+def draw_square_label(qr_data, date_str, title, status=None):
+    """
+    23mm x 23mm die-cut layout (202 x 202 px printable at 300 dpi), shared by
+    stock and recipe labels: QR top-left, status and date to its right, name
+    filling the bottom at the largest size that fits.
+
+    The text used to be fixed at 12-14 px (about 1 mm tall); it is now sized
+    to the space available, so short names come out several times larger.
+    """
+    width = height = 202
+    margin = 6
+    img = Image.new('RGB', (width, height), color='white')
+    draw = ImageDraw.Draw(img)
+
+    qr = qrcode.QRCode(box_size=3, border=1)
+    qr.add_data(qr_data)
+    qr.make(fit=True)
+    qr_size = 80
+    qr_img = qr.make_image(fill_color="black", back_color="white").resize((qr_size, qr_size))
+    img.paste(qr_img, (margin, margin))
+
+    right_x = margin + qr_size + 6
+    right_w = width - right_x - margin
+
+    try:
+        dt = datetime.strptime(date_str, '%Y-%m-%d')
+        md_str, year_str = dt.strftime('%b %-d'), dt.strftime('%Y')
+    except (TypeError, ValueError):
+        md_str, year_str = (date_str or ''), ''
+
+    cursor_y = margin
+    if status:
+        font, size = _fit_font(draw, status, right_w, 24, 14)
+        draw.text((right_x, cursor_y), status, font=font, fill='black')
+        cursor_y += size + 3
+    if md_str:
+        font, size = _fit_font(draw, md_str, right_w, 30 if status else 32, 14)
+        draw.text((right_x, cursor_y), md_str, font=font, fill='black')
+        cursor_y += size + 3
+    if year_str:
+        font, size = _fit_font(draw, year_str, right_w, 22, 12)
+        draw.text((right_x, cursor_y), year_str, font=font, fill='black')
+        cursor_y += size
+
+    name_y = max(cursor_y, margin + qr_size) + 6
+    if title:
+        _draw_wrapped_fit(draw, title, (margin, name_y, width - margin * 2, height - name_y - margin))
+
+    return img
+
+
 def create_label_image(data):
     # Label properties (Brother QL-600 with 62mm tape)
     # 62mm tape is approx 696 pixels wide
@@ -209,93 +342,12 @@ def create_label_image(data):
         qr_data = data.get('qrData')
 
         if data.get('size') == '23mm':
-            width = 202
-            height = 202
-            img = Image.new('RGB', (width, height), color='white')
-            draw = ImageDraw.Draw(img)
+            img = draw_square_label(
+                qr_data,
+                data.get('preparedDate', 'N/A'),
+                apply_abbreviations(data.get('title', ''), data.get('abbreviations', [])),
+            )
 
-            try:
-                font_status = ImageFont.truetype("/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf", 14)
-                font_date = ImageFont.truetype("/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf", 13)
-                font_name = ImageFont.truetype("/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf", 12)
-            except:
-                font_status = ImageFont.load_default()
-                font_date = ImageFont.load_default()
-                font_name = ImageFont.load_default()
-
-            # QR Code - upper left
-            qr = qrcode.QRCode(box_size=3, border=1)
-            qr.add_data(qr_data)
-            qr.make(fit=True)
-            qr_img = qr.make_image(fill_color="black", back_color="white")
-            qr_size = 80
-            qr_img = qr_img.resize((qr_size, qr_size))
-
-            margin = 6
-            qr_x = margin
-            qr_y = margin
-            img.paste(qr_img, (qr_x, qr_y))
-
-            # Right side content
-            right_x = qr_x + qr_size + 4
-
-            # Date - year on one line, month/day below
-            date_str = data.get('preparedDate', 'N/A')
-            try:
-                dt = datetime.strptime(date_str, '%Y-%m-%d')
-                year_str = dt.strftime('%Y')
-                md_str = dt.strftime('%b %-d')
-            except:
-                year_str = date_str
-                md_str = ""
-
-            cursor_y = margin + 2
-            draw.text((right_x, cursor_y), year_str, font=font_date, fill='black')
-            cursor_y += 15
-            if md_str:
-                draw.text((right_x, cursor_y), md_str, font=font_date, fill='black')
-                cursor_y += 15
-
-            # Recipe title below with wrapping and abbreviations
-            title = data.get('title', '')
-            abbreviations = data.get('abbreviations', [])
-            if abbreviations:
-                title = apply_abbreviations(title, abbreviations)
-
-            name_y = max(cursor_y, qr_y + qr_size + 2) + 2
-            name_max_width = width - margin * 2
-
-            if title:
-                words = title.split()
-                lines = []
-                current_line = ""
-                for word in words:
-                    test = (current_line + " " + word).strip()
-                    try:
-                        w = draw.textlength(test, font=font_name)
-                    except:
-                        w = draw.textsize(test, font=font_name)[0]
-                    if w <= name_max_width:
-                        current_line = test
-                    else:
-                        if current_line:
-                            lines.append(current_line)
-                        try:
-                            sw = draw.textlength(word, font=font_name)
-                        except:
-                            sw = draw.textsize(word, font=font_name)[0]
-                        if sw <= name_max_width:
-                            current_line = word
-                        else:
-                            lines.append(word[:int(len(word) * name_max_width / max(sw, 1))])
-                            current_line = ""
-                if current_line:
-                    lines.append(current_line)
-
-                max_lines = (height - name_y - 2) // 14
-                for i, line in enumerate(lines[:max(1, max_lines)]):
-                    draw.text((margin, name_y + i * 13), line, font=font_name, fill='black')
-            
         else:
             # Continuous Recipe Label
             height = 250
@@ -410,112 +462,13 @@ def create_label_image(data):
         draw.text((text_x, y_cursor), f"Bought: {date_str}", font=font_medium, fill='black')
 
     elif data.get('size') == '23mm':
-        # 23mm Square Label - New layout: QR upper-left, date/status right of QR, name below
-        width = 202
-        height = 202
-        img = Image.new('RGB', (width, height), color='white')
-        draw = ImageDraw.Draw(img)
-
-        try:
-            font_status = ImageFont.truetype("/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf", 14)
-            font_date = ImageFont.truetype("/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf", 13)
-            font_name = ImageFont.truetype("/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf", 12)
-        except:
-            font_status = ImageFont.load_default()
-            font_date = ImageFont.load_default()
-            font_name = ImageFont.load_default()
-
-        # QR Code - upper left, smaller to make room for date/status
-        qr_data = data.get('qrData', f"S2-{data.get('stockId')}")
-        qr = qrcode.QRCode(box_size=3, border=1)
-        qr.add_data(qr_data)
-        qr.make(fit=True)
-        qr_img = qr.make_image(fill_color="black", back_color="white")
-        qr_size = 80
-        qr_img = qr_img.resize((qr_size, qr_size))
-
-        margin = 6
-        qr_x = margin
-        qr_y = margin
-        img.paste(qr_img, (qr_x, qr_y))
-
-        # Right side content area (to the right of QR)
-        right_x = qr_x + qr_size + 4
-        right_width = width - right_x - margin
-
-        # Status line (above date, right of QR)
-        status_line = ""
-        if data.get('opened'):
-            status_line = "OPEN"
-        elif data.get('frozen'):
-            status_line = "FRZN"
-
-        cursor_y = margin + 2
-
-        if status_line:
-            draw.text((right_x, cursor_y), status_line, font=font_status, fill='black')
-            cursor_y += 16
-
-        # Date - year on one line, month/day below
-        date_str = data.get('expirationDate', 'N/A')
-        try:
-            dt = datetime.strptime(date_str, '%Y-%m-%d')
-            year_str = dt.strftime('%Y')
-            md_str = dt.strftime('%b %-d')
-        except:
-            year_str = date_str
-            md_str = ""
-
-        # Draw year
-        draw.text((right_x, cursor_y), year_str, font=font_date, fill='black')
-        cursor_y += 15
-        # Draw month day
-        if md_str:
-            draw.text((right_x, cursor_y), md_str, font=font_date, fill='black')
-            cursor_y += 15
-
-        # Product name below QR and date area, with wrapping and abbreviations
-        title = data.get('title', '')
-        abbreviations = data.get('abbreviations', [])
-        if abbreviations:
-            title = apply_abbreviations(title, abbreviations)
-
-        name_y = max(cursor_y, qr_y + qr_size + 2) + 2
-        name_max_width = width - margin * 2
-
-        # Simple word wrapping for name
-        if title:
-            words = title.split()
-            lines = []
-            current_line = ""
-            for word in words:
-                test = (current_line + " " + word).strip()
-                try:
-                    w = draw.textlength(test, font=font_name)
-                except:
-                    w = draw.textsize(test, font=font_name)[0]
-                if w <= name_max_width:
-                    current_line = test
-                else:
-                    if current_line:
-                        lines.append(current_line)
-                    # Check if single word fits
-                    try:
-                        sw = draw.textlength(word, font=font_name)
-                    except:
-                        sw = draw.textsize(word, font=font_name)[0]
-                    if sw <= name_max_width:
-                        current_line = word
-                    else:
-                        lines.append(word[:int(len(word) * name_max_width / max(sw, 1))])
-                        current_line = ""
-            if current_line:
-                lines.append(current_line)
-
-            # Limit to available space
-            max_lines = (height - name_y - 2) // 14
-            for i, line in enumerate(lines[:max(1, max_lines)]):
-                draw.text((margin, name_y + i * 13), line, font=font_name, fill='black')
+        status = "OPEN" if data.get('opened') else ("FRZN" if data.get('frozen') else None)
+        img = draw_square_label(
+            data.get('qrData', f"S2-{data.get('stockId')}"),
+            data.get('expirationDate', 'N/A'),
+            apply_abbreviations(data.get('title', ''), data.get('abbreviations', [])),
+            status=status,
+        )
 
     else:
         # Stock Label Format (Compact)
