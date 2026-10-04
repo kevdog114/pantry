@@ -115,8 +115,16 @@ export const create = async (req: Request, res: Response, next: NextFunction): P
         const locationId = req.body.locationId || null;
         const quantityToAdd = req.body.quantity || 1;
 
-        // Check for existing stock item with same properties
-        const existingItem = await prisma.stockItem.findFirst({
+        // Counted items with identical properties collapse into one entry
+        // (three cans, same date -> quantity 3). Weighed items never do: each
+        // package is its own entry with its own weight and its own label QR,
+        // and merging summed the weights and handed package two package one's
+        // label.
+        const product = await prisma.product.findUnique({
+            where: { id: productId },
+            select: { trackCountBy: true }
+        });
+        const existingItem = product?.trackCountBy === 'weight' ? null : await prisma.stockItem.findFirst({
             where: {
                 productId,
                 expirationDate,
