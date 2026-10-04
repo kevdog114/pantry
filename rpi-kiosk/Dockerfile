@@ -5,6 +5,15 @@ ARG BUILD_DATE="unknown"
 #FROM node:20-bookworm-slim AS builder
 FROM node:20-bullseye-slim AS builder
 
+# Debian 11 (bullseye) is end-of-life and its packages moved off deb.debian.org
+# (builds 404'd from 2026-09-25). Pull from the archive until the base moves
+# to bookworm.
+RUN printf '%s\n' \
+    'deb http://archive.debian.org/debian bullseye main' \
+    'deb http://archive.debian.org/debian bullseye-updates main' \
+    'deb http://archive.debian.org/debian-security bullseye-security main' \
+    > /etc/apt/sources.list && rm -f /etc/apt/sources.list.d/*
+
 # Install Python for venv building
 RUN apt-get update && apt-get install -y \
     python3 \
@@ -27,6 +36,13 @@ RUN pip install --no-cache-dir brother-ql-inventree Pillow qrcode[pil] pyusb pah
 # Stage 2: Runtime
 #FROM debian:bookworm-slim
 FROM debian:bullseye-slim
+
+# Same archive sources as the builder stage.
+RUN printf '%s\n' \
+    'deb http://archive.debian.org/debian bullseye main' \
+    'deb http://archive.debian.org/debian bullseye-updates main' \
+    'deb http://archive.debian.org/debian-security bullseye-security main' \
+    > /etc/apt/sources.list && rm -f /etc/apt/sources.list.d/*
 
 ARG VERSION
 ARG BUILD_DATE
