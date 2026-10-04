@@ -322,7 +322,7 @@ export const printModifierLabel = async (req: Request, res: Response, next: Next
 export const printRecipeLabelById = async (
     io: any,
     recipeId: number,
-    opts: { size?: string } = {}
+    opts: { size?: string; copies?: number } = {}
 ): Promise<LabelPrintResult> => {
     const recipe = await prisma.recipe.findUnique({ where: { id: recipeId } });
     if (!recipe) return { success: false, message: "Recipe not found", status: 404 };
@@ -338,6 +338,7 @@ export const printRecipeLabelById = async (
             preparedDate: new Date().toISOString().split('T')[0],
             qrData: `R-${recipe.id}`,
             size: opts.size || await detectLabelSize(),
+            copies: opts.copies || 1,
             abbreviations
         }
     };
@@ -350,9 +351,10 @@ export const printRecipeLabelById = async (
 
 export const printRecipeLabel = async (req: Request, res: Response, next: NextFunction): Promise<any> => {
     try {
-        const { size } = req.body;
+        const { size, copies } = req.body;
         const result = await printRecipeLabelById(req.app.get('io'), parseInt(req.params.id), {
-            size: size || 'continuous'
+            size: size || 'continuous',
+            copies
         });
         res.status(result.status).json({ success: result.success, message: result.message });
     } catch (e) {

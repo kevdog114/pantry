@@ -480,7 +480,7 @@ export const otherToolDefinitions = [
             properties: {
                 productId: { type: SchemaType.INTEGER, description: "Product ID (from getProducts/searchInventory)" },
                 stockItemId: { type: SchemaType.INTEGER, description: "Specific stock entry ID, if known" },
-                copies: { type: SchemaType.INTEGER, description: "Number of labels (default 1, max 10)" }
+                copies: { type: SchemaType.INTEGER, description: "Number of labels, e.g. one per container (default 1, max 10)" }
             }
         }
     },
@@ -490,7 +490,8 @@ export const otherToolDefinitions = [
         parameters: {
             type: SchemaType.OBJECT,
             properties: {
-                recipeId: { type: SchemaType.INTEGER, description: "Recipe ID (from searchRecipes/getRecipes)" }
+                recipeId: { type: SchemaType.INTEGER, description: "Recipe ID (from searchRecipes/getRecipes)" },
+                copies: { type: SchemaType.INTEGER, description: "Number of labels, e.g. one per container (default 1, max 10)" }
             },
             required: ["recipeId"]
         }

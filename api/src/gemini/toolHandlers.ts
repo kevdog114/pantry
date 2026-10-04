@@ -838,9 +838,10 @@ async function runToolHandler(
             case "printRecipeLabel": {
                 const { io } = context;
                 if (!io) return { error: "Socket.io service unavailable" };
-                const result = await printRecipeLabelById(io, args.recipeId);
+                const copies = Math.min(Math.max(parseInt(args.copies) || 1, 1), 10);
+                const result = await printRecipeLabelById(io, args.recipeId, { copies });
                 if (!result.success) return { error: result.message };
-                return { message: "Printed the recipe label. Please confirm to the user." };
+                return { message: `Printed ${copies} recipe label${copies > 1 ? 's' : ''}. Please confirm to the user.` };
             }
 
             case "createCookingInstruction": {
