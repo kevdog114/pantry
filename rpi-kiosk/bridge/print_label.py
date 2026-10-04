@@ -48,6 +48,10 @@ def apply_abbreviations(text, abbreviations):
 
 BOLD_FONT = "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf"
 
+# Pixels per QR module on 23mm labels. Whole pixels keep every module the same
+# size; S2-/R- codes are 21 modules + border, so 5 gives a 115px code.
+SQUARE_QR_BOX = 5
+
 
 def _font(size):
     try:
@@ -90,7 +94,7 @@ def _fit_font(draw, text, max_width, start, minimum):
     return _font(minimum), minimum
 
 
-def _draw_wrapped_fit(draw, text, box, max_size=34, min_size=16):
+def _draw_wrapped_fit(draw, text, box, max_size=26, min_size=14):
     """
     Draw text inside box (x, y, w, h) at the largest size that fits without
     breaking a word. Below min_size, the text is cut at the last line with an
@@ -142,14 +146,16 @@ def draw_square_label(qr_data, date_str, title, status=None):
     img = Image.new('RGB', (width, height), color='white')
     draw = ImageDraw.Draw(img)
 
-    qr = qrcode.QRCode(box_size=3, border=1)
+    # Rendered at its natural size, never resized: scaling a QR by a
+    # non-integer factor makes some modules a pixel wider than others.
+    qr = qrcode.QRCode(box_size=SQUARE_QR_BOX, border=1)
     qr.add_data(qr_data)
     qr.make(fit=True)
-    qr_size = 80
-    qr_img = qr.make_image(fill_color="black", back_color="white").resize((qr_size, qr_size))
+    qr_img = qr.make_image(fill_color="black", back_color="white").convert('RGB')
+    qr_size = qr_img.size[0]
     img.paste(qr_img, (margin, margin))
 
-    right_x = margin + qr_size + 6
+    right_x = margin + qr_size + 4
     right_w = width - right_x - margin
 
     try:
@@ -160,19 +166,19 @@ def draw_square_label(qr_data, date_str, title, status=None):
 
     cursor_y = margin
     if status:
-        font, size = _fit_font(draw, status, right_w, 24, 14)
+        font, size = _fit_font(draw, status, right_w, 20, 12)
         draw.text((right_x, cursor_y), status, font=font, fill='black')
         cursor_y += size + 3
     if md_str:
-        font, size = _fit_font(draw, md_str, right_w, 30 if status else 32, 14)
+        font, size = _fit_font(draw, md_str, right_w, 24, 12)
         draw.text((right_x, cursor_y), md_str, font=font, fill='black')
         cursor_y += size + 3
     if year_str:
-        font, size = _fit_font(draw, year_str, right_w, 22, 12)
+        font, size = _fit_font(draw, year_str, right_w, 18, 11)
         draw.text((right_x, cursor_y), year_str, font=font, fill='black')
         cursor_y += size
 
-    name_y = max(cursor_y, margin + qr_size) + 6
+    name_y = max(cursor_y, margin + qr_size) + 4
     if title:
         _draw_wrapped_fit(draw, title, (margin, name_y, width - margin * 2, height - name_y - margin))
 
