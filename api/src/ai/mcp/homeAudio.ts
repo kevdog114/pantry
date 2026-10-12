@@ -21,7 +21,15 @@
 
 const MCP_PATH = '/mcp';
 const REFRESH_INTERVAL_MS = 5 * 60 * 1000;
+/** Discovery (tools/list) should be quick; a slow answer means the bridge is unwell. */
 const REQUEST_TIMEOUT_MS = 8000;
+/**
+ * Tool calls do real work before the bridge replies: play_music searches Music
+ * Assistant, regroups the room's speakers and waits for the stream to start,
+ * which takes ~7.5 s. At 8 s every voice play request in a week timed out while
+ * the music started anyway.
+ */
+const CALL_TIMEOUT_MS = 30000;
 
 /** Prefix that marks a tool as belonging to the audio bridge (and routes it). */
 export const AUDIO_TOOL_PREFIX = 'audio_';
@@ -70,7 +78,7 @@ function baseUrl(): string | null {
 }
 
 /** Single JSON-RPC call against the bridge. Throws on transport/protocol error. */
-async function rpc(method: string, params?: any): Promise<any> {
+async function rpc(method: string, params?: any, timeoutMs: number = REQUEST_TIMEOUT_MS): Promise<any> {
   const base = baseUrl();
   if (!base) throw new Error('HOMEAUDIO_URL is not configured');
 
@@ -90,7 +98,7 @@ async function rpc(method: string, params?: any): Promise<any> {
     method: 'POST',
     headers,
     body: JSON.stringify({ jsonrpc: '2.0', id: ++seq, method, params }),
-    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+    signal: AbortSignal.timeout(timeoutMs),
   });
 
   if (!res.ok) {
@@ -185,12 +193,19 @@ export function isAudioTool(name: string): boolean {
 export async function callAudioTool(prefixedName: string, args: any): Promise<string> {
   const name = prefixedName.slice(AUDIO_TOOL_PREFIX.length);
   try {
-    const result = await rpc('tools/call', { name, arguments: args ?? {} });
+    const result = await rpc('tools/call', { name, arguments: args ?? {} }, CALL_TIMEOUT_MS);
     const text = Array.isArray(result?.content)
       ? result.content.map((c: any) => (typeof c?.text === 'string' ? c.text : '')).join('\n').trim()
       : '';
     return text || (result?.isError ? 'The audio bridge reported an error.' : 'Done.');
   } catch (err: any) {
+    // A timeout means the bridge took the request and is still working on it,
+    // not that it is unreachable. Saying "could not be reached" made the
+    // assistant report failure while the music started a moment later.
+    if (err?.name === 'TimeoutError') {
+      console.warn(`[HomeAudioMCP] ${name} still running after ${CALL_TIMEOUT_MS / 1000}s`);
+      return `The home audio system accepted the request but has not confirmed it after ${CALL_TIMEOUT_MS / 1000} seconds. It may still start. Tell the user it is on its way and to check in a moment; do not say it failed, and do not retry.`;
+    }
     // Transport failure: re-discover on the next tick in case the bridge restarted.
     console.error(`[HomeAudioMCP] ${name} failed:`, err?.message || err);
     void refreshAudioTools().catch(() => undefined);
